@@ -130,7 +130,9 @@ ai_mentor/
 │   └── scripts/         # Скрипты для инициализации и seed данных
 ├── docs/                # Документация
 │   ├── ARCHITECTURE.md  # Техническое задание
-│   └── IMPLEMENTATION_STATUS.md  # Статус реализации
+│   ├── IMPLEMENTATION_STATUS.md  # Статус реализации
+│   ├── database_schema.md  # Полная документация по БД
+│   └── migrations_quick_guide.md  # Быстрая инструкция по миграциям
 ├── docker-compose.yml   # Docker конфигурация
 ├── pyproject.toml       # Зависимости и настройки проекта
 └── README.md           # Этот файл
@@ -168,6 +170,8 @@ cd backend
 alembic revision --autogenerate -m "описание миграции"
 alembic upgrade head
 ```
+
+Подробнее см. [Краткую инструкцию по миграциям](docs/migrations_quick_guide.md)
 
 ### Заполнение тестовыми данными
 
@@ -221,9 +225,12 @@ python backend/scripts/create_embeddings.py
 ### RAG система
 Использует OpenAI embeddings (text-embedding-3-small) и pgvector для векторного поиска релевантных параграфов учебника. Генерирует персонализированные объяснения с учетом уровня мастерства студента.
 
-## Статус реализации
+## Документация
 
-См. [IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) для детального отслеживания прогресса разработки.
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Архитектура и техническое задание
+- [IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) - Статус реализации функций
+- [database_schema.md](docs/database_schema.md) - Полная документация по структуре БД
+- [migrations_quick_guide.md](docs/migrations_quick_guide.md) - Краткая инструкция по миграциям
 
 ## Лицензия
 

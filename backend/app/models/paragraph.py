@@ -22,6 +22,8 @@ class Paragraph(SoftDeleteModel):
     order = Column(Integer, nullable=False)  # Order in chapter
     content = Column(Text, nullable=False)  # Full text content
     summary = Column(Text, nullable=True)  # Brief summary
+    learning_objective = Column(Text, nullable=True)  # Learning objective for the paragraph
+    lesson_objective = Column(Text, nullable=True)  # Lesson objective for the paragraph
 
     # Relationships
     chapter = relationship("Chapter", back_populates="paragraphs")

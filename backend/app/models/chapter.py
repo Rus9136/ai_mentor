@@ -20,6 +20,7 @@ class Chapter(SoftDeleteModel):
     number = Column(Integer, nullable=False)  # Chapter number in textbook
     order = Column(Integer, nullable=False)  # Order in textbook
     description = Column(Text, nullable=True)
+    learning_objective = Column(Text, nullable=True)  # Learning objective for the chapter
 
     # Relationships
     textbook = relationship("Textbook", back_populates="chapters")
