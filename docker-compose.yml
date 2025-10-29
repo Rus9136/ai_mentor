@@ -1,0 +1,70 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ai_mentor_postgres
+    environment:
+      POSTGRES_DB: ai_mentor_db
+      POSTGRES_USER: ai_mentor_user
+      POSTGRES_PASSWORD: ai_mentor_pass
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C.UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_mentor_user -d ai_mentor_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai_mentor_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: ai_mentor_backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://ai_mentor_user:ai_mentor_pass@postgres:5432/ai_mentor_db
+      - ENVIRONMENT=development
+      - DEBUG=True
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      - ./docs:/app/docs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - ai_mentor_network
+    restart: unless-stopped
+
+  # Тестовая база данных (для запуска тестов)
+  postgres_test:
+    image: pgvector/pgvector:pg16
+    container_name: ai_mentor_postgres_test
+    environment:
+      POSTGRES_DB: ai_mentor_test_db
+      POSTGRES_USER: ai_mentor_user
+      POSTGRES_PASSWORD: ai_mentor_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    networks:
+      - ai_mentor_network
+    profiles:
+      - test
+
+volumes:
+  postgres_data:
+    driver: local
+  postgres_test_data:
+    driver: local
+
+networks:
+  ai_mentor_network:
+    driver: bridge
