@@ -23,7 +23,7 @@ from app.models.test_attempt import TestAttempt, TestAttemptAnswer, AttemptStatu
 from app.models.mastery import MasteryHistory, AdaptiveGroup
 
 # Assignment models
-from app.models.assignment import Assignment, AssignmentTest, StudentAssignment, AssignmentStatus, assignment_tests
+from app.models.assignment import Assignment, AssignmentTest, StudentAssignment, AssignmentStatus
 
 # Learning models
 from app.models.learning import StudentParagraph, LearningSession, LearningActivity, ActivityType
@@ -71,7 +71,6 @@ __all__ = [
     "AssignmentTest",
     "StudentAssignment",
     "AssignmentStatus",
-    "assignment_tests",
     # Learning
     "StudentParagraph",
     "LearningSession",

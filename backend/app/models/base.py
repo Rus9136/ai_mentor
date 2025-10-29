@@ -14,11 +14,11 @@ class TimestampMixin:
     """Mixin for created_at and updated_at timestamps."""
 
     @declared_attr
-    def created_at(cls) -> Column:
+    def created_at(cls):
         return Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     @declared_attr
-    def updated_at(cls) -> Column:
+    def updated_at(cls):
         return Column(
             DateTime(timezone=True),
             server_default=func.now(),
@@ -32,11 +32,11 @@ class SoftDeleteMixin:
     """Mixin for soft delete functionality."""
 
     @declared_attr
-    def deleted_at(cls) -> Column:
+    def deleted_at(cls):
         return Column(DateTime(timezone=True), nullable=True)
 
     @declared_attr
-    def is_deleted(cls) -> Column:
+    def is_deleted(cls):
         return Column(Boolean, default=False, nullable=False)
 
 
@@ -46,6 +46,7 @@ class BaseModel(Base, TimestampMixin):
     """
 
     __abstract__ = True
+    __allow_unmapped__ = True
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
 
@@ -60,3 +61,4 @@ class SoftDeleteModel(BaseModel, SoftDeleteMixin):
     """
 
     __abstract__ = True
+    __allow_unmapped__ = True

@@ -11,6 +11,7 @@ from app.models.base import SoftDeleteModel
 class UserRole(str, enum.Enum):
     """User role enumeration."""
 
+    SUPER_ADMIN = "super_admin"
     ADMIN = "admin"
     TEACHER = "teacher"
     STUDENT = "student"
@@ -22,8 +23,8 @@ class User(SoftDeleteModel):
 
     __tablename__ = "users"
 
-    # School relationship (tenant)
-    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
+    # School relationship (tenant) - nullable for SUPER_ADMIN
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=True, index=True)
 
     # Authentication
     email = Column(String(255), nullable=False, index=True)

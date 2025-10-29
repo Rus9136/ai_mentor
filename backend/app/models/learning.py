@@ -89,7 +89,7 @@ class LearningActivity(BaseModel):
     test_id = Column(Integer, ForeignKey("tests.id", ondelete="SET NULL"), nullable=True)
 
     # Additional data
-    metadata = Column(JSON, nullable=True)  # Additional activity metadata
+    activity_metadata = Column(JSON, nullable=True)  # Additional activity metadata
 
     # Relationships
     session = relationship("LearningSession", back_populates="activities")

@@ -19,17 +19,6 @@ class AssignmentStatus(str, enum.Enum):
     OVERDUE = "overdue"
 
 
-# Association table for assignment-test many-to-many relationship
-assignment_tests = Table(
-    "assignment_tests",
-    Base.metadata,
-    Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("assignment_id", Integer, ForeignKey("assignments.id", ondelete="CASCADE"), nullable=False),
-    Column("test_id", Integer, ForeignKey("tests.id", ondelete="CASCADE"), nullable=False),
-    Column("order", Integer, nullable=False, default=0),  # Order of test in assignment
-)
-
-
 class Assignment(SoftDeleteModel):
     """Assignment model."""
 
@@ -50,7 +39,7 @@ class Assignment(SoftDeleteModel):
     school = relationship("School", back_populates="assignments")
     school_class = relationship("SchoolClass", back_populates="assignments")
     teacher = relationship("Teacher", back_populates="assignments_created")
-    tests = relationship("Test", secondary="assignment_tests", back_populates="assignment_tests")
+    assignment_tests = relationship("AssignmentTest", back_populates="assignment", cascade="all, delete-orphan")
     student_assignments = relationship("StudentAssignment", back_populates="assignment", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
