@@ -1,7 +1,7 @@
 """
 Offline sync models.
 """
-from sqlalchemy import Column, String, Integer, ForeignKey, DateTime, Text, Boolean, Enum as SQLEnum
+from sqlalchemy import Column, String, Integer, ForeignKey, DateTime, Text, Boolean, Enum as SQLEnum, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -30,7 +30,7 @@ class SyncQueue(BaseModel):
     entity_type = Column(String(100), nullable=False, index=True)  # e.g., "test_attempt", "learning_activity"
     entity_id = Column(Integer, nullable=True)  # ID of the entity to sync
     operation = Column(String(20), nullable=False)  # create, update, delete
-    data = Column(Text, nullable=False)  # JSON data to sync
+    data = Column(JSON, nullable=False)  # JSON data to sync
 
     # Status
     status = Column(SQLEnum(SyncStatus), nullable=False, default=SyncStatus.PENDING, index=True)

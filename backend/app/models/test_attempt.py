@@ -1,7 +1,7 @@
 """
 Test attempt models.
 """
-from sqlalchemy import Column, Integer, ForeignKey, Float, DateTime, Boolean, Text, Enum as SQLEnum
+from sqlalchemy import Column, Integer, ForeignKey, Float, DateTime, Boolean, Text, Enum as SQLEnum, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -61,7 +61,7 @@ class TestAttemptAnswer(BaseModel):
     question_id = Column(Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Answer info
-    selected_option_ids = Column(Text, nullable=True)  # JSON array of selected option IDs
+    selected_option_ids = Column(JSON, nullable=True)  # JSON array of selected option IDs
     answer_text = Column(Text, nullable=True)  # For short answer questions
     is_correct = Column(Boolean, nullable=True)
     points_earned = Column(Float, nullable=True)

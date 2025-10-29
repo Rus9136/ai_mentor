@@ -510,7 +510,7 @@ students
 | id | INTEGER | Да | Первичный ключ |
 | attempt_id | INTEGER | Да | FK → test_attempts.id |
 | question_id | INTEGER | Да | FK → questions.id |
-| selected_option_ids | TEXT | Нет | ID выбранных вариантов (JSON/CSV) |
+| selected_option_ids | JSON | Нет | ID выбранных вариантов (JSON массив) |
 | answer_text | TEXT | Нет | Текстовый ответ |
 | is_correct | BOOLEAN | Нет | Правильный ли ответ |
 | points_earned | FLOAT | Нет | Набранные баллы |
@@ -625,10 +625,19 @@ students
 | assignment_id | INTEGER | Да | FK → assignments.id |
 | test_id | INTEGER | Да | FK → tests.id |
 | order | INTEGER | Да | Порядок теста в задании (по умолчанию 0) |
+| created_at | TIMESTAMP | Да | Дата создания |
+| updated_at | TIMESTAMP | Да | Дата обновления |
+| deleted_at | TIMESTAMP | Нет | Дата удаления (soft delete) |
+| is_deleted | BOOLEAN | Да | Удалена ли запись (по умолчанию false) |
+
+**Индексы:**
+- `ix_assignment_tests_is_deleted_created` (is_deleted, created_at)
 
 **Связи:**
 - ← assignments (assignment_id)
 - ← tests (test_id)
+
+**Примечание:** Поля soft delete добавлены в миграции 007 (исправление ошибки миграции 001)
 
 ---
 
@@ -783,7 +792,7 @@ students
 | entity_type | VARCHAR(100) | Да | Тип сущности |
 | entity_id | INTEGER | Нет | ID сущности |
 | operation | VARCHAR(20) | Да | Операция (create, update, delete) |
-| data | TEXT | Да | Данные для синхронизации |
+| data | JSON | Да | Данные для синхронизации (JSON объект) |
 | status | syncstatus | Да | pending, syncing, completed, failed |
 | attempts | INTEGER | Да | Количество попыток (по умолчанию 0) |
 | last_attempt_at | TIMESTAMP | Нет | Время последней попытки |
@@ -888,8 +897,28 @@ students
 ```
 001 → Initial schema with all tables
 002 → Add learning and lesson objectives
-003 → Add learning_objective to paragraphs (текущая)
+003 → Add learning_objective to paragraphs
+004 → Change TEXT to JSON for selected_option_ids and sync_queue.data
+005 → Add composite indexes for query optimization
+006 → Add soft delete indexes for filtering
+007 → Fix assignment_tests soft delete fields (текущая)
 ```
+
+**Версия базы данных:** 007
+
+### Оптимизация индексов (миграции 005-006)
+
+В миграциях 005-006 были добавлены индексы для оптимизации производительности:
+
+**Составные индексы (005):**
+- `ix_test_attempts_student_created` (student_id, created_at) - для запросов "последние попытки ученика"
+- `ix_mastery_history_student_paragraph` (student_id, paragraph_id) - для прогресса по параграфам
+- `ix_student_assignments_student_status` (student_id, status) - для фильтрации заданий по статусу
+- `ix_paragraph_embeddings_paragraph_chunk` (paragraph_id, chunk_index) - для поиска эмбеддингов
+
+**Индексы для soft delete (006):**
+- `ix_*_is_deleted_created` (is_deleted, created_at) - на все таблицы с SoftDeleteModel
+- Ускоряет запросы с фильтром `WHERE is_deleted = false ORDER BY created_at`
 
 ---
 
