@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AI Mentor - адаптивная образовательная платформа для школьников (7-11 классы) с автоматической группировкой учеников по уровню мастерства (A/B/C). Multi-tenant SaaS решение с гибридной моделью контента.
 
-**Текущий статус:** Итерация 2 завершена (17% проекта). БД и модели готовы. Следующая итерация: Backend + JWT + SUPER_ADMIN роль.
+**Текущий статус:** Итерация 3 завершена (25% проекта). Backend основа + JWT аутентификация работают. Следующая итерация: Content Management API.
 
 **Важные документы:**
 - `docs/IMPLEMENTATION_STATUS.md` - план из 12 итераций с текущим прогрессом
@@ -388,22 +388,25 @@ alembic upgrade head  # вернись обратно
 
 ## Development Workflow
 
-### Текущий этап: Подготовка к Итерации 3
+### Текущий этап: Итерация 3 завершена ✅
 
-**Следующие задачи (Итерация 3):**
-1. Создать миграцию 009: добавить `SUPER_ADMIN` в enum UserRole
-2. Создать `backend/app/main.py` с FastAPI приложением
-3. Реализовать JWT аутентификацию в `backend/app/core/security.py`
-4. Создать auth endpoints в `backend/app/api/v1/auth.py`
-5. Настроить RBAC dependencies для проверки ролей
-6. Настроить CORS middleware
+**Завершенные задачи (Итерация 3 - 2025-10-29):**
+- ✅ Миграция 009: роль SUPER_ADMIN добавлена в enum UserRole
+- ✅ FastAPI приложение создано (`backend/app/main.py`)
+- ✅ JWT аутентификация реализована (`backend/app/core/security.py`)
+- ✅ Auth endpoints работают: login, refresh, /me (`backend/app/api/v1/auth.py`)
+- ✅ RBAC dependencies настроены для всех ролей (`backend/app/api/dependencies.py`)
+- ✅ CORS middleware настроен
+- ✅ User Repository создан (`backend/app/repositories/user_repo.py`)
+- ✅ Pydantic схемы для auth созданы (`backend/app/schemas/auth.py`)
+- ✅ Полный auth флоу протестирован и работает
 
-**НЕ реализовано пока:**
-- FastAPI приложение (нет `app/main.py`)
-- API endpoints (папка `app/api/v1/` пустая)
-- Services и repositories (пустые папки)
-- Schemas (пустая папка)
-- Тесты (папка есть, но тестов нет)
+**Следующие задачи (Итерация 4 - Content Management API):**
+1. Создать Pydantic схемы для контента (Textbook, Chapter, Paragraph, Test, Question)
+2. Создать repositories для data access
+3. Реализовать SUPER_ADMIN API для глобального контента
+4. Реализовать School ADMIN API для школьного контента
+5. Реализовать логику кастомизации (fork) глобального контента
 
 ### Git Commit Conventions
 
