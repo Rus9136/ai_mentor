@@ -25,6 +25,7 @@ class TestAttempt(BaseModel):
     # Relationships
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
     test_id = Column(Integer, ForeignKey("tests.id", ondelete="CASCADE"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Attempt info
     attempt_number = Column(Integer, nullable=False, default=1)  # Attempt number for this student/test

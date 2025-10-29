@@ -30,7 +30,8 @@ class Test(SoftDeleteModel):
 
     __tablename__ = "tests"
 
-    # Relationships
+    # Relationships (school_id NULL = global test, NOT NULL = school-specific)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=True, index=True)
     chapter_id = Column(Integer, ForeignKey("chapters.id", ondelete="CASCADE"), nullable=True, index=True)
     paragraph_id = Column(Integer, ForeignKey("paragraphs.id", ondelete="CASCADE"), nullable=True, index=True)
 

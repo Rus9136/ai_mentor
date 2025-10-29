@@ -16,6 +16,7 @@ class MasteryHistory(BaseModel):
     # Relationships
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
     paragraph_id = Column(Integer, ForeignKey("paragraphs.id", ondelete="CASCADE"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Mastery info
     mastery_score = Column(Float, nullable=False)  # 0.0 to 1.0
@@ -38,6 +39,7 @@ class AdaptiveGroup(BaseModel):
     # Relationships
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
     paragraph_id = Column(Integer, ForeignKey("paragraphs.id", ondelete="CASCADE"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Group info
     group_name = Column(String(10), nullable=False, index=True)  # A, B, or C

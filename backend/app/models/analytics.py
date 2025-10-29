@@ -15,6 +15,7 @@ class AnalyticsEvent(BaseModel):
 
     # Relationships
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=True, index=True)
 
     # Event info
     event_type = Column(String(100), nullable=False, index=True)

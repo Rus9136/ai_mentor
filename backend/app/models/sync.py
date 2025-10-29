@@ -25,6 +25,7 @@ class SyncQueue(BaseModel):
 
     # Relationships
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Sync info
     entity_type = Column(String(100), nullable=False, index=True)  # e.g., "test_attempt", "learning_activity"

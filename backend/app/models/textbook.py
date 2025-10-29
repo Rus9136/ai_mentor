@@ -12,8 +12,12 @@ class Textbook(SoftDeleteModel):
 
     __tablename__ = "textbooks"
 
-    # Relationships
-    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Relationships (NULL = global textbook, NOT NULL = school-specific)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=True, index=True)
+
+    # Hybrid model support
+    global_textbook_id = Column(Integer, ForeignKey("textbooks.id", ondelete="SET NULL"), nullable=True, index=True)
+    is_customized = Column(Boolean, default=False, nullable=False)
 
     # Textbook info
     title = Column(String(255), nullable=False, index=True)

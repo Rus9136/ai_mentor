@@ -262,12 +262,14 @@ students
 
 ### 8. textbooks (Учебники)
 
-**Описание:** Учебники, используемые в школе.
+**Описание:** Учебники, используемые в школе. Поддерживает гибридную модель: глобальные учебники (доступны всем школам) и школьные (созданные или кастомизированные конкретной школой).
 
 | Колонка | Тип | Обязательно | Описание |
 |---------|-----|-------------|----------|
 | id | INTEGER | Да | Первичный ключ |
-| school_id | INTEGER | Да | FK → schools.id |
+| school_id | INTEGER | Нет | FK → schools.id (NULL = глобальный учебник) |
+| global_textbook_id | INTEGER | Нет | FK → textbooks.id (ссылка на глобальный при кастомизации) |
+| is_customized | BOOLEAN | Да | Модифицирован ли школой (по умолчанию false) |
 | title | VARCHAR(255) | Да | Название учебника |
 | subject | VARCHAR(100) | Да | Предмет |
 | grade_level | INTEGER | Да | Класс |
@@ -284,6 +286,8 @@ students
 
 **Индексы:**
 - `ix_textbooks_school_id` (school_id)
+- `ix_textbooks_global_textbook_id` (global_textbook_id)
+- `ix_textbooks_school_global` (school_id, global_textbook_id)
 - `ix_textbooks_title` (title)
 - `ix_textbooks_subject` (subject)
 - `ix_textbooks_grade_level` (grade_level)
@@ -383,11 +387,12 @@ students
 
 ### 12. tests (Тесты)
 
-**Описание:** Тесты для проверки знаний.
+**Описание:** Тесты для проверки знаний. Поддерживает гибридную модель: глобальные тесты (доступны всем школам) и школьные (созданные конкретной школой).
 
 | Колонка | Тип | Обязательно | Описание |
 |---------|-----|-------------|----------|
 | id | INTEGER | Да | Первичный ключ |
+| school_id | INTEGER | Нет | FK → schools.id (NULL = глобальный тест) |
 | chapter_id | INTEGER | Нет | FK → chapters.id |
 | paragraph_id | INTEGER | Нет | FK → paragraphs.id |
 | title | VARCHAR(255) | Да | Название теста |
@@ -402,6 +407,7 @@ students
 | is_deleted | BOOLEAN | Да | Удален ли |
 
 **Индексы:**
+- `ix_tests_school_id` (school_id)
 - `ix_tests_chapter_id` (chapter_id)
 - `ix_tests_paragraph_id` (paragraph_id)
 
@@ -476,6 +482,7 @@ students
 | id | INTEGER | Да | Первичный ключ |
 | student_id | INTEGER | Да | FK → students.id |
 | test_id | INTEGER | Да | FK → tests.id |
+| school_id | INTEGER | Да | FK → schools.id (денормализован для производительности) |
 | attempt_number | INTEGER | Да | Номер попытки (по умолчанию 1) |
 | status | attemptstatus | Да | in_progress, completed, abandoned |
 | started_at | TIMESTAMP | Да | Время начала |
@@ -490,6 +497,9 @@ students
 | updated_at | TIMESTAMP | Да | Дата обновления |
 
 **Индексы:**
+- `ix_test_attempts_school_id` (school_id)
+- `ix_test_attempts_school_student` (school_id, student_id)
+- `ix_test_attempts_school_created` (school_id, created_at)
 - `ix_test_attempts_student_id` (student_id)
 - `ix_test_attempts_test_id` (test_id)
 - `ix_test_attempts_status` (status)
@@ -537,6 +547,7 @@ students
 | id | INTEGER | Да | Первичный ключ |
 | student_id | INTEGER | Да | FK → students.id |
 | paragraph_id | INTEGER | Да | FK → paragraphs.id |
+| school_id | INTEGER | Да | FK → schools.id (денормализован для производительности) |
 | mastery_score | FLOAT | Да | Оценка освоения (0.0-1.0) |
 | attempts_count | INTEGER | Да | Количество попыток |
 | success_rate | FLOAT | Да | Процент успеха (по умолчанию 0.0) |
@@ -545,6 +556,9 @@ students
 | updated_at | TIMESTAMP | Да | Дата обновления |
 
 **Индексы:**
+- `ix_mastery_history_school_id` (school_id)
+- `ix_mastery_history_school_student` (school_id, student_id)
+- `ix_mastery_history_school_paragraph` (school_id, paragraph_id)
 - `ix_mastery_history_student_id` (student_id)
 - `ix_mastery_history_paragraph_id` (paragraph_id)
 - `ix_mastery_history_recorded_at` (recorded_at)
@@ -564,6 +578,7 @@ students
 | id | INTEGER | Да | Первичный ключ |
 | student_id | INTEGER | Да | FK → students.id |
 | paragraph_id | INTEGER | Да | FK → paragraphs.id |
+| school_id | INTEGER | Да | FK → schools.id (денормализован для производительности) |
 | group_name | VARCHAR(10) | Да | Название группы (A, B, C) |
 | assigned_at | TIMESTAMP | Да | Время назначения |
 | mastery_score | FLOAT | Да | Оценка освоения |
@@ -571,6 +586,8 @@ students
 | updated_at | TIMESTAMP | Да | Дата обновления |
 
 **Индексы:**
+- `ix_adaptive_groups_school_id` (school_id)
+- `ix_adaptive_groups_school_student` (school_id, student_id)
 - `ix_adaptive_groups_student_id` (student_id)
 - `ix_adaptive_groups_paragraph_id` (paragraph_id)
 - `ix_adaptive_groups_group_name` (group_name)
@@ -680,6 +697,7 @@ students
 | id | INTEGER | Да | Первичный ключ |
 | student_id | INTEGER | Да | FK → students.id |
 | paragraph_id | INTEGER | Да | FK → paragraphs.id |
+| school_id | INTEGER | Да | FK → schools.id (денормализован для производительности) |
 | is_completed | BOOLEAN | Да | Завершен ли параграф |
 | time_spent | INTEGER | Да | Время изучения (секунды, по умолчанию 0) |
 | last_accessed_at | TIMESTAMP | Нет | Последнее открытие |
@@ -688,6 +706,8 @@ students
 | updated_at | TIMESTAMP | Да | Дата обновления |
 
 **Индексы:**
+- `ix_student_paragraphs_school_id` (school_id)
+- `ix_student_paragraphs_school_student` (school_id, student_id)
 - `ix_student_paragraphs_student_id` (student_id)
 - `ix_student_paragraphs_paragraph_id` (paragraph_id)
 
@@ -705,6 +725,7 @@ students
 |---------|-----|-------------|----------|
 | id | INTEGER | Да | Первичный ключ |
 | student_id | INTEGER | Да | FK → students.id |
+| school_id | INTEGER | Да | FK → schools.id (денормализован для производительности) |
 | session_start | TIMESTAMP | Да | Начало сессии |
 | session_end | TIMESTAMP | Нет | Конец сессии |
 | duration | INTEGER | Нет | Длительность (секунды) |
@@ -714,6 +735,8 @@ students
 | updated_at | TIMESTAMP | Да | Дата обновления |
 
 **Индексы:**
+- `ix_learning_sessions_school_id` (school_id)
+- `ix_learning_sessions_school_start` (school_id, session_start)
 - `ix_learning_sessions_student_id` (student_id)
 - `ix_learning_sessions_session_start` (session_start)
 
@@ -732,6 +755,7 @@ students
 | id | INTEGER | Да | Первичный ключ |
 | session_id | INTEGER | Да | FK → learning_sessions.id |
 | student_id | INTEGER | Да | FK → students.id |
+| school_id | INTEGER | Да | FK → schools.id (денормализован для производительности) |
 | activity_type | activitytype | Да | read_paragraph, watch_video, complete_test, ask_question, view_explanation |
 | activity_timestamp | TIMESTAMP | Да | Время активности |
 | duration | INTEGER | Нет | Длительность (секунды) |
@@ -742,6 +766,9 @@ students
 | updated_at | TIMESTAMP | Да | Дата обновления |
 
 **Индексы:**
+- `ix_learning_activities_school_id` (school_id)
+- `ix_learning_activities_school_timestamp` (school_id, activity_timestamp)
+- `ix_learning_activities_school_type` (school_id, activity_type)
 - `ix_learning_activities_session_id` (session_id)
 - `ix_learning_activities_activity_type` (activity_type)
 - `ix_learning_activities_activity_timestamp` (activity_timestamp)
@@ -762,6 +789,7 @@ students
 |---------|-----|-------------|----------|
 | id | INTEGER | Да | Первичный ключ |
 | student_id | INTEGER | Нет | FK → students.id |
+| school_id | INTEGER | Нет | FK → schools.id (nullable для системных событий) |
 | event_type | VARCHAR(100) | Да | Тип события |
 | event_timestamp | TIMESTAMP | Да | Время события |
 | event_data | JSON | Нет | Данные события |
@@ -772,6 +800,8 @@ students
 | updated_at | TIMESTAMP | Да | Дата обновления |
 
 **Индексы:**
+- `ix_analytics_events_school_id` (school_id)
+- `ix_analytics_events_school_timestamp` (school_id, event_timestamp)
 - `ix_analytics_events_student_id` (student_id)
 - `ix_analytics_events_event_type` (event_type)
 - `ix_analytics_events_event_timestamp` (event_timestamp)
@@ -789,6 +819,7 @@ students
 |---------|-----|-------------|----------|
 | id | INTEGER | Да | Первичный ключ |
 | student_id | INTEGER | Да | FK → students.id |
+| school_id | INTEGER | Да | FK → schools.id (денормализован для производительности) |
 | entity_type | VARCHAR(100) | Да | Тип сущности |
 | entity_id | INTEGER | Нет | ID сущности |
 | operation | VARCHAR(20) | Да | Операция (create, update, delete) |
@@ -803,6 +834,8 @@ students
 | updated_at | TIMESTAMP | Да | Дата обновления |
 
 **Индексы:**
+- `ix_sync_queue_school_id` (school_id)
+- `ix_sync_queue_school_status` (school_id, status)
 - `ix_sync_queue_student_id` (student_id)
 - `ix_sync_queue_entity_type` (entity_type)
 - `ix_sync_queue_status` (status)
@@ -901,10 +934,11 @@ students
 004 → Change TEXT to JSON for selected_option_ids and sync_queue.data
 005 → Add composite indexes for query optimization
 006 → Add soft delete indexes for filtering
-007 → Fix assignment_tests soft delete fields (текущая)
+007 → Fix assignment_tests soft delete fields
+008 → Add school_id to progress tables for data isolation (текущая)
 ```
 
-**Версия базы данных:** 007
+**Версия базы данных:** 008
 
 ### Оптимизация индексов (миграции 005-006)
 
@@ -919,6 +953,40 @@ students
 **Индексы для soft delete (006):**
 - `ix_*_is_deleted_created` (is_deleted, created_at) - на все таблицы с SoftDeleteModel
 - Ускоряет запросы с фильтром `WHERE is_deleted = false ORDER BY created_at`
+
+### Изоляция данных (миграция 008)
+
+Миграция 008 добавляет denormalized `school_id` во все таблицы прогресса для улучшения изоляции данных и производительности:
+
+**Добавлен school_id в таблицы:**
+- `test_attempts` - для быстрой выборки попыток по школе
+- `mastery_history` - для аналитики освоения материала по школам
+- `adaptive_groups` - для группировки учеников внутри школы
+- `student_paragraphs` - для отслеживания прогресса чтения
+- `learning_sessions` - для аналитики сессий по школам
+- `learning_activities` - для детальной аналитики активностей
+- `analytics_events` - для событийной аналитики (nullable)
+- `sync_queue` - для управления синхронизацией по школам
+
+**Гибридная модель контента:**
+- `textbooks.school_id` - теперь nullable (NULL = глобальный учебник)
+- `textbooks.global_textbook_id` - ссылка на глобальный учебник при кастомизации
+- `textbooks.is_customized` - флаг модификации контента школой
+- `tests.school_id` - nullable (NULL = глобальный тест)
+
+**Новые индексы (008):**
+- Single: `ix_*_school_id` на всех таблицах с school_id
+- Composite: `ix_test_attempts_school_student`, `ix_test_attempts_school_created`
+- Composite: `ix_mastery_history_school_student`, `ix_mastery_history_school_paragraph`
+- Composite: `ix_learning_activities_school_timestamp`, `ix_learning_activities_school_type`
+- Composite: `ix_analytics_events_school_timestamp`, `ix_sync_queue_school_status`
+- И другие для оптимизации запросов по school_id
+
+**Преимущества:**
+- ✅ Быстрая фильтрация данных по школам без JOIN через students
+- ✅ Готовность к партицированию и шардированию по school_id
+- ✅ Гибкая модель контента (глобальный + школьный)
+- ✅ Улучшенная производительность аналитических запросов
 
 ---
 

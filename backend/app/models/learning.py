@@ -27,6 +27,7 @@ class StudentParagraph(BaseModel):
     # Relationships
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
     paragraph_id = Column(Integer, ForeignKey("paragraphs.id", ondelete="CASCADE"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Progress
     is_completed = Column(Boolean, default=False, nullable=False)
@@ -49,6 +50,7 @@ class LearningSession(BaseModel):
 
     # Relationships
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Session info
     session_start = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
@@ -75,6 +77,7 @@ class LearningActivity(BaseModel):
     # Relationships
     session_id = Column(Integer, ForeignKey("learning_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Activity info
     activity_type = Column(SQLEnum(ActivityType), nullable=False, index=True)
