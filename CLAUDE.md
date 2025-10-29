@@ -186,6 +186,181 @@ class SoftDeleteModel(Base, TimestampMixin, SoftDeleteMixin):
 - Student: `/api/v1/students/*`
 - Parent: `/api/v1/parents/*`
 
+## Development Principles (MVP Approach)
+
+**Философия:** Это MVP - пиши качественный код, но избегай преждевременной оптимизации и сложности.
+
+### КРИТИЧНО - Всегда обязательно
+
+**1. Изоляция данных по school_id - НЕ ПРОПУСКАЙ НИКОГДА**
+
+```python
+# backend/app/api/dependencies.py
+async def get_current_user_school_id(
+    current_user: User = Depends(get_current_user)
+) -> int:
+    """Извлекает school_id из текущего пользователя"""
+    if current_user.role == UserRole.SUPER_ADMIN:
+        raise HTTPException(400, "SUPER_ADMIN has no school_id")
+    return current_user.school_id
+
+# ВСЕГДА используй в endpoint'ах для фильтрации:
+@router.get("/students")
+async def get_students(
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    # Фильтр school_id обязателен!
+    result = await db.execute(
+        select(Student).where(Student.school_id == school_id)
+    )
+    return result.scalars().all()
+```
+
+**Правила изоляции:**
+- ВСЕГДА добавляй `school_id = Depends(get_current_user_school_id)` в endpoints
+- НИКОГДА не принимай `school_id` от клиента - только из `current_user`
+- Для SUPER_ADMIN endpoints (глобальный контент) фильтруй `.where(Model.school_id.is_(None))`
+
+**2. Pydantic схемы для Request/Response - обязательно**
+
+```python
+# Минимум: Request и Response схемы
+class StudentCreate(BaseModel):
+    first_name: str
+    last_name: str
+
+class StudentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    first_name: str
+    last_name: str
+```
+
+**3. Обработка ошибок - базовая**
+
+```python
+# Используй стандартные HTTPException
+from fastapi import HTTPException
+
+# Не найдено
+if not student:
+    raise HTTPException(404, f"Student {student_id} not found")
+
+# Нет прав
+if student.school_id != current_user.school_id:
+    raise HTTPException(403, "Access denied")
+```
+
+### Упрощенная архитектура для MVP
+
+**Структура кода:**
+
+```
+backend/app/
+├── main.py                 # FastAPI app, CORS, middleware
+├── core/
+│   ├── config.py          # Settings (Pydantic Settings)
+│   ├── security.py        # JWT функции
+│   └── dependencies.py    # get_db, get_current_user, get_current_user_school_id
+├── models/                # SQLAlchemy (готово)
+├── schemas/               # Pydantic Request/Response
+└── api/v1/
+    ├── auth.py           # Login, register
+    ├── students.py       # CRUD endpoints
+    └── textbooks.py      # CRUD endpoints
+```
+
+**Двухслойная архитектура на старте:**
+```
+API Routes → Database (SQLAlchemy напрямую)
+```
+
+**Когда добавлять Service/Repository слои:**
+- Если логика в endpoint > 50 строк → вынеси в Service
+- Если один запрос повторяется в 3+ местах → создай Repository метод
+
+**Пример простого endpoint (достаточно для MVP):**
+
+```python
+@router.post("/students")
+async def create_student(
+    data: StudentCreate,
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    student = Student(**data.dict(), school_id=school_id)
+    db.add(student)
+    await db.commit()
+    await db.refresh(student)
+    return student
+```
+
+### Что НЕ делать в MVP
+
+- ❌ Сложные базовые классы (BaseRepository, BaseService) - добавишь при рефакторинге
+- ❌ Декораторы для permissions - используй `if current_user.role not in [...]`
+- ❌ MyPy проверки типов - потом
+- ❌ Structlog - обычный logging хватит
+- ❌ Pagination везде - добавь когда понадобится
+- ❌ Множественные Pydantic схемы (Base, Create, Update, InDB) - только Create и Response
+
+### Code Quality минимум
+
+```bash
+# Перед коммитом:
+black backend/                    # Форматирование (обязательно)
+ruff check backend/ --fix         # Линтинг (желательно)
+```
+
+### Тестирование - фокус на критичное
+
+**Тестируй в первую очередь:**
+1. Изоляцию данных (админ школы 1 не видит данные школы 2)
+2. Аутентификацию (login, JWT токены)
+3. RBAC permissions (роли и доступы)
+
+**Остальное - по необходимости.**
+
+### Конфигурация - только нужное
+
+```python
+# backend/app/core/config.py
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    DATABASE_URL: str
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    model_config = ConfigDict(env_file=".env")
+
+settings = Settings()
+```
+
+Добавляй настройки по мере необходимости.
+
+### Быстрый запуск - один скрипт
+
+```bash
+# scripts/dev.sh
+#!/bin/bash
+docker compose up -d postgres
+sleep 2
+cd backend && alembic upgrade head
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Когда рефакторить
+
+Добавляй сложность **только когда почувствуешь боль**:
+- Код дублируется в 3+ местах → создай функцию/класс
+- Endpoint > 100 строк → вынеси логику в Service
+- Тесты дублируют setup → создай fixtures в conftest.py
+
+**Принцип:** Start simple, refactor when needed.
+
 ## Migration Strategy
 
 **Текущие миграции (8 штук):**

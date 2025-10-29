@@ -62,7 +62,7 @@ async def login(
 
     # Create token payload
     token_data = {
-        "sub": user.id,
+        "sub": str(user.id),  # JWT spec requires sub to be a string
         "email": user.email,
         "role": user.role.value,
         "school_id": user.school_id,
@@ -70,7 +70,7 @@ async def login(
 
     # Generate tokens
     access_token = create_access_token(token_data)
-    refresh_token = create_refresh_token({"sub": user.id})
+    refresh_token = create_refresh_token({"sub": str(user.id)})
 
     return TokenResponse(
         access_token=access_token,
@@ -105,11 +105,20 @@ async def refresh_token(
         )
 
     # Get user
-    user_id = payload.get("sub")
-    if not user_id:
+    user_id_str = payload.get("sub")
+    if not user_id_str:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload"
+        )
+
+    # Convert user_id from string to int
+    try:
+        user_id = int(user_id_str)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID in token"
         )
 
     user_repo = UserRepository(db)
@@ -129,14 +138,14 @@ async def refresh_token(
 
     # Create new tokens
     token_data = {
-        "sub": user.id,
+        "sub": str(user.id),  # JWT spec requires sub to be a string
         "email": user.email,
         "role": user.role.value,
         "school_id": user.school_id,
     }
 
     access_token = create_access_token(token_data)
-    new_refresh_token = create_refresh_token({"sub": user.id})
+    new_refresh_token = create_refresh_token({"sub": str(user.id)})
 
     return TokenResponse(
         access_token=access_token,

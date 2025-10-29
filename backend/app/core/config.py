@@ -2,7 +2,25 @@
 Application configuration.
 """
 from typing import Optional
+from pathlib import Path
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+import os
+
+# Получаем абсолютный путь к .env файлу
+# Этот файл: backend/app/core/config.py
+# .env файл: backend/.env
+BASE_DIR = Path(__file__).resolve().parent.parent  # backend/app/
+ENV_PATH = BASE_DIR.parent / ".env"  # backend/.env
+
+# Load .env file with priority (override=True)
+# This will override any environment variables with values from .env
+if ENV_PATH.exists():
+    load_dotenv(ENV_PATH, override=True)
+else:
+    import warnings
+    warnings.warn(f".env file not found at: {ENV_PATH}")
 
 
 class Settings(BaseSettings):
@@ -60,10 +78,11 @@ class Settings(BaseSettings):
     MASTERY_THRESHOLD: float = 0.7
     DAYS_TO_TRACK: int = 30
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"  # Игнорировать дополнительные поля из .env
+    model_config = ConfigDict(
+        env_file=str(ENV_PATH) if ENV_PATH.exists() else None,
+        case_sensitive=True,
+        extra="ignore"
+    )
 
 
 settings = Settings()

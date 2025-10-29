@@ -39,7 +39,11 @@ class User(SoftDeleteModel):
     phone = Column(String(50), nullable=True)
 
     # Role
-    role = Column(SQLEnum(UserRole), nullable=False, index=True)
+    role = Column(
+        SQLEnum(UserRole, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        index=True
+    )
 
     # Relationships
     school = relationship("School", back_populates="users")
