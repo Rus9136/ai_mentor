@@ -12,9 +12,12 @@ from app.models.user import User
 from app.models.textbook import Textbook
 from app.models.chapter import Chapter
 from app.models.paragraph import Paragraph
+from app.models.test import Test, Question, QuestionOption
 from app.repositories.textbook_repo import TextbookRepository
 from app.repositories.chapter_repo import ChapterRepository
 from app.repositories.paragraph_repo import ParagraphRepository
+from app.repositories.test_repo import TestRepository
+from app.repositories.question_repo import QuestionRepository, QuestionOptionRepository
 from app.schemas.textbook import (
     TextbookCreate,
     TextbookUpdate,
@@ -32,6 +35,21 @@ from app.schemas.paragraph import (
     ParagraphUpdate,
     ParagraphResponse,
     ParagraphListResponse,
+)
+from app.schemas.test import (
+    TestCreate,
+    TestUpdate,
+    TestResponse,
+    TestListResponse,
+)
+from app.schemas.question import (
+    QuestionCreate,
+    QuestionUpdate,
+    QuestionResponse,
+    QuestionListResponse,
+    QuestionOptionCreate,
+    QuestionOptionUpdate,
+    QuestionOptionResponse,
 )
 
 router = APIRouter()
@@ -551,3 +569,555 @@ async def delete_school_paragraph(
                 )
 
     await paragraph_repo.soft_delete(paragraph)
+
+
+# ========== Test Endpoints ==========
+
+@router.get("/tests", response_model=List[TestListResponse])
+async def list_school_tests(
+    include_global: bool = True,
+    chapter_id: int = None,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get tests for the school (ADMIN only).
+    By default, includes both school-specific and global tests.
+    Optionally filter by chapter_id.
+    """
+    test_repo = TestRepository(db)
+
+    if chapter_id:
+        # Get tests for specific chapter (school + global if requested)
+        if include_global:
+            return await test_repo.get_by_chapter(chapter_id, school_id=school_id)
+        else:
+            # Only school tests for this chapter
+            tests = await test_repo.get_by_chapter(chapter_id, school_id=school_id)
+            return [t for t in tests if t.school_id == school_id]
+    else:
+        # Get all tests
+        return await test_repo.get_by_school(school_id, include_global=include_global)
+
+
+@router.post("/tests", response_model=TestResponse, status_code=status.HTTP_201_CREATED)
+async def create_school_test(
+    data: TestCreate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new school-specific test (ADMIN only).
+    """
+    test_repo = TestRepository(db)
+
+    # Verify chapter belongs to school (if chapter_id provided)
+    if data.chapter_id:
+        chapter_repo = ChapterRepository(db)
+        textbook_repo = TextbookRepository(db)
+
+        chapter = await chapter_repo.get_by_id(data.chapter_id)
+        if not chapter:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Chapter {data.chapter_id} not found"
+            )
+
+        # Verify chapter belongs to school or is global
+        textbook = await textbook_repo.get_by_id(chapter.textbook_id)
+        if textbook and textbook.school_id is not None and textbook.school_id != school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot create test for chapter from another school"
+            )
+
+    # Create test with current school_id
+    # Pass fields directly to preserve enum objects
+    test = Test(
+        school_id=school_id,  # School-specific test
+        title=data.title,
+        description=data.description,
+        chapter_id=data.chapter_id,
+        paragraph_id=data.paragraph_id,
+        difficulty=data.difficulty,  # Enum object
+        time_limit=data.time_limit,
+        passing_score=data.passing_score,
+        is_active=data.is_active,
+    )
+
+    return await test_repo.create(test)
+
+
+@router.get("/tests/{test_id}", response_model=TestResponse)
+async def get_school_test(
+    test_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a specific test by ID (ADMIN only).
+    Can access both global and own school tests.
+    """
+    test_repo = TestRepository(db)
+    test = await test_repo.get_by_id(test_id, load_questions=True)
+
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test {test_id} not found"
+        )
+
+    # Verify access: must be global or belong to this school
+    if test.school_id is not None and test.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this test"
+        )
+
+    return test
+
+
+@router.put("/tests/{test_id}", response_model=TestResponse)
+async def update_school_test(
+    test_id: int,
+    data: TestUpdate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update a school-specific test (ADMIN only).
+    Cannot update global tests.
+    """
+    test_repo = TestRepository(db)
+    test = await test_repo.get_by_id(test_id)
+
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test {test_id} not found"
+        )
+
+    # Cannot modify global tests
+    if test.school_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot update global tests. Contact SUPER_ADMIN."
+        )
+
+    # Verify ownership
+    if test.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this test"
+        )
+
+    # Update fields
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(test, field, value)
+
+    return await test_repo.update(test)
+
+
+@router.delete("/tests/{test_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_school_test(
+    test_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Soft delete a school-specific test (ADMIN only).
+    Cannot delete global tests.
+    """
+    test_repo = TestRepository(db)
+    test = await test_repo.get_by_id(test_id)
+
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test {test_id} not found"
+        )
+
+    # Cannot delete global tests
+    if test.school_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot delete global tests. Contact SUPER_ADMIN."
+        )
+
+    # Verify ownership
+    if test.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this test"
+        )
+
+    await test_repo.soft_delete(test)
+
+
+# ========== Question Endpoints ==========
+
+@router.post("/tests/{test_id}/questions", response_model=QuestionResponse, status_code=status.HTTP_201_CREATED)
+async def create_school_question(
+    test_id: int,
+    data: QuestionCreate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new question in a school test (ADMIN only).
+    Cannot add questions to global tests.
+    """
+    test_repo = TestRepository(db)
+    question_repo = QuestionRepository(db)
+
+    # Verify test exists
+    test = await test_repo.get_by_id(test_id)
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test {test_id} not found"
+        )
+
+    # Cannot add questions to global tests
+    if test.school_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot add questions to global tests. Contact SUPER_ADMIN."
+        )
+
+    # Verify ownership
+    if test.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this test"
+        )
+
+    # Create question
+    question = Question(test_id=test_id, **data.model_dump())
+    return await question_repo.create(question)
+
+
+@router.get("/tests/{test_id}/questions", response_model=List[QuestionResponse])
+async def list_school_questions(
+    test_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all questions for a test (ADMIN only).
+    Can access questions from global and own school tests.
+    """
+    test_repo = TestRepository(db)
+    question_repo = QuestionRepository(db)
+
+    # Verify test exists
+    test = await test_repo.get_by_id(test_id)
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test {test_id} not found"
+        )
+
+    # Verify access: must be global or belong to this school
+    if test.school_id is not None and test.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this test"
+        )
+
+    return await question_repo.get_by_test(test_id)
+
+
+@router.get("/questions/{question_id}", response_model=QuestionResponse)
+async def get_school_question(
+    question_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a specific question by ID (ADMIN only).
+    Can access questions from global and own school tests.
+    """
+    question_repo = QuestionRepository(db)
+    test_repo = TestRepository(db)
+
+    question = await question_repo.get_by_id(question_id)
+    if not question:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Question {question_id} not found"
+        )
+
+    # Verify parent test access
+    test = await test_repo.get_by_id(question.test_id)
+    if test and test.school_id is not None and test.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this question"
+        )
+
+    return question
+
+
+@router.put("/questions/{question_id}", response_model=QuestionResponse)
+async def update_school_question(
+    question_id: int,
+    data: QuestionUpdate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update a question in a school test (ADMIN only).
+    Cannot update questions in global tests.
+    """
+    question_repo = QuestionRepository(db)
+    test_repo = TestRepository(db)
+
+    question = await question_repo.get_by_id(question_id)
+    if not question:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Question {question_id} not found"
+        )
+
+    # Verify parent test
+    test = await test_repo.get_by_id(question.test_id)
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Parent test not found"
+        )
+
+    # Cannot modify global tests
+    if test.school_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot update questions in global tests. Contact SUPER_ADMIN."
+        )
+
+    # Verify ownership
+    if test.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this question"
+        )
+
+    # Update fields
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(question, field, value)
+
+    return await question_repo.update(question)
+
+
+@router.delete("/questions/{question_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_school_question(
+    question_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Soft delete a question in a school test (ADMIN only).
+    Cannot delete questions in global tests.
+    """
+    question_repo = QuestionRepository(db)
+    test_repo = TestRepository(db)
+
+    question = await question_repo.get_by_id(question_id)
+    if not question:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Question {question_id} not found"
+        )
+
+    # Verify parent test
+    test = await test_repo.get_by_id(question.test_id)
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Parent test not found"
+        )
+
+    # Cannot delete from global tests
+    if test.school_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot delete questions in global tests. Contact SUPER_ADMIN."
+        )
+
+    # Verify ownership
+    if test.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this question"
+        )
+
+    await question_repo.soft_delete(question)
+
+
+# ========== QuestionOption Endpoints ==========
+
+@router.post("/questions/{question_id}/options", response_model=QuestionOptionResponse, status_code=status.HTTP_201_CREATED)
+async def create_school_question_option(
+    question_id: int,
+    data: QuestionOptionCreate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new option for a question in a school test (ADMIN only).
+    Cannot add options to questions in global tests.
+    """
+    question_repo = QuestionRepository(db)
+    option_repo = QuestionOptionRepository(db)
+    test_repo = TestRepository(db)
+
+    # Verify question exists
+    question = await question_repo.get_by_id(question_id)
+    if not question:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Question {question_id} not found"
+        )
+
+    # Verify parent test
+    test = await test_repo.get_by_id(question.test_id)
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Parent test not found"
+        )
+
+    # Cannot modify global tests
+    if test.school_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot add options to questions in global tests. Contact SUPER_ADMIN."
+        )
+
+    # Verify ownership
+    if test.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this question"
+        )
+
+    # Create option
+    option = QuestionOption(question_id=question_id, **data.model_dump())
+    return await option_repo.create(option)
+
+
+@router.put("/options/{option_id}", response_model=QuestionOptionResponse)
+async def update_school_question_option(
+    option_id: int,
+    data: QuestionOptionUpdate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update a question option in a school test (ADMIN only).
+    Cannot update options in global tests.
+    """
+    option_repo = QuestionOptionRepository(db)
+    question_repo = QuestionRepository(db)
+    test_repo = TestRepository(db)
+
+    option = await option_repo.get_by_id(option_id)
+    if not option:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"QuestionOption {option_id} not found"
+        )
+
+    # Verify parent question's test
+    question = await question_repo.get_by_id(option.question_id)
+    if question:
+        test = await test_repo.get_by_id(question.test_id)
+        if not test:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Parent test not found"
+            )
+
+        # Cannot modify global tests
+        if test.school_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot update options in global tests. Contact SUPER_ADMIN."
+            )
+
+        # Verify ownership
+        if test.school_id != school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this option"
+            )
+
+    # Update fields
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(option, field, value)
+
+    return await option_repo.update(option)
+
+
+@router.delete("/options/{option_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_school_question_option(
+    option_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Soft delete a question option in a school test (ADMIN only).
+    Cannot delete options in global tests.
+    """
+    option_repo = QuestionOptionRepository(db)
+    question_repo = QuestionRepository(db)
+    test_repo = TestRepository(db)
+
+    option = await option_repo.get_by_id(option_id)
+    if not option:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"QuestionOption {option_id} not found"
+        )
+
+    # Verify parent question's test
+    question = await question_repo.get_by_id(option.question_id)
+    if question:
+        test = await test_repo.get_by_id(question.test_id)
+        if not test:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Parent test not found"
+            )
+
+        # Cannot delete from global tests
+        if test.school_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot delete options in global tests. Contact SUPER_ADMIN."
+            )
+
+        # Verify ownership
+        if test.school_id != school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this option"
+            )
+
+    await option_repo.soft_delete(option)

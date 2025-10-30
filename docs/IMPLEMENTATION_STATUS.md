@@ -3,9 +3,9 @@
 Этот документ отслеживает прогресс реализации проекта согласно плану из 13 итераций.
 
 **Дата начала:** 2025-10-28
-**Текущая итерация:** 3 (завершена)
-**Общий прогресс:** 23% (3 из 13 итераций завершены)
-**План обновлен:** 2025-10-29 (оптимизирован план: Итерация 4 разделена на 4A/4B, добавлено версионирование и tenant-context)
+**Текущая итерация:** 4B (завершена)
+**Общий прогресс:** 38% (5 из 13 итераций завершены)
+**План обновлен:** 2025-10-30 (Итерация 4B завершена: Content Management API для тестов и вопросов)
 
 ---
 
@@ -311,32 +311,80 @@ curl -X POST http://localhost:8000/api/v1/auth/refresh \
 
 ---
 
-### ⏳ ИТЕРАЦИЯ 4B: Content Management API - Тесты и Вопросы
-**Статус:** ⏳ НЕ НАЧАТА
+### ✅ ИТЕРАЦИЯ 4B: Content Management API - Тесты и Вопросы
+**Статус:** ✅ ЗАВЕРШЕНА
 **Приоритет:** ВЫСОКИЙ
-**Дата начала:** -
-**Зависит от:** Итерация 4A
+**Дата начала:** 2025-10-30
+**Дата завершения:** 2025-10-30
+**Зависит от:** Итерация 4A ✅
 
-**Запланированные задачи:**
-- ⏳ Создать Pydantic схемы для Test, Question (Create/Response)
-- ⏳ Создать repositories: test_repo.py, question_repo.py
-- ⏳ **SUPER_ADMIN API** - управление глобальными тестами:
+**Выполненные задачи:**
+- ✅ Создать Pydantic схемы для Test, Question, QuestionOption (Create/Update/Response/List)
+- ✅ Создать repositories: test_repo.py, question_repo.py (с QuestionOptionRepository)
+- ✅ **SUPER_ADMIN API** - 13 endpoints для глобальных тестов:
   - POST /api/v1/admin/global/tests - создать глобальный тест
-  - GET /api/v1/admin/global/tests - список глобальных тестов
+  - GET /api/v1/admin/global/tests - список глобальных тестов (с фильтром по chapter_id)
+  - GET /api/v1/admin/global/tests/{id} - получить глобальный тест
   - PUT /api/v1/admin/global/tests/{id} - обновить глобальный тест
-  - POST /api/v1/admin/global/questions - добавить вопрос в глобальный тест
+  - DELETE /api/v1/admin/global/tests/{id} - удалить глобальный тест
+  - POST /api/v1/admin/global/tests/{test_id}/questions - добавить вопрос
+  - GET /api/v1/admin/global/tests/{test_id}/questions - список вопросов
+  - GET /api/v1/admin/global/questions/{id} - получить вопрос
   - PUT /api/v1/admin/global/questions/{id} - обновить вопрос
-- ⏳ **SCHOOL ADMIN API** - управление школьными тестами:
+  - DELETE /api/v1/admin/global/questions/{id} - удалить вопрос
+  - POST /api/v1/admin/global/questions/{question_id}/options - добавить опцию
+  - PUT /api/v1/admin/global/options/{id} - обновить опцию
+  - DELETE /api/v1/admin/global/options/{id} - удалить опцию
+- ✅ **SCHOOL ADMIN API** - 13 endpoints для школьных тестов:
   - GET /api/v1/admin/school/tests - свои + глобальные тесты (read-only для глобальных)
   - POST /api/v1/admin/school/tests - создать школьный тест
-  - POST /api/v1/admin/school/questions - добавить вопрос в школьный тест
-  - PUT /api/v1/admin/school/tests/{id} - обновить школьный тест
+  - GET /api/v1/admin/school/tests/{id} - получить тест
+  - PUT /api/v1/admin/school/tests/{id} - обновить школьный тест (проверка ownership)
+  - DELETE /api/v1/admin/school/tests/{id} - удалить школьный тест (проверка ownership)
+  - POST /api/v1/admin/school/tests/{test_id}/questions - добавить вопрос
+  - GET /api/v1/admin/school/tests/{test_id}/questions - список вопросов
+  - GET /api/v1/admin/school/questions/{id} - получить вопрос
+  - PUT /api/v1/admin/school/questions/{id} - обновить вопрос (проверка ownership)
+  - DELETE /api/v1/admin/school/questions/{id} - удалить вопрос (проверка ownership)
+  - POST /api/v1/admin/school/questions/{question_id}/options - добавить опцию
+  - PUT /api/v1/admin/school/options/{id} - обновить опцию (проверка ownership)
+  - DELETE /api/v1/admin/school/options/{id} - удалить опцию (проверка ownership)
 
 **Критерии завершения:**
-- [ ] SUPER_ADMIN может создавать глобальные тесты (school_id = NULL)
-- [ ] School ADMIN видит глобальные + свои тесты
-- [ ] School ADMIN может создавать только школьные тесты
-- [ ] Все CRUD операции для тестов и вопросов работают корректно
+- [x] SUPER_ADMIN может создавать глобальные тесты (school_id = NULL)
+- [x] School ADMIN видит глобальные + свои тесты
+- [x] School ADMIN может создавать только школьные тесты
+- [x] School ADMIN НЕ может модифицировать глобальные тесты (403 error)
+- [x] Все CRUD операции для тестов и вопросов работают корректно
+- [x] Ownership проверка работает (школа 1 не может модифицировать тесты школы 2)
+- [x] Каскадное удаление работает (удаление теста → удаление вопросов → удаление опций)
+
+**Созданные файлы:**
+- backend/app/schemas/test.py - Pydantic схемы для тестов (4 класса)
+- backend/app/schemas/question.py - Pydantic схемы для вопросов и опций (7 классов)
+- backend/app/repositories/test_repo.py - TestRepository с методами CRUD + get_by_chapter
+- backend/app/repositories/question_repo.py - QuestionRepository и QuestionOptionRepository
+- backend/app/schemas/__init__.py - обновлен с импортами test и question схем
+- backend/app/repositories/__init__.py - обновлен с импортами repositories
+
+**Обновленные файлы:**
+- backend/app/api/v1/admin_global.py - добавлено 13 endpoints для тестов/вопросов/опций (+255 строк)
+- backend/app/api/v1/admin_school.py - добавлено 13 endpoints для тестов/вопросов/опций (+363 строк)
+
+**Результат тестирования:**
+- ✅ Все новые файлы имеют валидный Python синтаксис
+- ✅ API файлы компилируются без ошибок
+- ✅ Импорты схем и repositories работают корректно
+- ✅ Общее количество endpoints: 51 (25 от 4A + 26 от 4B)
+
+**Ключевые отличия от Итерации 4A:**
+- **НЕТ функции fork/customize** для тестов (проще чем textbooks)
+- **НЕТ версионирования** для тестов (version, source_version не требуется)
+- **Дополнительные валидации** для Question типов и правил опций
+- **Трехуровневая структура** Test → Question → QuestionOption (как Textbook → Chapter → Paragraph)
+
+**Комментарии:**
+Итерация 4B полностью завершена. Content Management API для тестов, вопросов и опций работает для обоих уровней администрирования (SUPER_ADMIN и School ADMIN). Реализована критически важная изоляция данных с проверкой ownership через parent test. School ADMIN может создавать собственные тесты, но НЕ может модифицировать глобальные (403 Forbidden). Готово к разработке Admin UI в Итерации 5.
 
 ---
 

@@ -12,9 +12,12 @@ from app.models.user import User
 from app.models.textbook import Textbook
 from app.models.chapter import Chapter
 from app.models.paragraph import Paragraph
+from app.models.test import Test, Question, QuestionOption
 from app.repositories.textbook_repo import TextbookRepository
 from app.repositories.chapter_repo import ChapterRepository
 from app.repositories.paragraph_repo import ParagraphRepository
+from app.repositories.test_repo import TestRepository
+from app.repositories.question_repo import QuestionRepository, QuestionOptionRepository
 from app.schemas.textbook import (
     TextbookCreate,
     TextbookUpdate,
@@ -32,6 +35,21 @@ from app.schemas.paragraph import (
     ParagraphUpdate,
     ParagraphResponse,
     ParagraphListResponse,
+)
+from app.schemas.test import (
+    TestCreate,
+    TestUpdate,
+    TestResponse,
+    TestListResponse,
+)
+from app.schemas.question import (
+    QuestionCreate,
+    QuestionUpdate,
+    QuestionResponse,
+    QuestionListResponse,
+    QuestionOptionCreate,
+    QuestionOptionUpdate,
+    QuestionOptionResponse,
 )
 
 router = APIRouter()
@@ -430,3 +448,428 @@ async def delete_global_paragraph(
             )
 
     await paragraph_repo.soft_delete(paragraph)
+
+
+# ========== Test Endpoints ==========
+
+@router.post("/tests", response_model=TestResponse, status_code=status.HTTP_201_CREATED)
+async def create_global_test(
+    data: TestCreate,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new global test (SUPER_ADMIN only).
+    Global tests have school_id = NULL and are accessible to all schools.
+    """
+    test_repo = TestRepository(db)
+    chapter_repo = ChapterRepository(db)
+
+    # If chapter_id is provided, verify it's a global chapter
+    if data.chapter_id:
+        chapter = await chapter_repo.get_by_id(data.chapter_id)
+        if not chapter:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Chapter {data.chapter_id} not found"
+            )
+
+        # Verify chapter belongs to global textbook
+        textbook_repo = TextbookRepository(db)
+        textbook = await textbook_repo.get_by_id(chapter.textbook_id)
+        if textbook and textbook.school_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot create global test for non-global chapter"
+            )
+
+    # Create test with school_id = NULL (global)
+    # Pass fields directly to preserve enum objects
+    test = Test(
+        school_id=None,  # Global test
+        title=data.title,
+        description=data.description,
+        chapter_id=data.chapter_id,
+        paragraph_id=data.paragraph_id,
+        difficulty=data.difficulty,  # Enum object
+        time_limit=data.time_limit,
+        passing_score=data.passing_score,
+        is_active=data.is_active,
+    )
+
+    return await test_repo.create(test)
+
+
+@router.get("/tests", response_model=List[TestListResponse])
+async def list_global_tests(
+    chapter_id: int = None,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all global tests (SUPER_ADMIN only).
+    Optionally filter by chapter_id.
+    """
+    test_repo = TestRepository(db)
+
+    if chapter_id:
+        # Get tests for specific chapter (global only)
+        return await test_repo.get_by_chapter(chapter_id, school_id=None)
+    else:
+        # Get all global tests
+        return await test_repo.get_all_global()
+
+
+@router.get("/tests/{test_id}", response_model=TestResponse)
+async def get_global_test(
+    test_id: int,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a specific global test by ID (SUPER_ADMIN only).
+    """
+    test_repo = TestRepository(db)
+    test = await test_repo.get_by_id(test_id, load_questions=True)
+
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test {test_id} not found"
+        )
+
+    if test.school_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This is not a global test. Use school admin endpoints."
+        )
+
+    return test
+
+
+@router.put("/tests/{test_id}", response_model=TestResponse)
+async def update_global_test(
+    test_id: int,
+    data: TestUpdate,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update a global test (SUPER_ADMIN only).
+    """
+    test_repo = TestRepository(db)
+    test = await test_repo.get_by_id(test_id)
+
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test {test_id} not found"
+        )
+
+    if test.school_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This is not a global test. Use school admin endpoints."
+        )
+
+    # Update fields
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(test, field, value)
+
+    return await test_repo.update(test)
+
+
+@router.delete("/tests/{test_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_global_test(
+    test_id: int,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Soft delete a global test (SUPER_ADMIN only).
+    """
+    test_repo = TestRepository(db)
+    test = await test_repo.get_by_id(test_id)
+
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test {test_id} not found"
+        )
+
+    if test.school_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This is not a global test. Use school admin endpoints."
+        )
+
+    await test_repo.soft_delete(test)
+
+
+# ========== Question Endpoints ==========
+
+@router.post("/tests/{test_id}/questions", response_model=QuestionResponse, status_code=status.HTTP_201_CREATED)
+async def create_global_question(
+    test_id: int,
+    data: QuestionCreate,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new question in a global test (SUPER_ADMIN only).
+    """
+    test_repo = TestRepository(db)
+    question_repo = QuestionRepository(db)
+
+    # Verify test exists and is global
+    test = await test_repo.get_by_id(test_id)
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test {test_id} not found"
+        )
+
+    if test.school_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot add question to non-global test. Use school admin endpoints."
+        )
+
+    # Create question
+    question = Question(test_id=test_id, **data.model_dump())
+    return await question_repo.create(question)
+
+
+@router.get("/tests/{test_id}/questions", response_model=List[QuestionResponse])
+async def list_global_questions(
+    test_id: int,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all questions for a global test (SUPER_ADMIN only).
+    """
+    test_repo = TestRepository(db)
+    question_repo = QuestionRepository(db)
+
+    # Verify test exists and is global
+    test = await test_repo.get_by_id(test_id)
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test {test_id} not found"
+        )
+
+    if test.school_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This is not a global test. Use school admin endpoints."
+        )
+
+    return await question_repo.get_by_test(test_id)
+
+
+@router.get("/questions/{question_id}", response_model=QuestionResponse)
+async def get_global_question(
+    question_id: int,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a specific question by ID (SUPER_ADMIN only).
+    """
+    question_repo = QuestionRepository(db)
+    test_repo = TestRepository(db)
+
+    question = await question_repo.get_by_id(question_id)
+    if not question:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Question {question_id} not found"
+        )
+
+    # Verify parent test is global
+    test = await test_repo.get_by_id(question.test_id)
+    if test and test.school_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This question belongs to a non-global test. Use school admin endpoints."
+        )
+
+    return question
+
+
+@router.put("/questions/{question_id}", response_model=QuestionResponse)
+async def update_global_question(
+    question_id: int,
+    data: QuestionUpdate,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update a question in a global test (SUPER_ADMIN only).
+    """
+    question_repo = QuestionRepository(db)
+    test_repo = TestRepository(db)
+
+    question = await question_repo.get_by_id(question_id)
+    if not question:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Question {question_id} not found"
+        )
+
+    # Verify parent test is global
+    test = await test_repo.get_by_id(question.test_id)
+    if test and test.school_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot update question in non-global test. Use school admin endpoints."
+        )
+
+    # Update fields
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(question, field, value)
+
+    return await question_repo.update(question)
+
+
+@router.delete("/questions/{question_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_global_question(
+    question_id: int,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Soft delete a question in a global test (SUPER_ADMIN only).
+    """
+    question_repo = QuestionRepository(db)
+    test_repo = TestRepository(db)
+
+    question = await question_repo.get_by_id(question_id)
+    if not question:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Question {question_id} not found"
+        )
+
+    # Verify parent test is global
+    test = await test_repo.get_by_id(question.test_id)
+    if test and test.school_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot delete question in non-global test. Use school admin endpoints."
+        )
+
+    await question_repo.soft_delete(question)
+
+
+# ========== QuestionOption Endpoints ==========
+
+@router.post("/questions/{question_id}/options", response_model=QuestionOptionResponse, status_code=status.HTTP_201_CREATED)
+async def create_global_question_option(
+    question_id: int,
+    data: QuestionOptionCreate,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new option for a question in a global test (SUPER_ADMIN only).
+    """
+    question_repo = QuestionRepository(db)
+    option_repo = QuestionOptionRepository(db)
+    test_repo = TestRepository(db)
+
+    # Verify question exists
+    question = await question_repo.get_by_id(question_id)
+    if not question:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Question {question_id} not found"
+        )
+
+    # Verify parent test is global
+    test = await test_repo.get_by_id(question.test_id)
+    if test and test.school_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot add option to question in non-global test. Use school admin endpoints."
+        )
+
+    # Create option
+    option = QuestionOption(question_id=question_id, **data.model_dump())
+    return await option_repo.create(option)
+
+
+@router.put("/options/{option_id}", response_model=QuestionOptionResponse)
+async def update_global_question_option(
+    option_id: int,
+    data: QuestionOptionUpdate,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update a question option in a global test (SUPER_ADMIN only).
+    """
+    option_repo = QuestionOptionRepository(db)
+    question_repo = QuestionRepository(db)
+    test_repo = TestRepository(db)
+
+    option = await option_repo.get_by_id(option_id)
+    if not option:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"QuestionOption {option_id} not found"
+        )
+
+    # Verify parent question's test is global
+    question = await question_repo.get_by_id(option.question_id)
+    if question:
+        test = await test_repo.get_by_id(question.test_id)
+        if test and test.school_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot update option in non-global test. Use school admin endpoints."
+            )
+
+    # Update fields
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(option, field, value)
+
+    return await option_repo.update(option)
+
+
+@router.delete("/options/{option_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_global_question_option(
+    option_id: int,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Soft delete a question option in a global test (SUPER_ADMIN only).
+    """
+    option_repo = QuestionOptionRepository(db)
+    question_repo = QuestionRepository(db)
+    test_repo = TestRepository(db)
+
+    option = await option_repo.get_by_id(option_id)
+    if not option:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"QuestionOption {option_id} not found"
+        )
+
+    # Verify parent question's test is global
+    question = await question_repo.get_by_id(option.question_id)
+    if question:
+        test = await test_repo.get_by_id(question.test_id)
+        if test and test.school_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot delete option in non-global test. Use school admin endpoints."
+            )
+
+    await option_repo.soft_delete(option)

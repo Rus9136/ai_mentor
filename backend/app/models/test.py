@@ -38,7 +38,11 @@ class Test(SoftDeleteModel):
     # Test info
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    difficulty = Column(SQLEnum(DifficultyLevel), nullable=False, default=DifficultyLevel.MEDIUM)
+    difficulty = Column(
+        SQLEnum(DifficultyLevel, values_callable=lambda x: [e.value for e in x], name='difficultylevel'),
+        nullable=False,
+        default=DifficultyLevel.MEDIUM
+    )
     time_limit = Column(Integer, nullable=True)  # Time limit in minutes
     passing_score = Column(Float, nullable=False, default=0.7)  # 0.0 to 1.0
     is_active = Column(Boolean, default=True, nullable=False)
@@ -64,7 +68,10 @@ class Question(SoftDeleteModel):
 
     # Question info
     order = Column(Integer, nullable=False)  # Order in test
-    question_type = Column(SQLEnum(QuestionType), nullable=False)
+    question_type = Column(
+        SQLEnum(QuestionType, values_callable=lambda x: [e.value for e in x], name='questiontype'),
+        nullable=False
+    )
     question_text = Column(Text, nullable=False)
     explanation = Column(Text, nullable=True)  # Explanation of correct answer
     points = Column(Float, nullable=False, default=1.0)  # Points for correct answer
