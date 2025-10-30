@@ -62,7 +62,12 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # CORS
-    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8080"]
+    BACKEND_CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://localhost:5173",  # Vite dev server (default port)
+        "http://localhost:5174",  # Vite dev server (alternative port)
+    ]
 
     # LangChain / LLM
     OPENAI_API_KEY: Optional[str] = None

@@ -1,6 +1,7 @@
 """
 Main FastAPI application.
 """
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -17,7 +18,9 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     print("Starting up AI Mentor API...")
-    print(f"Database URL: {settings.async_database_url.replace(settings.POSTGRES_PASSWORD, '***')}")
+    print(
+        f"Database URL: {settings.async_database_url.replace(settings.POSTGRES_PASSWORD, '***')}"
+    )
 
     yield
 
@@ -71,22 +74,24 @@ async def root():
 
 
 # Include routers
-from app.api.v1 import auth, admin_global, admin_school
+from app.api.v1 import auth, admin_global, admin_school, schools
 
 app.include_router(
-    auth.router,
-    prefix=f"{settings.API_V1_PREFIX}/auth",
-    tags=["Authentication"]
+    auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"]
+)
+
+app.include_router(
+    schools.router, prefix=f"{settings.API_V1_PREFIX}/admin", tags=["Admin - Schools"]
 )
 
 app.include_router(
     admin_global.router,
     prefix=f"{settings.API_V1_PREFIX}/admin/global",
-    tags=["Admin - Global Content"]
+    tags=["Admin - Global Content"],
 )
 
 app.include_router(
     admin_school.router,
     prefix=f"{settings.API_V1_PREFIX}/admin/school",
-    tags=["Admin - School Content"]
+    tags=["Admin - School Content"],
 )

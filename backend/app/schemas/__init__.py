@@ -1,6 +1,7 @@
 """
 Pydantic schemas package.
 """
+
 from app.schemas.auth import (
     LoginRequest,
     RefreshTokenRequest,
@@ -41,6 +42,12 @@ from app.schemas.question import (
     QuestionOptionUpdate,
     QuestionOptionResponse,
 )
+from app.schemas.school import (
+    SchoolCreate,
+    SchoolUpdate,
+    SchoolResponse,
+    SchoolListResponse,
+)
 
 __all__ = [
     # Auth
@@ -77,4 +84,9 @@ __all__ = [
     "QuestionOptionCreate",
     "QuestionOptionUpdate",
     "QuestionOptionResponse",
+    # School
+    "SchoolCreate",
+    "SchoolUpdate",
+    "SchoolResponse",
+    "SchoolListResponse",
 ]
