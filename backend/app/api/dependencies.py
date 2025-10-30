@@ -90,6 +90,39 @@ async def get_current_user(
     return user
 
 
+async def get_current_user_school_id(
+    current_user: User = Depends(get_current_user)
+) -> int:
+    """
+    Extract school_id from current user.
+
+    This is critical for data isolation in multi-tenant architecture.
+    SUPER_ADMIN users don't have school_id and will raise an error.
+
+    Args:
+        current_user: Current authenticated user
+
+    Returns:
+        School ID of the current user
+
+    Raises:
+        HTTPException: If user is SUPER_ADMIN (no school_id)
+    """
+    if current_user.role == UserRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="SUPER_ADMIN has no school_id. Use global endpoints instead."
+        )
+
+    if current_user.school_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User has no school_id assigned"
+        )
+
+    return current_user.school_id
+
+
 def require_role(allowed_roles: list[UserRole]):
     """
     Factory function to create role-based access control dependency.

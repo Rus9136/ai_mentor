@@ -71,10 +71,22 @@ async def root():
 
 
 # Include routers
-from app.api.v1 import auth
+from app.api.v1 import auth, admin_global, admin_school
 
 app.include_router(
     auth.router,
     prefix=f"{settings.API_V1_PREFIX}/auth",
     tags=["Authentication"]
+)
+
+app.include_router(
+    admin_global.router,
+    prefix=f"{settings.API_V1_PREFIX}/admin/global",
+    tags=["Admin - Global Content"]
+)
+
+app.include_router(
+    admin_school.router,
+    prefix=f"{settings.API_V1_PREFIX}/admin/school",
+    tags=["Admin - School Content"]
 )

@@ -19,6 +19,10 @@ class Textbook(SoftDeleteModel):
     global_textbook_id = Column(Integer, ForeignKey("textbooks.id", ondelete="SET NULL"), nullable=True, index=True)
     is_customized = Column(Boolean, default=False, nullable=False)
 
+    # Versioning support
+    version = Column(Integer, default=1, nullable=False)
+    source_version = Column(Integer, nullable=True)  # Version of global textbook at fork time
+
     # Textbook info
     title = Column(String(255), nullable=False, index=True)
     subject = Column(String(100), nullable=False, index=True)
