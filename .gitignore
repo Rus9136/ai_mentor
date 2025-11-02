@@ -121,6 +121,7 @@ backend/app/temp/
 backend/app/uploads/
 scripts/*.csv
 scripts/*.json
+test_*.sh
 
 # File uploads (persistent)
 uploads/*
