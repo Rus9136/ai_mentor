@@ -12,7 +12,7 @@ import { UserRole } from '../types';
  * - Главная (Dashboard)
  * - Школы (Schools CRUD)
  * - Учебники (Textbooks) - CRUD для глобальных учебников (Итерация 5B)
- * - Тесты (Tests) - placeholder, disabled до Итерации 5C
+ * - Тесты (Tests) - CRUD для глобальных тестов (Итерация 5C)
  */
 export const Menu = () => {
   const { permissions } = usePermissions();
@@ -43,7 +43,6 @@ export const Menu = () => {
             to="/tests"
             primaryText="Тесты"
             leftIcon={<QuizIcon />}
-            disabled
           />
         </>
       )}

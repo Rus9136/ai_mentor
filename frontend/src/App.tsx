@@ -4,6 +4,7 @@ import { Layout } from './layout/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { SchoolList, SchoolCreate, SchoolEdit, SchoolShow } from './pages/schools';
 import { TextbookList, TextbookCreate, TextbookEdit, TextbookShow } from './pages/textbooks';
+import { TestList, TestCreate, TestEdit, TestShow } from './pages/tests';
 import SchoolIcon from '@mui/icons-material/School';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import QuizIcon from '@mui/icons-material/Quiz';
@@ -42,9 +43,13 @@ function App() {
         options={{ label: 'Учебники' }}
       />
 
-      {/* Placeholder ресурс (будет реализован в следующих фазах) */}
+      {/* Глобальные тесты (CRUD для SUPER_ADMIN) */}
       <Resource
         name="tests"
+        list={TestList}
+        create={TestCreate}
+        edit={TestEdit}
+        show={TestShow}
         icon={QuizIcon}
         options={{ label: 'Тесты' }}
       />

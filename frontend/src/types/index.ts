@@ -99,3 +99,69 @@ export interface Paragraph {
   deleted_at?: string | null;
   is_deleted: boolean;
 }
+
+// Типы вопросов для тестов
+export const QuestionType = {
+  SINGLE_CHOICE: 'single_choice',
+  MULTIPLE_CHOICE: 'multiple_choice',
+  TRUE_FALSE: 'true_false',
+  SHORT_ANSWER: 'short_answer',
+} as const;
+
+export type QuestionType = typeof QuestionType[keyof typeof QuestionType];
+
+// Уровни сложности тестов
+export const DifficultyLevel = {
+  EASY: 'easy',
+  MEDIUM: 'medium',
+  HARD: 'hard',
+} as const;
+
+export type DifficultyLevel = typeof DifficultyLevel[keyof typeof DifficultyLevel];
+
+// Тест
+export interface Test {
+  id: number;
+  school_id: number | null;  // null = глобальный тест
+  chapter_id?: number | null;
+  paragraph_id?: number | null;
+  title: string;
+  description?: string;
+  difficulty: DifficultyLevel;
+  time_limit?: number | null;  // минуты
+  passing_score: number;  // 0.0-1.0 (например, 0.7 = 70%)
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  is_deleted: boolean;
+}
+
+// Вопрос теста
+export interface Question {
+  id: number;
+  test_id: number;
+  order: number;
+  question_type: QuestionType;
+  question_text: string;
+  explanation?: string;  // Объяснение правильного ответа
+  points: number;
+  options: QuestionOption[];  // Варианты ответов (вложенные)
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  is_deleted: boolean;
+}
+
+// Вариант ответа на вопрос
+export interface QuestionOption {
+  id: number;
+  question_id: number;
+  order: number;
+  option_text: string;
+  is_correct: boolean;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  is_deleted: boolean;
+}
