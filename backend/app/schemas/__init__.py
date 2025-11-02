@@ -48,6 +48,10 @@ from app.schemas.school import (
     SchoolResponse,
     SchoolListResponse,
 )
+from app.schemas.upload import (
+    ImageUploadResponse,
+    PDFUploadResponse,
+)
 
 __all__ = [
     # Auth
@@ -89,4 +93,7 @@ __all__ = [
     "SchoolUpdate",
     "SchoolResponse",
     "SchoolListResponse",
+    # Upload
+    "ImageUploadResponse",
+    "PDFUploadResponse",
 ]

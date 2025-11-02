@@ -83,6 +83,12 @@ class Settings(BaseSettings):
     MASTERY_THRESHOLD: float = 0.7
     DAYS_TO_TRACK: int = 30
 
+    # File Uploads
+    UPLOAD_DIR: str = "uploads"
+    MAX_IMAGE_SIZE_MB: int = 5
+    MAX_PDF_SIZE_MB: int = 50
+    ALLOWED_IMAGE_TYPES: list[str] = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+
     model_config = ConfigDict(
         env_file=str(ENV_PATH) if ENV_PATH.exists() else None,
         case_sensitive=True,

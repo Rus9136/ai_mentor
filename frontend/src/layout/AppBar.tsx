@@ -1,4 +1,4 @@
-import { AppBar as RaAppBar, Logout, UserMenu, useGetIdentity } from 'react-admin';
+import { AppBar as RaAppBar, Logout, UserMenu, useGetIdentity, ToggleThemeButton } from 'react-admin';
 import { Box, Chip, Typography } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 
@@ -55,6 +55,7 @@ export const AppBar = () => {
             />
           </>
         )}
+        <ToggleThemeButton />
       </Box>
     </RaAppBar>
   );

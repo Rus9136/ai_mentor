@@ -121,3 +121,7 @@ backend/app/temp/
 backend/app/uploads/
 scripts/*.csv
 scripts/*.json
+
+# File uploads (persistent)
+uploads/*
+!uploads/.gitkeep

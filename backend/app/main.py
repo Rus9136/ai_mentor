@@ -4,7 +4,9 @@ Main FastAPI application.
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from app.core.config import settings
 from app.core.database import engine
@@ -21,6 +23,11 @@ async def lifespan(app: FastAPI):
     print(
         f"Database URL: {settings.async_database_url.replace(settings.POSTGRES_PASSWORD, '***')}"
     )
+
+    # Create uploads directory if it doesn't exist
+    upload_dir = Path(settings.UPLOAD_DIR)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Upload directory: {upload_dir.absolute()}")
 
     yield
 
@@ -73,8 +80,13 @@ async def root():
     }
 
 
+# Mount static files for uploads
+upload_dir_path = Path(settings.UPLOAD_DIR)
+upload_dir_path.mkdir(parents=True, exist_ok=True)
+app.mount(f"/{settings.UPLOAD_DIR}", StaticFiles(directory=str(upload_dir_path)), name="uploads")
+
 # Include routers
-from app.api.v1 import auth, admin_global, admin_school, schools
+from app.api.v1 import auth, admin_global, admin_school, schools, upload
 
 app.include_router(
     auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"]
@@ -94,4 +106,10 @@ app.include_router(
     admin_school.router,
     prefix=f"{settings.API_V1_PREFIX}/admin/school",
     tags=["Admin - School Content"],
+)
+
+app.include_router(
+    upload.router,
+    prefix=f"{settings.API_V1_PREFIX}/upload",
+    tags=["Upload"],
 )

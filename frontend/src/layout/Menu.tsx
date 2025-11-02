@@ -3,6 +3,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import SchoolIcon from '@mui/icons-material/School';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import QuizIcon from '@mui/icons-material/Quiz';
+import { UserRole } from '../types';
 
 /**
  * Боковое меню приложения с условным рендерингом на основе роли пользователя.
@@ -10,12 +11,12 @@ import QuizIcon from '@mui/icons-material/Quiz';
  * Пункты меню для SUPER_ADMIN:
  * - Главная (Dashboard)
  * - Школы (Schools CRUD)
- * - Учебники (Textbooks) - placeholder, disabled до Итерации 5B
+ * - Учебники (Textbooks) - CRUD для глобальных учебников (Итерация 5B)
  * - Тесты (Tests) - placeholder, disabled до Итерации 5C
  */
 export const Menu = () => {
   const { permissions } = usePermissions();
-  const isSuperAdmin = permissions === 'SUPER_ADMIN';
+  const isSuperAdmin = permissions === UserRole.SUPER_ADMIN;
 
   return (
     <RaMenu>
@@ -37,7 +38,6 @@ export const Menu = () => {
             to="/textbooks"
             primaryText="Учебники"
             leftIcon={<MenuBookIcon />}
-            disabled
           />
           <RaMenu.Item
             to="/tests"

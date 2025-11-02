@@ -24,7 +24,147 @@ export const dataProvider: DataProvider = {
     const field = params.sort?.field || 'id';
     const order = params.sort?.order || 'ASC';
 
-    // Формируем query параметры
+    // Специальная обработка для schools - backend не поддерживает query параметры
+    // Выполняем client-side pagination, sorting и filtering
+    if (resource === 'schools') {
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      let data = await response.json();
+
+      // Client-side filtering
+      if (params.filter) {
+        // Фильтр по статусу (is_active)
+        if (params.filter.is_active !== undefined) {
+          data = data.filter(
+            (item: any) => item.is_active === params.filter.is_active
+          );
+        }
+
+        // Фильтр по поиску (q) - поиск по названию и коду
+        if (params.filter.q) {
+          const searchTerm = params.filter.q.toLowerCase();
+          data = data.filter(
+            (item: any) =>
+              item.name.toLowerCase().includes(searchTerm) ||
+              item.code.toLowerCase().includes(searchTerm)
+          );
+        }
+      }
+
+      // Client-side sorting
+      data.sort((a: any, b: any) => {
+        const aValue = a[field];
+        const bValue = b[field];
+
+        if (aValue === bValue) return 0;
+
+        let comparison = 0;
+        if (aValue === null || aValue === undefined) {
+          comparison = 1;
+        } else if (bValue === null || bValue === undefined) {
+          comparison = -1;
+        } else if (typeof aValue === 'string' && typeof bValue === 'string') {
+          comparison = aValue.localeCompare(bValue);
+        } else {
+          comparison = aValue < bValue ? -1 : 1;
+        }
+
+        return order === 'ASC' ? comparison : -comparison;
+      });
+
+      // Client-side pagination
+      const start = (page - 1) * perPage;
+      const end = page * perPage;
+      const paginatedData = data.slice(start, end);
+
+      return {
+        data: paginatedData,
+        total: data.length,
+      };
+    }
+
+    // Специальная обработка для textbooks - backend не поддерживает query параметры
+    // Выполняем client-side pagination, sorting и filtering
+    if (resource === 'textbooks') {
+      const textbooksUrl = `${API_URL}/admin/global/textbooks`;
+      const response = await fetch(textbooksUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      let data = await response.json();
+
+      // Client-side filtering
+      if (params.filter) {
+        // Фильтр по предмету
+        if (params.filter.subject) {
+          data = data.filter(
+            (item: any) => item.subject === params.filter.subject
+          );
+        }
+
+        // Фильтр по классу
+        if (params.filter.grade_level) {
+          data = data.filter(
+            (item: any) => item.grade_level === parseInt(params.filter.grade_level)
+          );
+        }
+
+        // Фильтр по поиску (q) - поиск по названию
+        if (params.filter.q) {
+          const searchTerm = params.filter.q.toLowerCase();
+          data = data.filter((item: any) =>
+            item.title.toLowerCase().includes(searchTerm)
+          );
+        }
+      }
+
+      // Client-side sorting
+      data.sort((a: any, b: any) => {
+        const aValue = a[field];
+        const bValue = b[field];
+
+        if (aValue === bValue) return 0;
+
+        let comparison = 0;
+        if (aValue === null || aValue === undefined) {
+          comparison = 1;
+        } else if (bValue === null || bValue === undefined) {
+          comparison = -1;
+        } else if (typeof aValue === 'string' && typeof bValue === 'string') {
+          comparison = aValue.localeCompare(bValue);
+        } else {
+          comparison = aValue < bValue ? -1 : 1;
+        }
+
+        return order === 'ASC' ? comparison : -comparison;
+      });
+
+      // Client-side pagination
+      const start = (page - 1) * perPage;
+      const end = page * perPage;
+      const paginatedData = data.slice(start, end);
+
+      return {
+        data: paginatedData,
+        total: data.length,
+      };
+    }
+
+    // Стандартная обработка для других resources
     const query = {
       _sort: field,
       _order: order,
@@ -60,7 +200,11 @@ export const dataProvider: DataProvider = {
       throw new Error('No authentication token found');
     }
 
-    const url = `${API_URL}/admin/${resource}/${params.id}`;
+    // Специальная обработка для textbooks - используем global endpoint
+    let url = `${API_URL}/admin/${resource}/${params.id}`;
+    if (resource === 'textbooks') {
+      url = `${API_URL}/admin/global/textbooks/${params.id}`;
+    }
 
     const response = await fetch(url, {
       headers: {

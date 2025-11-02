@@ -1,0 +1,41 @@
+/**
+ * Custom styles for KaTeX math formulas
+ * Используется в TinyMCE редакторе и preview режиме
+ */
+
+/* Inline формулы (в строке текста) */
+.math-tex {
+  display: inline-block;
+  vertical-align: middle;
+  padding: 0 4px;
+}
+
+/* Display формулы (отдельная строка, центрировано) */
+.math-tex.display-mode {
+  display: block;
+  text-align: center;
+  margin: 1em 0;
+  padding: 0.5em 0;
+}
+
+/* Hover эффект для редактируемых формул (опционально) */
+.math-tex:hover {
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* В TinyMCE editor - убираем hover для display mode */
+.mce-content-body .math-tex.display-mode:hover {
+  background-color: transparent;
+  cursor: default;
+}
+
+/* Стили для formul в preview режиме */
+.preview-content .math-tex {
+  padding: 0 2px;
+}
+
+.preview-content .math-tex.display-mode {
+  margin: 1.5em 0;
+}

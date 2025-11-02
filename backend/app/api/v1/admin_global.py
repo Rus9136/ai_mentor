@@ -378,6 +378,47 @@ async def list_global_paragraphs(
     return await paragraph_repo.get_by_chapter(chapter_id)
 
 
+@router.get("/paragraphs/{paragraph_id}", response_model=ParagraphResponse)
+async def get_global_paragraph(
+    paragraph_id: int,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a single paragraph by ID (SUPER_ADMIN only).
+
+    Verifies that the paragraph belongs to a global textbook.
+    """
+    paragraph_repo = ParagraphRepository(db)
+    chapter_repo = ChapterRepository(db)
+    textbook_repo = TextbookRepository(db)
+
+    # Get paragraph
+    paragraph = await paragraph_repo.get_by_id(paragraph_id)
+    if not paragraph:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Paragraph {paragraph_id} not found"
+        )
+
+    # Verify it belongs to a global textbook
+    chapter = await chapter_repo.get_by_id(paragraph.chapter_id)
+    if not chapter:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Chapter {paragraph.chapter_id} not found"
+        )
+
+    textbook = await textbook_repo.get_by_id(chapter.textbook_id)
+    if textbook and textbook.school_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This is not a global paragraph. Use school admin endpoints."
+        )
+
+    return paragraph
+
+
 @router.put("/paragraphs/{paragraph_id}", response_model=ParagraphResponse)
 async def update_global_paragraph(
     paragraph_id: int,
