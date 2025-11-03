@@ -6,9 +6,11 @@ import {
   Tab,
   FunctionField,
   ReferenceField,
+  useRecordContext,
 } from 'react-admin';
 import { Chip, Alert, Box } from '@mui/material';
 import type { Test } from '../../types';
+import { QuestionsEditor } from './questions/QuestionsEditor';
 
 // Маппинг сложности на русский + цвет
 const difficultyLabels: Record<string, { label: string; color: 'success' | 'warning' | 'error' }> = {
@@ -18,11 +20,33 @@ const difficultyLabels: Record<string, { label: string; color: 'success' | 'warn
 };
 
 /**
+ * Компонент вкладки "Вопросы" - обертка для QuestionsEditor
+ * Извлекает record через useRecordContext и передает testId в редактор
+ */
+const QuestionsEditorTab = () => {
+  const record = useRecordContext<Test>();
+
+  if (!record) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Alert severity="info">Загрузка теста...</Alert>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ p: 2 }}>
+      <QuestionsEditor testId={record.id} />
+    </Box>
+  );
+};
+
+/**
  * Компонент просмотра глобального теста
  *
  * Содержит две вкладки:
  * 1. Информация - метаданные теста
- * 2. Вопросы - placeholder для редактора вопросов (будет реализовано в Фазе 2)
+ * 2. Вопросы - редактор вопросов с полным CRUD функционалом
  */
 export const TestShow = () => (
   <Show title="Просмотр теста">
@@ -114,15 +138,9 @@ export const TestShow = () => (
         />
       </Tab>
 
-      {/* Вкладка 2: Вопросы (placeholder для Фазы 2) */}
+      {/* Вкладка 2: Вопросы - редактор вопросов */}
       <Tab label="Вопросы" path="questions">
-        <Box sx={{ p: 2 }}>
-          <Alert severity="info">
-            Редактор вопросов будет реализован в Фазе 2.
-            <br />
-            Здесь вы сможете добавлять, редактировать и удалять вопросы теста.
-          </Alert>
-        </Box>
+        <QuestionsEditorTab />
       </Tab>
     </TabbedShowLayout>
   </Show>
