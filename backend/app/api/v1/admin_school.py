@@ -8,16 +8,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.api.dependencies import require_admin, get_current_user_school_id
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.textbook import Textbook
 from app.models.chapter import Chapter
 from app.models.paragraph import Paragraph
 from app.models.test import Test, Question, QuestionOption
+from app.models.student import Student
+from app.models.teacher import Teacher
+from app.models.parent import Parent
+from app.models.school_class import SchoolClass
 from app.repositories.textbook_repo import TextbookRepository
 from app.repositories.chapter_repo import ChapterRepository
 from app.repositories.paragraph_repo import ParagraphRepository
 from app.repositories.test_repo import TestRepository
 from app.repositories.question_repo import QuestionRepository, QuestionOptionRepository
+from app.repositories.user_repo import UserRepository
+from app.repositories.student_repo import StudentRepository
+from app.repositories.teacher_repo import TeacherRepository
+from app.repositories.parent_repo import ParentRepository
+from app.repositories.school_class_repo import SchoolClassRepository
+from app.core.security import get_password_hash
 from app.schemas.textbook import (
     TextbookCreate,
     TextbookUpdate,
@@ -50,6 +60,38 @@ from app.schemas.question import (
     QuestionOptionCreate,
     QuestionOptionUpdate,
     QuestionOptionResponse,
+)
+from app.schemas.user import (
+    UserResponseSchema,
+    UserUpdate,
+)
+from app.schemas.student import (
+    StudentCreate,
+    StudentUpdate,
+    StudentResponse,
+    StudentListResponse,
+)
+from app.schemas.teacher import (
+    TeacherCreate,
+    TeacherUpdate,
+    TeacherResponse,
+    TeacherListResponse,
+)
+from app.schemas.parent import (
+    ParentCreate,
+    ParentUpdate,
+    ParentResponse,
+    ParentListResponse,
+    AddChildrenRequest,
+    StudentBriefResponse,
+)
+from app.schemas.school_class import (
+    SchoolClassCreate,
+    SchoolClassUpdate,
+    SchoolClassResponse,
+    SchoolClassListResponse,
+    AddStudentsRequest,
+    AddTeachersRequest,
 )
 
 router = APIRouter()
@@ -1121,3 +1163,1136 @@ async def delete_school_question_option(
             )
 
     await option_repo.soft_delete(option)
+
+
+# ========== User Management Endpoints ==========
+
+@router.get("/users", response_model=List[UserResponseSchema])
+async def list_school_users(
+    role: str = None,
+    is_active: bool = None,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all users for the school (ADMIN only).
+    Optional filters: role, is_active.
+    """
+    from app.repositories.user_repo import UserRepository
+    from app.schemas.user import UserResponseSchema
+
+    user_repo = UserRepository(db)
+    return await user_repo.get_by_school(school_id, role=role, is_active=is_active)
+
+
+@router.get("/users/{user_id}", response_model=UserResponseSchema)
+async def get_school_user(
+    user_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a specific user by ID (ADMIN only).
+    """
+    from app.repositories.user_repo import UserRepository
+    from app.schemas.user import UserResponseSchema
+
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id(user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {user_id} not found"
+        )
+
+    # Verify belongs to school
+    if user.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this user"
+        )
+
+    return user
+
+
+@router.put("/users/{user_id}", response_model=UserResponseSchema)
+async def update_school_user(
+    user_id: int,
+    data: UserUpdate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update user info (ADMIN only).
+    Can update: first_name, last_name, middle_name, phone.
+    Cannot update: email, password, role.
+    """
+    from app.repositories.user_repo import UserRepository
+    from app.schemas.user import UserResponseSchema, UserUpdate
+
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id(user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {user_id} not found"
+        )
+
+    # Verify belongs to school
+    if user.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this user"
+        )
+
+    # Update only allowed fields
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(user, field, value)
+
+    return await user_repo.update(user)
+
+
+@router.post("/users/{user_id}/deactivate", response_model=UserResponseSchema)
+async def deactivate_school_user(
+    user_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Deactivate a user (set is_active=False) (ADMIN only).
+    """
+    from app.repositories.user_repo import UserRepository
+    from app.schemas.user import UserResponseSchema
+
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id(user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {user_id} not found"
+        )
+
+    # Verify belongs to school
+    if user.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this user"
+        )
+
+    return await user_repo.deactivate(user)
+
+
+@router.post("/users/{user_id}/activate", response_model=UserResponseSchema)
+async def activate_school_user(
+    user_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Activate a user (set is_active=True) (ADMIN only).
+    """
+    from app.repositories.user_repo import UserRepository
+    from app.schemas.user import UserResponseSchema
+
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id(user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {user_id} not found"
+        )
+
+    # Verify belongs to school
+    if user.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this user"
+        )
+
+    return await user_repo.activate(user)
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_school_user(
+    user_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Soft delete a user (ADMIN only).
+    """
+    from app.repositories.user_repo import UserRepository
+
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id(user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {user_id} not found"
+        )
+
+    # Verify belongs to school
+    if user.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this user"
+        )
+
+    await user_repo.soft_delete(user)
+
+
+# ========== Student Management Endpoints ==========
+
+@router.get("/students", response_model=List[StudentListResponse])
+async def list_school_students(
+    grade_level: int = None,
+    class_id: int = None,
+    is_active: bool = None,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all students for the school (ADMIN only).
+    Optional filters: grade_level, class_id, is_active.
+    """
+    from app.repositories.student_repo import StudentRepository
+    from app.schemas.student import StudentListResponse
+
+    student_repo = StudentRepository(db)
+
+    if grade_level is not None or class_id is not None or is_active is not None:
+        return await student_repo.get_by_filters(
+            school_id,
+            grade_level=grade_level,
+            class_id=class_id,
+            is_active=is_active,
+            load_user=True
+        )
+    else:
+        return await student_repo.get_all(school_id, load_user=True)
+
+
+@router.post("/students", response_model=StudentResponse, status_code=status.HTTP_201_CREATED)
+async def create_school_student(
+    data: StudentCreate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new student (ADMIN only).
+    Creates both User and Student in a transaction.
+    """
+    user_repo = UserRepository(db)
+    student_repo = StudentRepository(db)
+
+    # Check if email already exists
+    existing_user = await user_repo.get_by_email(data.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User with email {data.email} already exists"
+        )
+
+    # Check if student_code already exists (if provided)
+    if data.student_code:
+        existing_student = await student_repo.get_by_student_code(data.student_code, school_id)
+        if existing_student:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Student with code {data.student_code} already exists"
+            )
+
+    # Create user first
+    user = User(
+        email=data.email,
+        password_hash=get_password_hash(data.password),
+        first_name=data.first_name,
+        last_name=data.last_name,
+        middle_name=data.middle_name,
+        phone=data.phone,
+        role=UserRole.STUDENT,
+        school_id=school_id,
+        is_active=True
+    )
+    user = await user_repo.create(user)
+
+    # Generate student_code if not provided
+    student_code = data.student_code
+    if not student_code:
+        # Auto-generate: STU{grade}{year}{sequence}
+        from datetime import datetime
+        year = datetime.now().year % 100  # Last 2 digits
+        count = await student_repo.count_by_school(school_id)
+        student_code = f"STU{data.grade_level}{year:02d}{count+1:04d}"
+
+    # Create student
+    student = Student(
+        school_id=school_id,
+        user_id=user.id,
+        student_code=student_code,
+        grade_level=data.grade_level,
+        birth_date=data.birth_date
+    )
+    student = await student_repo.create(student)
+
+    # Load user relationship and classes
+    student = await student_repo.get_by_id(student.id, school_id, load_user=True, load_classes=True)
+    return student
+
+
+@router.get("/students/{student_id}", response_model=StudentResponse)
+async def get_school_student(
+    student_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a specific student by ID (ADMIN only).
+    """
+    from app.repositories.student_repo import StudentRepository
+    from app.schemas.student import StudentResponse
+
+    student_repo = StudentRepository(db)
+    student = await student_repo.get_by_id(
+        student_id,
+        school_id,
+        load_user=True,
+        load_classes=True
+    )
+
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Student {student_id} not found"
+        )
+
+    return student
+
+
+@router.put("/students/{student_id}", response_model=StudentResponse)
+async def update_school_student(
+    student_id: int,
+    data: StudentUpdate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update student info (ADMIN only).
+    Can update: student_code, grade_level, birth_date.
+    """
+    from app.repositories.student_repo import StudentRepository
+    from app.schemas.student import StudentResponse, StudentUpdate
+
+    student_repo = StudentRepository(db)
+    student = await student_repo.get_by_id(student_id, school_id)
+
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Student {student_id} not found"
+        )
+
+    # Update fields
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(student, field, value)
+
+    student = await student_repo.update(student)
+
+    # Reload with relationships
+    student = await student_repo.get_by_id(student_id, school_id, load_user=True, load_classes=True)
+    return student
+
+
+@router.delete("/students/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_school_student(
+    student_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Soft delete a student (ADMIN only).
+    """
+    from app.repositories.student_repo import StudentRepository
+
+    student_repo = StudentRepository(db)
+    student = await student_repo.get_by_id(student_id, school_id)
+
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Student {student_id} not found"
+        )
+
+    await student_repo.soft_delete(student)
+
+
+# ========== Teacher Management Endpoints ==========
+
+@router.get("/teachers", response_model=List[TeacherListResponse])
+async def list_school_teachers(
+    subject: str = None,
+    class_id: int = None,
+    is_active: bool = None,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all teachers for the school (ADMIN only).
+    Optional filters: subject, class_id, is_active.
+    """
+    from app.repositories.teacher_repo import TeacherRepository
+    from app.schemas.teacher import TeacherListResponse
+
+    teacher_repo = TeacherRepository(db)
+
+    if subject is not None or class_id is not None or is_active is not None:
+        return await teacher_repo.get_by_filters(
+            school_id,
+            subject=subject,
+            class_id=class_id,
+            is_active=is_active,
+            load_user=True
+        )
+    else:
+        return await teacher_repo.get_all(school_id, load_user=True)
+
+
+@router.post("/teachers", response_model=TeacherResponse, status_code=status.HTTP_201_CREATED)
+async def create_school_teacher(
+    data: TeacherCreate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new teacher (ADMIN only).
+    Creates both User and Teacher in a transaction.
+    """
+    user_repo = UserRepository(db)
+    teacher_repo = TeacherRepository(db)
+
+    # Check if email already exists
+    existing_user = await user_repo.get_by_email(data.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User with email {data.email} already exists"
+        )
+
+    # Check if teacher_code already exists (if provided)
+    if data.teacher_code:
+        existing_teacher = await teacher_repo.get_by_teacher_code(data.teacher_code, school_id)
+        if existing_teacher:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Teacher with code {data.teacher_code} already exists"
+            )
+
+    # Create user first
+    user = User(
+        email=data.email,
+        password_hash=get_password_hash(data.password),
+        first_name=data.first_name,
+        last_name=data.last_name,
+        middle_name=data.middle_name,
+        phone=data.phone,
+        role=UserRole.TEACHER,
+        school_id=school_id,
+        is_active=True
+    )
+    user = await user_repo.create(user)
+
+    # Generate teacher_code if not provided
+    teacher_code = data.teacher_code
+    if not teacher_code:
+        # Auto-generate: TCHR{year}{sequence}
+        from datetime import datetime
+        year = datetime.now().year % 100  # Last 2 digits
+        count = await teacher_repo.count_by_school(school_id)
+        teacher_code = f"TCHR{year:02d}{count+1:04d}"
+
+    # Create teacher
+    teacher = Teacher(
+        school_id=school_id,
+        user_id=user.id,
+        teacher_code=teacher_code,
+        subject=data.subject,
+        bio=data.bio
+    )
+    teacher = await teacher_repo.create(teacher)
+
+    # Load user relationship and classes
+    teacher = await teacher_repo.get_by_id(teacher.id, school_id, load_user=True, load_classes=True)
+    return teacher
+
+
+@router.get("/teachers/{teacher_id}", response_model=TeacherResponse)
+async def get_school_teacher(
+    teacher_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a specific teacher by ID (ADMIN only).
+    """
+    from app.repositories.teacher_repo import TeacherRepository
+    from app.schemas.teacher import TeacherResponse
+
+    teacher_repo = TeacherRepository(db)
+    teacher = await teacher_repo.get_by_id(
+        teacher_id,
+        school_id,
+        load_user=True,
+        load_classes=True
+    )
+
+    if not teacher:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Teacher {teacher_id} not found"
+        )
+
+    return teacher
+
+
+@router.put("/teachers/{teacher_id}", response_model=TeacherResponse)
+async def update_school_teacher(
+    teacher_id: int,
+    data: TeacherUpdate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update teacher info (ADMIN only).
+    Can update: teacher_code, subject, bio.
+    """
+    from app.repositories.teacher_repo import TeacherRepository
+    from app.schemas.teacher import TeacherResponse, TeacherUpdate
+
+    teacher_repo = TeacherRepository(db)
+    teacher = await teacher_repo.get_by_id(teacher_id, school_id)
+
+    if not teacher:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Teacher {teacher_id} not found"
+        )
+
+    # Update fields
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(teacher, field, value)
+
+    teacher = await teacher_repo.update(teacher)
+
+    # Reload with relationships
+    teacher = await teacher_repo.get_by_id(teacher_id, school_id, load_user=True, load_classes=True)
+    return teacher
+
+
+@router.delete("/teachers/{teacher_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_school_teacher(
+    teacher_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Soft delete a teacher (ADMIN only).
+    """
+    from app.repositories.teacher_repo import TeacherRepository
+
+    teacher_repo = TeacherRepository(db)
+    teacher = await teacher_repo.get_by_id(teacher_id, school_id)
+
+    if not teacher:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Teacher {teacher_id} not found"
+        )
+
+    await teacher_repo.soft_delete(teacher)
+
+
+# ========== Parent Management Endpoints ==========
+
+@router.get("/parents", response_model=List[ParentListResponse])
+async def list_school_parents(
+    is_active: bool = None,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all parents for the school (ADMIN only).
+    Optional filter: is_active.
+    """
+    from app.repositories.parent_repo import ParentRepository
+    from app.schemas.parent import ParentListResponse
+
+    parent_repo = ParentRepository(db)
+
+    if is_active is not None:
+        return await parent_repo.get_by_filters(school_id, is_active=is_active, load_user=True)
+    else:
+        return await parent_repo.get_all(school_id, load_user=True)
+
+
+@router.post("/parents", response_model=ParentResponse, status_code=status.HTTP_201_CREATED)
+async def create_school_parent(
+    data: ParentCreate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new parent (ADMIN only).
+    Creates both User and Parent in a transaction.
+    Optionally links initial children (students).
+    """
+    user_repo = UserRepository(db)
+    parent_repo = ParentRepository(db)
+
+    # Check if email already exists
+    existing_user = await user_repo.get_by_email(data.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User with email {data.email} already exists"
+        )
+
+    # Create user first
+    user = User(
+        email=data.email,
+        password_hash=get_password_hash(data.password),
+        first_name=data.first_name,
+        last_name=data.last_name,
+        middle_name=data.middle_name,
+        phone=data.phone,
+        role=UserRole.PARENT,
+        school_id=school_id,
+        is_active=True
+    )
+    user = await user_repo.create(user)
+
+    # Create parent
+    parent = Parent(
+        school_id=school_id,
+        user_id=user.id
+    )
+    parent = await parent_repo.create(parent)
+
+    # Add initial children if provided
+    if data.student_ids:
+        try:
+            parent = await parent_repo.add_children(parent.id, data.student_ids)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+
+    # Load user relationship
+    parent = await parent_repo.get_by_id(parent.id, school_id, load_user=True, load_children=True)
+    return parent
+
+
+@router.get("/parents/{parent_id}", response_model=ParentResponse)
+async def get_school_parent(
+    parent_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a specific parent by ID (ADMIN only).
+    """
+    from app.repositories.parent_repo import ParentRepository
+    from app.schemas.parent import ParentResponse
+
+    parent_repo = ParentRepository(db)
+    parent = await parent_repo.get_by_id(
+        parent_id,
+        school_id,
+        load_user=True,
+        load_children=True
+    )
+
+    if not parent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Parent {parent_id} not found"
+        )
+
+    return parent
+
+
+@router.delete("/parents/{parent_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_school_parent(
+    parent_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Soft delete a parent (ADMIN only).
+    """
+    from app.repositories.parent_repo import ParentRepository
+
+    parent_repo = ParentRepository(db)
+    parent = await parent_repo.get_by_id(parent_id, school_id)
+
+    if not parent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Parent {parent_id} not found"
+        )
+
+    await parent_repo.soft_delete(parent)
+
+
+# Parent-Children Management
+
+@router.get("/parents/{parent_id}/children", response_model=List[StudentBriefResponse])
+async def get_parent_children(
+    parent_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all children (students) for a parent (ADMIN only).
+    """
+    from app.repositories.parent_repo import ParentRepository
+    from app.schemas.parent import StudentBriefResponse
+
+    parent_repo = ParentRepository(db)
+    return await parent_repo.get_children(parent_id, school_id)
+
+
+@router.post("/parents/{parent_id}/children", response_model=ParentResponse)
+async def add_parent_children(
+    parent_id: int,
+    data: AddChildrenRequest,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Add children (students) to a parent (ADMIN only).
+    """
+    from app.repositories.parent_repo import ParentRepository
+    from app.schemas.parent import ParentResponse, AddChildrenRequest
+
+    parent_repo = ParentRepository(db)
+
+    # Verify parent exists and belongs to school
+    parent = await parent_repo.get_by_id(parent_id, school_id)
+    if not parent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Parent {parent_id} not found"
+        )
+
+    try:
+        parent = await parent_repo.add_children(parent_id, data.student_ids)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+    # Reload with relationships
+    parent = await parent_repo.get_by_id(parent_id, school_id, load_user=True, load_children=True)
+    return parent
+
+
+@router.delete("/parents/{parent_id}/children/{student_id}", response_model=ParentResponse)
+async def remove_parent_child(
+    parent_id: int,
+    student_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Remove a child (student) from a parent (ADMIN only).
+    """
+    from app.repositories.parent_repo import ParentRepository
+    from app.schemas.parent import ParentResponse
+
+    parent_repo = ParentRepository(db)
+
+    # Verify parent exists and belongs to school
+    parent = await parent_repo.get_by_id(parent_id, school_id)
+    if not parent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Parent {parent_id} not found"
+        )
+
+    parent = await parent_repo.remove_children(parent_id, [student_id])
+
+    # Reload with relationships
+    parent = await parent_repo.get_by_id(parent_id, school_id, load_user=True, load_children=True)
+    return parent
+
+
+# ========== School Class Management Endpoints ==========
+
+@router.get("/classes", response_model=List[SchoolClassListResponse])
+async def list_school_classes(
+    grade_level: int = None,
+    academic_year: str = None,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all classes for the school (ADMIN only).
+    Optional filters: grade_level, academic_year.
+    """
+    from app.repositories.school_class_repo import SchoolClassRepository
+
+    class_repo = SchoolClassRepository(db)
+
+    if grade_level is not None or academic_year is not None:
+        classes = await class_repo.get_by_filters(
+            school_id,
+            grade_level=grade_level,
+            academic_year=academic_year,
+            load_students=True,
+            load_teachers=True
+        )
+    else:
+        classes = await class_repo.get_all(school_id, load_students=True, load_teachers=True)
+
+    # Add counts for response
+    result = []
+    for school_class in classes:
+        class_dict = {
+            "id": school_class.id,
+            "name": school_class.name,
+            "code": school_class.code,
+            "grade_level": school_class.grade_level,
+            "academic_year": school_class.academic_year,
+            "students_count": len(school_class.students) if school_class.students else 0,
+            "teachers_count": len(school_class.teachers) if school_class.teachers else 0,
+            "created_at": school_class.created_at,
+        }
+        result.append(class_dict)
+
+    return result
+
+
+@router.post("/classes", response_model=SchoolClassResponse, status_code=status.HTTP_201_CREATED)
+async def create_school_class(
+    data: SchoolClassCreate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new school class (ADMIN only).
+    """
+    from app.repositories.school_class_repo import SchoolClassRepository
+    from app.models.school_class import SchoolClass
+
+    class_repo = SchoolClassRepository(db)
+
+    # Check if code already exists in this school
+    existing_class = await class_repo.get_by_code(data.code, school_id)
+    if existing_class:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Class with code {data.code} already exists in this school"
+        )
+
+    # Create class
+    school_class = SchoolClass(
+        school_id=school_id,
+        name=data.name,
+        code=data.code,
+        grade_level=data.grade_level,
+        academic_year=data.academic_year
+    )
+    school_class = await class_repo.create(school_class)
+
+    # Return with counts
+    return {
+        "id": school_class.id,
+        "school_id": school_class.school_id,
+        "name": school_class.name,
+        "code": school_class.code,
+        "grade_level": school_class.grade_level,
+        "academic_year": school_class.academic_year,
+        "created_at": school_class.created_at,
+        "updated_at": school_class.updated_at,
+        "students_count": 0,
+        "teachers_count": 0,
+    }
+
+
+@router.get("/classes/{class_id}", response_model=SchoolClassResponse)
+async def get_school_class(
+    class_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a specific class by ID (ADMIN only).
+    Includes students and teachers lists.
+    """
+    from app.repositories.school_class_repo import SchoolClassRepository
+
+    class_repo = SchoolClassRepository(db)
+    school_class = await class_repo.get_by_id(
+        class_id,
+        school_id,
+        load_students=True,
+        load_teachers=True
+    )
+
+    if not school_class:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Class {class_id} not found"
+        )
+
+    # Return SQLAlchemy model directly - FastAPI will serialize it via Pydantic
+    return school_class
+
+
+@router.put("/classes/{class_id}", response_model=SchoolClassResponse)
+async def update_school_class(
+    class_id: int,
+    data: SchoolClassUpdate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update class info (ADMIN only).
+    Can update: name, grade_level, academic_year.
+    Note: code is NOT updatable.
+    """
+    from app.repositories.school_class_repo import SchoolClassRepository
+
+    class_repo = SchoolClassRepository(db)
+    school_class = await class_repo.get_by_id(class_id, school_id)
+
+    if not school_class:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Class {class_id} not found"
+        )
+
+    # Update fields
+    if data.name is not None:
+        school_class.name = data.name
+    if data.grade_level is not None:
+        school_class.grade_level = data.grade_level
+    if data.academic_year is not None:
+        school_class.academic_year = data.academic_year
+
+    await class_repo.update(school_class)
+
+    # Reload with relationships
+    school_class = await class_repo.get_by_id(class_id, school_id, load_students=True, load_teachers=True)
+
+    # Return SQLAlchemy model directly - FastAPI will serialize it via Pydantic
+    return school_class
+
+
+@router.delete("/classes/{class_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_school_class(
+    class_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Soft delete a class (ADMIN only).
+    """
+    from app.repositories.school_class_repo import SchoolClassRepository
+
+    class_repo = SchoolClassRepository(db)
+    school_class = await class_repo.get_by_id(class_id, school_id)
+
+    if not school_class:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Class {class_id} not found"
+        )
+
+    await class_repo.soft_delete(school_class)
+
+
+# ========== School Class Students Management ==========
+
+@router.post("/classes/{class_id}/students", response_model=SchoolClassResponse)
+async def add_students_to_class(
+    class_id: int,
+    data: AddStudentsRequest,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Add students to a class (bulk operation, ADMIN only).
+    """
+    from app.repositories.school_class_repo import SchoolClassRepository
+
+    class_repo = SchoolClassRepository(db)
+
+    # Verify class exists
+    school_class = await class_repo.get_by_id(class_id, school_id)
+    if not school_class:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Class {class_id} not found"
+        )
+
+    # Add students
+    try:
+        await class_repo.add_students(class_id, data.student_ids, school_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+    # Reload with relationships
+    school_class = await class_repo.get_by_id(class_id, school_id, load_students=True, load_teachers=True)
+
+    # Return SQLAlchemy model directly - FastAPI will serialize it via Pydantic
+    return school_class
+
+
+@router.delete("/classes/{class_id}/students/{student_id}", response_model=SchoolClassResponse)
+async def remove_student_from_class(
+    class_id: int,
+    student_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Remove a student from a class (ADMIN only).
+    """
+    from app.repositories.school_class_repo import SchoolClassRepository
+
+    class_repo = SchoolClassRepository(db)
+
+    # Verify class exists
+    school_class = await class_repo.get_by_id(class_id, school_id)
+    if not school_class:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Class {class_id} not found"
+        )
+
+    # Remove student
+    await class_repo.remove_students(class_id, [student_id], school_id)
+
+    # Reload with relationships
+    school_class = await class_repo.get_by_id(class_id, school_id, load_students=True, load_teachers=True)
+
+    # Return SQLAlchemy model directly - FastAPI will serialize it via Pydantic
+    return school_class
+
+
+# ========== School Class Teachers Management ==========
+
+@router.post("/classes/{class_id}/teachers", response_model=SchoolClassResponse)
+async def add_teachers_to_class(
+    class_id: int,
+    data: AddTeachersRequest,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Add teachers to a class (bulk operation, ADMIN only).
+    """
+    from app.repositories.school_class_repo import SchoolClassRepository
+
+    class_repo = SchoolClassRepository(db)
+
+    # Verify class exists
+    school_class = await class_repo.get_by_id(class_id, school_id)
+    if not school_class:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Class {class_id} not found"
+        )
+
+    # Add teachers
+    try:
+        await class_repo.add_teachers(class_id, data.teacher_ids, school_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+    # Reload with relationships
+    school_class = await class_repo.get_by_id(class_id, school_id, load_students=True, load_teachers=True)
+
+    # Return SQLAlchemy model directly - FastAPI will serialize it via Pydantic
+    return school_class
+
+
+@router.delete("/classes/{class_id}/teachers/{teacher_id}", response_model=SchoolClassResponse)
+async def remove_teacher_from_class(
+    class_id: int,
+    teacher_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Remove a teacher from a class (ADMIN only).
+    """
+    from app.repositories.school_class_repo import SchoolClassRepository
+
+    class_repo = SchoolClassRepository(db)
+
+    # Verify class exists
+    school_class = await class_repo.get_by_id(class_id, school_id)
+    if not school_class:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Class {class_id} not found"
+        )
+
+    # Remove teacher
+    await class_repo.remove_teachers(class_id, [teacher_id], school_id)
+
+    # Reload with relationships
+    school_class = await class_repo.get_by_id(class_id, school_id, load_students=True, load_teachers=True)
+
+    # Return SQLAlchemy model directly - FastAPI will serialize it via Pydantic
+    return school_class
