@@ -63,6 +63,17 @@ export const TestShow = () => (
           emptyText="Нет описания"
         />
 
+        {/* Иерархия: Учебник → Глава → Параграф */}
+        <ReferenceField
+          source="textbook_id"
+          reference="textbooks"
+          label="Учебник"
+          link="show"
+          emptyText="Не привязан к учебнику"
+        >
+          <TextField source="title" />
+        </ReferenceField>
+
         <ReferenceField
           source="chapter_id"
           reference="chapters"

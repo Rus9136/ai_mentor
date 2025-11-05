@@ -53,6 +53,10 @@ function App() {
         icon={QuizIcon}
         options={{ label: 'Тесты' }}
       />
+
+      {/* Главы и параграфы - без UI, только для ReferenceInput */}
+      <Resource name="chapters" />
+      <Resource name="paragraphs" />
     </Admin>
   );
 }

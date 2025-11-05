@@ -20,10 +20,64 @@ import {
   maxValue,
   Button,
 } from 'react-admin';
+import { useWatch } from 'react-hook-form';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import BlockIcon from '@mui/icons-material/Block';
 import { DifficultyLevel } from '../../types';
 import type { Test } from '../../types';
+
+/**
+ * Компонент для условного рендеринга зависимых селектов
+ * Отслеживает изменения textbook_id и chapter_id через useWatch
+ */
+const DependentSelects = () => {
+  const textbookId = useWatch({ name: 'textbook_id' });
+  const chapterId = useWatch({ name: 'chapter_id' });
+
+  return (
+    <>
+      {/* Глава - показываем только если выбран учебник */}
+      <ReferenceInput
+        source="chapter_id"
+        reference="chapters"
+        label="Глава"
+        filter={textbookId ? { textbook_id: textbookId } : undefined}
+      >
+        <AutocompleteInput
+          optionText="title"
+          filterToQuery={(searchText) => ({ q: searchText })}
+          helperText={
+            textbookId
+              ? 'Выберите главу (опционально)'
+              : 'Сначала выберите учебник'
+          }
+          fullWidth
+          disabled={!textbookId}
+        />
+      </ReferenceInput>
+
+      {/* Параграф - показываем только если выбрана глава */}
+      <ReferenceInput
+        source="paragraph_id"
+        reference="paragraphs"
+        label="Параграф"
+        filter={chapterId ? { chapter_id: chapterId } : undefined}
+      >
+        <AutocompleteInput
+          optionText="title"
+          filterToQuery={(searchText) => ({ q: searchText })}
+          helperText={
+            chapterId
+              ? 'Выберите параграф (опционально)'
+              : 'Сначала выберите главу'
+          }
+          fullWidth
+          disabled={!chapterId}
+        />
+      </ReferenceInput>
+    </>
+  );
+};
 
 /**
  * Валидация поля title
@@ -156,31 +210,22 @@ export const TestEdit = () => {
           helperText="Краткое описание теста и его целей (опционально)"
         />
 
+        {/* Каскадные селекты: Учебник → Глава → Параграф */}
         <ReferenceInput
-          source="chapter_id"
-          reference="chapters"
-          label="Глава"
+          source="textbook_id"
+          reference="textbooks"
+          label="Учебник"
         >
           <AutocompleteInput
             optionText="title"
             filterToQuery={(searchText) => ({ q: searchText })}
-            helperText="К какой главе относится тест (опционально)"
+            helperText="Выберите учебник (опционально)"
             fullWidth
           />
         </ReferenceInput>
 
-        <ReferenceInput
-          source="paragraph_id"
-          reference="paragraphs"
-          label="Параграф"
-        >
-          <AutocompleteInput
-            optionText="title"
-            filterToQuery={(searchText) => ({ q: searchText })}
-            helperText="К какому параграфу относится тест (опционально)"
-            fullWidth
-          />
-        </ReferenceInput>
+        {/* Зависимые селекты для главы и параграфа */}
+        <DependentSelects />
 
         <SelectInput
           source="difficulty"

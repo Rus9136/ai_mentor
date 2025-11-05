@@ -246,6 +246,36 @@ async def list_global_chapters(
     return await chapter_repo.get_by_textbook(textbook_id)
 
 
+@router.get("/chapters/{chapter_id}", response_model=ChapterResponse)
+async def get_global_chapter(
+    chapter_id: int,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a single chapter from a global textbook (SUPER_ADMIN only).
+    """
+    chapter_repo = ChapterRepository(db)
+    textbook_repo = TextbookRepository(db)
+
+    chapter = await chapter_repo.get_by_id(chapter_id)
+    if not chapter:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Chapter {chapter_id} not found"
+        )
+
+    # Verify parent textbook is global
+    textbook = await textbook_repo.get_by_id(chapter.textbook_id)
+    if textbook and textbook.school_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This is not a chapter in a global textbook. Use school admin endpoints."
+        )
+
+    return chapter
+
+
 @router.put("/chapters/{chapter_id}", response_model=ChapterResponse)
 async def update_global_chapter(
     chapter_id: int,

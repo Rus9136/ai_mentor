@@ -123,6 +123,7 @@ export type DifficultyLevel = typeof DifficultyLevel[keyof typeof DifficultyLeve
 export interface Test {
   id: number;
   school_id: number | null;  // null = глобальный тест
+  textbook_id?: number | null;  // Учебник (для каскадного выбора)
   chapter_id?: number | null;
   paragraph_id?: number | null;
   title: string;

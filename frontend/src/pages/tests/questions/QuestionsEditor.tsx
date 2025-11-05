@@ -81,7 +81,9 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId }) => {
     async (updatedQuestion: Question) => {
       try {
         const token = getAuthToken();
-        const response = await fetch(
+
+        // 1. Обновляем вопрос (без options)
+        const questionResponse = await fetch(
           `${API_URL}/admin/global/questions/${updatedQuestion.id}`,
           {
             method: 'PUT',
@@ -95,14 +97,63 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId }) => {
               question_text: updatedQuestion.question_text,
               explanation: updatedQuestion.explanation || undefined,
               points: updatedQuestion.points,
-              options: updatedQuestion.options || [], // Обновленные варианты ответов
             }),
           }
         );
 
-        if (!response.ok) {
-          const errorData = await response.json();
+        if (!questionResponse.ok) {
+          const errorData = await questionResponse.json();
           throw new Error(errorData.detail || 'Ошибка обновления вопроса');
+        }
+
+        // 2. Обработка options
+        const oldOptions = questions.find(q => q.id === updatedQuestion.id)?.options || [];
+        const newOptions = updatedQuestion.options || [];
+
+        // 2a. Удаляем options, которых нет в новом списке
+        for (const oldOption of oldOptions) {
+          const stillExists = newOptions.some(opt => opt.id === oldOption.id);
+          if (!stillExists && oldOption.id) {
+            await fetch(`${API_URL}/admin/global/options/${oldOption.id}`, {
+              method: 'DELETE',
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+          }
+        }
+
+        // 2b. Создаем или обновляем options
+        for (const option of newOptions) {
+          if (option.id) {
+            // Обновляем существующий option
+            await fetch(`${API_URL}/admin/global/options/${option.id}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                order: option.order,
+                option_text: option.option_text,
+                is_correct: option.is_correct,
+              }),
+            });
+          } else {
+            // Создаем новый option
+            await fetch(`${API_URL}/admin/global/questions/${updatedQuestion.id}/options`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                order: option.order,
+                option_text: option.option_text,
+                is_correct: option.is_correct,
+              }),
+            });
+          }
         }
 
         notify('Вопрос успешно обновлен', { type: 'success' });
@@ -114,7 +165,7 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId }) => {
         );
       }
     },
-    [notify, fetchQuestions]
+    [notify, fetchQuestions, questions]
   );
 
   // Обработчик удаления вопроса

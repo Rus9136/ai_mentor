@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.test import Test
+from app.models.test import Test, Question
 
 
 class TestRepository:
@@ -38,7 +38,7 @@ class TestRepository:
 
         if load_questions:
             query = query.options(
-                selectinload(Test.questions).selectinload(lambda q: q.options)
+                selectinload(Test.questions).selectinload(Question.options)
             )
 
         result = await self.db.execute(query)
