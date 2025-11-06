@@ -1,0 +1,220 @@
+"""
+Repository for Student data access.
+"""
+from typing import Optional, List
+from sqlalchemy import select, and_
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.models.student import Student
+from app.models.user import User
+
+
+class StudentRepository:
+    """Repository for Student CRUD operations."""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def get_by_id(
+        self,
+        student_id: int,
+        school_id: int,
+        load_user: bool = True,
+        load_classes: bool = False,
+        load_parents: bool = False
+    ) -> Optional[Student]:
+        """
+        Get student by ID with school isolation.
+
+        Args:
+            student_id: Student ID
+            school_id: School ID for data isolation
+            load_user: Whether to eager load user data
+            load_classes: Whether to eager load classes
+            load_parents: Whether to eager load parents
+
+        Returns:
+            Student or None if not found
+        """
+        query = select(Student).where(
+            Student.id == student_id,
+            Student.school_id == school_id,
+            Student.is_deleted == False  # noqa: E712
+        )
+
+        if load_user:
+            query = query.options(selectinload(Student.user))
+        if load_classes:
+            query = query.options(selectinload(Student.classes))
+        if load_parents:
+            query = query.options(selectinload(Student.parents))
+
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def get_all(
+        self,
+        school_id: int,
+        load_user: bool = True,
+        load_classes: bool = False
+    ) -> List[Student]:
+        """
+        Get all students for a specific school.
+
+        Args:
+            school_id: School ID for data isolation
+            load_user: Whether to eager load user data
+            load_classes: Whether to eager load classes
+
+        Returns:
+            List of students
+        """
+        query = select(Student).where(
+            Student.school_id == school_id,
+            Student.is_deleted == False  # noqa: E712
+        ).order_by(Student.created_at.desc())
+
+        if load_user:
+            query = query.options(selectinload(Student.user))
+        if load_classes:
+            query = query.options(selectinload(Student.classes))
+
+        result = await self.db.execute(query)
+        return result.scalars().all()
+
+    async def get_by_filters(
+        self,
+        school_id: int,
+        grade_level: Optional[int] = None,
+        class_id: Optional[int] = None,
+        is_active: Optional[bool] = None,
+        load_user: bool = True
+    ) -> List[Student]:
+        """
+        Get students with filters.
+
+        Args:
+            school_id: School ID for data isolation
+            grade_level: Filter by grade level (1-11)
+            class_id: Filter by class ID
+            is_active: Filter by active status
+            load_user: Whether to eager load user data
+
+        Returns:
+            List of students matching filters
+        """
+        filters = [
+            Student.school_id == school_id,
+            Student.is_deleted == False  # noqa: E712
+        ]
+
+        if grade_level is not None:
+            filters.append(Student.grade_level == grade_level)
+
+        if is_active is not None:
+            filters.append(User.is_active == is_active)
+
+        query = select(Student).join(Student.user).where(and_(*filters))
+
+        # For class_id filter, need to check the association table
+        if class_id is not None:
+            from app.models.school_class import class_students
+            query = query.join(class_students).where(class_students.c.class_id == class_id)
+
+        query = query.order_by(Student.grade_level, User.last_name, User.first_name)
+
+        if load_user:
+            query = query.options(selectinload(Student.user))
+
+        result = await self.db.execute(query)
+        return result.scalars().all()
+
+    async def get_by_student_code(
+        self,
+        student_code: str,
+        school_id: int
+    ) -> Optional[Student]:
+        """
+        Get student by student code (unique within school).
+
+        Args:
+            student_code: Student code
+            school_id: School ID for data isolation
+
+        Returns:
+            Student or None if not found
+        """
+        result = await self.db.execute(
+            select(Student).where(
+                Student.student_code == student_code,
+                Student.school_id == school_id,
+                Student.is_deleted == False  # noqa: E712
+            ).options(selectinload(Student.user))
+        )
+        return result.scalar_one_or_none()
+
+    async def create(self, student: Student) -> Student:
+        """
+        Create a new student.
+
+        Args:
+            student: Student instance
+
+        Returns:
+            Created student
+        """
+        self.db.add(student)
+        await self.db.commit()
+        await self.db.refresh(student)
+        return student
+
+    async def update(self, student: Student) -> Student:
+        """
+        Update an existing student.
+
+        Args:
+            student: Student instance with updated fields
+
+        Returns:
+            Updated student
+        """
+        await self.db.commit()
+        await self.db.refresh(student)
+        return student
+
+    async def soft_delete(self, student: Student) -> Student:
+        """
+        Soft delete a student.
+
+        Args:
+            student: Student instance
+
+        Returns:
+            Deleted student
+        """
+        from datetime import datetime
+        student.is_deleted = True
+        student.deleted_at = datetime.utcnow()
+        await self.db.commit()
+        await self.db.refresh(student)
+        return student
+
+    async def count_by_school(self, school_id: int) -> int:
+        """
+        Count students in a school.
+
+        Args:
+            school_id: School ID
+
+        Returns:
+            Number of students
+        """
+        from sqlalchemy import func
+        result = await self.db.execute(
+            select(func.count(Student.id)).where(
+                Student.school_id == school_id,
+                Student.is_deleted == False  # noqa: E712
+            )
+        )
+        return result.scalar_one()

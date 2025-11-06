@@ -19,6 +19,8 @@ export interface User {
   school_id: number | null;
   first_name?: string;
   last_name?: string;
+  middle_name?: string;
+  phone?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -165,4 +167,189 @@ export interface QuestionOption {
   updated_at: string;
   deleted_at?: string | null;
   is_deleted: boolean;
+}
+
+// ==================== USER CRUD ====================
+// Request types для User
+export interface UserCreate {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  phone?: string;
+  role: UserRole;
+}
+
+export interface UserUpdate {
+  first_name?: string;
+  last_name?: string;
+  middle_name?: string;
+  phone?: string;
+}
+
+// ==================== STUDENT ====================
+export interface Student {
+  id: number;
+  school_id: number;
+  user_id: number;
+  student_code: string;
+  grade_level: number;
+  birth_date?: string | null;
+  enrollment_date?: string | null;
+  user?: User; // Nested user data
+  classes?: SchoolClassBrief[]; // Nested classes
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  is_deleted: boolean;
+}
+
+export interface StudentCreate {
+  // User fields (транзакционное создание User + Student)
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  phone?: string;
+
+  // Student fields
+  student_code?: string; // Auto-generated если null
+  grade_level: number;
+  birth_date?: string;
+  enrollment_date?: string;
+}
+
+export interface StudentUpdate {
+  grade_level?: number;
+  birth_date?: string;
+  enrollment_date?: string;
+}
+
+export interface StudentBrief {
+  id: number;
+  student_code: string;
+  grade_level: number;
+  user?: {
+    first_name: string;
+    last_name: string;
+    middle_name?: string;
+    email?: string;
+    phone?: string;
+    is_active?: boolean;
+  };
+}
+
+// ==================== TEACHER ====================
+export interface Teacher {
+  id: number;
+  school_id: number;
+  user_id: number;
+  teacher_code: string;
+  subject?: string | null;
+  bio?: string | null;
+  hire_date?: string | null;
+  user?: User; // Nested user data
+  classes?: SchoolClassBrief[]; // Nested classes
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  is_deleted: boolean;
+}
+
+export interface TeacherCreate {
+  // User fields (транзакционное создание User + Teacher)
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  phone?: string;
+
+  // Teacher fields
+  teacher_code?: string; // Auto-generated если null
+  subject?: string;
+  bio?: string;
+  hire_date?: string;
+}
+
+export interface TeacherUpdate {
+  subject?: string;
+  bio?: string;
+  hire_date?: string;
+}
+
+// ==================== PARENT ====================
+export interface Parent {
+  id: number;
+  school_id: number;
+  user_id: number;
+  user?: User; // Nested user data
+  children?: StudentBrief[]; // Nested children (студенты)
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  is_deleted: boolean;
+}
+
+export interface ParentCreate {
+  // User fields (транзакционное создание User + Parent)
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  phone?: string;
+
+  // Parent fields
+  student_ids?: number[]; // Initial children
+}
+
+// ==================== SCHOOL CLASS ====================
+export interface SchoolClass {
+  id: number;
+  school_id: number;
+  name: string;
+  code: string;
+  grade_level: number;
+  academic_year: string;
+  students?: Student[]; // Nested students
+  teachers?: Teacher[]; // Nested teachers
+  students_count?: number; // Calculated field
+  teachers_count?: number; // Calculated field
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  is_deleted: boolean;
+}
+
+export interface SchoolClassBrief {
+  id: number;
+  name: string;
+  code: string;
+  grade_level: number;
+  academic_year?: string;
+}
+
+export interface SchoolClassCreate {
+  name: string;
+  code: string;
+  grade_level: number;
+  academic_year: string;
+}
+
+export interface SchoolClassUpdate {
+  name?: string;
+  grade_level?: number;
+  academic_year?: string;
+}
+
+// Bulk operations для классов
+export interface AddStudentsRequest {
+  student_ids: number[];
+}
+
+export interface AddTeachersRequest {
+  teacher_ids: number[];
 }

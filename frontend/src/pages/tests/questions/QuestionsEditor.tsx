@@ -30,9 +30,11 @@ const API_URL = 'http://localhost:8000/api/v1';
 
 interface QuestionsEditorProps {
   testId: number;
+  isSchoolTest?: boolean;
+  readOnly?: boolean;
 }
 
-export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId }) => {
+export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId, isSchoolTest = false, readOnly = false }) => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,8 +49,11 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId }) => {
       setError(null);
 
       const token = getAuthToken();
+      const endpoint = isSchoolTest
+        ? `${API_URL}/admin/school/tests/${testId}/questions`
+        : `${API_URL}/admin/global/tests/${testId}/questions`;
       const response = await fetch(
-        `${API_URL}/admin/global/tests/${testId}/questions`,
+        endpoint,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -69,7 +74,7 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId }) => {
     } finally {
       setLoading(false);
     }
-  }, [testId, notify]);
+  }, [testId, isSchoolTest, notify]);
 
   // Загрузка при монтировании
   useEffect(() => {
@@ -83,8 +88,11 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId }) => {
         const token = getAuthToken();
 
         // 1. Обновляем вопрос (без options)
+        const questionEndpoint = isSchoolTest
+          ? `${API_URL}/admin/school/questions/${updatedQuestion.id}`
+          : `${API_URL}/admin/global/questions/${updatedQuestion.id}`;
         const questionResponse = await fetch(
-          `${API_URL}/admin/global/questions/${updatedQuestion.id}`,
+          questionEndpoint,
           {
             method: 'PUT',
             headers: {
@@ -114,7 +122,7 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId }) => {
         for (const oldOption of oldOptions) {
           const stillExists = newOptions.some(opt => opt.id === oldOption.id);
           if (!stillExists && oldOption.id) {
-            await fetch(`${API_URL}/admin/global/options/${oldOption.id}`, {
+            await fetch(isSchoolTest ? `${API_URL}/admin/school/options/${oldOption.id}` : `${API_URL}/admin/global/options/${oldOption.id}`, {
               method: 'DELETE',
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -127,7 +135,7 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId }) => {
         for (const option of newOptions) {
           if (option.id) {
             // Обновляем существующий option
-            await fetch(`${API_URL}/admin/global/options/${option.id}`, {
+            await fetch(isSchoolTest ? `${API_URL}/admin/school/options/${option.id}` : `${API_URL}/admin/global/options/${option.id}`, {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
@@ -141,7 +149,7 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId }) => {
             });
           } else {
             // Создаем новый option
-            await fetch(`${API_URL}/admin/global/questions/${updatedQuestion.id}/options`, {
+            await fetch(isSchoolTest ? `${API_URL}/admin/school/questions/${updatedQuestion.id}/options` : `${API_URL}/admin/global/questions/${updatedQuestion.id}/options`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -174,7 +182,7 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId }) => {
       try {
         const token = getAuthToken();
         const response = await fetch(
-          `${API_URL}/admin/global/questions/${questionId}`,
+          isSchoolTest ? `${API_URL}/admin/school/questions/${questionId}` : `${API_URL}/admin/global/questions/${questionId}`,
           {
             method: 'DELETE',
             headers: {
@@ -231,19 +239,21 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId }) => {
           <Typography variant="h6" color="text.primary">
             Вопросы теста ({questions.length})
           </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateDialogOpen(true)}
-            sx={{
-              transition: 'transform 0.2s',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-              },
-            }}
-          >
-            Добавить вопрос
-          </Button>
+          {!readOnly && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateDialogOpen(true)}
+              sx={{
+                transition: 'transform 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                },
+              }}
+            >
+              Добавить вопрос
+            </Button>
+          )}
         </Box>
 
         {/* Empty state */}
@@ -270,6 +280,7 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId }) => {
                       question={question}
                       onUpdate={handleUpdateQuestion}
                       onDelete={handleDeleteQuestion}
+                      readOnly={readOnly}
                     />
                   </div>
                 </Fade>
@@ -284,6 +295,7 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId }) => {
           order={questions.length + 1}
           onClose={() => setCreateDialogOpen(false)}
           onSuccess={fetchQuestions}
+          isSchoolTest={isSchoolTest}
         />
       </Box>
     </Fade>

@@ -66,3 +66,55 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/*
+ * Accessibility fix: Prevent focus on elements inside hidden tab panels
+ * This prevents browser extensions (like ChatGPT) from causing aria-hidden warnings
+ * by injecting focusable elements into hidden Material-UI tab panels
+ *
+ * Solution: Use CSS to prevent focus and hide browser extension elements
+ * Reference: https://w3c.github.io/aria/#aria-hidden
+ */
+
+/*
+ * 1. Hide browser extension elements that get injected into tab panels
+ * (e.g., ChatGPT floating input, AI assistants)
+ */
+[aria-hidden="true"] textarea[id*="AI_ROOT"],
+[aria-hidden="true"] textarea[id*="USE_CHAT"],
+[aria-hidden="true"] textarea[id*="GPT"],
+[aria-hidden="true"] input[id*="AI_ROOT"],
+[aria-hidden="true"] input[id*="USE_CHAT"],
+[aria-hidden="true"] input[id*="GPT"] {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+/*
+ * 2. Ensure hidden tab panels are truly hidden and non-interactive
+ * This prevents focus from moving into hidden tabs
+ */
+div[role="tabpanel"][aria-hidden="true"] {
+  /* Use inert-like behavior */
+  pointer-events: none;
+  user-select: none;
+  /* Keep in DOM but make invisible to prevent layout shifts */
+  position: absolute;
+  opacity: 0;
+  visibility: hidden;
+  z-index: -1;
+}
+
+/*
+ * 3. Ensure visible tab panel is interactive
+ */
+div[role="tabpanel"][aria-hidden="false"],
+div[role="tabpanel"]:not([aria-hidden]) {
+  pointer-events: auto;
+  user-select: auto;
+  position: relative;
+  opacity: 1;
+  visibility: visible;
+  z-index: auto;
+}

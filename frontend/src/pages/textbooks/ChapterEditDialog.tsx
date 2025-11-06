@@ -16,6 +16,7 @@ import { getAuthToken } from '../../providers/authProvider';
 const API_URL = 'http://localhost:8000/api/v1';
 
 interface ChapterEditDialogProps {
+  isSchoolTextbook?: boolean;
   open: boolean;
   chapter: Chapter;
   onClose: () => void;
@@ -45,6 +46,7 @@ export const ChapterEditDialog = ({
   chapter,
   onClose,
   onSuccess,
+  isSchoolTextbook = false,
 }: ChapterEditDialogProps) => {
   const [formData, setFormData] = useState<ChapterFormData>({
     title: chapter.title,
@@ -112,7 +114,7 @@ export const ChapterEditDialog = ({
         learning_objective: formData.learning_objective.trim() || null,
       };
 
-      const response = await fetch(`${API_URL}/admin/global/chapters/${chapter.id}`, {
+      const response = await fetch(isSchoolTextbook ? `${API_URL}/admin/school/chapters/${chapter.id}` : `${API_URL}/admin/global/chapters/${chapter.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

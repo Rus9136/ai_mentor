@@ -33,6 +33,7 @@ interface QuestionCreateDialogProps {
   order: number;
   onClose: () => void;
   onSuccess: () => void;
+  isSchoolTest?: boolean;
 }
 
 export const QuestionCreateDialog: React.FC<QuestionCreateDialogProps> = ({
@@ -41,6 +42,7 @@ export const QuestionCreateDialog: React.FC<QuestionCreateDialogProps> = ({
   order,
   onClose,
   onSuccess,
+  isSchoolTest = false,
 }) => {
   const [submitting, setSubmitting] = useState(false);
   const notify = useNotify();
@@ -64,8 +66,11 @@ export const QuestionCreateDialog: React.FC<QuestionCreateDialogProps> = ({
       };
 
       // POST запрос для создания вопроса (с вложенными options)
+      const endpoint = isSchoolTest
+        ? `${API_URL}/admin/school/tests/${testId}/questions`
+        : `${API_URL}/admin/global/tests/${testId}/questions`;
       const response = await fetch(
-        `${API_URL}/admin/global/tests/${testId}/questions`,
+        endpoint,
         {
           method: 'POST',
           headers: {

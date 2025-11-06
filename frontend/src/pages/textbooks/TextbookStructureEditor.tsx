@@ -30,6 +30,7 @@ const API_URL = 'http://localhost:8000/api/v1';
 
 interface TextbookStructureEditorProps {
   textbookId: number;
+  isSchoolTextbook?: boolean;
 }
 
 /**
@@ -41,7 +42,7 @@ interface TextbookStructureEditorProps {
  * - Удаления глав
  * - Просмотра параграфов (позже добавим CRUD для параграфов)
  */
-export const TextbookStructureEditor = ({ textbookId }: TextbookStructureEditorProps) => {
+export const TextbookStructureEditor = ({ textbookId, isSchoolTextbook = false }: TextbookStructureEditorProps) => {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [paragraphsMap, setParagraphsMap] = useState<Record<number, Paragraph[]>>({});
   const [loading, setLoading] = useState(true);
@@ -66,8 +67,11 @@ export const TextbookStructureEditor = ({ textbookId }: TextbookStructureEditorP
     try {
       setLoading(true);
       const token = getAuthToken();
+      const endpoint = isSchoolTextbook
+        ? `${API_URL}/admin/school/textbooks/${textbookId}/chapters`
+        : `${API_URL}/admin/global/textbooks/${textbookId}/chapters`;
       const response = await fetch(
-        `${API_URL}/admin/global/textbooks/${textbookId}/chapters`,
+        endpoint,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -94,8 +98,11 @@ export const TextbookStructureEditor = ({ textbookId }: TextbookStructureEditorP
   const fetchParagraphs = async (chapterId: number) => {
     try {
       const token = getAuthToken();
+      const endpoint = isSchoolTextbook
+        ? `${API_URL}/admin/school/chapters/${chapterId}/paragraphs`
+        : `${API_URL}/admin/global/chapters/${chapterId}/paragraphs`;
       const response = await fetch(
-        `${API_URL}/admin/global/chapters/${chapterId}/paragraphs`,
+        endpoint,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -164,8 +171,11 @@ export const TextbookStructureEditor = ({ textbookId }: TextbookStructureEditorP
 
     try {
       const token = getAuthToken();
+      const endpoint = isSchoolTextbook
+        ? `${API_URL}/admin/school/paragraphs/${paragraphId}`
+        : `${API_URL}/admin/global/paragraphs/${paragraphId}`;
       const response = await fetch(
-        `${API_URL}/admin/global/paragraphs/${paragraphId}`,
+        endpoint,
         {
           method: 'DELETE',
           headers: {
@@ -412,6 +422,7 @@ export const TextbookStructureEditor = ({ textbookId }: TextbookStructureEditorP
         textbookId={textbookId}
         onClose={handleDialogClose}
         onSuccess={handleSuccess}
+        isSchoolTextbook={isSchoolTextbook}
       />
 
       {selectedChapter && (
@@ -421,6 +432,7 @@ export const TextbookStructureEditor = ({ textbookId }: TextbookStructureEditorP
             chapter={selectedChapter}
             onClose={handleDialogClose}
             onSuccess={handleSuccess}
+            isSchoolTextbook={isSchoolTextbook}
           />
 
           <ChapterDeleteDialog
@@ -428,6 +440,7 @@ export const TextbookStructureEditor = ({ textbookId }: TextbookStructureEditorP
             chapter={selectedChapter}
             onClose={handleDialogClose}
             onSuccess={handleSuccess}
+            isSchoolTextbook={isSchoolTextbook}
           />
         </>
       )}
@@ -439,6 +452,7 @@ export const TextbookStructureEditor = ({ textbookId }: TextbookStructureEditorP
           chapterId={selectedChapterId}
           onClose={handleParagraphDialogClose}
           onSuccess={handleParagraphSuccess}
+          isSchoolTextbook={isSchoolTextbook}
         />
       )}
 
@@ -447,6 +461,7 @@ export const TextbookStructureEditor = ({ textbookId }: TextbookStructureEditorP
           open={paragraphEditDialogOpen}
           paragraphId={selectedParagraph.id}
           onClose={handleParagraphDialogClose}
+          isSchoolTextbook={isSchoolTextbook}
           onSuccess={handleParagraphSuccess}
         />
       )}

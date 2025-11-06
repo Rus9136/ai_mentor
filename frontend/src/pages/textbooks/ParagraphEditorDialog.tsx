@@ -60,6 +60,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const API_URL = `${API_BASE_URL}/api/v1`;
 
 interface ParagraphEditorDialogProps {
+  isSchoolTextbook?: boolean;
   open: boolean;
   paragraphId: number;
   onClose: () => void;
@@ -90,6 +91,7 @@ export const ParagraphEditorDialog = ({
   paragraphId,
   onClose,
   onSuccess,
+  isSchoolTextbook = false,
 }: ParagraphEditorDialogProps) => {
   // State для данных параграфа
   const [paragraph, setParagraph] = useState<Paragraph | null>(null);
@@ -129,7 +131,7 @@ export const ParagraphEditorDialog = ({
 
       const token = getAuthToken();
       const response = await fetch(
-        `${API_URL}/admin/global/paragraphs/${paragraphId}`,
+        isSchoolTextbook ? `${API_URL}/admin/school/paragraphs/${paragraphId}` : `${API_URL}/admin/global/paragraphs/${paragraphId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -184,7 +186,7 @@ export const ParagraphEditorDialog = ({
       try {
         const token = getAuthToken();
         const response = await fetch(
-          `${API_URL}/admin/global/paragraphs/${paragraphId}`,
+          isSchoolTextbook ? `${API_URL}/admin/school/paragraphs/${paragraphId}` : `${API_URL}/admin/global/paragraphs/${paragraphId}`,
           {
             method: 'PUT',
             headers: {
@@ -238,7 +240,7 @@ export const ParagraphEditorDialog = ({
       };
 
       const response = await fetch(
-        `${API_URL}/admin/global/paragraphs/${paragraphId}`,
+        isSchoolTextbook ? `${API_URL}/admin/school/paragraphs/${paragraphId}` : `${API_URL}/admin/global/paragraphs/${paragraphId}`,
         {
           method: 'PUT',
           headers: {

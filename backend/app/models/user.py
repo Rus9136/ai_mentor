@@ -49,6 +49,7 @@ class User(SoftDeleteModel):
     school = relationship("School", back_populates="users")
     student = relationship("Student", back_populates="user", uselist=False)
     teacher = relationship("Teacher", back_populates="user", uselist=False)
+    parent = relationship("Parent", back_populates="user", uselist=False)
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email='{self.email}', role='{self.role}')>"

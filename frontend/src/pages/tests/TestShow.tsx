@@ -7,6 +7,8 @@ import {
   FunctionField,
   ReferenceField,
   useRecordContext,
+  TopToolbar,
+  EditButton,
 } from 'react-admin';
 import { Chip, Alert, Box } from '@mui/material';
 import type { Test } from '../../types';
@@ -34,10 +36,40 @@ const QuestionsEditorTab = () => {
     );
   }
 
+  // Определяем контекст по URL: если мы на /school-tests, значит школьный ADMIN
+  const isSchoolContext = window.location.hash.includes('/school-tests');
+  const isGlobalTest = record.school_id === null || record.school_id === undefined;
+
+  // Если школьный ADMIN просматривает глобальный тест, редактор read-only
+  const isReadOnly = isSchoolContext && isGlobalTest;
+
   return (
     <Box sx={{ p: 2 }}>
-      <QuestionsEditor testId={record.id} />
+      <QuestionsEditor testId={record.id} isSchoolTest={isSchoolContext} readOnly={isReadOnly} />
     </Box>
+  );
+};
+
+/**
+ * Компонент для условного отображения кнопки Edit
+ */
+const TestShowActions = () => {
+  const record = useRecordContext<Test>();
+
+  // Определяем контекст: если мы на /school-tests и тест глобальный (school_id = null),
+  // то кнопка Edit НЕ должна быть доступна
+  const isSchoolContext = window.location.hash.includes('/school-tests');
+  const isGlobalTest = record?.school_id === null || record?.school_id === undefined;
+
+  // Школьный ADMIN не может редактировать глобальные тесты
+  if (isSchoolContext && isGlobalTest) {
+    return <TopToolbar />; // Пустой toolbar без кнопок
+  }
+
+  return (
+    <TopToolbar>
+      <EditButton />
+    </TopToolbar>
   );
 };
 
@@ -49,7 +81,7 @@ const QuestionsEditorTab = () => {
  * 2. Вопросы - редактор вопросов с полным CRUD функционалом
  */
 export const TestShow = () => (
-  <Show title="Просмотр теста">
+  <Show title="Просмотр теста" actions={<TestShowActions />}>
     <TabbedShowLayout>
       {/* Вкладка 1: Информация о тесте */}
       <Tab label="Информация">

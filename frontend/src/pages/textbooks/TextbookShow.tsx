@@ -8,6 +8,8 @@ import {
   Tab,
   useRecordContext,
   FunctionField,
+  TopToolbar,
+  EditButton,
 } from 'react-admin';
 import {
   Accordion,
@@ -30,7 +32,7 @@ import { TextbookStructureEditor } from './TextbookStructureEditor';
 const API_URL = 'http://localhost:8000/api/v1';
 
 // Компонент для отображения параграфов главы
-const ParagraphsList = ({ chapterId }: { chapterId: number }) => {
+const ParagraphsList = ({ chapterId, isSchoolTextbook }: { chapterId: number; isSchoolTextbook: boolean }) => {
   const [paragraphs, setParagraphs] = useState<Paragraph[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,8 +41,11 @@ const ParagraphsList = ({ chapterId }: { chapterId: number }) => {
     const fetchParagraphs = async () => {
       try {
         const token = getAuthToken();
+        const endpoint = isSchoolTextbook
+          ? `${API_URL}/admin/school/chapters/${chapterId}/paragraphs`
+          : `${API_URL}/admin/global/chapters/${chapterId}/paragraphs`;
         const response = await fetch(
-          `${API_URL}/admin/global/chapters/${chapterId}/paragraphs`,
+          endpoint,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -62,7 +67,7 @@ const ParagraphsList = ({ chapterId }: { chapterId: number }) => {
     };
 
     fetchParagraphs();
-  }, [chapterId]);
+  }, [chapterId, isSchoolTextbook]);
 
   if (loading) {
     return (
@@ -103,7 +108,7 @@ const ParagraphsList = ({ chapterId }: { chapterId: number }) => {
 };
 
 // Компонент для отображения одной главы с Accordion
-const ChapterAccordion = ({ chapter }: { chapter: Chapter }) => {
+const ChapterAccordion = ({ chapter, isSchoolTextbook }: { chapter: Chapter; isSchoolTextbook: boolean }) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -125,7 +130,7 @@ const ChapterAccordion = ({ chapter }: { chapter: Chapter }) => {
         </Box>
       </AccordionSummary>
       <AccordionDetails>
-        {expanded && <ParagraphsList chapterId={chapter.id} />}
+        {expanded && <ParagraphsList chapterId={chapter.id} isSchoolTextbook={isSchoolTextbook} />}
       </AccordionDetails>
     </Accordion>
   );
@@ -143,7 +148,11 @@ const EditorTab = () => {
     );
   }
 
-  return <TextbookStructureEditor textbookId={record.id} />;
+  // Определяем контекст по URL: если мы на /school-textbooks, значит школьный ADMIN
+  // В этом случае используем school endpoints даже для глобальных учебников
+  const isSchoolContext = window.location.hash.includes('/school-textbooks');
+
+  return <TextbookStructureEditor textbookId={record.id} isSchoolTextbook={isSchoolContext} />;
 };
 
 // Компонент для вкладки "Структура" со списком глав
@@ -153,13 +162,19 @@ const ChaptersTab = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Определяем контекст по URL: если мы на /school-textbooks, значит школьный ADMIN
+  const isSchoolContext = window.location.hash.includes('/school-textbooks');
+
   useEffect(() => {
     if (record?.id) {
       const fetchChapters = async () => {
         try {
           const token = getAuthToken();
+          const endpoint = isSchoolContext
+            ? `${API_URL}/admin/school/textbooks/${record.id}/chapters`
+            : `${API_URL}/admin/global/textbooks/${record.id}/chapters`;
           const response = await fetch(
-            `${API_URL}/admin/global/textbooks/${record.id}/chapters`,
+            endpoint,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -182,7 +197,7 @@ const ChaptersTab = () => {
 
       fetchChapters();
     }
-  }, [record?.id]);
+  }, [record?.id, isSchoolContext]);
 
   if (loading) {
     return (
@@ -214,15 +229,44 @@ const ChaptersTab = () => {
         Структура учебника ({chapters.length} глав)
       </Typography>
       {chapters.map((chapter) => (
-        <ChapterAccordion key={chapter.id} chapter={chapter} />
+        <ChapterAccordion key={chapter.id} chapter={chapter} isSchoolTextbook={isSchoolContext} />
       ))}
     </Box>
   );
 };
 
-// Основной компонент TextbookShow
-export const TextbookShow = () => (
-  <Show title="Просмотр учебника">
+// Компонент для условного отображения кнопки Edit
+const TextbookShowActions = () => {
+  const record = useRecordContext<Textbook>();
+
+  // Определяем контекст: если мы на /school-textbooks и учебник глобальный (school_id = null),
+  // то кнопка Edit НЕ должна быть доступна
+  const isSchoolContext = window.location.hash.includes('/school-textbooks');
+  const isGlobalTextbook = record?.school_id === null || record?.school_id === undefined;
+
+  // Школьный ADMIN не может редактировать глобальные учебники
+  if (isSchoolContext && isGlobalTextbook) {
+    return <TopToolbar />; // Пустой toolbar без кнопок
+  }
+
+  return (
+    <TopToolbar>
+      <EditButton />
+    </TopToolbar>
+  );
+};
+
+// Компонент для условного рендеринга вкладок в зависимости от контекста
+const TabbedShowContent = () => {
+  const record = useRecordContext<Textbook>();
+
+  // Определяем контекст: если мы на /school-textbooks и учебник глобальный (school_id = null),
+  // то редактор НЕ должен быть доступен
+  const isSchoolContext = window.location.hash.includes('/school-textbooks');
+  const isGlobalTextbook = record?.school_id === null || record?.school_id === undefined;
+  const showEditorTab = !(isSchoolContext && isGlobalTextbook);
+
+  return (
     <TabbedShowLayout>
       {/* Вкладка 1: Информация об учебнике */}
       <Tab label="Информация">
@@ -265,10 +309,19 @@ export const TextbookShow = () => (
         <ChaptersTab />
       </Tab>
 
-      {/* Вкладка 3: Редактор структуры (CRUD для глав и параграфов) */}
-      <Tab label="Редактор структуры" path="editor">
-        <EditorTab />
-      </Tab>
+      {/* Вкладка 3: Редактор структуры (CRUD для глав и параграфов) - условно */}
+      {showEditorTab && (
+        <Tab label="Редактор структуры" path="editor">
+          <EditorTab />
+        </Tab>
+      )}
     </TabbedShowLayout>
+  );
+};
+
+// Основной компонент TextbookShow
+export const TextbookShow = () => (
+  <Show title="Просмотр учебника" actions={<TextbookShowActions />}>
+    <TabbedShowContent />
   </Show>
 );

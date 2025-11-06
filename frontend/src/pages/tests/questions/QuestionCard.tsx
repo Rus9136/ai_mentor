@@ -31,6 +31,7 @@ interface QuestionCardProps {
   question: Question;
   onUpdate: (question: Question) => void;
   onDelete: (questionId: number) => void;
+  readOnly?: boolean;
 }
 
 // Маппинг типов вопросов на русский язык с цветами и иконками
@@ -68,6 +69,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   question,
   onUpdate,
   onDelete,
+  readOnly = false,
 }) => {
   const [editing, setEditing] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -166,42 +168,44 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         </Box>
 
         {/* Кнопки действий */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Tooltip title="Редактировать вопрос" placement="left">
-            <IconButton
-              onClick={() => setEditing(true)}
-              color="primary"
-              size="small"
-              aria-label="Редактировать вопрос"
-              sx={{
-                transition: 'all 0.2s',
-                '&:hover': {
-                  backgroundColor: 'primary.light',
-                  transform: 'scale(1.1)',
-                },
-              }}
-            >
-              <EditIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Удалить вопрос" placement="left">
-            <IconButton
-              onClick={() => setDeleteDialogOpen(true)}
-              color="error"
-              size="small"
-              aria-label="Удалить вопрос"
-              sx={{
-                transition: 'all 0.2s',
-                '&:hover': {
-                  backgroundColor: 'error.light',
-                  transform: 'scale(1.1)',
-                },
-              }}
-            >
-              <DeleteIcon />
-            </IconButton>
-          </Tooltip>
-        </Box>
+        {!readOnly && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Tooltip title="Редактировать вопрос" placement="left">
+              <IconButton
+                onClick={() => setEditing(true)}
+                color="primary"
+                size="small"
+                aria-label="Редактировать вопрос"
+                sx={{
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    backgroundColor: 'primary.light',
+                    transform: 'scale(1.1)',
+                  },
+                }}
+              >
+                <EditIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Удалить вопрос" placement="left">
+              <IconButton
+                onClick={() => setDeleteDialogOpen(true)}
+                color="error"
+                size="small"
+                aria-label="Удалить вопрос"
+                sx={{
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    backgroundColor: 'error.light',
+                    transform: 'scale(1.1)',
+                  },
+                }}
+              >
+                <DeleteIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
       </Paper>
 
       {/* Диалог подтверждения удаления */}

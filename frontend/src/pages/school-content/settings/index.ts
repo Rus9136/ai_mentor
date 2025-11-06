@@ -1,0 +1,1 @@
+export { SchoolSettings } from './SchoolSettings';

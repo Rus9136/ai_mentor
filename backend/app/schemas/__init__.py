@@ -48,6 +48,39 @@ from app.schemas.school import (
     SchoolResponse,
     SchoolListResponse,
 )
+from app.schemas.user import (
+    UserCreate,
+    UserUpdate,
+    UserResponseSchema,
+    UserListResponse,
+)
+from app.schemas.student import (
+    StudentCreate,
+    StudentUpdate,
+    StudentResponse,
+    StudentListResponse,
+)
+from app.schemas.teacher import (
+    TeacherCreate,
+    TeacherUpdate,
+    TeacherResponse,
+    TeacherListResponse,
+)
+from app.schemas.parent import (
+    ParentCreate,
+    ParentUpdate,
+    ParentResponse,
+    ParentListResponse,
+    AddChildrenRequest,
+)
+from app.schemas.school_class import (
+    SchoolClassCreate,
+    SchoolClassUpdate,
+    SchoolClassResponse,
+    SchoolClassListResponse,
+    AddStudentsRequest,
+    AddTeachersRequest,
+)
 from app.schemas.upload import (
     ImageUploadResponse,
     PDFUploadResponse,
@@ -93,6 +126,34 @@ __all__ = [
     "SchoolUpdate",
     "SchoolResponse",
     "SchoolListResponse",
+    # User
+    "UserCreate",
+    "UserUpdate",
+    "UserResponseSchema",
+    "UserListResponse",
+    # Student
+    "StudentCreate",
+    "StudentUpdate",
+    "StudentResponse",
+    "StudentListResponse",
+    # Teacher
+    "TeacherCreate",
+    "TeacherUpdate",
+    "TeacherResponse",
+    "TeacherListResponse",
+    # Parent
+    "ParentCreate",
+    "ParentUpdate",
+    "ParentResponse",
+    "ParentListResponse",
+    "AddChildrenRequest",
+    # SchoolClass
+    "SchoolClassCreate",
+    "SchoolClassUpdate",
+    "SchoolClassResponse",
+    "SchoolClassListResponse",
+    "AddStudentsRequest",
+    "AddTeachersRequest",
     # Upload
     "ImageUploadResponse",
     "PDFUploadResponse",

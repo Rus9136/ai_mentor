@@ -26,6 +26,7 @@ class School(SoftDeleteModel):
     users = relationship("User", back_populates="school", cascade="all, delete-orphan")
     students = relationship("Student", back_populates="school", cascade="all, delete-orphan")
     teachers = relationship("Teacher", back_populates="school", cascade="all, delete-orphan")
+    parents = relationship("Parent", back_populates="school", cascade="all, delete-orphan")
     classes = relationship("SchoolClass", back_populates="school", cascade="all, delete-orphan")
     textbooks = relationship("Textbook", back_populates="school", cascade="all, delete-orphan")
     assignments = relationship("Assignment", back_populates="school", cascade="all, delete-orphan")

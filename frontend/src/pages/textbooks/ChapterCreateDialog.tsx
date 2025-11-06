@@ -19,6 +19,7 @@ interface ChapterCreateDialogProps {
   textbookId: number;
   onClose: () => void;
   onSuccess: () => void;
+  isSchoolTextbook?: boolean;
 }
 
 interface ChapterFormData {
@@ -44,6 +45,7 @@ export const ChapterCreateDialog = ({
   textbookId,
   onClose,
   onSuccess,
+  isSchoolTextbook = false,
 }: ChapterCreateDialogProps) => {
   const [formData, setFormData] = useState<ChapterFormData>({
     title: '',
@@ -98,7 +100,10 @@ export const ChapterCreateDialog = ({
         learning_objective: formData.learning_objective.trim() || undefined,
       };
 
-      const response = await fetch(`${API_URL}/admin/global/chapters`, {
+      const endpoint = isSchoolTextbook
+        ? `${API_URL}/admin/school/chapters`
+        : `${API_URL}/admin/global/chapters`;
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

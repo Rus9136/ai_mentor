@@ -17,6 +17,7 @@ import { getAuthToken } from '../../providers/authProvider';
 const API_URL = 'http://localhost:8000/api/v1';
 
 interface ChapterDeleteDialogProps {
+  isSchoolTextbook?: boolean;
   open: boolean;
   chapter: Chapter;
   onClose: () => void;
@@ -35,6 +36,7 @@ export const ChapterDeleteDialog = ({
   chapter,
   onClose,
   onSuccess,
+  isSchoolTextbook = false,
 }: ChapterDeleteDialogProps) => {
   const [submitting, setSubmitting] = useState(false);
   const notify = useNotify();
@@ -44,7 +46,7 @@ export const ChapterDeleteDialog = ({
 
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_URL}/admin/global/chapters/${chapter.id}`, {
+      const response = await fetch(isSchoolTextbook ? `${API_URL}/admin/school/chapters/${chapter.id}` : `${API_URL}/admin/global/chapters/${chapter.id}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,

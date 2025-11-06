@@ -93,6 +93,11 @@ from app.schemas.school_class import (
     AddStudentsRequest,
     AddTeachersRequest,
 )
+from app.schemas.school import (
+    SchoolUpdate,
+    SchoolResponse,
+)
+from app.repositories.school_repo import SchoolRepository
 
 router = APIRouter()
 
@@ -2296,3 +2301,80 @@ async def remove_teacher_from_class(
 
     # Return SQLAlchemy model directly - FastAPI will serialize it via Pydantic
     return school_class
+
+
+# ========== School Settings Endpoints ==========
+
+
+@router.get("/settings", response_model=SchoolResponse)
+async def get_school_settings(
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get settings for the current school (ADMIN only).
+
+    Returns the school information including contact details.
+    School ADMIN can only view their own school's settings.
+    """
+    school_repo = SchoolRepository(db)
+
+    school = await school_repo.get_by_id(school_id)
+    if not school:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"School {school_id} not found"
+        )
+
+    return school
+
+
+@router.put("/settings", response_model=SchoolResponse)
+async def update_school_settings(
+    data: SchoolUpdate,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update settings for the current school (ADMIN only).
+
+    School ADMIN can update:
+    - description
+    - email
+    - phone
+    - address
+
+    School ADMIN CANNOT update:
+    - name (only SUPER_ADMIN)
+    - code (only SUPER_ADMIN)
+    - is_active (only SUPER_ADMIN)
+    """
+    school_repo = SchoolRepository(db)
+
+    # Verify school exists
+    school = await school_repo.get_by_id(school_id)
+    if not school:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"School {school_id} not found"
+        )
+
+    # School ADMIN can only update certain fields
+    # Don't allow updating name, code, is_active
+    update_data = data.model_dump(exclude_unset=True)
+
+    # Remove restricted fields if present
+    restricted_fields = {"name", "code", "is_active"}
+    for field in restricted_fields:
+        update_data.pop(field, None)
+
+    # Apply updates to school object
+    for key, value in update_data.items():
+        setattr(school, key, value)
+
+    # Update school
+    updated_school = await school_repo.update(school)
+
+    return updated_school

@@ -29,6 +29,11 @@ class Student(SoftDeleteModel):
         secondary="class_students",
         back_populates="students",
     )
+    parents = relationship(
+        "Parent",
+        secondary="parent_students",
+        back_populates="children",
+    )
     assignments = relationship("StudentAssignment", back_populates="student", cascade="all, delete-orphan")
     test_attempts = relationship("TestAttempt", back_populates="student", cascade="all, delete-orphan")
     mastery_history = relationship("MasteryHistory", back_populates="student", cascade="all, delete-orphan")

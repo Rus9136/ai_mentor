@@ -15,6 +15,7 @@ import { getAuthToken } from '../../providers/authProvider';
 const API_URL = 'http://localhost:8000/api/v1';
 
 interface ParagraphCreateDialogProps {
+  isSchoolTextbook?: boolean;
   open: boolean;
   chapterId: number;
   onClose: () => void;
@@ -48,6 +49,7 @@ export const ParagraphCreateDialog = ({
   chapterId,
   onClose,
   onSuccess,
+  isSchoolTextbook = false,
 }: ParagraphCreateDialogProps) => {
   const [formData, setFormData] = useState<ParagraphFormData>({
     title: '',
@@ -110,7 +112,7 @@ export const ParagraphCreateDialog = ({
         lesson_objective: formData.lesson_objective.trim() || undefined,
       };
 
-      const response = await fetch(`${API_URL}/admin/global/paragraphs`, {
+      const response = await fetch(isSchoolTextbook ? `${API_URL}/admin/school/paragraphs` : `${API_URL}/admin/global/paragraphs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

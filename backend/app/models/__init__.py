@@ -10,6 +10,7 @@ from app.models.school import School
 from app.models.user import User, UserRole
 from app.models.student import Student
 from app.models.teacher import Teacher
+from app.models.parent import Parent, parent_students
 from app.models.school_class import SchoolClass, class_students, class_teachers
 
 # Content models
@@ -47,6 +48,8 @@ __all__ = [
     "UserRole",
     "Student",
     "Teacher",
+    "Parent",
+    "parent_students",
     "SchoolClass",
     "class_students",
     "class_teachers",

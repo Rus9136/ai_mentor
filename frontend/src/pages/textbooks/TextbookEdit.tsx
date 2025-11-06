@@ -96,9 +96,13 @@ const TextbookEditToolbar = () => {
   const handleToggleArchive = async () => {
     if (!record) return;
 
+    // Определяем resource по URL
+    const isSchoolContext = window.location.hash.includes('/school-textbooks');
+    const resourceName = isSchoolContext ? 'school-textbooks' : 'textbooks';
+
     try {
       await update(
-        'textbooks',
+        resourceName,
         {
           id: record.id,
           data: { is_active: !record.is_active },
@@ -111,7 +115,7 @@ const TextbookEditToolbar = () => {
               { type: 'success' }
             );
             refresh();
-            redirect('show', 'textbooks', record.id);
+            redirect('show', resourceName, record.id);
           },
           onError: () => {
             notify('Ошибка при изменении статуса учебника', { type: 'error' });
