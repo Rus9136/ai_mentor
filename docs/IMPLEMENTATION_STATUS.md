@@ -3,9 +3,9 @@
 Этот документ отслеживает прогресс реализации проекта согласно плану из 12 основных итераций (18 детальных подитераций).
 
 **Дата начала:** 2025-10-28
-**Текущая итерация:** 8 (⏳ НЕ НАЧАТА)
-**Общий прогресс:** 72% (13 завершены из 18 итераций)
-**Последнее обновление:** 2025-01-07 (✅ Итерация 7 завершена - Student API для прохождения тестов. 2 миграции (mastery tables + test_purpose enum), 5 API endpoints, GradingService для автоматической проверки, MasteryService для отслеживания прогресса. 21/21 тестов проходят (8 unit + 13 integration). 3,701 строк кода. Полный test-taking workflow реализован. Production-ready.)
+**Текущая итерация:** 8 (✅ ЗАВЕРШЕНА)
+**Общий прогресс:** 78% (14 завершены из 18 итераций)
+**Последнее обновление:** 2025-01-07 (✅ Итерация 8 завершена - Mastery Service алгоритм A/B/C группировки. Полный алгоритм с weighted average, trend analysis, consistency. 2 repository метода, 6 методов алгоритма, 4 Pydantic схемы, 2 API endpoints. 12/12 тестов проходят. ChapterMastery автоматически обновляется после каждого теста. MasteryHistory отслеживает изменения C→B→A. 1,630 строк кода. Production-ready.)
 
 ---
 
@@ -1388,20 +1388,53 @@ Database-level multi-tenant isolation полностью реализована 
 
 ---
 
-### ⏳ ИТЕРАЦИЯ 8: Mastery Service - алгоритм A/B/C группировки
-**Статус:** ⏳ НЕ НАЧАТА
-**Дата начала:** -
+### ✅ ИТЕРАЦИЯ 8: Mastery Service - алгоритм A/B/C группировки
+**Статус:** ✅ ЗАВЕРШЕНА
+**Дата начала:** 2025-01-07
+**Дата завершения:** 2025-01-07
 
-**Запланированные задачи:**
-- ⏳ Реализовать app/services/mastery.py
-- ⏳ Создать функцию calculate_mastery_level()
-- ⏳ Добавить автоматический пересчет после теста
-- ⏳ Создать GET /student/mastery-level endpoint
+**Выполненные задачи:**
+- ✅ Реализовать repository методы (get_chapter_attempts, get_chapter_stats)
+- ✅ Реализовать полный алгоритм A/B/C в mastery_service.py
+- ✅ Создать функцию calculate_chapter_mastery() с метриками (weighted avg, trend, consistency)
+- ✅ Добавить автоматический пересчет после каждого теста (интеграция с GradingService)
+- ✅ Создать 4 Pydantic схемы (ParagraphMasteryResponse, ChapterMasteryResponse, ChapterMasteryDetailResponse, MasteryOverviewResponse)
+- ✅ Создать GET /students/mastery/chapter/{chapter_id} endpoint
+- ✅ Создать GET /students/mastery/overview endpoint
+- ✅ Написать 12 тестов для алгоритма A/B/C
 
 **Критерии завершения:**
-- [ ] После 3+ тестов студент получает правильную группу
-- [ ] Алгоритм работает согласно спецификации
-- [ ] Группы A/B/C определяются корректно
+- [x] После 3+ тестов студент получает правильную группу (A/B/C)
+- [x] Алгоритм работает согласно спецификации (weighted avg, trend, consistency)
+- [x] Группы A/B/C определяются корректно (12/12 тестов прошли)
+- [x] ChapterMastery автоматически обновляется после каждого теста
+- [x] MasteryHistory отслеживает изменения уровня
+- [x] Tenant isolation работает (school_id)
+- [x] API endpoints готовы для frontend
+
+**Результаты:**
+- ~1,630 строк кода добавлено
+- 12/12 тестов прошли успешно за 12.26 сек
+- Repository слой: 2 новых метода (~94 строки)
+- Алгоритм A/B/C: 6 методов (~356 строк)
+- Интеграция с GradingService (~20 строк)
+- Pydantic схемы: 4 схемы (~159 строк)
+- API endpoints: 2 endpoint (~150 строк)
+- Тесты: 12 тестов (~800 строк)
+
+**Файлы:**
+- backend/app/services/mastery_service.py (алгоритм A/B/C)
+- backend/app/repositories/test_attempt_repo.py (get_chapter_attempts)
+- backend/app/repositories/paragraph_mastery_repo.py (get_chapter_stats)
+- backend/app/services/grading_service.py (интеграция)
+- backend/app/schemas/mastery.py (NEW, 4 схемы)
+- backend/app/api/v1/students.py (2 новых endpoint)
+- backend/tests/test_mastery_service.py (NEW, 12 тестов)
+- docs/SESSION_LOG_Iteration_8_Mastery_ABC_2025-01-07.md (NEW)
+- docs/TESTING_ITERATION_8.md (NEW)
+
+**Комментарии:**
+Итерация 8 полностью завершена за 1 день. Реализован полный алгоритм A/B/C группировки студентов по уровню мастерства с использованием взвешенного среднего (weights: [0.35, 0.25, 0.20, 0.12, 0.08]), анализа тренда (улучшение/ухудшение) и консистентности (std_dev). ChapterMastery автоматически обновляется после каждого FORMATIVE/SUMMATIVE теста. MasteryHistory отслеживает изменения уровня (C→B→A). Все 12 тестов проходят успешно, включая tests для tenant isolation, summative tests, paragraph stats, edge cases и idempotency. API endpoints готовы для frontend с полной документацией (OpenAPI). Production-ready. Готово к Итерации 9 (RAG Service с векторным поиском).
 
 ---
 

@@ -6,8 +6,8 @@ from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.test_attempt import TestAttempt, TestAttemptAnswer
-from app.models.test import Question
+from app.models.test_attempt import TestAttempt, TestAttemptAnswer, AttemptStatus
+from app.models.test import Question, Test
 
 
 class TestAttemptRepository:
@@ -166,3 +166,43 @@ class TestAttemptRepository:
             )
         )
         return result.scalar_one_or_none()
+
+    async def get_chapter_attempts(
+        self,
+        student_id: int,
+        chapter_id: int,
+        school_id: int,
+        limit: int = 5,
+        status: AttemptStatus = AttemptStatus.COMPLETED
+    ) -> List[TestAttempt]:
+        """
+        Get recent test attempts for a chapter.
+
+        Used by MasteryService to calculate chapter-level mastery (A/B/C grouping).
+
+        Queries all tests with test.chapter_id = chapter_id and returns
+        completed attempts sorted by completed_at DESC.
+
+        Args:
+            student_id: Student ID
+            chapter_id: Chapter ID
+            school_id: School ID (tenant isolation)
+            limit: Maximum number of attempts to return (default: 5)
+            status: Attempt status filter (default: COMPLETED)
+
+        Returns:
+            List of test attempts sorted by completed_at DESC (newest first)
+        """
+        result = await self.db.execute(
+            select(TestAttempt)
+            .join(Test, Test.id == TestAttempt.test_id)
+            .where(
+                TestAttempt.student_id == student_id,
+                TestAttempt.school_id == school_id,
+                TestAttempt.status == status,
+                Test.chapter_id == chapter_id
+            )
+            .order_by(desc(TestAttempt.completed_at))
+            .limit(limit)
+        )
+        return list(result.scalars().all())

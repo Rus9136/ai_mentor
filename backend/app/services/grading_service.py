@@ -237,11 +237,11 @@ class GradingService:
 
         # 8. Trigger mastery update (CRITICAL: Only for FORMATIVE and SUMMATIVE tests!)
         if attempt.test.test_purpose in (TestPurpose.FORMATIVE, TestPurpose.SUMMATIVE):
-            # Only update paragraph mastery if test has paragraph_id
-            if attempt.test.paragraph_id:
-                from app.services.mastery_service import MasteryService
+            from app.services.mastery_service import MasteryService
+            mastery_service = MasteryService(self.db)
 
-                mastery_service = MasteryService(self.db)
+            # 8a. Update paragraph mastery (if test has paragraph_id)
+            if attempt.test.paragraph_id:
                 await mastery_service.update_paragraph_mastery(
                     student_id=attempt.student_id,
                     paragraph_id=attempt.test.paragraph_id,
@@ -257,6 +257,25 @@ class GradingService:
                 logger.info(
                     f"Skipping paragraph mastery update: test {attempt.test_id} "
                     "has no paragraph_id (chapter-level test)"
+                )
+
+            # 8b. Trigger chapter mastery recalculation (ALWAYS if chapter_id exists)
+            # This is called for BOTH paragraph-level and chapter-level tests
+            if attempt.test.chapter_id:
+                await mastery_service.trigger_chapter_recalculation(
+                    student_id=attempt.student_id,
+                    chapter_id=attempt.test.chapter_id,
+                    school_id=attempt.school_id,
+                    test_attempt=attempt
+                )
+                logger.info(
+                    f"Triggered chapter mastery recalculation for student {student_id}, "
+                    f"chapter {attempt.test.chapter_id}"
+                )
+            else:
+                logger.info(
+                    f"Skipping chapter mastery recalculation: test {attempt.test_id} "
+                    "has no chapter_id"
                 )
         else:
             logger.info(

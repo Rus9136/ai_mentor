@@ -1,13 +1,14 @@
 """
 Repository for ParagraphMastery data access.
 """
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
-from sqlalchemy import select
+from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.mastery import ParagraphMastery
+from app.models.paragraph import Paragraph
 
 
 class ParagraphMasteryRepository:
@@ -131,3 +132,56 @@ class ParagraphMasteryRepository:
                 **update_fields
             )
             return await self.create(new_mastery)
+
+    async def get_chapter_stats(
+        self,
+        student_id: int,
+        chapter_id: int
+    ) -> Dict[str, int]:
+        """
+        Get aggregated paragraph mastery stats for a chapter.
+
+        Used by MasteryService to update ChapterMastery counters.
+
+        Args:
+            student_id: Student ID
+            chapter_id: Chapter ID
+
+        Returns:
+            Dictionary with keys:
+            - 'total': Total paragraphs in chapter
+            - 'completed': Paragraphs marked as completed
+            - 'mastered': Paragraphs with status='mastered'
+            - 'struggling': Paragraphs with status='struggling'
+        """
+        # Query with aggregation
+        result = await self.db.execute(
+            select(
+                func.count(Paragraph.id).label('total'),
+                func.count(
+                    case((ParagraphMastery.is_completed == True, 1))
+                ).label('completed'),
+                func.count(
+                    case((ParagraphMastery.status == 'mastered', 1))
+                ).label('mastered'),
+                func.count(
+                    case((ParagraphMastery.status == 'struggling', 1))
+                ).label('struggling')
+            )
+            .select_from(Paragraph)
+            .outerjoin(
+                ParagraphMastery,
+                (ParagraphMastery.paragraph_id == Paragraph.id) &
+                (ParagraphMastery.student_id == student_id)
+            )
+            .where(Paragraph.chapter_id == chapter_id)
+        )
+
+        row = result.one()
+
+        return {
+            'total': row.total or 0,
+            'completed': row.completed or 0,
+            'mastered': row.mastered or 0,
+            'struggling': row.struggling or 0
+        }

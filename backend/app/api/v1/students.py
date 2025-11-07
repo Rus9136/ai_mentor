@@ -28,6 +28,7 @@ from app.models.chapter import Chapter
 from app.repositories.test_repo import TestRepository
 from app.repositories.test_attempt_repo import TestAttemptRepository
 from app.repositories.paragraph_mastery_repo import ParagraphMasteryRepository
+from app.repositories.chapter_mastery_repo import ChapterMasteryRepository
 from app.services.grading_service import GradingService
 from app.schemas.test_attempt import (
     TestAttemptCreate,
@@ -37,6 +38,11 @@ from app.schemas.test_attempt import (
     TestAttemptAnswerResponse,
     AvailableTestResponse,
     StudentProgressResponse,
+)
+from app.schemas.mastery import (
+    ChapterMasteryResponse,
+    ChapterMasteryDetailResponse,
+    MasteryOverviewResponse,
 )
 from app.schemas.question import QuestionResponse, QuestionResponseStudent
 from app.schemas.test import TestResponse
@@ -644,4 +650,151 @@ async def get_student_progress(
         best_score=best_score,
         total_attempts=total_attempts,
         paragraphs=paragraphs_data
+    )
+
+
+@router.get("/mastery/chapter/{chapter_id}", response_model=ChapterMasteryResponse)
+async def get_chapter_mastery(
+    chapter_id: int,
+    current_user: User = Depends(require_student),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get chapter mastery level (A/B/C grouping).
+
+    Returns mastery record with:
+    - A/B/C level and mastery_score (0-100)
+    - Paragraph counters (total, completed, mastered, struggling)
+    - Progress percentage
+    - Summative test results (if taken)
+
+    Args:
+        chapter_id: Chapter ID
+        current_user: Current authenticated student
+        school_id: Student's school ID (from token)
+        db: Database session
+
+    Returns:
+        ChapterMasteryResponse with A/B/C mastery level
+
+    Raises:
+        HTTPException 404: Chapter mastery not found (student hasn't started chapter)
+    """
+    student_id = current_user.student.id
+
+    # Get chapter mastery record
+    mastery_repo = ChapterMasteryRepository(db)
+    mastery = await mastery_repo.get_by_student_chapter(
+        student_id=student_id,
+        chapter_id=chapter_id
+    )
+
+    if not mastery:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Chapter mastery not found for chapter {chapter_id}. Student hasn't started this chapter yet."
+        )
+
+    # Verify tenant isolation
+    if mastery.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied"
+        )
+
+    logger.info(
+        f"Student {student_id} retrieved chapter {chapter_id} mastery: "
+        f"level={mastery.mastery_level}, score={mastery.mastery_score:.2f}"
+    )
+
+    return ChapterMasteryResponse.model_validate(mastery)
+
+
+@router.get("/mastery/overview", response_model=MasteryOverviewResponse)
+async def get_mastery_overview(
+    current_user: User = Depends(require_student),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get mastery overview for all chapters.
+
+    Returns:
+    - List of all chapters with mastery data (A/B/C levels)
+    - Aggregated statistics (level_a_count, level_b_count, level_c_count)
+    - Average mastery score across all chapters
+
+    Args:
+        current_user: Current authenticated student
+        school_id: Student's school ID (from token)
+        db: Database session
+
+    Returns:
+        MasteryOverviewResponse with all chapters and aggregated stats
+    """
+    student_id = current_user.student.id
+
+    # Get all chapter mastery records for student
+    mastery_repo = ChapterMasteryRepository(db)
+    mastery_records = await mastery_repo.get_by_student(
+        student_id=student_id,
+        school_id=school_id
+    )
+
+    # Build chapters data with chapter info
+    chapters_data = []
+    for mastery in mastery_records:
+        # Get chapter info
+        chapter_result = await db.execute(
+            select(Chapter).where(Chapter.id == mastery.chapter_id)
+        )
+        chapter = chapter_result.scalar_one_or_none()
+
+        chapters_data.append(
+            ChapterMasteryDetailResponse(
+                id=mastery.id,
+                student_id=mastery.student_id,
+                chapter_id=mastery.chapter_id,
+                total_paragraphs=mastery.total_paragraphs,
+                completed_paragraphs=mastery.completed_paragraphs,
+                mastered_paragraphs=mastery.mastered_paragraphs,
+                struggling_paragraphs=mastery.struggling_paragraphs,
+                mastery_level=mastery.mastery_level,
+                mastery_score=mastery.mastery_score,
+                progress_percentage=mastery.progress_percentage,
+                summative_score=mastery.summative_score,
+                summative_passed=mastery.summative_passed,
+                last_updated_at=mastery.last_updated_at,
+                chapter_title=chapter.title if chapter else None,
+                chapter_order=chapter.order if chapter else None
+            )
+        )
+
+    # Calculate aggregated stats
+    total_chapters = len(mastery_records)
+    level_a_count = sum(1 for m in mastery_records if m.mastery_level == 'A')
+    level_b_count = sum(1 for m in mastery_records if m.mastery_level == 'B')
+    level_c_count = sum(1 for m in mastery_records if m.mastery_level == 'C')
+
+    # Calculate average mastery score
+    if mastery_records:
+        average_mastery_score = sum(m.mastery_score for m in mastery_records) / len(mastery_records)
+    else:
+        average_mastery_score = 0.0
+
+    logger.info(
+        f"Student {student_id} mastery overview: {total_chapters} chapters tracked, "
+        f"A={level_a_count}, B={level_b_count}, C={level_c_count}, "
+        f"avg_score={average_mastery_score:.2f}"
+    )
+
+    return MasteryOverviewResponse(
+        student_id=student_id,
+        chapters=chapters_data,
+        total_chapters=total_chapters,
+        average_mastery_score=round(average_mastery_score, 2),
+        level_a_count=level_a_count,
+        level_b_count=level_b_count,
+        level_c_count=level_c_count
     )

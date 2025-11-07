@@ -97,6 +97,12 @@ from app.schemas.test_attempt import (
     StudentProgressResponse,
     AvailableTestResponse,
 )
+from app.schemas.mastery import (
+    ParagraphMasteryResponse,
+    ChapterMasteryResponse,
+    ChapterMasteryDetailResponse,
+    MasteryOverviewResponse,
+)
 
 __all__ = [
     # Auth
@@ -180,4 +186,9 @@ __all__ = [
     "TestAttemptDetailResponse",
     "StudentProgressResponse",
     "AvailableTestResponse",
+    # Mastery
+    "ParagraphMasteryResponse",
+    "ChapterMasteryResponse",
+    "ChapterMasteryDetailResponse",
+    "MasteryOverviewResponse",
 ]
