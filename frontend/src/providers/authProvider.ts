@@ -59,33 +59,36 @@ export const authProvider: AuthProvider = {
 
   // Вызывается для получения данных о текущем пользователе
   getIdentity: async () => {
+    let user: User;
+
     // Проверяем кеш
     const cachedUser = localStorage.getItem('user');
     if (cachedUser) {
-      return Promise.resolve(JSON.parse(cachedUser));
+      user = JSON.parse(cachedUser);
+    } else {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        return Promise.reject();
+      }
+
+      const response = await fetch(`${API_URL}/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        return Promise.reject();
+      }
+
+      user = await response.json();
+
+      // Кешируем пользователя
+      localStorage.setItem('user', JSON.stringify(user));
     }
-
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      return Promise.reject();
-    }
-
-    const response = await fetch(`${API_URL}/auth/me`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      return Promise.reject();
-    }
-
-    const user: User = await response.json();
-
-    // Кешируем пользователя
-    localStorage.setItem('user', JSON.stringify(user));
 
     // React Admin ожидает объект с id и fullName
+    // Применяем трансформацию всегда (и для кэша, и для API)
     return Promise.resolve({
       ...user,
       fullName: user.first_name && user.last_name

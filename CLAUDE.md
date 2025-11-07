@@ -38,6 +38,26 @@ cd backend && alembic current
 docker exec -it ai_mentor_postgres psql -U ai_mentor_user -d ai_mentor_db
 ```
 
+**Database Credentials:**
+
+Проект использует **две роли** PostgreSQL для разных целей:
+
+1. **ai_mentor_user** (SUPERUSER) - для миграций
+   - User: `ai_mentor_user`
+   - Password: `ai_mentor_pass`
+   - Используется в: `alembic.ini`, скрипты миграций, прямое подключение к БД
+   - Права: SUPERUSER (bypass RLS policies)
+   - Почему нужен: RLS политики применяются даже к владельцу таблицы, но SUPERUSER может их обойти для создания/изменения схемы
+
+2. **ai_mentor_app** (обычный пользователь) - для runtime
+   - User: `ai_mentor_app`
+   - Password: `ai_mentor_pass`
+   - Используется в: `backend/.env` (POSTGRES_USER)
+   - Права: Обычный пользователь, RLS политики активны
+   - Почему нужен: Обеспечивает multi-tenant изоляцию на уровне БД через RLS
+
+**Важно:** Всегда используй `ai_mentor_user` для миграций и `ai_mentor_app` для работы приложения.
+
 ### Development Server
 ```bash
 # Локально (из корня проекта)
@@ -72,6 +92,31 @@ ruff check backend/
 # Проверка типов (MyPy) - когда будет настроено
 mypy backend/
 ```
+
+### Test Credentials
+
+**Administrators:**
+- **SUPER_ADMIN:** superadmin@aimentor.com / admin123
+- **School ADMIN:** school.admin@test.com / admin123
+
+**Teachers (School 7 - "Тестовая школа №1"):**
+- teacher.math@school001.com / teacher123 (Айгерим Нурсултанова - Математика)
+- teacher.physics@school001.com / teacher123 (Асхат Жумабаев - Физика)
+- teacher.chemistry@school001.com / teacher123 (Динара Сатыбалдиева - Химия)
+- teacher.biology@school001.com / teacher123 (Нургуль Абишева - Биология)
+- teacher.history@school001.com / teacher123 (Ержан Кенжебаев - История)
+
+**Students (School 7 - "Тестовая школа №1"):**
+- student1@school001.com / student123 (Алихан Султанов - 7-А класс)
+- student2@school001.com / student123 (Аружан Есимова - 7-А класс)
+- student3@school001.com / student123 (Нурислам Бекжанов - 8-Б класс)
+- student4@school001.com / student123 (Жанель Кабдулова - 8-Б класс)
+- student5@school001.com / student123 (Данияр Мухамедов - 9-В класс)
+- student6@school001.com / student123 (Айым Сейдахметова - 9-В класс)
+- student7@school001.com / student123 (Ернар Токаев - 10-А класс)
+- student8@school001.com / student123 (Камила Нурланова - 10-А класс)
+
+**Frontend:** http://localhost:5173
 
 ## Architecture & Key Concepts
 

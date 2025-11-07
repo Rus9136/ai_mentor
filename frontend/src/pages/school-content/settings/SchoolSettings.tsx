@@ -42,7 +42,7 @@ interface School {
  * SchoolSettings - компонент настроек школы
  */
 export const SchoolSettings = () => {
-  const { identity, isLoading: identityLoading } = useGetIdentity();
+  const { identity: _identity, isLoading: identityLoading } = useGetIdentity();
   const notify = useNotify();
   const [school, setSchool] = useState<School | null>(null);
   const [loading, setLoading] = useState(true);

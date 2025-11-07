@@ -12,9 +12,6 @@ import {
   EditButton,
   ShowButton,
   TopToolbar,
-  useListContext,
-  useNotify,
-  useRedirect,
 } from 'react-admin';
 import {
   Box,
