@@ -3,7 +3,7 @@ Test attempt models.
 """
 from sqlalchemy import Column, Integer, ForeignKey, Float, DateTime, Boolean, Text, Enum as SQLEnum, JSON
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 import enum
 
 from app.models.base import BaseModel
@@ -30,7 +30,7 @@ class TestAttempt(BaseModel):
     # Attempt info
     attempt_number = Column(Integer, nullable=False, default=1)  # Attempt number for this student/test
     status = Column(SQLEnum(AttemptStatus), nullable=False, default=AttemptStatus.IN_PROGRESS, index=True)
-    started_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    started_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime(timezone=True), nullable=True)
 
     # Results

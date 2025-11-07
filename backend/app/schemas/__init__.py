@@ -41,6 +41,8 @@ from app.schemas.question import (
     QuestionOptionCreate,
     QuestionOptionUpdate,
     QuestionOptionResponse,
+    QuestionOptionResponseStudent,
+    QuestionResponseStudent,
 )
 from app.schemas.school import (
     SchoolCreate,
@@ -85,6 +87,16 @@ from app.schemas.upload import (
     ImageUploadResponse,
     PDFUploadResponse,
 )
+from app.schemas.test_attempt import (
+    AnswerSubmit,
+    TestAttemptCreate,
+    TestAttemptSubmit,
+    TestAttemptAnswerResponse,
+    TestAttemptResponse,
+    TestAttemptDetailResponse,
+    StudentProgressResponse,
+    AvailableTestResponse,
+)
 
 __all__ = [
     # Auth
@@ -121,6 +133,8 @@ __all__ = [
     "QuestionOptionCreate",
     "QuestionOptionUpdate",
     "QuestionOptionResponse",
+    "QuestionOptionResponseStudent",
+    "QuestionResponseStudent",
     # School
     "SchoolCreate",
     "SchoolUpdate",
@@ -157,4 +171,13 @@ __all__ = [
     # Upload
     "ImageUploadResponse",
     "PDFUploadResponse",
+    # TestAttempt
+    "AnswerSubmit",
+    "TestAttemptCreate",
+    "TestAttemptSubmit",
+    "TestAttemptAnswerResponse",
+    "TestAttemptResponse",
+    "TestAttemptDetailResponse",
+    "StudentProgressResponse",
+    "AvailableTestResponse",
 ]

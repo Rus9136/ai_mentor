@@ -5,7 +5,7 @@ from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
-from app.models.test import DifficultyLevel
+from app.models.test import DifficultyLevel, TestPurpose
 
 
 class TestCreate(BaseModel):
@@ -15,6 +15,7 @@ class TestCreate(BaseModel):
     description: Optional[str] = Field(None, description="Test description")
     chapter_id: Optional[int] = Field(None, description="Chapter ID (optional)")
     paragraph_id: Optional[int] = Field(None, description="Paragraph ID (optional)")
+    test_purpose: TestPurpose = Field(default=TestPurpose.FORMATIVE, description="Test purpose (diagnostic, formative, summative, practice)")
     difficulty: DifficultyLevel = Field(default=DifficultyLevel.MEDIUM, description="Difficulty level")
     time_limit: Optional[int] = Field(None, ge=1, description="Time limit in minutes (must be positive)")
     passing_score: float = Field(default=0.7, ge=0.0, le=1.0, description="Passing score (0.0 to 1.0)")
@@ -28,6 +29,7 @@ class TestUpdate(BaseModel):
     description: Optional[str] = Field(None, description="Test description")
     chapter_id: Optional[int] = Field(None, description="Chapter ID")
     paragraph_id: Optional[int] = Field(None, description="Paragraph ID")
+    test_purpose: Optional[TestPurpose] = Field(None, description="Test purpose")
     difficulty: Optional[DifficultyLevel] = Field(None, description="Difficulty level")
     time_limit: Optional[int] = Field(None, ge=1, description="Time limit in minutes")
     passing_score: Optional[float] = Field(None, ge=0.0, le=1.0, description="Passing score (0.0 to 1.0)")
@@ -46,6 +48,7 @@ class TestResponse(BaseModel):
 
     title: str
     description: Optional[str]
+    test_purpose: TestPurpose
     difficulty: DifficultyLevel
     time_limit: Optional[int]
     passing_score: float
@@ -66,6 +69,7 @@ class TestListResponse(BaseModel):
     school_id: Optional[int]
     chapter_id: Optional[int]
     title: str
+    test_purpose: TestPurpose
     difficulty: DifficultyLevel
     is_active: bool
     created_at: datetime

@@ -95,3 +95,40 @@ class QuestionListResponse(BaseModel):
     question_text: str
     points: float
     created_at: datetime
+
+
+# Student-facing schemas (NO correct answers exposed before test submission)
+
+
+class QuestionOptionResponseStudent(BaseModel):
+    """Schema for question option WITHOUT is_correct field (for student BEFORE submit)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    question_id: int
+    order: int
+    option_text: str
+    # NOTE: is_correct is intentionally EXCLUDED for security
+    created_at: datetime
+    updated_at: datetime
+
+
+class QuestionResponseStudent(BaseModel):
+    """Schema for question WITHOUT correct answers (for student BEFORE submit)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    test_id: int
+    order: int
+    question_type: QuestionType
+    question_text: str
+    points: float
+    # NOTE: explanation is EXCLUDED (may contain answer hints)
+
+    # Nested options WITHOUT is_correct
+    options: List[QuestionOptionResponseStudent] = Field(default_factory=list)
+
+    created_at: datetime
+    updated_at: datetime

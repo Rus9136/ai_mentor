@@ -16,6 +16,15 @@ class DifficultyLevel(str, enum.Enum):
     HARD = "hard"
 
 
+class TestPurpose(str, enum.Enum):
+    """Test purpose enumeration for learning workflow."""
+
+    DIAGNOSTIC = "diagnostic"  # Pre-chapter assessment
+    FORMATIVE = "formative"  # Post-paragraph ongoing assessment (default)
+    SUMMATIVE = "summative"  # Post-chapter comprehensive test
+    PRACTICE = "practice"  # Self-study, doesn't affect mastery
+
+
 class QuestionType(str, enum.Enum):
     """Question type enumeration."""
 
@@ -38,6 +47,13 @@ class Test(SoftDeleteModel):
     # Test info
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
+    test_purpose = Column(
+        SQLEnum(TestPurpose, values_callable=lambda x: [e.value for e in x], name='testpurpose'),
+        nullable=False,
+        default=TestPurpose.FORMATIVE,
+        server_default='formative',
+        index=True
+    )
     difficulty = Column(
         SQLEnum(DifficultyLevel, values_callable=lambda x: [e.value for e in x], name='difficultylevel'),
         nullable=False,

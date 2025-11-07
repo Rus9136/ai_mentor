@@ -10,6 +10,7 @@ from pathlib import Path
 
 from app.core.config import settings
 from app.core.database import engine
+from app.middleware.tenancy import TenancyMiddleware
 
 
 @asynccontextmanager
@@ -56,6 +57,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Configure Tenancy Middleware for RLS (Row Level Security)
+# This middleware automatically sets tenant context (school_id) from JWT token
+# Must be added AFTER CORSMiddleware to ensure proper header handling
+app.add_middleware(TenancyMiddleware)
+
 
 # Health check endpoint
 @app.get("/health", tags=["health"])
@@ -86,7 +92,7 @@ upload_dir_path.mkdir(parents=True, exist_ok=True)
 app.mount(f"/{settings.UPLOAD_DIR}", StaticFiles(directory=str(upload_dir_path)), name="uploads")
 
 # Include routers
-from app.api.v1 import auth, admin_global, admin_school, schools, upload
+from app.api.v1 import auth, admin_global, admin_school, schools, upload, students
 
 app.include_router(
     auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"]
@@ -112,4 +118,10 @@ app.include_router(
     upload.router,
     prefix=f"{settings.API_V1_PREFIX}/upload",
     tags=["Upload"],
+)
+
+app.include_router(
+    students.router,
+    prefix=f"{settings.API_V1_PREFIX}/students",
+    tags=["Students"],
 )

@@ -17,11 +17,11 @@ from app.models.school_class import SchoolClass, class_students, class_teachers
 from app.models.textbook import Textbook
 from app.models.chapter import Chapter
 from app.models.paragraph import Paragraph, ParagraphEmbedding
-from app.models.test import Test, Question, QuestionOption, DifficultyLevel, QuestionType
+from app.models.test import Test, Question, QuestionOption, DifficultyLevel, QuestionType, TestPurpose
 
 # Progress tracking models
 from app.models.test_attempt import TestAttempt, TestAttemptAnswer, AttemptStatus
-from app.models.mastery import MasteryHistory, AdaptiveGroup
+from app.models.mastery import MasteryHistory, AdaptiveGroup, ParagraphMastery, ChapterMastery
 
 # Assignment models
 from app.models.assignment import Assignment, AssignmentTest, StudentAssignment, AssignmentStatus
@@ -63,12 +63,15 @@ __all__ = [
     "QuestionOption",
     "DifficultyLevel",
     "QuestionType",
+    "TestPurpose",
     # Progress
     "TestAttempt",
     "TestAttemptAnswer",
     "AttemptStatus",
     "MasteryHistory",
     "AdaptiveGroup",
+    "ParagraphMastery",
+    "ChapterMastery",
     # Assignment
     "Assignment",
     "AssignmentTest",

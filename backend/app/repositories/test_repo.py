@@ -3,11 +3,11 @@ Repository for Test data access.
 """
 from typing import Optional, List
 from datetime import datetime
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.test import Test, Question
+from app.models.test import Test, Question, TestPurpose
 
 
 class TestRepository:
@@ -156,6 +156,81 @@ class TestRepository:
         await self.db.commit()
         await self.db.refresh(test)
         return test
+
+    async def get_available_for_student(
+        self,
+        school_id: int,
+        chapter_id: Optional[int] = None,
+        paragraph_id: Optional[int] = None,
+        test_purpose: Optional[TestPurpose] = None,
+        is_active_only: bool = True
+    ) -> List[Test]:
+        """
+        Get tests available for a student.
+
+        Returns both global tests (school_id = NULL) and school-specific tests.
+
+        Args:
+            school_id: School ID
+            chapter_id: Filter by chapter (optional)
+            paragraph_id: Filter by paragraph (optional)
+            test_purpose: Filter by test purpose (optional)
+            is_active_only: Only return active tests (default True)
+
+        Returns:
+            List of available tests
+        """
+        filters = [
+            (Test.school_id == school_id) | (Test.school_id.is_(None)),
+            Test.is_deleted == False
+        ]
+
+        if is_active_only:
+            filters.append(Test.is_active == True)
+
+        if chapter_id is not None:
+            filters.append(Test.chapter_id == chapter_id)
+
+        if paragraph_id is not None:
+            filters.append(Test.paragraph_id == paragraph_id)
+
+        if test_purpose is not None:
+            filters.append(Test.test_purpose == test_purpose)
+
+        result = await self.db.execute(
+            select(Test).where(
+                and_(*filters)
+            ).options(
+                selectinload(Test.questions)
+            ).order_by(Test.difficulty, Test.title)
+        )
+        return result.scalars().all()
+
+    async def get_by_paragraph(
+        self,
+        paragraph_id: int,
+        school_id: int
+    ) -> List[Test]:
+        """
+        Get tests for a specific paragraph.
+
+        Returns both global and school-specific tests.
+
+        Args:
+            paragraph_id: Paragraph ID
+            school_id: School ID
+
+        Returns:
+            List of tests
+        """
+        result = await self.db.execute(
+            select(Test).where(
+                Test.paragraph_id == paragraph_id,
+                (Test.school_id == school_id) | (Test.school_id.is_(None)),
+                Test.is_deleted == False
+            ).order_by(Test.difficulty, Test.title)
+        )
+        return result.scalars().all()
 
     async def soft_delete(self, test: Test) -> Test:
         """
