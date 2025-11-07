@@ -126,3 +126,39 @@ test_*.sh
 # File uploads (persistent)
 uploads/*
 !uploads/.gitkeep
+
+# ==========================================
+# Production files (НИКОГДА НЕ КОММИТИТЬ!)
+# ==========================================
+# Production environment (с реальными секретами)
+backend/.env
+.env.production.local
+
+# SSL сертификаты
+nginx/ssl/*
+!nginx/ssl/.gitkeep
+
+# Nginx logs
+nginx/logs/*
+!nginx/logs/.gitkeep
+
+# PostgreSQL data
+postgres_data/
+
+# Docker volumes
+certbot_conf/
+certbot_www/
+
+# Временные файлы для SSL setup
+nginx/nginx-temp.conf
+
+# Production backups
+backups/
+*.sql
+*.sql.gz
+
+# Production secrets
+secrets/
+*.pem
+*.key
+*.crt
