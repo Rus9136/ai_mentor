@@ -148,6 +148,9 @@ cd /home/rus/projects/ai_mentor
 # Применить миграции
 ./deploy-infra.sh migrate
 
+# Заполнить базу данных тестовыми данными
+./deploy-infra.sh seed
+
 # Backup БД
 ./deploy-infra.sh backup
 # Результат: backup_YYYYMMDD_HHMMSS.sql
@@ -419,7 +422,28 @@ sleep 10
 
 ---
 
-### Шаг 7: Проверка работоспособности
+### Шаг 7: Заполнение базы данных
+
+```bash
+# Заполнить базу данных тестовыми данными
+./deploy-infra.sh seed
+
+# Подтвердить: yes
+```
+
+**Создаст:**
+- SUPER_ADMIN и School ADMIN пользователей
+- Тестовую школу "Тестовая школа №1"
+- 6 глобальных учебников с главами
+- 3 глобальных теста с вопросами
+- 5 учителей и 8 учеников
+- 4 класса с распределением учеников
+
+**Подробности:** См. [PRODUCTION_SEED_INFO.md](PRODUCTION_SEED_INFO.md)
+
+---
+
+### Шаг 8: Проверка работоспособности
 
 ```bash
 # Health check API
@@ -442,20 +466,58 @@ curl -I https://api.ai-mentor.kz
 
 ---
 
-### Шаг 8: Тестовые пользователи
+### Шаг 9: Тестовые пользователи
 
-**Credentials (ИЗМЕНИТЬ ПОСЛЕ ДЕПЛОЯ!):**
+**Credentials (созданы через ./deploy-infra.sh seed):**
 
+**Администраторы:**
 - **SUPER_ADMIN:** superadmin@aimentor.com / admin123
 - **School ADMIN:** school.admin@test.com / admin123
+
+**Учителя (School 7 - "Тестовая школа №1"):**
+- teacher.math@school001.com / teacher123
+- teacher.physics@school001.com / teacher123
+- teacher.chemistry@school001.com / teacher123
+- teacher.biology@school001.com / teacher123
+- teacher.history@school001.com / teacher123
+
+**Ученики (School 7 - "Тестовая школа №1"):**
+- student1@school001.com / student123 (Алихан Султанов - 7-А)
+- student2@school001.com / student123 (Аружан Есимова - 7-А)
+- student3@school001.com / student123 (Нурислам Бекжанов - 8-Б)
+- student4@school001.com / student123 (Жанель Кабдулова - 8-Б)
+- student5@school001.com / student123 (Данияр Мухамедов - 9-В)
+- student6@school001.com / student123 (Айым Сейдахметова - 9-В)
+- student7@school001.com / student123 (Ернар Токаев - 10-А)
+- student8@school001.com / student123 (Камила Нурланова - 10-А)
+
+**Полный список:** См. [PRODUCTION_SEED_INFO.md](PRODUCTION_SEED_INFO.md)
 
 **Тест login через API:**
 
 ```bash
+# SUPER_ADMIN
 curl -X POST https://api.ai-mentor.kz/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"superadmin@aimentor.com","password":"admin123"}'
+
+# School ADMIN
+curl -X POST https://api.ai-mentor.kz/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"school.admin@test.com","password":"admin123"}'
+
+# Teacher
+curl -X POST https://api.ai-mentor.kz/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"teacher.math@school001.com","password":"teacher123"}'
+
+# Student
+curl -X POST https://api.ai-mentor.kz/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"student1@school001.com","password":"student123"}'
 ```
+
+⚠️ **ВАЖНО: Смените пароли после деплоя!**
 
 ---
 
@@ -657,13 +719,14 @@ nano /home/rus/infrastructure/backup.sh
 - [ ] PostgreSQL запущен и здоров
 - [ ] Backend запущен на 127.0.0.1:8006
 - [ ] Миграции применены (14/14)
+- [ ] **База данных заполнена (`./deploy-infra.sh seed`)**
 - [ ] Frontend собран и задеплоен в /var/www/ai-mentor/
 - [ ] Nginx конфигурации установлены
 - [ ] API доступен (https://api.ai-mentor.kz/health)
 - [ ] Frontend доступен (https://ai-mentor.kz)
 - [ ] Admin panel доступен (https://admin.ai-mentor.kz)
-- [ ] Login через API работает
-- [ ] Тестовые пароли изменены
+- [ ] Login через API работает (SUPER_ADMIN, School ADMIN, Teacher, Student)
+- [ ] **Тестовые пароли изменены (ВАЖНО!)**
 - [ ] Логи проверены на ошибки
 - [ ] Backup настроен
 
@@ -682,6 +745,7 @@ nano /home/rus/infrastructure/backup.sh
 ### Документация проекта:
 
 - [CLAUDE.md](CLAUDE.md) - Техническая документация, архитектура
+- [PRODUCTION_SEED_INFO.md](PRODUCTION_SEED_INFO.md) - Тестовые данные для production
 - [SESSION_LOG_Production_Deploy_AI_Mentor_2025-11-08_06-54.md](SESSION_LOG_Production_Deploy_AI_Mentor_2025-11-08_06-54.md) - Полный лог деплоя
 
 ---

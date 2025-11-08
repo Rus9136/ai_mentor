@@ -154,7 +154,7 @@ services:
       dockerfile: Dockerfile.prod
       args:
         # Production API URL
-        VITE_API_URL: https://api.ai-mentor.kz
+        VITE_API_URL: https://api.ai-mentor.kz/api/v1
 
     container_name: ai_mentor_frontend_build
 

@@ -104,6 +104,32 @@ migrate() {
     log_success "Migrations applied successfully"
 }
 
+# Seed database with initial data
+seed() {
+    log_info "Seeding database with initial data..."
+    log_warning "This will create:"
+    log_warning "  - SUPER_ADMIN and School ADMIN users"
+    log_warning "  - Test school with teachers and students"
+    log_warning "  - Global textbooks and tests"
+    echo ""
+
+    read -p "Continue? (yes/no): " confirm
+
+    if [ "$confirm" != "yes" ]; then
+        log_info "Seed cancelled"
+        exit 0
+    fi
+
+    log_info "Running seed script..."
+    docker compose -f $COMPOSE_FILE exec backend python seed_database_prod.py
+
+    log_success "Database seeded successfully"
+    log_info "Login credentials:"
+    log_info "  SUPER_ADMIN: superadmin@aimentor.com / admin123"
+    log_info "  School ADMIN: school.admin@test.com / admin123"
+    log_warning "⚠️  IMPORTANT: Change passwords after deployment!"
+}
+
 # Build frontend
 build_frontend() {
     log_info "Building frontend..."
@@ -253,6 +279,7 @@ Commands:
 
     build                Build all Docker images
     migrate              Apply database migrations
+    seed                 Seed database with initial data (users, textbooks, tests)
 
     build-frontend       Build frontend static files
     deploy-frontend      Deploy frontend to /var/www/ai-mentor/
@@ -270,6 +297,7 @@ Examples:
     $0 start             # Start services
     $0 logs backend      # Show backend logs
     $0 deploy            # Full deployment
+    $0 seed              # Seed database with test data
     $0 backup            # Backup database
 
 EOF
@@ -300,6 +328,9 @@ case "${1}" in
         ;;
     migrate)
         migrate
+        ;;
+    seed)
+        seed
         ;;
     build-frontend)
         build_frontend

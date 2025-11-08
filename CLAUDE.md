@@ -99,6 +99,9 @@ docker exec -it ai_mentor_postgres psql -U ai_mentor_user -d ai_mentor_db
 # Миграции
 ./deploy-infra.sh migrate
 
+# Заполнить БД тестовыми данными (SUPER_ADMIN, School, Teachers, Students)
+./deploy-infra.sh seed
+
 # Backup БД
 ./deploy-infra.sh backup
 ```
