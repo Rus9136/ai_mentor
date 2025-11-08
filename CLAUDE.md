@@ -58,16 +58,56 @@ docker exec -it ai_mentor_postgres psql -U ai_mentor_user -d ai_mentor_db
 
 **Важно:** Всегда используй `ai_mentor_user` для миграций и `ai_mentor_app` для работы приложения.
 
-### Development Server
+### Production Deployment
+
+**Быстрый деплой (автоматический):**
 ```bash
-# Локально (из корня проекта)
-cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Умный деплой - автоматически определяет изменения и деплоит только нужное
+./deploy.sh
 
-# В Docker
-docker compose up backend
-
-# API документация доступна на http://localhost:8000/docs
+# Принудительный деплой конкретного компонента
+./deploy.sh backend      # Только backend
+./deploy.sh frontend     # Только frontend
+./deploy.sh full         # Полный деплой всего
 ```
+
+**Что происходит автоматически:**
+- Анализ git diff для определения изменений
+- Сборка Docker образов только для измененных компонентов
+- Применение миграций (если обнаружены новые)
+- Healthcheck после деплоя
+- Детальный вывод с прогрессом и ошибками
+
+**Ручное управление инфраструктурой:**
+```bash
+# Запуск сервисов
+./deploy-infra.sh start
+
+# Остановка
+./deploy-infra.sh stop
+
+# Перезапуск
+./deploy-infra.sh restart
+
+# Статус
+./deploy-infra.sh status
+
+# Логи
+./deploy-infra.sh logs backend
+./deploy-infra.sh logs postgres
+
+# Миграции
+./deploy-infra.sh migrate
+
+# Backup БД
+./deploy-infra.sh backup
+```
+
+**Production URLs:**
+- Frontend: https://ai-mentor.kz
+- Admin Panel: https://admin.ai-mentor.kz
+- API: https://api.ai-mentor.kz
+- API Docs: https://api.ai-mentor.kz/docs
 
 ### Testing
 ```bash
@@ -385,17 +425,6 @@ settings = Settings()
 ```
 
 Добавляй настройки по мере необходимости.
-
-### Быстрый запуск - один скрипт
-
-```bash
-# scripts/dev.sh
-#!/bin/bash
-docker compose up -d postgres
-sleep 2
-cd backend && alembic upgrade head
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
 
 ### Когда рефакторить
 

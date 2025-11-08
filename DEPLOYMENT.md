@@ -1,525 +1,682 @@
 # AI Mentor - Production Deployment Guide
 
-Полное руководство по развертыванию проекта AI Mentor на production сервере.
+> Полное руководство по production деплою на сервере 207.180.243.173
+
+**Дата последнего обновления:** 2025-11-08
+**Статус:** ✅ Production работает стабильно
 
 ---
 
-## Архитектура Production
+## 📊 Текущий статус Production
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Internet                              │
-└───────────────────┬─────────────────────────────────────┘
-                    │ 80/443
-                    ▼
-         ┌──────────────────────┐
-         │   Nginx (Reverse     │
-         │   Proxy + SSL)       │
-         └─────┬────────┬───────┘
-               │        │
-    ┌──────────┘        └───────────┐
-    │                                │
-    ▼                                ▼
-┌─────────────┐              ┌─────────────┐
-│  Frontend   │              │  Backend    │
-│  (React)    │              │  (FastAPI)  │
-│  Port: -    │              │  Port: 8000 │
-└─────────────┘              └──────┬──────┘
-                                    │
-                                    ▼
-                            ┌──────────────┐
-                            │  PostgreSQL  │
-                            │  + pgvector  │
-                            │  Port: 5432  │
-                            └──────────────┘
-```
+**Сервер:** 207.180.243.173 (ai-mentor.kz)
+**Деплой:** 2025-11-08 06:54
+**Инфраструктура:** Централизованная (`/home/rus/infrastructure/`)
 
-## Домены
+### Работающие сервисы:
 
-- **ai-mentor.kz** - Student/Parent Portal
-- **admin.ai-mentor.kz** - Admin Panel (SUPER_ADMIN & School ADMIN)
-- **api.ai-mentor.kz** - Backend API + Docs
+- ✅ **Backend API:** https://api.ai-mentor.kz/health
+- ✅ **Frontend Portal:** https://ai-mentor.kz (Student/Parent)
+- ✅ **Admin Panel:** https://admin.ai-mentor.kz
+- ✅ **PostgreSQL:** ai_mentor_postgres_prod (14 migrations applied)
+- ✅ **SSL:** Let's Encrypt (expires 2026-02-06)
 
----
+### Docker контейнеры:
 
-## Требования к серверу
-
-### Минимальные характеристики:
-- **OS:** Ubuntu 22.04 LTS или новее
-- **CPU:** 4 cores (рекомендуется 8)
-- **RAM:** 8 GB (рекомендуется 16 GB)
-- **Диск:** 100 GB SSD
-- **Сеть:** Статический IP адрес
-
-### Установленное ПО:
-- Docker 24.0+
-- Docker Compose 2.0+
-- Git
-- OpenSSL
-
----
-
-## Шаг 1: Настройка DNS
-
-Создайте A-записи для всех доменов, указывающие на IP вашего сервера:
-
-```
-A    ai-mentor.kz           →  YOUR_SERVER_IP
-A    www.ai-mentor.kz       →  YOUR_SERVER_IP
-A    api.ai-mentor.kz       →  YOUR_SERVER_IP
-A    admin.ai-mentor.kz     →  YOUR_SERVER_IP
-```
-
-Проверка:
 ```bash
-nslookup ai-mentor.kz
-nslookup api.ai-mentor.kz
-nslookup admin.ai-mentor.kz
+NAME                      STATUS        PORTS
+ai_mentor_backend_prod    Up (healthy)  127.0.0.1:8006->8000/tcp
+ai_mentor_postgres_prod   Up (healthy)  5432/tcp (internal only)
 ```
 
 ---
 
-## Шаг 2: Подготовка сервера
+## 🏗️ Архитектура Production
 
-### 2.1 Установка Docker
+### Как работает деплой:
 
-```bash
-# Обновление системы
-sudo apt update && sudo apt upgrade -y
-
-# Установка Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# Добавление пользователя в группу docker
-sudo usermod -aG docker $USER
-
-# Установка Docker Compose
-sudo apt install docker-compose-plugin -y
-
-# Проверка
-docker --version
-docker compose version
+```
+Internet (HTTPS)
+    │
+    └─── Общий Nginx (207.180.243.173:80/443)
+         │
+         ├─── ai-mentor.kz ────────────► /var/www/ai-mentor/ (Static Files)
+         │
+         ├─── admin.ai-mentor.kz ──────► /var/www/ai-mentor/ (Static Files)
+         │
+         └─── api.ai-mentor.kz ────────► 127.0.0.1:8006 (Backend Docker)
+                                                  │
+                                                  ▼
+                                          PostgreSQL + pgvector
+                                          (Docker контейнер)
 ```
 
-### 2.2 Настройка Firewall
+### Интеграция с инфраструктурой сервера:
 
-```bash
-# UFW (Ubuntu)
-sudo ufw allow 22/tcp    # SSH
-sudo ufw allow 80/tcp    # HTTP
-sudo ufw allow 443/tcp   # HTTPS
-sudo ufw enable
+- **Общий Nginx:** `/home/rus/infrastructure/nginx/`
+- **Общий SSL (certbot):** Централизованно управляется
+- **Docker сеть:** `infrastructure_network` (связь между проектами)
+- **Backend порт:** 127.0.0.1:8006 (только localhost, не доступен извне)
 
-# Проверка
-sudo ufw status
+---
+
+## 📁 Что где находится
+
+### На сервере:
+
+```
+/home/rus/infrastructure/
+├── nginx/
+│   └── sites-enabled/
+│       ├── ai-mentor-api.conf       # API reverse proxy
+│       ├── ai-mentor-frontend.conf  # Frontend static
+│       └── ai-mentor-admin.conf     # Admin panel
+└── [общие сервисы для всех проектов]
+
+/home/rus/projects/ai_mentor/
+├── docker-compose.infra.yml  # ✅ PRODUCTION конфигурация
+├── deploy-infra.sh           # ✅ Management script
+├── backend/
+│   ├── .env                  # ✅ Production secrets (НЕ в Git!)
+│   └── Dockerfile.prod       # Production build
+├── frontend/
+│   ├── .env.production       # Production API URL
+│   └── Dockerfile.prod       # Production build
+├── nginx/infra/              # Шаблоны конфигураций
+│   ├── ai-mentor-api.conf
+│   ├── ai-mentor-frontend.conf
+│   └── ai-mentor-admin.conf
+└── scripts/
+    └── init_db.sql           # PostgreSQL init (2 роли)
+
+/var/www/ai-mentor/           # Frontend собранные файлы
+└── [index.html, assets/, etc.]
+
+/etc/nginx/sites-enabled/     # Активные Nginx конфигурации
+├── ai-mentor-api.conf -> /home/rus/infrastructure/nginx/sites-enabled/ai-mentor-api.conf
+├── ai-mentor-frontend.conf -> /home/rus/infrastructure/nginx/sites-enabled/ai-mentor-frontend.conf
+└── ai-mentor-admin.conf -> /home/rus/infrastructure/nginx/sites-enabled/ai-mentor-admin.conf
+
+/etc/letsencrypt/live/ai-mentor.kz/  # SSL сертификаты
+├── fullchain.pem
+└── privkey.pem
 ```
 
-### 2.3 Установка дополнительных утилит
+### Актуальные файлы проекта:
+
+| Файл | Статус | Назначение |
+|------|--------|------------|
+| `docker-compose.infra.yml` | ✅ PRODUCTION | Основной файл для деплоя |
+| `deploy-infra.sh` | ✅ PRODUCTION | Management script |
+| `backend/.env` | ✅ PRODUCTION | Секреты (НЕ в Git!) |
+| `frontend/.env.production` | ✅ PRODUCTION | API URL для сборки |
+| `nginx/infra/*.conf` | ✅ PRODUCTION | Шаблоны конфигураций |
+| `docker-compose.yml` | ⚠️ LOCAL DEV | Только для разработки |
+
+---
+
+## 🚀 Быстрые команды
+
+### Управление сервисами:
 
 ```bash
-sudo apt install -y git curl htop postgresql-client
+cd /home/rus/projects/ai_mentor
+
+# Запуск
+./deploy-infra.sh start
+
+# Статус
+./deploy-infra.sh status
+
+# Логи backend
+./deploy-infra.sh logs backend
+
+# Перезапуск
+./deploy-infra.sh restart
+
+# Остановка
+./deploy-infra.sh stop
+```
+
+### Работа с БД:
+
+```bash
+# Применить миграции
+./deploy-infra.sh migrate
+
+# Backup БД
+./deploy-infra.sh backup
+# Результат: backup_YYYYMMDD_HHMMSS.sql
+
+# Restore БД
+./deploy-infra.sh restore backup_20251108_065400.sql
+
+# Подключиться к БД
+docker compose -f docker-compose.infra.yml exec postgres psql -U ai_mentor_user -d ai_mentor_db
+```
+
+### Обновление кода:
+
+```bash
+cd /home/rus/projects/ai_mentor
+
+# 1. Pull новый код
+git pull origin main
+
+# 2. Rebuild контейнеров (если изменился backend)
+./deploy-infra.sh build
+./deploy-infra.sh restart
+./deploy-infra.sh migrate
+
+# 3. Rebuild frontend (если изменился frontend)
+./deploy-infra.sh build-frontend
+./deploy-infra.sh deploy-frontend
+```
+
+### Мониторинг:
+
+```bash
+# Docker статус
+docker ps
+
+# Ресурсы
+docker stats ai_mentor_backend_prod ai_mentor_postgres_prod
+
+# Логи Nginx
+sudo tail -f /var/log/nginx/ai-mentor-api_access.log
+sudo tail -f /var/log/nginx/error.log
+
+# Health check API
+curl https://api.ai-mentor.kz/health
 ```
 
 ---
 
-## Шаг 3: Клонирование проекта
+## 📋 Пошаговая инструкция для нового деплоя
+
+### Предварительные требования:
+
+1. **DNS настроен** (A-записи на 207.180.243.173):
+   - ai-mentor.kz
+   - www.ai-mentor.kz
+   - api.ai-mentor.kz
+   - admin.ai-mentor.kz
+
+2. **SSH доступ к серверу:** `ssh rus@207.180.243.173`
+
+3. **Централизованная инфраструктура существует:**
+   - `/home/rus/infrastructure/nginx/`
+   - Docker сеть `infrastructure_network`
+   - Общий certbot для SSL
+
+---
+
+### Шаг 1: Проверка инфраструктуры
 
 ```bash
-# Переход в рабочую директорию
-cd /opt
+# Проверить Docker сеть
+docker network ls | grep infrastructure_network
 
-# Клонирование репозитория
-sudo git clone https://github.com/your-username/ai_mentor.git
+# Проверить свободен ли порт 8006
+docker ps --format "table {{.Names}}\t{{.Ports}}" | grep 8006
+```
+
+---
+
+### Шаг 2: Клонирование проекта
+
+```bash
+cd ~/projects
+git clone <repository_url> ai_mentor
 cd ai_mentor
-
-# Установка прав
-sudo chown -R $USER:$USER /opt/ai_mentor
 ```
 
 ---
 
-## Шаг 4: Настройка переменных окружения
-
-### 4.1 Копирование шаблона
+### Шаг 3: Настройка переменных окружения
 
 ```bash
+# Копировать шаблон
 cp .env.production backend/.env
-```
 
-### 4.2 Редактирование backend/.env
+# Сгенерировать SECRET_KEY
+openssl rand -hex 32
 
-```bash
+# Редактировать backend/.env
 nano backend/.env
 ```
 
-**Обязательные изменения:**
+**Обязательно заполнить:**
 
-```bash
-# 1. SECRET_KEY - генерируем новый
-openssl rand -hex 32
-# Вставляем полученное значение:
-SECRET_KEY=<сгенерированный_ключ>
+```env
+# Security
+SECRET_KEY=<результат openssl rand -hex 32>
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
 
-# 2. POSTGRES_PASSWORD - сильный пароль
+# Database
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=ai_mentor_db
+POSTGRES_USER=ai_mentor_app
 POSTGRES_PASSWORD=<минимум_32_символа>
 
-# 3. DATABASE_URL - обновляем с новым паролем
-DATABASE_URL=postgresql+asyncpg://ai_mentor_app:<ваш_пароль>@postgres:5432/ai_mentor_db
+# Application
+ENVIRONMENT=production
+DEBUG=False
 
-# 4. OPENAI_API_KEY
-OPENAI_API_KEY=sk-<ваш_ключ>
+# CORS (production domains)
+BACKEND_CORS_ORIGINS=["https://ai-mentor.kz","https://www.ai-mentor.kz","https://admin.ai-mentor.kz","https://api.ai-mentor.kz"]
 
-# 5. CORS_ORIGINS - проверяем домены
-CORS_ORIGINS=["https://ai-mentor.kz","https://admin.ai-mentor.kz","https://api.ai-mentor.kz"]
+# OpenAI (опционально)
+OPENAI_API_KEY=<ваш_ключ_если_нужен_RAG>
 ```
 
-**Сохраните файл:** `Ctrl+O`, `Enter`, `Ctrl+X`
-
----
-
-## Шаг 5: Первоначальный деплой
-
-### 5.1 Запуск скрипта деплоя
+**Установить пароль БД в переменную окружения:**
 
 ```bash
-sudo chmod +x scripts/deploy.sh
-sudo ./scripts/deploy.sh initial
-```
-
-Скрипт выполнит:
-1. Проверку зависимостей
-2. Проверку .env файла
-3. Сборку Docker образов
-4. Запуск PostgreSQL
-5. Применение миграций
-6. Запуск backend и frontend
-
-### 5.2 Проверка статуса
-
-```bash
-# Проверка контейнеров
-docker compose -f docker-compose.prod.yml ps
-
-# Ожидаемый вывод:
-# NAME                        STATUS
-# ai_mentor_postgres_prod     Up (healthy)
-# ai_mentor_backend_prod      Up
-# ai_mentor_frontend_prod     Exited (0)
-# ai_mentor_nginx_prod        Up
-
-# Проверка логов
-docker compose -f docker-compose.prod.yml logs backend
+export POSTGRES_PASSWORD="<тот_же_пароль>"
 ```
 
 ---
 
-## Шаг 6: Настройка SSL сертификатов
-
-### 6.1 Редактирование email в скрипте
+### Шаг 4: Получение SSL сертификатов
 
 ```bash
-nano scripts/ssl-setup.sh
-
-# Измените строку:
-EMAIL="admin@ai-mentor.kz"  # ваш реальный email
+# Через общий certbot сервера
+sudo certbot certonly --webroot \
+    -w /var/www/certbot \
+    -d ai-mentor.kz \
+    -d www.ai-mentor.kz \
+    -d api.ai-mentor.kz \
+    -d admin.ai-mentor.kz \
+    --email admin@ai-mentor.kz \
+    --agree-tos \
+    --no-eff-email
 ```
 
-### 6.2 Запуск получения сертификатов
+**Если `/var/www/certbot` не существует:**
 
 ```bash
-sudo chmod +x scripts/ssl-setup.sh
-sudo ./scripts/ssl-setup.sh
+sudo mkdir -p /var/www/certbot
+sudo chown www-data:www-data /var/www/certbot
 ```
 
-Скрипт:
-1. Проверит DNS записи
-2. Запустит временный nginx
-3. Получит SSL сертификаты через Let's Encrypt
-4. Запустит production nginx с SSL
-
-### 6.3 Проверка SSL
+**Проверка сертификатов:**
 
 ```bash
-# Проверка сертификатов
+sudo certbot certificates
+```
+
+---
+
+### Шаг 5: Установка Nginx конфигураций
+
+```bash
+cd ~/projects/ai_mentor
+
+# Вариант A: Через скрипт
+./deploy-infra.sh install-nginx
+
+# Вариант B: Вручную
+sudo cp nginx/infra/ai-mentor-api.conf /home/rus/infrastructure/nginx/sites-enabled/
+sudo cp nginx/infra/ai-mentor-frontend.conf /home/rus/infrastructure/nginx/sites-enabled/
+sudo cp nginx/infra/ai-mentor-admin.conf /home/rus/infrastructure/nginx/sites-enabled/
+
+# Активация конфигураций
+sudo ln -sf /home/rus/infrastructure/nginx/sites-enabled/ai-mentor-api.conf /etc/nginx/sites-enabled/
+sudo ln -sf /home/rus/infrastructure/nginx/sites-enabled/ai-mentor-frontend.conf /etc/nginx/sites-enabled/
+sudo ln -sf /home/rus/infrastructure/nginx/sites-enabled/ai-mentor-admin.conf /etc/nginx/sites-enabled/
+
+# Проверка и перезагрузка
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+---
+
+### Шаг 6: Первоначальный деплой
+
+```bash
+cd ~/projects/ai_mentor
+
+# Полный деплой (все в одном)
+./deploy-infra.sh deploy
+```
+
+**Или пошагово:**
+
+```bash
+# 1. Сборка Docker образов
+./deploy-infra.sh build
+
+# 2. Запуск сервисов (PostgreSQL + Backend)
+./deploy-infra.sh start
+
+# 3. Ожидание запуска PostgreSQL
+sleep 10
+
+# 4. Применение миграций
+./deploy-infra.sh migrate
+
+# 5. Сборка frontend
+./deploy-infra.sh build-frontend
+
+# 6. Деплой frontend в /var/www/ai-mentor/
+./deploy-infra.sh deploy-frontend
+```
+
+---
+
+### Шаг 7: Проверка работоспособности
+
+```bash
+# Health check API
+curl https://api.ai-mentor.kz/health
+# Ожидаемый результат: {"status":"healthy","version":"0.1.0","project":"AI Mentor"}
+
+# Проверка SSL
 curl -I https://api.ai-mentor.kz
+# Ожидаемый результат: HTTP/2 200
 
-# Должны увидеть: HTTP/2 200
+# Статус контейнеров
+./deploy-infra.sh status
 ```
+
+**Открыть в браузере:**
+
+- https://api.ai-mentor.kz/docs (Swagger UI)
+- https://ai-mentor.kz (Frontend Portal)
+- https://admin.ai-mentor.kz (Admin Panel)
 
 ---
 
-## Шаг 7: Проверка работоспособности
+### Шаг 8: Тестовые пользователи
 
-### 7.1 Проверка доменов
+**Credentials (ИЗМЕНИТЬ ПОСЛЕ ДЕПЛОЯ!):**
 
-Откройте в браузере:
+- **SUPER_ADMIN:** superadmin@aimentor.com / admin123
+- **School ADMIN:** school.admin@test.com / admin123
 
-- **https://api.ai-mentor.kz/docs** - Swagger документация API
-- **https://api.ai-mentor.kz/health** - Health check
-- **https://ai-mentor.kz** - Frontend (Student Portal)
-- **https://admin.ai-mentor.kz** - Admin Panel
-
-### 7.2 Тестовый логин
+**Тест login через API:**
 
 ```bash
-# API Test
 curl -X POST https://api.ai-mentor.kz/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "superadmin@aimentor.com",
-    "password": "admin123"
-  }'
-
-# Должен вернуть access_token
-```
-
-### 7.3 Проверка базы данных
-
-```bash
-# Подключение к PostgreSQL
-docker compose -f docker-compose.prod.yml exec postgres psql -U ai_mentor_user -d ai_mentor_db
-
-# Проверка таблиц
-\dt
-
-# Проверка пользователей
-SELECT id, email, role FROM users LIMIT 5;
-
-# Выход
-\q
+  -d '{"email":"superadmin@aimentor.com","password":"admin123"}'
 ```
 
 ---
 
-## Обновление проекта (Update)
+## 🔧 Troubleshooting
 
-Для обновления существующего деплоя:
+### 1. Backend не работает (502 Bad Gateway)
 
 ```bash
-# Pull последних изменений
-cd /opt/ai_mentor
-git pull origin main
+# Проверить статус
+./deploy-infra.sh status
 
-# Запуск обновления
-sudo ./scripts/deploy.sh update
+# Проверить логи
+./deploy-infra.sh logs backend
+
+# Проверить порт 8006
+netstat -tlnp | grep 8006
+
+# Проверить health
+curl http://127.0.0.1:8006/health
+
+# Перезапустить
+./deploy-infra.sh restart
 ```
 
-Скрипт обновления:
-1. Остановит сервисы (кроме БД)
-2. Пересоберет образы
-3. Применит новые миграции
-4. Запустит обновленные сервисы
-
----
-
-## Мониторинг и обслуживание
-
-### Просмотр логов
+### 2. Frontend не обновляется
 
 ```bash
-# Все логи
-docker compose -f docker-compose.prod.yml logs -f
+# Пересобрать и развернуть
+./deploy-infra.sh build-frontend
+./deploy-infra.sh deploy-frontend
 
-# Только backend
-docker compose -f docker-compose.prod.yml logs -f backend
+# Проверить права
+ls -la /var/www/ai-mentor/
 
-# Только nginx
-docker compose -f docker-compose.prod.yml logs -f nginx
+# Проверить Nginx конфигурацию
+sudo nginx -t
+sudo tail -f /var/log/nginx/ai-mentor-frontend_error.log
 
-# Последние 100 строк
-docker compose -f docker-compose.prod.yml logs --tail=100
+# Очистить cache браузера: Ctrl+Shift+R
 ```
 
-### Мониторинг ресурсов
+### 3. Миграции не применяются
 
 ```bash
-# Использование ресурсов контейнерами
+# Проверить подключение к БД
+docker compose -f docker-compose.infra.yml exec postgres psql -U ai_mentor_user -d ai_mentor_db -c "\dt"
+
+# Проверить текущую версию миграций
+docker compose -f docker-compose.infra.yml exec backend alembic current
+
+# Применить миграции вручную
+docker compose -f docker-compose.infra.yml exec backend alembic upgrade head
+
+# Проверить логи БД
+docker compose -f docker-compose.infra.yml logs postgres
+```
+
+### 4. SSL не работает
+
+```bash
+# Проверить сертификаты
+sudo certbot certificates
+
+# Переполучить сертификат
+sudo certbot certonly --webroot \
+    -w /var/www/certbot \
+    -d ai-mentor.kz \
+    -d www.ai-mentor.kz \
+    -d api.ai-mentor.kz \
+    -d admin.ai-mentor.kz \
+    --force-renewal
+
+# Перезагрузить Nginx
+sudo systemctl reload nginx
+```
+
+### 5. CORS ошибки
+
+**Проблема:** Frontend не может подключиться к API
+
+```bash
+# Проверить backend/.env
+cat backend/.env | grep BACKEND_CORS_ORIGINS
+# Должно содержать все production домены
+
+# Проверить Nginx (CORS должен управляться FastAPI, не Nginx)
+sudo grep -n "add_header.*Access-Control" /etc/nginx/sites-enabled/ai-mentor-api.conf
+# НЕ должно быть CORS headers в Nginx для API
+
+# Перезапустить backend после изменения .env
+./deploy-infra.sh restart
+```
+
+### 6. Docker контейнер падает
+
+```bash
+# Проверить логи
+docker compose -f docker-compose.infra.yml logs backend
+
+# Проверить ресурсы
 docker stats
 
-# Использование диска
-df -h
-docker system df
-```
-
-### Перезапуск сервисов
-
-```bash
-# Все сервисы
-sudo ./scripts/deploy.sh restart
-
-# Только backend
-docker compose -f docker-compose.prod.yml restart backend
-
-# Только nginx
-docker compose -f docker-compose.prod.yml restart nginx
+# Пересоздать контейнер
+docker compose -f docker-compose.infra.yml up -d --force-recreate backend
 ```
 
 ---
 
-## Backup базы данных
+## ⚙️ Важные технические детали
 
-### Создание backup
+### PostgreSQL - ДВЕ роли:
 
-```bash
-# Ручной backup
-docker compose -f docker-compose.prod.yml exec postgres pg_dump \
-  -U ai_mentor_user ai_mentor_db > backup_$(date +%Y%m%d_%H%M%S).sql
+1. **ai_mentor_user** (SUPERUSER)
+   - Для миграций (alembic)
+   - Может bypass RLS политики
+   - Используется в `alembic.ini`
 
-# Сжатый backup
-docker compose -f docker-compose.prod.yml exec postgres pg_dump \
-  -U ai_mentor_user ai_mentor_db | gzip > backup_$(date +%Y%m%d_%H%M%S).sql.gz
+2. **ai_mentor_app** (обычный пользователь)
+   - Для runtime приложения
+   - RLS политики активны
+   - Используется в `backend/.env` (POSTGRES_USER)
+
+### Backend конфигурация:
+
+- **Gunicorn:** 4 workers (Uvicorn workers)
+- **Порт:** 127.0.0.1:8006 (только localhost)
+- **Health check:** http://127.0.0.1:8006/health
+- **Timeout:** 120 секунд
+
+### Frontend:
+
+- **Build tool:** Vite
+- **Static files:** /var/www/ai-mentor/
+- **SPA routing:** Nginx fallback to index.html
+- **Cache:** 1 year для assets
+
+### Nginx rate limiting:
+
+- **API:** 60 req/min
+- **Admin:** 30 req/min
+- **Login endpoints:** Stricter (5 req/min)
+
+---
+
+## 🔒 Секреты и безопасность
+
+### Критические переменные (backend/.env):
+
+```env
+SECRET_KEY=<32-byte hex>         # Для JWT токенов
+POSTGRES_PASSWORD=<strong pass>  # БД пароль (минимум 32 символа)
+OPENAI_API_KEY=<optional>        # Для RAG (опционально)
 ```
 
-### Восстановление backup
+### Важные замечания:
+
+1. **НЕ коммитить `backend/.env`** - должен быть в .gitignore
+2. **Использовать сильные пароли** (32+ символов)
+3. **Сменить тестовые пароли** сразу после деплоя
+4. **SSL сертификаты** обновляются автоматически (certbot cron)
+5. **Backend доступен ТОЛЬКО на localhost:8006** - не извне
+
+---
+
+## 📦 Backup стратегия
+
+### Ручной backup:
 
 ```bash
-# Из несжатого backup
-cat backup.sql | docker compose -f docker-compose.prod.yml exec -T postgres \
-  psql -U ai_mentor_user -d ai_mentor_db
+cd ~/projects/ai_mentor
 
-# Из сжатого backup
-gunzip -c backup.sql.gz | docker compose -f docker-compose.prod.yml exec -T postgres \
-  psql -U ai_mentor_user -d ai_mentor_db
+# Создать backup
+./deploy-infra.sh backup
+# Результат: backup_20251108_065400.sql
+
+# Восстановить
+./deploy-infra.sh restore backup_20251108_065400.sql
 ```
 
-### Автоматический backup (cron)
+### Автоматический daily backup (настроить):
 
 ```bash
-# Создаем скрипт backup
-sudo nano /opt/ai_mentor/scripts/backup.sh
-```
+# Добавить в crontab
+crontab -e
 
-```bash
-#!/bin/bash
-BACKUP_DIR="/opt/ai_mentor/backups"
-mkdir -p $BACKUP_DIR
+# Добавить строку (2:00 AM каждый день)
+0 2 * * * cd /home/rus/projects/ai_mentor && ./deploy-infra.sh backup
 
-# Backup
-cd /opt/ai_mentor
-docker compose -f docker-compose.prod.yml exec -T postgres pg_dump \
-  -U ai_mentor_user ai_mentor_db | \
-  gzip > $BACKUP_DIR/backup_$(date +%Y%m%d_%H%M%S).sql.gz
-
-# Удаление старых backups (старше 30 дней)
-find $BACKUP_DIR -name "backup_*.sql.gz" -mtime +30 -delete
-```
-
-```bash
-# Делаем скрипт исполняемым
-sudo chmod +x /opt/ai_mentor/scripts/backup.sh
-
-# Добавляем в cron (каждый день в 2:00 AM)
-sudo crontab -e
-
-# Добавляем строку:
-0 2 * * * /opt/ai_mentor/scripts/backup.sh >> /var/log/ai_mentor_backup.log 2>&1
+# Или расширить общий скрипт инфраструктуры
+nano /home/rus/infrastructure/backup.sh
 ```
 
 ---
 
-## Troubleshooting
+## 📝 Чеклист после деплоя
 
-### Контейнер не запускается
+- [ ] DNS настроен для всех доменов
+- [ ] SSL сертификаты получены и активны
+- [ ] PostgreSQL запущен и здоров
+- [ ] Backend запущен на 127.0.0.1:8006
+- [ ] Миграции применены (14/14)
+- [ ] Frontend собран и задеплоен в /var/www/ai-mentor/
+- [ ] Nginx конфигурации установлены
+- [ ] API доступен (https://api.ai-mentor.kz/health)
+- [ ] Frontend доступен (https://ai-mentor.kz)
+- [ ] Admin panel доступен (https://admin.ai-mentor.kz)
+- [ ] Login через API работает
+- [ ] Тестовые пароли изменены
+- [ ] Логи проверены на ошибки
+- [ ] Backup настроен
+
+---
+
+## 🔗 Полезные ссылки
+
+### Production URLs:
+
+- **Frontend:** https://ai-mentor.kz
+- **Admin Panel:** https://admin.ai-mentor.kz
+- **API:** https://api.ai-mentor.kz
+- **API Docs:** https://api.ai-mentor.kz/docs
+- **Health Check:** https://api.ai-mentor.kz/health
+
+### Документация проекта:
+
+- [CLAUDE.md](CLAUDE.md) - Техническая документация, архитектура
+- [SESSION_LOG_Production_Deploy_AI_Mentor_2025-11-08_06-54.md](SESSION_LOG_Production_Deploy_AI_Mentor_2025-11-08_06-54.md) - Полный лог деплоя
+
+---
+
+## 📞 Поддержка
+
+### Логи для диагностики:
 
 ```bash
-# Проверяем логи
-docker compose -f docker-compose.prod.yml logs <service_name>
+# Backend
+./deploy-infra.sh logs backend
 
-# Пересоздаем контейнер
-docker compose -f docker-compose.prod.yml up -d --force-recreate <service_name>
+# PostgreSQL
+docker compose -f docker-compose.infra.yml logs postgres
+
+# Nginx
+sudo tail -f /var/log/nginx/error.log
+sudo tail -f /var/log/nginx/ai-mentor-api_access.log
+
+# Docker stats
+docker stats
 ```
 
-### SSL сертификаты не работают
+### Команды для проверки:
 
 ```bash
-# Проверяем сертификаты
-docker compose -f docker-compose.prod.yml exec certbot certbot certificates
+# Проверка DNS
+dig ai-mentor.kz +short
 
-# Пересоздаем сертификаты
-sudo ./scripts/ssl-setup.sh
-```
+# Проверка SSL
+curl -I https://api.ai-mentor.kz
 
-### База данных недоступна
+# Проверка health
+curl https://api.ai-mentor.kz/health
 
-```bash
-# Проверяем состояние PostgreSQL
-docker compose -f docker-compose.prod.yml ps postgres
+# Проверка контейнеров
+docker compose -f docker-compose.infra.yml ps
 
-# Проверяем логи
-docker compose -f docker-compose.prod.yml logs postgres
-
-# Перезапускаем
-docker compose -f docker-compose.prod.yml restart postgres
-```
-
-### Nginx 502 Bad Gateway
-
-```bash
-# Проверяем, что backend работает
-docker compose -f docker-compose.prod.yml ps backend
-
-# Проверяем логи backend
-docker compose -f docker-compose.prod.yml logs backend
-
-# Тестируем backend напрямую (внутри сети)
-docker compose -f docker-compose.prod.yml exec nginx curl http://backend:8000/health
+# Проверка Nginx
+sudo nginx -t
+sudo systemctl status nginx
 ```
 
 ---
 
-## Security Checklist
+**Платформа AI Mentor работает в production!** 🚀
 
-- [ ] Все пароли изменены с дефолтных
-- [ ] SECRET_KEY уникальный (минимум 32 символа)
-- [ ] SSH доступ только по ключу (отключен пароль)
-- [ ] Firewall настроен (только 22, 80, 443)
-- [ ] SSL сертификаты установлены
-- [ ] Автоматический backup настроен
-- [ ] Логи мониторятся
-- [ ] .env файлы не в Git
-- [ ] Обновления системы применяются регулярно
-
----
-
-## Полезные команды
-
-```bash
-# Полная очистка и перезапуск
-docker compose -f docker-compose.prod.yml down -v
-sudo ./scripts/deploy.sh initial
-
-# Подключение к контейнеру
-docker compose -f docker-compose.prod.yml exec backend bash
-docker compose -f docker-compose.prod.yml exec postgres bash
-
-# Копирование файлов из контейнера
-docker compose -f docker-compose.prod.yml cp backend:/app/logs/app.log ./local_logs/
-
-# Применение новых миграций вручную
-docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
-
-# Откат миграции
-docker compose -f docker-compose.prod.yml exec backend alembic downgrade -1
-```
-
----
-
-## Контакты и поддержка
-
-При возникновении проблем:
-1. Проверьте логи: `docker compose -f docker-compose.prod.yml logs`
-2. Проверьте секцию Troubleshooting
-3. Создайте issue на GitHub
-
-**Документация проекта:**
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Техническая архитектура
-- [ADMIN_PANEL.md](docs/ADMIN_PANEL.md) - Админ панель
-- [database_schema.md](docs/database_schema.md) - Схема БД
-- [migrations_quick_guide.md](docs/migrations_quick_guide.md) - Миграции
-
----
-
-## Changelog
-
-- **2025-01-07** - Initial production deployment guide created
+**Версия документа:** 1.0
+**Последнее обновление:** 2025-11-08

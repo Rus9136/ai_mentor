@@ -40,8 +40,12 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Копируем код приложения
-COPY backend /app/backend
+# Копируем код приложения (только app директория внутри backend)
+COPY backend/app /app/app
+
+# Копируем alembic конфигурацию и миграции
+COPY backend/alembic.ini /app/alembic.ini
+COPY backend/alembic /app/alembic
 
 # Создание директорий для uploads и logs
 RUN mkdir -p /app/uploads /app/logs

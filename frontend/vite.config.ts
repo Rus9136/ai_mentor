@@ -4,42 +4,32 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  define: {
+    'process.env': {},
+  },
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          // React ecosystem
-          'vendor-react': ['react', 'react-dom', 'react/jsx-runtime'],
+        manualChunks(id) {
+          // Упрощенное разделение для избежания ошибок
+          if (id.includes('node_modules')) {
+            // TinyMCE в отдельный чанк (очень большой)
+            if (id.includes('tinymce')) {
+              return 'vendor-tinymce';
+            }
 
-          // React Admin (большая библиотека)
-          'vendor-react-admin': ['react-admin', 'ra-data-simple-rest'],
+            // KaTeX в отдельный чанк
+            if (id.includes('katex')) {
+              return 'vendor-katex';
+            }
 
-          // Material UI (большая библиотека)
-          'vendor-mui': [
-            '@mui/material',
-            '@mui/icons-material',
-            '@emotion/react',
-            '@emotion/styled',
-          ],
-
-          // Material UI Tree View (отдельный пакет)
-          'vendor-mui-tree': ['@mui/x-tree-view'],
-
-          // Drag and Drop
-          'vendor-dnd': ['@hello-pangea/dnd'],
-
-          // TinyMCE (очень большой редактор)
-          'vendor-tinymce': ['@tinymce/tinymce-react', 'tinymce'],
-
-          // KaTeX (для математических формул)
-          'vendor-katex': ['katex'],
-
-          // Утилиты
-          'vendor-utils': ['react-dropzone', 'use-debounce'],
+            // Все остальное в один vendor чанк
+            return 'vendor';
+          }
         },
       },
     },
-    // Увеличиваем лимит для chunk size warning до 1000 KB
-    chunkSizeWarningLimit: 1000,
+    // Увеличиваем лимит для chunk size warning до 2000 KB
+    chunkSizeWarningLimit: 2000,
   },
 })

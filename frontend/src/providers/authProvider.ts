@@ -2,7 +2,7 @@ import type { AuthProvider } from 'react-admin';
 import type { User, LoginRequest, LoginResponse } from '../types';
 import { UserRole } from '../types';
 
-const API_URL = 'http://localhost:8000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 export const authProvider: AuthProvider = {
   // Вызывается при попытке входа пользователя

@@ -32,6 +32,7 @@ function App() {
       title="AI Mentor Admin"
       theme={defaultLightTheme}
       darkTheme={defaultDarkTheme}
+      disableTelemetry
     >
       {/* Ресурсы для SUPER_ADMIN */}
       <Resource

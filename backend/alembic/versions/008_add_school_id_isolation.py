@@ -166,54 +166,59 @@ def upgrade() -> None:
 
 
     # === 6. Add CHECK constraints for data consistency ===
+    # DISABLED: PostgreSQL doesn't support subqueries in CHECK constraints
+    # Data integrity is enforced by:
+    # 1. Foreign key constraints (student_id references students)
+    # 2. Application-level validation (API ensures school_id matches)
+    # 3. RLS policies (planned for future iterations)
 
-    op.create_check_constraint(
-        'check_test_attempts_school',
-        'test_attempts',
-        'school_id = (SELECT school_id FROM students WHERE id = student_id)'
-    )
+    # op.create_check_constraint(
+    #     'check_test_attempts_school',
+    #     'test_attempts',
+    #     'school_id = (SELECT school_id FROM students WHERE id = student_id)'
+    # )
 
-    op.create_check_constraint(
-        'check_mastery_history_school',
-        'mastery_history',
-        'school_id = (SELECT school_id FROM students WHERE id = student_id)'
-    )
+    # op.create_check_constraint(
+    #     'check_mastery_history_school',
+    #     'mastery_history',
+    #     'school_id = (SELECT school_id FROM students WHERE id = student_id)'
+    # )
 
-    op.create_check_constraint(
-        'check_adaptive_groups_school',
-        'adaptive_groups',
-        'school_id = (SELECT school_id FROM students WHERE id = student_id)'
-    )
+    # op.create_check_constraint(
+    #     'check_adaptive_groups_school',
+    #     'adaptive_groups',
+    #     'school_id = (SELECT school_id FROM students WHERE id = student_id)'
+    # )
 
-    op.create_check_constraint(
-        'check_student_paragraphs_school',
-        'student_paragraphs',
-        'school_id = (SELECT school_id FROM students WHERE id = student_id)'
-    )
+    # op.create_check_constraint(
+    #     'check_student_paragraphs_school',
+    #     'student_paragraphs',
+    #     'school_id = (SELECT school_id FROM students WHERE id = student_id)'
+    # )
 
-    op.create_check_constraint(
-        'check_learning_sessions_school',
-        'learning_sessions',
-        'school_id = (SELECT school_id FROM students WHERE id = student_id)'
-    )
+    # op.create_check_constraint(
+    #     'check_learning_sessions_school',
+    #     'learning_sessions',
+    #     'school_id = (SELECT school_id FROM students WHERE id = student_id)'
+    # )
 
-    op.create_check_constraint(
-        'check_learning_activities_school',
-        'learning_activities',
-        'school_id = (SELECT school_id FROM students WHERE id = student_id)'
-    )
+    # op.create_check_constraint(
+    #     'check_learning_activities_school',
+    #     'learning_activities',
+    #     'school_id = (SELECT school_id FROM students WHERE id = student_id)'
+    # )
 
-    op.create_check_constraint(
-        'check_analytics_events_school',
-        'analytics_events',
-        'student_id IS NULL OR school_id = (SELECT school_id FROM students WHERE id = student_id)'
-    )
+    # op.create_check_constraint(
+    #     'check_analytics_events_school',
+    #     'analytics_events',
+    #     'student_id IS NULL OR school_id = (SELECT school_id FROM students WHERE id = student_id)'
+    # )
 
-    op.create_check_constraint(
-        'check_sync_queue_school',
-        'sync_queue',
-        'school_id = (SELECT school_id FROM students WHERE id = student_id)'
-    )
+    # op.create_check_constraint(
+    #     'check_sync_queue_school',
+    #     'sync_queue',
+    #     'school_id = (SELECT school_id FROM students WHERE id = student_id)'
+    # )
 
 
     # === 7. Make textbooks.school_id nullable for hybrid model ===
@@ -253,14 +258,15 @@ def downgrade() -> None:
     op.alter_column('textbooks', 'school_id', nullable=False)
 
     # Remove CHECK constraints
-    op.drop_constraint('check_sync_queue_school', 'sync_queue')
-    op.drop_constraint('check_analytics_events_school', 'analytics_events')
-    op.drop_constraint('check_learning_activities_school', 'learning_activities')
-    op.drop_constraint('check_learning_sessions_school', 'learning_sessions')
-    op.drop_constraint('check_student_paragraphs_school', 'student_paragraphs')
-    op.drop_constraint('check_adaptive_groups_school', 'adaptive_groups')
-    op.drop_constraint('check_mastery_history_school', 'mastery_history')
-    op.drop_constraint('check_test_attempts_school', 'test_attempts')
+    # DISABLED: These constraints were never created (see upgrade() function)
+    # op.drop_constraint('check_sync_queue_school', 'sync_queue')
+    # op.drop_constraint('check_analytics_events_school', 'analytics_events')
+    # op.drop_constraint('check_learning_activities_school', 'learning_activities')
+    # op.drop_constraint('check_learning_sessions_school', 'learning_sessions')
+    # op.drop_constraint('check_student_paragraphs_school', 'student_paragraphs')
+    # op.drop_constraint('check_adaptive_groups_school', 'adaptive_groups')
+    # op.drop_constraint('check_mastery_history_school', 'mastery_history')
+    # op.drop_constraint('check_test_attempts_school', 'test_attempts')
 
     # Remove composite indexes
     op.drop_index('ix_sync_queue_school_status', 'sync_queue')
