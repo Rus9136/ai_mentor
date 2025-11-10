@@ -103,8 +103,8 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
       REFRESH_TOKEN_EXPIRE_DAYS: 7
 
-      # CORS (production domains)
-      BACKEND_CORS_ORIGINS: '["https://ai-mentor.kz","https://www.ai-mentor.kz","https://admin.ai-mentor.kz","https://api.ai-mentor.kz"]'
+      # CORS (production domains) - CSV format для корректного парсинга Pydantic
+      BACKEND_CORS_ORIGINS: "https://ai-mentor.kz,https://admin.ai-mentor.kz,https://api.ai-mentor.kz"
 
       # OpenAI (опционально, можно добавить позже)
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -167,7 +167,7 @@ services:
 
     # Этот контейнер НЕ работает постоянно
     # Он только собирает статику и останавливается
-    # Статика будет скопирована в /var/www/ai-mentor/ вручную
+    # Статика будет скопирована в /var/www/ai-mentor/ (landing) и /var/www/ai-mentor-admin/ (admin)
     profiles:
       - build
 
@@ -187,10 +187,15 @@ services:
 #    docker compose -f docker-compose.infra.yml --profile build up frontend
 #    docker compose -f docker-compose.infra.yml stop frontend
 #
-# 4. Копирование frontend статики в /var/www/ai-mentor/:
+# 4. Копирование frontend статики в production директории:
+#    # Landing (ai-mentor.kz)
 #    sudo mkdir -p /var/www/ai-mentor
 #    docker run --rm -v ai_mentor_frontend_dist:/source -v /var/www/ai-mentor:/dest alpine sh -c "cp -r /source/* /dest/"
 #    sudo chown -R www-data:www-data /var/www/ai-mentor
+#    # Admin (admin.ai-mentor.kz)
+#    sudo mkdir -p /var/www/ai-mentor-admin
+#    docker run --rm -v ai_mentor_frontend_dist:/source -v /var/www/ai-mentor-admin:/dest alpine sh -c "cp -r /source/* /dest/"
+#    sudo chown -R www-data:www-data /var/www/ai-mentor-admin
 #
 # 5. Проверка статуса:
 #    docker compose -f docker-compose.infra.yml ps

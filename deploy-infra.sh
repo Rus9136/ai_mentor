@@ -21,6 +21,7 @@ PROJECT_DIR="/home/rus/projects/ai_mentor"
 COMPOSE_FILE="docker-compose.infra.yml"
 FRONTEND_DIST_VOLUME="ai_mentor_frontend_dist"
 FRONTEND_TARGET_DIR="/var/www/ai-mentor"
+ADMIN_TARGET_DIR="/var/www/ai-mentor-admin"
 NGINX_CONFIG_SOURCE="$PROJECT_DIR/nginx/infra"
 NGINX_CONFIG_TARGET="/home/rus/infrastructure/nginx/sites-enabled"
 
@@ -147,24 +148,31 @@ build_frontend() {
     log_success "Frontend build completed"
 }
 
-# Deploy frontend to /var/www/ai-mentor/
+# Deploy frontend to both /var/www/ai-mentor/ and /var/www/ai-mentor-admin/
 deploy_frontend() {
-    log_info "Deploying frontend to $FRONTEND_TARGET_DIR..."
+    log_info "Deploying frontend to landing and admin..."
 
-    # Create target directory
+    # Deploy to Landing (ai-mentor.kz)
+    log_info "Deploying landing to $FRONTEND_TARGET_DIR..."
     sudo mkdir -p "$FRONTEND_TARGET_DIR"
-
-    # Copy files from volume to target directory
-    log_info "Copying files from Docker volume..."
     docker run --rm \
         -v ${FRONTEND_DIST_VOLUME}:/source:ro \
         -v ${FRONTEND_TARGET_DIR}:/dest \
-        alpine sh -c "cp -r /source/* /dest/"
-
-    # Set proper permissions
+        alpine sh -c "rm -rf /dest/* && cp -r /source/* /dest/"
     sudo chown -R www-data:www-data "$FRONTEND_TARGET_DIR"
+    log_success "Landing deployed to $FRONTEND_TARGET_DIR"
 
-    log_success "Frontend deployed to $FRONTEND_TARGET_DIR"
+    # Deploy to Admin (admin.ai-mentor.kz)
+    log_info "Deploying admin to $ADMIN_TARGET_DIR..."
+    sudo mkdir -p "$ADMIN_TARGET_DIR"
+    docker run --rm \
+        -v ${FRONTEND_DIST_VOLUME}:/source:ro \
+        -v ${ADMIN_TARGET_DIR}:/dest \
+        alpine sh -c "rm -rf /dest/* && cp -r /source/* /dest/"
+    sudo chown -R www-data:www-data "$ADMIN_TARGET_DIR"
+    log_success "Admin deployed to $ADMIN_TARGET_DIR"
+
+    log_success "Frontend deployed to both landing and admin"
 }
 
 # Install Nginx configs

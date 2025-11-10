@@ -331,9 +331,10 @@ show_deploy_summary() {
         show_elapsed
         echo ""
         echo -e "${CYAN}🌐 Services:${NC}"
-        echo -e "   • Frontend: ${GREEN}https://ai-mentor.kz${NC}"
+        echo -e "   • Landing:  ${GREEN}https://ai-mentor.kz${NC}"
         echo -e "   • Admin:    ${GREEN}https://admin.ai-mentor.kz${NC}"
         echo -e "   • API:      ${GREEN}https://api.ai-mentor.kz${NC}"
+        echo -e "   • API Docs: ${GREEN}https://api.ai-mentor.kz/docs${NC}"
     else
         log_error "Deployment failed!"
         show_elapsed

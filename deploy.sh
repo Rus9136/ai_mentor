@@ -17,6 +17,7 @@ PROJECT_DIR="/home/rus/projects/ai_mentor"
 COMPOSE_FILE="docker-compose.infra.yml"
 FRONTEND_DIST_VOLUME="ai_mentor_frontend_dist"
 FRONTEND_TARGET_DIR="/var/www/ai-mentor"
+ADMIN_TARGET_DIR="/var/www/ai-mentor-admin"
 
 # Load helper functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -266,27 +267,44 @@ deploy_frontend() {
     # Wait for container to be ready
     sleep 3
 
-    # Copy files to /var/www/ai-mentor/
-    log_step "Deploying frontend to $FRONTEND_TARGET_DIR..."
-
-    # Create target directory
-    sudo mkdir -p "$FRONTEND_TARGET_DIR"
-
-    # Copy files directly from container to temp, then to destination
-    if docker cp ai_mentor_frontend_build:/usr/share/nginx/html/. /tmp/frontend-dist/ && \
-       sudo rm -rf "$FRONTEND_TARGET_DIR"/* && \
-       sudo cp -r /tmp/frontend-dist/* "$FRONTEND_TARGET_DIR/" && \
-       sudo rm -rf /tmp/frontend-dist; then
-        log_success "Frontend files copied"
-    else
-        log_error "Failed to copy frontend files"
+    # Copy files to /tmp first
+    log_step "Extracting frontend build from container..."
+    if ! docker cp ai_mentor_frontend_build:/usr/share/nginx/html/. /tmp/frontend-dist/; then
+        log_error "Failed to extract frontend files from container"
         docker compose -f "$COMPOSE_FILE" stop frontend 2>/dev/null || true
         return 1
     fi
 
-    # Set permissions
-    log_step "Setting permissions..."
-    sudo chown -R www-data:www-data "$FRONTEND_TARGET_DIR"
+    # Deploy to Landing (ai-mentor.kz)
+    log_step "Deploying landing to $FRONTEND_TARGET_DIR..."
+    sudo mkdir -p "$FRONTEND_TARGET_DIR"
+    if sudo rm -rf "$FRONTEND_TARGET_DIR"/* && \
+       sudo cp -r /tmp/frontend-dist/* "$FRONTEND_TARGET_DIR/"; then
+        sudo chown -R www-data:www-data "$FRONTEND_TARGET_DIR"
+        log_success "Landing deployed to $FRONTEND_TARGET_DIR"
+    else
+        log_error "Failed to deploy landing"
+        sudo rm -rf /tmp/frontend-dist
+        docker compose -f "$COMPOSE_FILE" stop frontend 2>/dev/null || true
+        return 1
+    fi
+
+    # Deploy to Admin (admin.ai-mentor.kz)
+    log_step "Deploying admin to $ADMIN_TARGET_DIR..."
+    sudo mkdir -p "$ADMIN_TARGET_DIR"
+    if sudo rm -rf "$ADMIN_TARGET_DIR"/* && \
+       sudo cp -r /tmp/frontend-dist/* "$ADMIN_TARGET_DIR/"; then
+        sudo chown -R www-data:www-data "$ADMIN_TARGET_DIR"
+        log_success "Admin deployed to $ADMIN_TARGET_DIR"
+    else
+        log_error "Failed to deploy admin"
+        sudo rm -rf /tmp/frontend-dist
+        docker compose -f "$COMPOSE_FILE" stop frontend 2>/dev/null || true
+        return 1
+    fi
+
+    # Clean up temp directory
+    sudo rm -rf /tmp/frontend-dist
 
     # Stop frontend container
     log_step "Stopping frontend build container..."
@@ -330,11 +348,18 @@ check_services() {
         show_service_status "API Health" "unhealthy"
     fi
 
-    # Check frontend files
+    # Check frontend files (landing)
     if [ -f "$FRONTEND_TARGET_DIR/index.html" ]; then
-        show_service_status "Frontend Files" "deployed"
+        show_service_status "Landing Files" "deployed"
     else
-        show_service_status "Frontend Files" "missing"
+        show_service_status "Landing Files" "missing"
+    fi
+
+    # Check admin files
+    if [ -f "$ADMIN_TARGET_DIR/index.html" ]; then
+        show_service_status "Admin Files" "deployed"
+    else
+        show_service_status "Admin Files" "missing"
     fi
 
     echo ""
