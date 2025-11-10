@@ -11,7 +11,7 @@ import { TeacherList, TeacherCreate, TeacherEdit, TeacherShow } from './pages/te
 import { ParentList, ParentCreate, ParentShow } from './pages/parents';
 import { ClassList, ClassCreate, ClassEdit, ClassShow } from './pages/classes';
 import { SchoolTextbookList } from './pages/school-content/textbooks';
-import { SchoolTestList } from './pages/school-content/tests';
+import { SchoolTestList, SchoolTestCreate } from './pages/school-content/tests';
 import { SchoolSettings } from './pages/school-content/settings';
 import SchoolIcon from '@mui/icons-material/School';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
@@ -122,7 +122,7 @@ function App() {
       <Resource
         name="school-tests"
         list={SchoolTestList}
-        create={TestCreate}
+        create={SchoolTestCreate}
         edit={TestEdit}
         show={TestShow}
         icon={QuizIcon}
