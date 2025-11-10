@@ -938,23 +938,29 @@ export const dataProvider: DataProvider = {
       throw new Error('Токен аутентификации не найден. Пожалуйста, войдите в систему.');
     }
 
-    // Определяем базовый URL в зависимости от ресурса
-    // Для textbooks, tests, chapters, paragraphs используем global endpoint
-    const useGlobalEndpoint = ['textbooks', 'tests', 'chapters', 'paragraphs'].includes(resource);
-    // Для students, teachers, parents, classes используем school endpoint
-    const useSchoolEndpoint = ['students', 'teachers', 'parents', 'classes'].includes(resource);
-
+    // Определяем базовый URL и resource name в зависимости от ресурса
     let baseUrl = `${API_URL}/admin`;
-    if (useGlobalEndpoint) {
+    let resourceName = resource;
+
+    // Для school-* ресурсов
+    if (resource.startsWith('school-')) {
+      const baseResource = resource.replace('school-', '');
+      baseUrl = `${API_URL}/admin/school`;
+      resourceName = baseResource;
+    }
+    // Для textbooks, tests, chapters, paragraphs используем global endpoint
+    else if (['textbooks', 'tests', 'chapters', 'paragraphs'].includes(resource)) {
       baseUrl = `${API_URL}/admin/global`;
-    } else if (useSchoolEndpoint) {
+    }
+    // Для students, teachers, parents, classes используем school endpoint
+    else if (['students', 'teachers', 'parents', 'classes'].includes(resource)) {
       baseUrl = `${API_URL}/admin/school`;
     }
 
     // Для простоты делаем множественные запросы
     // В production можно оптимизировать через batch endpoint
     const requests = params.ids.map((id) =>
-      fetch(`${baseUrl}/${resource}/${id}`, {
+      fetch(`${baseUrl}/${resourceName}/${id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
