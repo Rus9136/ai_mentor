@@ -16,8 +16,26 @@ COPY . .
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
+# Вывод переменной для отладки
+RUN echo "Building with VITE_API_URL=$VITE_API_URL"
+
 # Сборка приложения для production
 RUN npm run build
+
+# Проверка что API URL правильный
+RUN echo "Verifying API URL in built files..." && \
+    API_URL_CHECK=$(grep -r "api\.ai-mentor\.kz" /app/dist/assets/*.js | head -1 || echo "") && \
+    echo "Found API URL references in build" && \
+    if echo "$API_URL_CHECK" | grep -q "api\.ai-mentor\.kz/api/v1"; then \
+        echo "✅ API URL is correct: contains /api/v1"; \
+    else \
+        echo "❌ ERROR: API URL does not contain /api/v1!" && \
+        echo "Build output check:" && \
+        grep -o "https://api\.ai-mentor\.kz[^\"]*" /app/dist/assets/*.js | head -5 && \
+        echo "" && \
+        echo "VITE_API_URL was: $VITE_API_URL" && \
+        exit 1; \
+    fi
 
 # =====================================
 # Production stage - только собранные файлы

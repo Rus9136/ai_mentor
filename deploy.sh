@@ -260,6 +260,27 @@ deploy_frontend() {
         return 1
     fi
 
+    # Verify API URL in built image
+    log_step "Verifying API URL in built image..."
+    API_URL_CHECK=$(docker run --rm ai_mentor-frontend sh -c "grep -o 'https://api.ai-mentor.kz[^\"]*' /usr/share/nginx/html/assets/*.js 2>/dev/null | head -1" || echo "")
+
+    if [[ -z "$API_URL_CHECK" ]]; then
+        log_error "❌ ERROR: Could not find API URL in built frontend!"
+        show_troubleshooting "frontend"
+        return 1
+    elif [[ "$API_URL_CHECK" != *"/api/v1"* ]]; then
+        log_error "❌ ERROR: API URL does not contain /api/v1!"
+        echo -e "   ${RED}Found: $API_URL_CHECK${NC}"
+        echo -e "   ${RED}Expected: https://api.ai-mentor.kz/api/v1${NC}"
+        echo ""
+        echo -e "${YELLOW}This usually means Docker cached an old build with wrong VITE_API_URL${NC}"
+        echo -e "${YELLOW}Solution: Rebuild with --no-cache${NC}"
+        echo -e "   ${GRAY}cd frontend && docker build --no-cache --build-arg VITE_API_URL=\"https://api.ai-mentor.kz/api/v1\" -f Dockerfile.prod -t ai_mentor-frontend .${NC}"
+        return 1
+    else
+        log_success "✅ API URL is correct: $API_URL_CHECK"
+    fi
+
     # Start frontend container temporarily (nginx with built files)
     log_step "Starting frontend build container..."
     docker compose -f "$COMPOSE_FILE" --profile build up -d frontend
