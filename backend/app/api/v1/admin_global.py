@@ -4,6 +4,7 @@ Manages global textbooks, chapters, and paragraphs (school_id = NULL).
 """
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -601,7 +602,7 @@ async def get_global_test(
     Get a specific global test by ID (SUPER_ADMIN only).
     """
     test_repo = TestRepository(db)
-    test = await test_repo.get_by_id(test_id, load_questions=True)
+    test = await test_repo.get_by_id(test_id, load_questions=False)
 
     if not test:
         raise HTTPException(
@@ -680,7 +681,7 @@ async def delete_global_test(
 
 # ========== Question Endpoints ==========
 
-@router.post("/tests/{test_id}/questions", response_model=QuestionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/tests/{test_id}/questions", status_code=status.HTTP_201_CREATED)
 async def create_global_question(
     test_id: int,
     data: QuestionCreate,
@@ -689,9 +690,11 @@ async def create_global_question(
 ):
     """
     Create a new question in a global test (SUPER_ADMIN only).
+    Supports creating question with nested options in a single request.
     """
     test_repo = TestRepository(db)
     question_repo = QuestionRepository(db)
+    option_repo = QuestionOptionRepository(db)
 
     # Verify test exists and is global
     test = await test_repo.get_by_id(test_id)
@@ -707,9 +710,53 @@ async def create_global_question(
             detail="Cannot add question to non-global test. Use school admin endpoints."
         )
 
+    # Extract options from data (will be created separately)
+    options_data = data.options
+    question_data = data.model_dump(exclude={'options'})
+
     # Create question
-    question = Question(test_id=test_id, **data.model_dump())
-    return await question_repo.create(question)
+    question = Question(test_id=test_id, **question_data)
+    created_question = await question_repo.create(question)
+
+    # Create options if provided
+    created_options = []
+    if options_data:
+        for option_create in options_data:
+            option = QuestionOption(
+                question_id=created_question.id,
+                **option_create.model_dump()
+            )
+            created_option = await option_repo.create(option)
+            created_options.append(created_option)
+
+    # Return question details as simple dict (avoid SQLAlchemy lazy loading)
+    return {
+        "id": created_question.id,
+        "test_id": created_question.test_id,
+        "sort_order": created_question.sort_order,
+        "question_type": created_question.question_type.value if hasattr(created_question.question_type, 'value') else created_question.question_type,
+        "question_text": created_question.question_text,
+        "explanation": created_question.explanation,
+        "points": created_question.points,
+        "created_at": created_question.created_at.isoformat() if created_question.created_at else None,
+        "updated_at": created_question.updated_at.isoformat() if created_question.updated_at else None,
+        "deleted_at": created_question.deleted_at.isoformat() if created_question.deleted_at else None,
+        "is_deleted": created_question.is_deleted,
+        "options": [
+            {
+                "id": opt.id,
+                "question_id": opt.question_id,
+                "sort_order": opt.sort_order,
+                "option_text": opt.option_text,
+                "is_correct": opt.is_correct,
+                "created_at": opt.created_at.isoformat() if opt.created_at else None,
+                "updated_at": opt.updated_at.isoformat() if opt.updated_at else None,
+                "deleted_at": opt.deleted_at.isoformat() if opt.deleted_at else None,
+                "is_deleted": opt.is_deleted,
+            }
+            for opt in created_options
+        ]
+    }
 
 
 @router.get("/tests/{test_id}/questions", response_model=List[QuestionResponse])
@@ -720,9 +767,13 @@ async def list_global_questions(
 ):
     """
     Get all questions for a global test (SUPER_ADMIN only).
+
+    Returns questions with options loaded manually in the same session
+    to avoid RLS session variable issues with eager loading.
     """
     test_repo = TestRepository(db)
     question_repo = QuestionRepository(db)
+    option_repo = QuestionOptionRepository(db)
 
     # Verify test exists and is global
     test = await test_repo.get_by_id(test_id)
@@ -738,7 +789,46 @@ async def list_global_questions(
             detail="This is not a global test. Use school admin endpoints."
         )
 
-    return await question_repo.get_by_test(test_id)
+    # Get questions WITHOUT eager loading options (avoid RLS issues)
+    questions = await question_repo.get_by_test(test_id, load_options=False)
+
+    # Manually load options and build response (avoid SQLAlchemy lazy load issues)
+    result = []
+    for question in questions:
+        options = await option_repo.get_by_question(question.id)
+
+        # Build Pydantic models from dict to avoid accessing SQLAlchemy relationships
+        q_dict = {
+            "id": question.id,
+            "test_id": question.test_id,
+            "sort_order": question.sort_order,
+            "question_type": question.question_type,
+            "question_text": question.question_text,
+            "explanation": question.explanation,
+            "points": question.points,
+            "created_at": question.created_at,
+            "updated_at": question.updated_at,
+            "deleted_at": question.deleted_at,
+            "is_deleted": question.is_deleted,
+            "options": [
+                {
+                    "id": opt.id,
+                    "question_id": opt.question_id,
+                    "sort_order": opt.sort_order,
+                    "option_text": opt.option_text,
+                    "is_correct": opt.is_correct,
+                    "created_at": opt.created_at,
+                    "updated_at": opt.updated_at,
+                    "deleted_at": opt.deleted_at,
+                    "is_deleted": opt.is_deleted,
+                }
+                for opt in options
+            ]
+        }
+        q_response = QuestionResponse(**q_dict)
+        result.append(q_response)
+
+    return result
 
 
 @router.get("/questions/{question_id}", response_model=QuestionResponse)
@@ -771,7 +861,7 @@ async def get_global_question(
     return question
 
 
-@router.put("/questions/{question_id}", response_model=QuestionResponse)
+@router.put("/questions/{question_id}")
 async def update_global_question(
     question_id: int,
     data: QuestionUpdate,
@@ -780,8 +870,10 @@ async def update_global_question(
 ):
     """
     Update a question in a global test (SUPER_ADMIN only).
+    Returns question with options loaded manually to avoid RLS session variable issues.
     """
     question_repo = QuestionRepository(db)
+    option_repo = QuestionOptionRepository(db)
     test_repo = TestRepository(db)
 
     question = await question_repo.get_by_id(question_id)
@@ -804,7 +896,39 @@ async def update_global_question(
     for field, value in update_data.items():
         setattr(question, field, value)
 
-    return await question_repo.update(question)
+    updated_question = await question_repo.update(question)
+
+    # Manually load options (avoid SQLAlchemy lazy loading issues)
+    options = await option_repo.get_by_question(updated_question.id)
+
+    # Return question details as simple dict (avoid SQLAlchemy lazy loading)
+    return {
+        "id": updated_question.id,
+        "test_id": updated_question.test_id,
+        "sort_order": updated_question.sort_order,
+        "question_type": updated_question.question_type.value if hasattr(updated_question.question_type, 'value') else updated_question.question_type,
+        "question_text": updated_question.question_text,
+        "explanation": updated_question.explanation,
+        "points": updated_question.points,
+        "created_at": updated_question.created_at.isoformat() if updated_question.created_at else None,
+        "updated_at": updated_question.updated_at.isoformat() if updated_question.updated_at else None,
+        "deleted_at": updated_question.deleted_at.isoformat() if updated_question.deleted_at else None,
+        "is_deleted": updated_question.is_deleted,
+        "options": [
+            {
+                "id": opt.id,
+                "question_id": opt.question_id,
+                "sort_order": opt.sort_order,
+                "option_text": opt.option_text,
+                "is_correct": opt.is_correct,
+                "created_at": opt.created_at.isoformat() if opt.created_at else None,
+                "updated_at": opt.updated_at.isoformat() if opt.updated_at else None,
+                "deleted_at": opt.deleted_at.isoformat() if opt.deleted_at else None,
+                "is_deleted": opt.is_deleted,
+            }
+            for opt in options
+        ]
+    }
 
 
 @router.delete("/questions/{question_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -874,7 +998,7 @@ async def create_global_question_option(
     return await option_repo.create(option)
 
 
-@router.put("/options/{option_id}", response_model=QuestionOptionResponse)
+@router.put("/options/{option_id}")
 async def update_global_question_option(
     option_id: int,
     data: QuestionOptionUpdate,
@@ -883,6 +1007,7 @@ async def update_global_question_option(
 ):
     """
     Update a question option in a global test (SUPER_ADMIN only).
+    Returns option as dict to avoid SQLAlchemy lazy loading issues.
     """
     option_repo = QuestionOptionRepository(db)
     question_repo = QuestionRepository(db)
@@ -910,7 +1035,20 @@ async def update_global_question_option(
     for field, value in update_data.items():
         setattr(option, field, value)
 
-    return await option_repo.update(option)
+    updated_option = await option_repo.update(option)
+
+    # Return option as simple dict (avoid SQLAlchemy lazy loading issues)
+    return {
+        "id": updated_option.id,
+        "question_id": updated_option.question_id,
+        "sort_order": updated_option.sort_order,
+        "option_text": updated_option.option_text,
+        "is_correct": updated_option.is_correct,
+        "created_at": updated_option.created_at.isoformat() if updated_option.created_at else None,
+        "updated_at": updated_option.updated_at.isoformat() if updated_option.updated_at else None,
+        "deleted_at": updated_option.deleted_at.isoformat() if updated_option.deleted_at else None,
+        "is_deleted": updated_option.is_deleted,
+    }
 
 
 @router.delete("/options/{option_id}", status_code=status.HTTP_204_NO_CONTENT)
