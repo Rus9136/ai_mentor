@@ -367,6 +367,40 @@ async def list_school_chapters(
     return await chapter_repo.get_by_textbook(textbook_id)
 
 
+@router.get("/chapters/{chapter_id}", response_model=ChapterResponse)
+async def get_school_chapter(
+    chapter_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a single chapter from a school textbook (ADMIN only).
+    Can access chapters from both global and school textbooks.
+    """
+    chapter_repo = ChapterRepository(db)
+    textbook_repo = TextbookRepository(db)
+
+    chapter = await chapter_repo.get_by_id(chapter_id)
+    if not chapter:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Chapter {chapter_id} not found"
+        )
+
+    # Verify access to parent textbook
+    textbook = await textbook_repo.get_by_id(chapter.textbook_id)
+    if textbook:
+        # Allow access to global textbooks (school_id = null) and own school textbooks
+        if textbook.school_id is not None and textbook.school_id != school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this chapter"
+            )
+
+    return chapter
+
+
 @router.put("/chapters/{chapter_id}", response_model=ChapterResponse)
 async def update_school_chapter(
     chapter_id: int,
@@ -526,6 +560,43 @@ async def list_school_paragraphs(
         )
 
     return await paragraph_repo.get_by_chapter(chapter_id)
+
+
+@router.get("/paragraphs/{paragraph_id}", response_model=ParagraphResponse)
+async def get_school_paragraph(
+    paragraph_id: int,
+    current_user: User = Depends(require_admin),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a single paragraph from a school chapter (ADMIN only).
+    Can access paragraphs from both global and school chapters.
+    """
+    paragraph_repo = ParagraphRepository(db)
+    chapter_repo = ChapterRepository(db)
+    textbook_repo = TextbookRepository(db)
+
+    paragraph = await paragraph_repo.get_by_id(paragraph_id)
+    if not paragraph:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Paragraph {paragraph_id} not found"
+        )
+
+    # Verify access to parent chapter and textbook
+    chapter = await chapter_repo.get_by_id(paragraph.chapter_id)
+    if chapter:
+        textbook = await textbook_repo.get_by_id(chapter.textbook_id)
+        if textbook:
+            # Allow access to global textbooks (school_id = null) and own school textbooks
+            if textbook.school_id is not None and textbook.school_id != school_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied to this paragraph"
+                )
+
+    return paragraph
 
 
 @router.put("/paragraphs/{paragraph_id}", response_model=ParagraphResponse)
