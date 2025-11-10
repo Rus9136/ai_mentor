@@ -5,12 +5,16 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
+import logging
 
 from app.core.database import get_db
 from app.core.security import decode_token, verify_token_type
+from app.core.tenancy import set_current_tenant, reset_tenant, set_super_admin_flag
 from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
 from app.schemas.auth import TokenPayload
+
+logger = logging.getLogger(__name__)
 
 
 # HTTP Bearer token scheme
@@ -86,6 +90,19 @@ async def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User is inactive"
         )
+
+    # Set tenant context for RLS policies
+    # This MUST be done in the SAME session that will be used by endpoints
+    if user.role == UserRole.SUPER_ADMIN:
+        await set_super_admin_flag(db, True)
+        await reset_tenant(db)
+        await db.commit()
+        logger.info(f"Set SUPER_ADMIN mode for user_id={user.id}")
+    elif user.school_id is not None:
+        await set_current_tenant(db, user.school_id)
+        await set_super_admin_flag(db, False)
+        await db.commit()
+        logger.info(f"Set tenant context: school_id={user.school_id}, user_id={user.id}")
 
     return user
 

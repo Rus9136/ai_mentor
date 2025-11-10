@@ -35,6 +35,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency for getting async database session.
 
+    Session variables for RLS are set by get_current_user() dependency
+    in the SAME session, ensuring proper tenant isolation.
+
     Yields:
         AsyncSession: Database session
     """

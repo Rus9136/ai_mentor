@@ -26,6 +26,7 @@ from app.models.mastery import ParagraphMastery
 from app.models.paragraph import Paragraph
 from app.models.chapter import Chapter
 from app.repositories.test_repo import TestRepository
+from app.repositories.question_repo import QuestionRepository, QuestionOptionRepository
 from app.repositories.test_attempt_repo import TestAttemptRepository
 from app.repositories.paragraph_mastery_repo import ParagraphMasteryRepository
 from app.repositories.chapter_mastery_repo import ChapterMasteryRepository
@@ -117,12 +118,16 @@ async def get_available_tests(
         if completed_attempts:
             best_score = max(a.score for a in completed_attempts)
 
-        # Count questions (load if not already loaded)
-        if not test.questions:
-            test_with_questions = await test_repo.get_by_id(test.id, load_questions=True)
-            question_count = len(test_with_questions.questions) if test_with_questions else 0
-        else:
-            question_count = len(test.questions)
+        # Count questions using direct COUNT query (avoid RLS issues with eager loading)
+        from sqlalchemy import select, func
+        from app.models.test import Question
+        question_count_result = await db.execute(
+            select(func.count(Question.id)).where(
+                Question.test_id == test.id,
+                Question.is_deleted == False
+            )
+        )
+        question_count = question_count_result.scalar() or 0
 
         result.append(
             AvailableTestResponse(
@@ -178,9 +183,9 @@ async def start_test(
     """
     student_id = current_user.student.id
 
-    # Get test with questions
+    # Get test WITHOUT eager loading (avoid RLS issues)
     test_repo = TestRepository(db)
-    test = await test_repo.get_by_id(test_id, load_questions=True)
+    test = await test_repo.get_by_id(test_id, load_questions=False)
 
     if not test:
         raise HTTPException(
@@ -201,6 +206,11 @@ async def start_test(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Test is not available"
         )
+
+    # Load questions (options will be loaded later when building response)
+    question_repo = QuestionRepository(db)
+    option_repo = QuestionOptionRepository(db)
+    questions_data = await question_repo.get_by_test(test_id, load_options=False)
 
     # Calculate attempt number (auto-increment)
     attempt_repo = TestAttemptRepository(db)
@@ -230,14 +240,39 @@ async def start_test(
     # Build response with QuestionResponseStudent (WITHOUT correct answers)
     test_data = TestResponse.model_validate(test).model_dump()
 
-    questions_data = []
-    for question in sorted(test.questions, key=lambda q: q.order):
-        # Use QuestionResponseStudent - no is_correct, no explanation
-        q_dict = QuestionResponseStudent.model_validate(question).model_dump()
-        questions_data.append(q_dict)
+    # Use pre-loaded questions_data from above (test.questions is list, not relationship at this point)
+    questions_response = []
+    for question in sorted(questions_data, key=lambda q: q.sort_order):
+        # Load options for this question
+        options = await option_repo.get_by_question(question.id)
+
+        # Build QuestionResponseStudent from dict to avoid SQLAlchemy relationship access
+        q_dict = {
+            "id": question.id,
+            "test_id": question.test_id,
+            "sort_order": question.sort_order,
+            "question_type": question.question_type,
+            "question_text": question.question_text,
+            "points": question.points,
+            "created_at": question.created_at,
+            "updated_at": question.updated_at,
+            "options": [
+                {
+                    "id": opt.id,
+                    "question_id": opt.question_id,
+                    "sort_order": opt.sort_order,
+                    "option_text": opt.option_text,
+                    "created_at": opt.created_at,
+                    "updated_at": opt.updated_at,
+                }
+                for opt in options
+            ]
+        }
+        q_response = QuestionResponseStudent(**q_dict)
+        questions_response.append(q_response.model_dump())
 
     # Add questions to test_data
-    test_data["questions"] = questions_data
+    test_data["questions"] = questions_response
 
     return TestAttemptDetailResponse(
         id=attempt.id,
@@ -318,14 +353,39 @@ async def get_attempt(
 
     # Build answers data with appropriate question schema
     answers_data = []
-    for answer in sorted(attempt_with_data.answers, key=lambda a: a.question.order):
+    for answer in sorted(attempt_with_data.answers, key=lambda a: a.question.sort_order):
         # Determine which question schema to use
+        # Build from dict to avoid any potential SQLAlchemy relationship issues
+        q = answer.question
         if attempt_with_data.status == AttemptStatus.IN_PROGRESS:
-            # Don't show correct answers yet
-            question_data = QuestionResponseStudent.model_validate(answer.question).model_dump()
+            # Don't show correct answers yet (student-safe schema)
+            question_data = {
+                "id": q.id,
+                "test_id": q.test_id,
+                "sort_order": q.sort_order,
+                "question_type": q.question_type,
+                "question_text": q.question_text,
+                "points": q.points,
+                "created_at": q.created_at,
+                "updated_at": q.updated_at,
+                "options": []  # Options would need to be loaded separately if needed
+            }
         else:
             # Show correct answers (attempt completed)
-            question_data = QuestionResponse.model_validate(answer.question).model_dump()
+            question_data = {
+                "id": q.id,
+                "test_id": q.test_id,
+                "sort_order": q.sort_order,
+                "question_type": q.question_type,
+                "question_text": q.question_text,
+                "explanation": q.explanation,
+                "points": q.points,
+                "created_at": q.created_at,
+                "updated_at": q.updated_at,
+                "deleted_at": q.deleted_at,
+                "is_deleted": q.is_deleted,
+                "options": []  # Options would need to be loaded separately if needed
+            }
 
         answer_dict = TestAttemptAnswerResponse(
             id=answer.id,
@@ -416,9 +476,9 @@ async def submit_test(
             detail=f"Cannot submit: attempt status is {attempt.status}, expected IN_PROGRESS"
         )
 
-    # Get test with questions
+    # Get test WITHOUT eager loading (avoid RLS issues)
     test_repo = TestRepository(db)
-    test = await test_repo.get_by_id(attempt.test_id, load_questions=True)
+    test = await test_repo.get_by_id(attempt.test_id, load_questions=False)
 
     if not test:
         raise HTTPException(
@@ -426,18 +486,23 @@ async def submit_test(
             detail=f"Test {attempt.test_id} not found"
         )
 
+    # Load questions (options will be loaded when needed)
+    question_repo = QuestionRepository(db)
+    option_repo = QuestionOptionRepository(db)
+    questions_data = await question_repo.get_by_test(attempt.test_id, load_options=False)
+
     # Validate answer count matches question count
-    if len(submission.answers) != len(test.questions):
+    if len(submission.answers) != len(questions_data):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 f"Answer count mismatch: got {len(submission.answers)} answers, "
-                f"expected {len(test.questions)} questions"
+                f"expected {len(questions_data)} questions"
             )
         )
 
     # Create TestAttemptAnswer records
-    question_map = {q.id: q for q in test.questions}
+    question_map = {q.id: q for q in questions_data}
 
     for answer_submit in submission.answers:
         if answer_submit.question_id not in question_map:

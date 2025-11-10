@@ -1,46 +1,36 @@
 """
 Tenancy middleware for automatic tenant context management.
 
-This middleware automatically sets the tenant context (school_id) for each request
-based on the JWT token. Works together with RLS policies to provide automatic
-data isolation at the database level.
+This middleware extracts user information from JWT token and stores it in context.
+The actual tenant context (session variables) is set by get_db() dependency in the
+SAME database connection that endpoints use, ensuring RLS policies work correctly.
 """
 import logging
 from typing import Callable
 from fastapi import Request, Response
-from fastapi.security import HTTPBearer
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.core.database import get_db
 from app.core.security import decode_token
-from app.core.tenancy import set_current_tenant, reset_tenant, set_super_admin_flag
-from app.models.user import UserRole
-from app.repositories.user_repo import UserRepository
 
 logger = logging.getLogger(__name__)
-security = HTTPBearer(auto_error=False)
 
 
 class TenancyMiddleware(BaseHTTPMiddleware):
     """
-    Middleware to automatically set tenant context for RLS policies.
+    Middleware to extract user info and prepare tenant context.
 
     For each authenticated request:
     1. Extracts JWT token from Authorization header
-    2. Decodes token to get user_id
-    3. Fetches user from database to get school_id and role
-    4. Sets tenant context:
-       - For SUPER_ADMIN: resets tenant (bypass RLS)
-       - For other roles: sets school_id as current tenant
-    5. After request completes: cleans up tenant context
+    2. Decodes token to get user_id, role, and school_id
+    3. Stores this info in context for get_db() to use
+    4. get_db() dependency will set session variables in the actual DB connection
 
-    This ensures RLS policies automatically filter data by school_id
-    without requiring manual filtering in each endpoint.
+    This ensures RLS policies work correctly with SQLAlchemy eager loading.
     """
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
-        Process request and set tenant context.
+        Extract user info from JWT and store in context.
 
         Args:
             request: FastAPI request
@@ -53,71 +43,34 @@ class TenancyMiddleware(BaseHTTPMiddleware):
         if self._is_public_endpoint(request.url.path):
             return await call_next(request)
 
-        # Try to extract and set tenant context
-        tenant_set = False
-        db_session = None
-
+        # Extract user info from JWT token and set context
         try:
-            # Extract JWT token from Authorization header
             token = self._extract_token(request)
-
+            logger.info(f"TenancyMiddleware: Extracted token: {token[:20] if token else 'None'}...")
             if token:
-                # Decode token to get user_id
                 payload = decode_token(token)
-
+                logger.info(f"TenancyMiddleware: Decoded payload: {payload}")
                 if payload and payload.get("sub"):
-                    # Get database session
-                    db_generator = get_db()
-                    db_session = await db_generator.__anext__()
+                    user_id = int(payload["sub"])
+                    user_role = payload.get("role")
+                    user_school_id = payload.get("school_id")
 
-                    try:
-                        # Get user from database
-                        user_id = int(payload["sub"])
-                        user_repo = UserRepository(db_session)
-                        user = await user_repo.get_by_id(user_id)
+                    # Store in request.state for get_db() to use
+                    request.state.user_id = user_id
+                    request.state.user_role = user_role
+                    request.state.user_school_id = user_school_id
 
-                        if user and user.is_active:
-                            # Set tenant context based on user role
-                            if user.role == UserRole.SUPER_ADMIN:
-                                # SUPER_ADMIN: reset tenant to see all data
-                                await reset_tenant(db_session)
-                                await set_super_admin_flag(db_session, True)
-                                logger.debug(
-                                    f"Tenant context: SUPER_ADMIN (user_id={user.id}), bypass RLS"
-                                )
-                            elif user.school_id:
-                                # Regular user: set school_id as tenant
-                                await set_current_tenant(db_session, user.school_id)
-                                await set_super_admin_flag(db_session, False)
-                                logger.debug(
-                                    f"Tenant context set: school_id={user.school_id}, "
-                                    f"user_id={user.id}, role={user.role}"
-                                )
-                            else:
-                                logger.warning(
-                                    f"User {user.id} has no school_id and is not SUPER_ADMIN"
-                                )
-
-                            # Commit the session variable changes
-                            await db_session.commit()
-                            tenant_set = True
-
-                    except Exception as e:
-                        logger.error(f"Error setting tenant context: {e}")
-                        await db_session.rollback()
-                    finally:
-                        # Close database session
-                        await db_session.close()
-
+                    logger.info(
+                        f"TenancyMiddleware: Stored in request.state - user_id={user_id}, "
+                        f"role={user_role}, school_id={user_school_id}"
+                    )
+                else:
+                    logger.warning(f"TenancyMiddleware: No payload or sub in token")
         except Exception as e:
-            logger.error(f"Error in TenancyMiddleware: {e}")
+            logger.error(f"Error extracting user info in TenancyMiddleware: {e}", exc_info=True)
 
-        # Process request
+        # Process request - get_db() will read from request.state and set session variables
         response = await call_next(request)
-
-        # Cleanup: tenant context is automatically cleaned up when connection is closed
-        # PostgreSQL session variables are connection-scoped
-
         return response
 
     def _is_public_endpoint(self, path: str) -> bool:

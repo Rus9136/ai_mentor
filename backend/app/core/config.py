@@ -3,7 +3,7 @@ Application configuration.
 """
 from typing import Optional
 from pathlib import Path
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 import os
@@ -49,7 +49,11 @@ class Settings(BaseSettings):
 
     @property
     def async_database_url(self) -> str:
-        """Build async database URL."""
+        """
+        Build async database URL.
+
+        Используем asyncpg - он работает, но требует selectinload вместо joinedload для relationships.
+        """
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
@@ -62,12 +66,28 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # CORS
-    BACKEND_CORS_ORIGINS: list[str] = [
+    # Поддерживает как list[str] так и CSV строку "domain1,domain2,domain3"
+    BACKEND_CORS_ORIGINS: list[str] | str = [
         "http://localhost:3000",
         "http://localhost:8080",
         "http://localhost:5173",  # Vite dev server (default port)
         "http://localhost:5174",  # Vite dev server (alternative port)
     ]
+
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """
+        Парсит BACKEND_CORS_ORIGINS из CSV строки или возвращает list как есть.
+
+        Примеры:
+        - "https://ai-mentor.kz,https://admin.ai-mentor.kz" → ["https://ai-mentor.kz", "https://admin.ai-mentor.kz"]
+        - ["https://ai-mentor.kz"] → ["https://ai-mentor.kz"]
+        """
+        if isinstance(v, str):
+            # Парсим CSV: разделяем по запятой и удаляем пробелы
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
     # LangChain / LLM
     OPENAI_API_KEY: Optional[str] = None
