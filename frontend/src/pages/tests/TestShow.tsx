@@ -74,6 +74,49 @@ const TestShowActions = () => {
 };
 
 /**
+ * Компонент для отображения иерархии теста (Учебник → Глава → Параграф)
+ * Динамически выбирает правильный reference в зависимости от контекста (global/school)
+ */
+const TestHierarchy = () => {
+  // Определяем контекст: если мы на /school-tests, используем school-* references
+  const isSchoolContext = window.location.hash.includes('/school-tests');
+
+  return (
+    <>
+      <ReferenceField
+        source="textbook_id"
+        reference={isSchoolContext ? 'school-textbooks' : 'textbooks'}
+        label="Учебник"
+        link="show"
+        emptyText="Не привязан к учебнику"
+      >
+        <TextField source="title" />
+      </ReferenceField>
+
+      <ReferenceField
+        source="chapter_id"
+        reference={isSchoolContext ? 'school-chapters' : 'chapters'}
+        label="Глава"
+        link={false}
+        emptyText="Не привязан к главе"
+      >
+        <TextField source="title" />
+      </ReferenceField>
+
+      <ReferenceField
+        source="paragraph_id"
+        reference={isSchoolContext ? 'school-paragraphs' : 'paragraphs'}
+        label="Параграф"
+        link={false}
+        emptyText="Не привязан к параграфу"
+      >
+        <TextField source="title" />
+      </ReferenceField>
+    </>
+  );
+};
+
+/**
  * Компонент просмотра глобального теста
  *
  * Содержит две вкладки:
@@ -96,35 +139,7 @@ export const TestShow = () => (
         />
 
         {/* Иерархия: Учебник → Глава → Параграф */}
-        <ReferenceField
-          source="textbook_id"
-          reference="textbooks"
-          label="Учебник"
-          link="show"
-          emptyText="Не привязан к учебнику"
-        >
-          <TextField source="title" />
-        </ReferenceField>
-
-        <ReferenceField
-          source="chapter_id"
-          reference="chapters"
-          label="Глава"
-          link={false}
-          emptyText="Не привязан к главе"
-        >
-          <TextField source="title" />
-        </ReferenceField>
-
-        <ReferenceField
-          source="paragraph_id"
-          reference="paragraphs"
-          label="Параграф"
-          link={false}
-          emptyText="Не привязан к параграфу"
-        >
-          <TextField source="title" />
-        </ReferenceField>
+        <TestHierarchy />
 
         <FunctionField
           label="Сложность"
