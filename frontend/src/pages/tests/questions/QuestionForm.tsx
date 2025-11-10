@@ -47,7 +47,7 @@ interface OptionFormData {
   id?: number;
   option_text: string;
   is_correct: boolean;
-  order: number;
+  sort_order: number;
 }
 
 interface QuestionFormData {
@@ -73,7 +73,7 @@ export const QuestionForm: React.FC<QuestionFormProps> = ({
       id: opt.id,
       option_text: opt.option_text,
       is_correct: opt.is_correct,
-      order: opt.order,
+      sort_order: opt.sort_order,
     })) || [],
   });
 
@@ -85,8 +85,8 @@ export const QuestionForm: React.FC<QuestionFormProps> = ({
       setFormData((prev) => ({
         ...prev,
         options: [
-          { option_text: 'Верно', is_correct: false, order: 1 },
-          { option_text: 'Неверно', is_correct: false, order: 2 },
+          { option_text: 'Верно', is_correct: false, sort_order: 1 },
+          { option_text: 'Неверно', is_correct: false, sort_order: 2 },
         ],
       }));
     }
@@ -101,8 +101,8 @@ export const QuestionForm: React.FC<QuestionFormProps> = ({
           ...prev,
           question_type: newType,
           options: [
-            { option_text: 'Верно', is_correct: false, order: 1 },
-            { option_text: 'Неверно', is_correct: false, order: 2 },
+            { option_text: 'Верно', is_correct: false, sort_order: 1 },
+            { option_text: 'Неверно', is_correct: false, sort_order: 2 },
           ],
         };
       }
@@ -119,8 +119,8 @@ export const QuestionForm: React.FC<QuestionFormProps> = ({
         ...prev,
         question_type: newType,
         options: prev.options.length > 0 ? prev.options : [
-          { option_text: '', is_correct: false, order: 1 },
-          { option_text: '', is_correct: false, order: 2 },
+          { option_text: '', is_correct: false, sort_order: 1 },
+          { option_text: '', is_correct: false, sort_order: 2 },
         ],
       };
     });
@@ -135,7 +135,7 @@ export const QuestionForm: React.FC<QuestionFormProps> = ({
         {
           option_text: '',
           is_correct: false,
-          order: prev.options.length + 1,
+          sort_order: prev.options.length + 1,
         },
       ],
     }));
@@ -147,7 +147,7 @@ export const QuestionForm: React.FC<QuestionFormProps> = ({
       ...prev,
       options: prev.options.filter((_, i) => i !== index).map((opt, i) => ({
         ...opt,
-        order: i + 1,
+        sort_order: i + 1,
       })),
     }));
   };

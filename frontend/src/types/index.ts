@@ -144,7 +144,7 @@ export interface Test {
 export interface Question {
   id: number;
   test_id: number;
-  order: number;
+  sort_order: number;  // Renamed from 'order' to match backend
   question_type: QuestionType;
   question_text: string;
   explanation?: string;  // Объяснение правильного ответа
@@ -160,7 +160,7 @@ export interface Question {
 export interface QuestionOption {
   id: number;
   question_id: number;
-  order: number;
+  sort_order: number;  // Renamed from 'order' to match backend
   option_text: string;
   is_correct: boolean;
   created_at: string;

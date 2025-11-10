@@ -29,7 +29,7 @@ import type { Textbook, Chapter, Paragraph } from '../../types';
 import { getAuthToken } from '../../providers/authProvider';
 import { TextbookStructureEditor } from './TextbookStructureEditor';
 
-const API_URL = 'http://localhost:8000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 // Компонент для отображения параграфов главы
 const ParagraphsList = ({ chapterId, isSchoolTextbook }: { chapterId: number; isSchoolTextbook: boolean }) => {

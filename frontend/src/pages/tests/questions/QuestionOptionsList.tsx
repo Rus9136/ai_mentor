@@ -64,7 +64,7 @@ export const QuestionOptionsList: React.FC<QuestionOptionsListProps> = ({
       </Typography>
       <List dense disablePadding>
         {options
-          .sort((a, b) => a.order - b.order)
+          .sort((a, b) => a.sort_order - b.sort_order)
           .map((option) => (
             <ListItem
               key={option.id}

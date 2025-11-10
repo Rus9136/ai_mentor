@@ -26,7 +26,7 @@ import { useNotify } from 'react-admin';
 import { getAuthToken } from '../../../providers/authProvider';
 import type { Question } from '../../../types';
 
-const API_URL = 'http://localhost:8000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 interface QuestionDeleteDialogProps {
   open: boolean;
@@ -107,7 +107,7 @@ export const QuestionDeleteDialog: React.FC<QuestionDeleteDialogProps> = ({
 
       <DialogContent>
         <DialogContentText sx={{ mb: 2 }}>
-          Вы действительно хотите удалить <strong>Вопрос {question.order}</strong>?
+          Вы действительно хотите удалить <strong>Вопрос {question.sort_order}</strong>?
         </DialogContentText>
 
         {/* Информация о вопросе */}

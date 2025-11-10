@@ -129,7 +129,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           {/* Заголовок с типом и баллами */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Typography variant="subtitle1" fontWeight="bold" color="text.primary">
-              Вопрос {question.order}
+              Вопрос {question.sort_order}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Chip

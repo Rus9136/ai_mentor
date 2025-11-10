@@ -26,7 +26,7 @@ import { getAuthToken } from '../../../providers/authProvider';
 import { QuestionCard } from './QuestionCard';
 import { QuestionCreateDialog } from './QuestionCreateDialog';
 
-const API_URL = 'http://localhost:8000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 interface QuestionsEditorProps {
   testId: number;
@@ -100,7 +100,7 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId, isScho
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-              order: updatedQuestion.order,
+              sort_order: updatedQuestion.sort_order,
               question_type: updatedQuestion.question_type,
               question_text: updatedQuestion.question_text,
               explanation: updatedQuestion.explanation || undefined,
@@ -142,7 +142,7 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId, isScho
                 Authorization: `Bearer ${token}`,
               },
               body: JSON.stringify({
-                order: option.order,
+                sort_order: option.sort_order,
                 option_text: option.option_text,
                 is_correct: option.is_correct,
               }),
@@ -156,7 +156,7 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId, isScho
                 Authorization: `Bearer ${token}`,
               },
               body: JSON.stringify({
-                order: option.order,
+                sort_order: option.sort_order,
                 option_text: option.option_text,
                 is_correct: option.is_correct,
               }),
@@ -267,7 +267,7 @@ export const QuestionsEditor: React.FC<QuestionsEditorProps> = ({ testId, isScho
         {questions.length > 0 && (
           <Box>
             {questions
-              .sort((a, b) => a.order - b.order)
+              .sort((a, b) => a.sort_order - b.sort_order)
               .map((question, index) => (
                 <Fade
                   key={question.id}

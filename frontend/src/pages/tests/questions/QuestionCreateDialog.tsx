@@ -25,7 +25,7 @@ import { QuestionForm } from './QuestionForm';
 import { getAuthToken } from '../../../providers/authProvider';
 import type { Question } from '../../../types';
 
-const API_URL = 'http://localhost:8000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 interface QuestionCreateDialogProps {
   open: boolean;
@@ -54,15 +54,14 @@ export const QuestionCreateDialog: React.FC<QuestionCreateDialogProps> = ({
     try {
       const token = getAuthToken();
 
-      // Подготовка payload
+      // Подготовка payload (БЕЗ test_id - берется из URL)
       const payload = {
-        test_id: testId,
-        order,
+        sort_order: order,  // Используем sort_order вместо order
         question_type: questionData.question_type,
         question_text: questionData.question_text?.trim(),
         explanation: questionData.explanation?.trim() || undefined,
         points: questionData.points || 1,
-        options: questionData.options || [],
+        options: questionData.options || [],  // Backend теперь поддерживает вложенные options
       };
 
       // POST запрос для создания вопроса (с вложенными options)

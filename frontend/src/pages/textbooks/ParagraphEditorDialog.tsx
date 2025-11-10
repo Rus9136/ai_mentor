@@ -56,8 +56,8 @@ import { MathFormulaDialog } from '../../components/MathFormulaDialog';
 import { setupMathPlugin, insertMathFormula } from '../../utils/tinymce-math-plugin';
 
 // API URLs из environment variables
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const API_URL = `${API_BASE_URL}/api/v1`;
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = API_URL.replace(/\/api\/v1$/, '');
 
 interface ParagraphEditorDialogProps {
   isSchoolTextbook?: boolean;
