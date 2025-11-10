@@ -880,7 +880,7 @@ async def delete_school_test(
 
 # ========== Question Endpoints ==========
 
-@router.post("/tests/{test_id}/questions", response_model=QuestionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/tests/{test_id}/questions", status_code=status.HTTP_201_CREATED)
 async def create_school_question(
     test_id: int,
     data: QuestionCreate,
@@ -891,9 +891,11 @@ async def create_school_question(
     """
     Create a new question in a school test (ADMIN only).
     Cannot add questions to global tests.
+    Supports creating question with nested options in a single request.
     """
     test_repo = TestRepository(db)
     question_repo = QuestionRepository(db)
+    option_repo = QuestionOptionRepository(db)
 
     # Verify test exists
     test = await test_repo.get_by_id(test_id)
@@ -917,9 +919,53 @@ async def create_school_question(
             detail="Access denied to this test"
         )
 
+    # Extract options from data (will be created separately)
+    options_data = data.options
+    question_data = data.model_dump(exclude={'options'})
+
     # Create question
-    question = Question(test_id=test_id, **data.model_dump())
-    return await question_repo.create(question)
+    question = Question(test_id=test_id, **question_data)
+    created_question = await question_repo.create(question)
+
+    # Create options if provided
+    created_options = []
+    if options_data:
+        for option_create in options_data:
+            option = QuestionOption(
+                question_id=created_question.id,
+                **option_create.model_dump()
+            )
+            created_option = await option_repo.create(option)
+            created_options.append(created_option)
+
+    # Return question details as simple dict (avoid SQLAlchemy lazy loading)
+    return {
+        "id": created_question.id,
+        "test_id": created_question.test_id,
+        "sort_order": created_question.sort_order,
+        "question_type": created_question.question_type.value if hasattr(created_question.question_type, 'value') else created_question.question_type,
+        "question_text": created_question.question_text,
+        "explanation": created_question.explanation,
+        "points": created_question.points,
+        "created_at": created_question.created_at.isoformat() if created_question.created_at else None,
+        "updated_at": created_question.updated_at.isoformat() if created_question.updated_at else None,
+        "deleted_at": created_question.deleted_at.isoformat() if created_question.deleted_at else None,
+        "is_deleted": created_question.is_deleted,
+        "options": [
+            {
+                "id": opt.id,
+                "question_id": opt.question_id,
+                "sort_order": opt.sort_order,
+                "option_text": opt.option_text,
+                "is_correct": opt.is_correct,
+                "created_at": opt.created_at.isoformat() if opt.created_at else None,
+                "updated_at": opt.updated_at.isoformat() if opt.updated_at else None,
+                "deleted_at": opt.deleted_at.isoformat() if opt.deleted_at else None,
+                "is_deleted": opt.is_deleted,
+            }
+            for opt in created_options
+        ]
+    }
 
 
 @router.get("/tests/{test_id}/questions", response_model=List[QuestionResponse])
