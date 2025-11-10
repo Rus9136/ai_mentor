@@ -11,7 +11,7 @@ from app.models.test import QuestionType
 class QuestionOptionCreate(BaseModel):
     """Schema for creating a new question option."""
 
-    order: int = Field(..., ge=1, description="Order of the option (starting from 1)")
+    sort_order: int = Field(..., ge=1, description="Order of the option (starting from 1)")
     option_text: str = Field(..., min_length=1, description="Option text")
     is_correct: bool = Field(default=False, description="Is this option correct")
 
@@ -19,7 +19,7 @@ class QuestionOptionCreate(BaseModel):
 class QuestionOptionUpdate(BaseModel):
     """Schema for updating an existing question option."""
 
-    order: Optional[int] = Field(None, ge=1, description="Order of the option")
+    sort_order: Optional[int] = Field(None, ge=1, description="Order of the option")
     option_text: Optional[str] = Field(None, min_length=1, description="Option text")
     is_correct: Optional[bool] = Field(None, description="Is this option correct")
 
@@ -31,7 +31,7 @@ class QuestionOptionResponse(BaseModel):
 
     id: int
     question_id: int
-    order: int
+    sort_order: int  # Renamed from 'order' to 'sort_order' (matches DB model)
     option_text: str
     is_correct: bool
 
@@ -44,17 +44,18 @@ class QuestionOptionResponse(BaseModel):
 class QuestionCreate(BaseModel):
     """Schema for creating a new question."""
 
-    order: int = Field(..., ge=1, description="Order of the question in test (starting from 1)")
+    sort_order: int = Field(..., ge=1, description="Order of the question in test (starting from 1)")
     question_type: QuestionType = Field(..., description="Type of question")
     question_text: str = Field(..., min_length=1, description="Question text")
     explanation: Optional[str] = Field(None, description="Explanation of correct answer")
     points: float = Field(default=1.0, ge=0.0, description="Points for correct answer")
+    options: List[QuestionOptionCreate] = Field(default_factory=list, description="Question options (for choice questions)")
 
 
 class QuestionUpdate(BaseModel):
     """Schema for updating an existing question."""
 
-    order: Optional[int] = Field(None, ge=1, description="Order of the question")
+    sort_order: Optional[int] = Field(None, ge=1, description="Order of the question")
     question_type: Optional[QuestionType] = Field(None, description="Type of question")
     question_text: Optional[str] = Field(None, min_length=1, description="Question text")
     explanation: Optional[str] = Field(None, description="Explanation of correct answer")
@@ -68,7 +69,7 @@ class QuestionResponse(BaseModel):
 
     id: int
     test_id: int
-    order: int
+    sort_order: int  # Renamed from 'order' to 'sort_order' (matches DB model)
     question_type: QuestionType
     question_text: str
     explanation: Optional[str]
@@ -90,7 +91,7 @@ class QuestionListResponse(BaseModel):
 
     id: int
     test_id: int
-    order: int
+    sort_order: int  # Renamed from 'order' to 'sort_order' (matches DB model)
     question_type: QuestionType
     question_text: str
     points: float
@@ -107,7 +108,7 @@ class QuestionOptionResponseStudent(BaseModel):
 
     id: int
     question_id: int
-    order: int
+    sort_order: int  # Renamed from 'order' to 'sort_order' (matches DB model)
     option_text: str
     # NOTE: is_correct is intentionally EXCLUDED for security
     created_at: datetime
@@ -121,7 +122,7 @@ class QuestionResponseStudent(BaseModel):
 
     id: int
     test_id: int
-    order: int
+    sort_order: int  # Renamed from 'order' to 'sort_order' (matches DB model)
     question_type: QuestionType
     question_text: str
     points: float

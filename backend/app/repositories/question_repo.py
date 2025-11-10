@@ -19,14 +19,14 @@ class QuestionRepository:
     async def get_by_id(
         self,
         question_id: int,
-        load_options: bool = True
+        load_options: bool = False
     ) -> Optional[Question]:
         """
         Get question by ID.
 
         Args:
             question_id: Question ID
-            load_options: Whether to eager load options
+            load_options: Whether to eager load options (default False to avoid RLS issues)
 
         Returns:
             Question or None if not found
@@ -36,31 +36,35 @@ class QuestionRepository:
             Question.is_deleted == False
         )
 
+        # IMPORTANT: load_options=False by default to avoid RLS session variable issues
         if load_options:
             query = query.options(selectinload(Question.options))
 
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_by_test(self, test_id: int) -> List[Question]:
+    async def get_by_test(self, test_id: int, load_options: bool = False) -> List[Question]:
         """
         Get all questions for a specific test.
 
         Args:
             test_id: Test ID
+            load_options: Whether to eager load options (default False to avoid RLS issues)
 
         Returns:
-            List of questions with options, ordered by question.order
+            List of questions, ordered by question.order
         """
-        result = await self.db.execute(
-            select(Question)
-            .where(
-                Question.test_id == test_id,
-                Question.is_deleted == False
-            )
-            .options(selectinload(Question.options))
-            .order_by(Question.order)
+        query = select(Question).where(
+            Question.test_id == test_id,
+            Question.is_deleted == False
         )
+
+        # IMPORTANT: load_options=False by default to avoid RLS session variable issues
+        # Use separate endpoint /questions/{id}/options to get options
+        if load_options:
+            query = query.options(selectinload(Question.options))
+
+        result = await self.db.execute(query.order_by(Question.sort_order))
         return result.scalars().all()
 
     async def create(self, question: Question) -> Question:
@@ -149,7 +153,7 @@ class QuestionOptionRepository:
                 QuestionOption.question_id == question_id,
                 QuestionOption.is_deleted == False
             )
-            .order_by(QuestionOption.order)
+            .order_by(QuestionOption.sort_order)
         )
         return result.scalars().all()
 

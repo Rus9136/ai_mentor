@@ -3,11 +3,11 @@ Repository for Test data access.
 """
 from typing import Optional, List
 from datetime import datetime
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
-from app.models.test import Test, Question, TestPurpose
+from app.models.test import Test, Question, QuestionOption, TestPurpose
 
 
 class TestRepository:
@@ -36,13 +36,24 @@ class TestRepository:
             Test.is_deleted == False
         )
 
+        # Use selectinload for better compatibility with async drivers
+        # selectinload makes separate queries but avoids JOIN issues with psycopg/asyncpg
         if load_questions:
             query = query.options(
                 selectinload(Test.questions).selectinload(Question.options)
             )
 
         result = await self.db.execute(query)
-        return result.scalar_one_or_none()
+        test = result.unique().scalar_one_or_none()
+
+        # Sort questions and options by sort_order (joinedload doesn't respect order_by in relationships)
+        if test and load_questions and test.questions:
+            test.questions.sort(key=lambda q: q.sort_order)
+            for question in test.questions:
+                if question.options:
+                    question.options.sort(key=lambda o: o.sort_order)
+
+        return test
 
     async def get_all_global(self) -> List[Test]:
         """

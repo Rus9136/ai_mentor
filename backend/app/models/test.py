@@ -66,7 +66,7 @@ class Test(SoftDeleteModel):
     # Relationships
     chapter = relationship("Chapter", back_populates="tests")
     paragraph = relationship("Paragraph", back_populates="tests")
-    questions = relationship("Question", back_populates="test", cascade="all, delete-orphan", order_by="Question.order")
+    questions = relationship("Question", back_populates="test", cascade="all, delete-orphan")
     attempts = relationship("TestAttempt", back_populates="test", cascade="all, delete-orphan")
     assignment_tests = relationship("AssignmentTest", back_populates="test", cascade="all, delete-orphan")
 
@@ -83,7 +83,7 @@ class Question(SoftDeleteModel):
     test_id = Column(Integer, ForeignKey("tests.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Question info
-    order = Column(Integer, nullable=False)  # Order in test
+    sort_order = Column(Integer, nullable=False)  # Order in test (renamed from 'order' to avoid SQL keyword conflict)
     question_type = Column(
         SQLEnum(QuestionType, values_callable=lambda x: [e.value for e in x], name='questiontype'),
         nullable=False
@@ -94,7 +94,7 @@ class Question(SoftDeleteModel):
 
     # Relationships
     test = relationship("Test", back_populates="questions")
-    options = relationship("QuestionOption", back_populates="question", cascade="all, delete-orphan", order_by="QuestionOption.order")
+    options = relationship("QuestionOption", back_populates="question", cascade="all, delete-orphan")
     answers = relationship("TestAttemptAnswer", back_populates="question", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
@@ -110,7 +110,7 @@ class QuestionOption(SoftDeleteModel):
     question_id = Column(Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Option info
-    order = Column(Integer, nullable=False)  # Order in question
+    sort_order = Column(Integer, nullable=False)  # Order in question (renamed from 'order' to avoid SQL keyword conflict)
     option_text = Column(Text, nullable=False)
     is_correct = Column(Boolean, nullable=False, default=False)
 
