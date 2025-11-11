@@ -1,7 +1,7 @@
 """
 Paragraph models.
 """
-from sqlalchemy import Column, String, Integer, ForeignKey, Text
+from sqlalchemy import Column, String, Integer, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
 
@@ -24,6 +24,8 @@ class Paragraph(SoftDeleteModel):
     summary = Column(Text, nullable=True)  # Brief summary
     learning_objective = Column(Text, nullable=True)  # Learning objective for the paragraph
     lesson_objective = Column(Text, nullable=True)  # Lesson objective for the paragraph
+    key_terms = Column(JSON, nullable=True)  # Array of key terms (e.g., ["term1", "term2"])
+    questions = Column(JSON, nullable=True)  # Array of questions (e.g., [{"order": 1, "text": "..."}])
 
     # Relationships
     chapter = relationship("Chapter", back_populates="paragraphs")

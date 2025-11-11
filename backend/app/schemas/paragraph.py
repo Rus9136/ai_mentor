@@ -1,9 +1,16 @@
 """
 Pydantic schemas for Paragraph content.
 """
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
+
+
+class ParagraphQuestion(BaseModel):
+    """Schema for paragraph question."""
+
+    order: int = Field(..., ge=1, description="Question order/number")
+    text: str = Field(..., min_length=1, description="Question text")
 
 
 class ParagraphCreate(BaseModel):
@@ -17,6 +24,8 @@ class ParagraphCreate(BaseModel):
     summary: Optional[str] = Field(None, description="Brief summary of the paragraph")
     learning_objective: Optional[str] = Field(None, description="Learning objectives for this paragraph")
     lesson_objective: Optional[str] = Field(None, description="Lesson-specific objectives")
+    key_terms: Optional[List[str]] = Field(None, description="Array of key terms for this paragraph")
+    questions: Optional[List[ParagraphQuestion]] = Field(None, description="Array of questions for this paragraph")
 
 
 class ParagraphUpdate(BaseModel):
@@ -29,6 +38,8 @@ class ParagraphUpdate(BaseModel):
     summary: Optional[str] = Field(None, description="Brief summary of the paragraph")
     learning_objective: Optional[str] = Field(None, description="Learning objectives for this paragraph")
     lesson_objective: Optional[str] = Field(None, description="Lesson-specific objectives")
+    key_terms: Optional[List[str]] = Field(None, description="Array of key terms for this paragraph")
+    questions: Optional[List[ParagraphQuestion]] = Field(None, description="Array of questions for this paragraph")
 
 
 class ParagraphResponse(BaseModel):
@@ -45,6 +56,8 @@ class ParagraphResponse(BaseModel):
     summary: Optional[str]
     learning_objective: Optional[str]
     lesson_objective: Optional[str]
+    key_terms: Optional[List[str]] = None
+    questions: Optional[List[dict]] = None
 
     created_at: datetime
     updated_at: datetime
@@ -63,4 +76,6 @@ class ParagraphListResponse(BaseModel):
     number: int
     order: int
     summary: Optional[str]
+    key_terms: Optional[List[str]] = None
+    questions: Optional[List[dict]] = None
     created_at: datetime
