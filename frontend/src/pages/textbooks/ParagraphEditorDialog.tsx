@@ -14,11 +14,14 @@ import {
   Chip,
   AppBar,
   Toolbar,
+  Autocomplete,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save';
 import PreviewIcon from '@mui/icons-material/Preview';
 import EditIcon from '@mui/icons-material/Edit';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useNotify } from 'react-admin';
 import { Editor } from '@tinymce/tinymce-react';
 import type { Editor as TinyMCEEditor } from 'tinymce';
@@ -51,7 +54,7 @@ import 'tinymce/plugins/help';
 import 'tinymce/plugins/wordcount';
 
 import { getAuthToken } from '../../providers/authProvider';
-import type { Paragraph } from '../../types';
+import type { Paragraph, ParagraphQuestion } from '../../types';
 import { MathFormulaDialog } from '../../components/MathFormulaDialog';
 import { setupMathPlugin, insertMathFormula } from '../../utils/tinymce-math-plugin';
 
@@ -74,6 +77,8 @@ interface ParagraphMetadata {
   summary: string;
   learning_objective: string;
   lesson_objective: string;
+  key_terms: string[];
+  questions: ParagraphQuestion[];
 }
 
 /**
@@ -103,6 +108,8 @@ export const ParagraphEditorDialog = ({
     summary: '',
     learning_objective: '',
     lesson_objective: '',
+    key_terms: [],
+    questions: [],
   });
 
   // State для UI
@@ -153,6 +160,8 @@ export const ParagraphEditorDialog = ({
         summary: data.summary || '',
         learning_objective: data.learning_objective || '',
         lesson_objective: data.lesson_objective || '',
+        key_terms: data.key_terms || [],
+        questions: data.questions || [],
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Ошибка загрузки параграфа';
@@ -237,6 +246,8 @@ export const ParagraphEditorDialog = ({
         learning_objective: metadata.learning_objective.trim() || undefined,
         lesson_objective: metadata.lesson_objective.trim() || undefined,
         content: content,
+        key_terms: metadata.key_terms.length > 0 ? metadata.key_terms : undefined,
+        questions: metadata.questions.length > 0 ? metadata.questions : undefined,
       };
 
       const response = await fetch(
@@ -276,8 +287,36 @@ export const ParagraphEditorDialog = ({
   };
 
   // Обработчик изменения metadata
-  const handleMetadataChange = (field: keyof ParagraphMetadata, value: string | number) => {
+  const handleMetadataChange = (field: keyof ParagraphMetadata, value: string | number | string[] | ParagraphQuestion[]) => {
     setMetadata((prev) => ({ ...prev, [field]: value }));
+    setMetadataChanged(true);
+  };
+
+  // Обработчики для вопросов
+  const handleAddQuestion = () => {
+    const newQuestion: ParagraphQuestion = {
+      order: metadata.questions.length + 1,
+      text: '',
+    };
+    setMetadata((prev) => ({
+      ...prev,
+      questions: [...prev.questions, newQuestion],
+    }));
+    setMetadataChanged(true);
+  };
+
+  const handleRemoveQuestion = (index: number) => {
+    const updatedQuestions = metadata.questions
+      .filter((_, i) => i !== index)
+      .map((q, i) => ({ ...q, order: i + 1 }));
+    setMetadata((prev) => ({ ...prev, questions: updatedQuestions }));
+    setMetadataChanged(true);
+  };
+
+  const handleQuestionTextChange = (index: number, text: string) => {
+    const updated = [...metadata.questions];
+    updated[index].text = text;
+    setMetadata((prev) => ({ ...prev, questions: updated }));
     setMetadataChanged(true);
   };
 
@@ -509,6 +548,62 @@ export const ParagraphEditorDialog = ({
                 rows={2}
                 fullWidth
               />
+            </Box>
+
+            <Autocomplete
+              multiple
+              freeSolo
+              options={[]}
+              value={metadata.key_terms}
+              onChange={(_, newValue) => handleMetadataChange('key_terms', newValue as string[])}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => {
+                  const { key, ...tagProps } = getTagProps({ index });
+                  return <Chip key={key} label={option} {...tagProps} />;
+                })
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Ключевые термины"
+                  placeholder="Введите термин и нажмите Enter"
+                  helperText='Введите термин и нажмите Enter. Пример: "Жоңғар хандығы", "Қазақ хандығы"'
+                />
+              )}
+            />
+
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle2">Вопросы к параграфу</Typography>
+                <Button startIcon={<AddIcon />} size="small" onClick={handleAddQuestion}>
+                  Добавить вопрос
+                </Button>
+              </Box>
+
+              {metadata.questions.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                  Пока нет вопросов. Нажмите "Добавить вопрос" чтобы создать первый вопрос.
+                </Typography>
+              ) : (
+                metadata.questions.map((q, index) => (
+                  <Paper key={index} sx={{ p: 2, mb: 1, bgcolor: 'background.default' }}>
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'start' }}>
+                      <Chip label={`#${q.order}`} size="small" color="primary" />
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        value={q.text}
+                        onChange={(e) => handleQuestionTextChange(index, e.target.value)}
+                        placeholder="Текст вопроса"
+                      />
+                      <IconButton color="error" size="small" onClick={() => handleRemoveQuestion(index)}>
+                        <DeleteIcon />
+                      </IconButton>
+                    </Box>
+                  </Paper>
+                ))
+              )}
             </Box>
           </Box>
         </Paper>

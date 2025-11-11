@@ -86,6 +86,11 @@ export interface Chapter {
   is_deleted: boolean;
 }
 
+export interface ParagraphQuestion {
+  order: number;
+  text: string;
+}
+
 export interface Paragraph {
   id: number;
   chapter_id: number;
@@ -96,6 +101,8 @@ export interface Paragraph {
   summary?: string;
   learning_objective?: string;
   lesson_objective?: string;
+  key_terms?: string[];
+  questions?: ParagraphQuestion[];
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;

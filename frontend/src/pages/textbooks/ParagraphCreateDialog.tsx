@@ -8,9 +8,17 @@ import {
   TextField,
   Box,
   CircularProgress,
+  Autocomplete,
+  Chip,
+  Paper,
+  IconButton,
+  Typography,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useNotify } from 'react-admin';
 import { getAuthToken } from '../../providers/authProvider';
+import type { ParagraphQuestion } from '../../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
@@ -30,6 +38,8 @@ interface ParagraphFormData {
   summary: string;
   learning_objective: string;
   lesson_objective: string;
+  key_terms: string[];
+  questions: ParagraphQuestion[];
 }
 
 /**
@@ -59,6 +69,8 @@ export const ParagraphCreateDialog = ({
     summary: '',
     learning_objective: '',
     lesson_objective: '',
+    key_terms: [],
+    questions: [],
   });
   const [errors, setErrors] = useState<Partial<Record<keyof ParagraphFormData, string>>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -110,6 +122,8 @@ export const ParagraphCreateDialog = ({
         summary: formData.summary.trim() || undefined,
         learning_objective: formData.learning_objective.trim() || undefined,
         lesson_objective: formData.lesson_objective.trim() || undefined,
+        key_terms: formData.key_terms.length > 0 ? formData.key_terms : undefined,
+        questions: formData.questions.length > 0 ? formData.questions : undefined,
       };
 
       const response = await fetch(isSchoolTextbook ? `${API_URL}/admin/school/paragraphs` : `${API_URL}/admin/global/paragraphs`, {
@@ -139,6 +153,27 @@ export const ParagraphCreateDialog = ({
     }
   };
 
+  // Обработчики для вопросов
+  const handleAddQuestion = () => {
+    setFormData({
+      ...formData,
+      questions: [...formData.questions, { order: formData.questions.length + 1, text: '' }],
+    });
+  };
+
+  const handleRemoveQuestion = (index: number) => {
+    const updatedQuestions = formData.questions
+      .filter((_, i) => i !== index)
+      .map((q, i) => ({ ...q, order: i + 1 }));
+    setFormData({ ...formData, questions: updatedQuestions });
+  };
+
+  const handleQuestionTextChange = (index: number, text: string) => {
+    const updated = [...formData.questions];
+    updated[index].text = text;
+    setFormData({ ...formData, questions: updated });
+  };
+
   // Закрытие диалога с очисткой формы
   const handleClose = () => {
     setFormData({
@@ -149,6 +184,8 @@ export const ParagraphCreateDialog = ({
       summary: '',
       learning_objective: '',
       lesson_objective: '',
+      key_terms: [],
+      questions: [],
     });
     setErrors({});
     onClose();
@@ -238,6 +275,62 @@ export const ParagraphCreateDialog = ({
             fullWidth
             helperText="Цели урока на основе параграфа (опционально)"
           />
+
+          <Autocomplete
+            multiple
+            freeSolo
+            options={[]}
+            value={formData.key_terms}
+            onChange={(_, newValue) => setFormData({ ...formData, key_terms: newValue as string[] })}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => {
+                const { key, ...tagProps } = getTagProps({ index });
+                return <Chip key={key} label={option} {...tagProps} />;
+              })
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Ключевые термины"
+                placeholder="Введите термин и нажмите Enter"
+                helperText='Введите термин и нажмите Enter. Пример: "Жоңғар хандығы", "Қазақ хандығы"'
+              />
+            )}
+          />
+
+          <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="subtitle2">Вопросы к параграфу</Typography>
+              <Button startIcon={<AddIcon />} size="small" onClick={handleAddQuestion}>
+                Добавить вопрос
+              </Button>
+            </Box>
+
+            {formData.questions.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                Пока нет вопросов. Нажмите "Добавить вопрос" чтобы создать первый вопрос.
+              </Typography>
+            ) : (
+              formData.questions.map((q, index) => (
+                <Paper key={index} sx={{ p: 2, mb: 1, bgcolor: 'background.default' }}>
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'start' }}>
+                    <Chip label={`#${q.order}`} size="small" color="primary" />
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={2}
+                      value={q.text}
+                      onChange={(e) => handleQuestionTextChange(index, e.target.value)}
+                      placeholder="Текст вопроса"
+                    />
+                    <IconButton color="error" size="small" onClick={() => handleRemoveQuestion(index)}>
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                </Paper>
+              ))
+            )}
+          </Box>
         </Box>
       </DialogContent>
 

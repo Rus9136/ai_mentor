@@ -355,10 +355,29 @@ export const TextbookStructureEditor = ({ textbookId, isSchoolTextbook = false }
                               §{paragraph.number}. {paragraph.title}
                             </Typography>
                             {paragraph.summary && (
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                                 {paragraph.summary}
                               </Typography>
                             )}
+                            {/* Индикаторы для key_terms и questions */}
+                            <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                              {paragraph.key_terms && paragraph.key_terms.length > 0 && (
+                                <Chip
+                                  label={`${paragraph.key_terms.length} термин${paragraph.key_terms.length === 1 ? '' : paragraph.key_terms.length < 5 ? 'а' : 'ов'}`}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                />
+                              )}
+                              {paragraph.questions && paragraph.questions.length > 0 && (
+                                <Chip
+                                  label={`${paragraph.questions.length} вопрос${paragraph.questions.length === 1 ? '' : paragraph.questions.length < 5 ? 'а' : 'ов'}`}
+                                  size="small"
+                                  color="secondary"
+                                  variant="outlined"
+                                />
+                              )}
+                            </Box>
                           </Box>
                           <Box sx={{ display: 'flex', gap: 1 }}>
                             <IconButton
