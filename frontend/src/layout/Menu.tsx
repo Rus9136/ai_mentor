@@ -8,6 +8,8 @@ import BadgeIcon from '@mui/icons-material/Badge';
 import FamilyRestroomIcon from '@mui/icons-material/FamilyRestroom';
 import ClassIcon from '@mui/icons-material/Class';
 import SettingsIcon from '@mui/icons-material/Settings';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import { UserRole } from '../types';
 
 /**
@@ -58,6 +60,18 @@ export const Menu = () => {
           to="/tests"
           primaryText="Тесты"
           leftIcon={<QuizIcon />}
+        />,
+        <RaMenu.Item
+          key="goso-frameworks"
+          to="/goso-frameworks"
+          primaryText="ГОСО Стандарты"
+          leftIcon={<AccountBalanceIcon />}
+        />,
+        <RaMenu.Item
+          key="learning-outcomes"
+          to="/learning-outcomes"
+          primaryText="Цели обучения"
+          leftIcon={<TrackChangesIcon />}
         />,
       ]}
 

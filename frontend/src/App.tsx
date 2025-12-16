@@ -13,6 +13,7 @@ import { ClassList, ClassCreate, ClassEdit, ClassShow } from './pages/classes';
 import { SchoolTextbookList } from './pages/school-content/textbooks';
 import { SchoolTestList, SchoolTestCreate } from './pages/school-content/tests';
 import { SchoolSettings } from './pages/school-content/settings';
+import { FrameworkList, FrameworkShow, LearningOutcomeList } from './pages/goso';
 import SchoolIcon from '@mui/icons-material/School';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import QuizIcon from '@mui/icons-material/Quiz';
@@ -20,6 +21,8 @@ import PeopleIcon from '@mui/icons-material/People';
 import BadgeIcon from '@mui/icons-material/Badge';
 import FamilyRestroomIcon from '@mui/icons-material/FamilyRestroom';
 import ClassIcon from '@mui/icons-material/Class';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 
 function App() {
   return (
@@ -65,6 +68,23 @@ function App() {
         show={TestShow}
         icon={QuizIcon}
         options={{ label: 'Тесты' }}
+      />
+
+      {/* ГОСО Стандарты (read-only для SUPER_ADMIN) */}
+      <Resource
+        name="goso-frameworks"
+        list={FrameworkList}
+        show={FrameworkShow}
+        icon={AccountBalanceIcon}
+        options={{ label: 'ГОСО Стандарты' }}
+      />
+
+      {/* Цели обучения ГОСО (read-only для SUPER_ADMIN) */}
+      <Resource
+        name="learning-outcomes"
+        list={LearningOutcomeList}
+        icon={TrackChangesIcon}
+        options={{ label: 'Цели обучения' }}
       />
 
       {/* Ресурсы для школьного ADMIN */}

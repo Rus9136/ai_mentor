@@ -25,6 +25,190 @@ export const dataProvider: DataProvider = {
     const field = params.sort?.field || 'id';
     const order = params.sort?.order || 'ASC';
 
+    // ==================== GOSO Resources ====================
+    // GOSO использует отдельные endpoints в /goso/*
+
+    // Специальная обработка для goso-subjects
+    if (resource === 'goso-subjects') {
+      const response = await fetch(`${API_URL}/goso/subjects`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        await handleFetchError(response);
+      }
+
+      let data = await response.json();
+
+      // Client-side filtering
+      if (params.filter?.q) {
+        const searchTerm = params.filter.q.toLowerCase();
+        data = data.filter(
+          (item: any) =>
+            item.name_ru.toLowerCase().includes(searchTerm) ||
+            item.code.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      // Client-side sorting
+      data.sort((a: any, b: any) => {
+        const aValue = a[field];
+        const bValue = b[field];
+        if (aValue === bValue) return 0;
+        let comparison = 0;
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          comparison = aValue.localeCompare(bValue);
+        } else {
+          comparison = aValue < bValue ? -1 : 1;
+        }
+        return order === 'ASC' ? comparison : -comparison;
+      });
+
+      // Client-side pagination
+      const start = (page - 1) * perPage;
+      const end = page * perPage;
+      const paginatedData = data.slice(start, end);
+
+      return {
+        data: paginatedData,
+        total: data.length,
+      };
+    }
+
+    // Специальная обработка для goso-frameworks
+    if (resource === 'goso-frameworks') {
+      let url = `${API_URL}/goso/frameworks`;
+      const queryParams = new URLSearchParams();
+
+      if (params.filter?.subject_id) {
+        queryParams.append('subject_id', params.filter.subject_id);
+      }
+
+      if (queryParams.toString()) {
+        url += `?${queryParams.toString()}`;
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        await handleFetchError(response);
+      }
+
+      let data = await response.json();
+
+      // Client-side filtering by search
+      if (params.filter?.q) {
+        const searchTerm = params.filter.q.toLowerCase();
+        data = data.filter(
+          (item: any) =>
+            item.title_ru.toLowerCase().includes(searchTerm) ||
+            item.code.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      // Client-side sorting
+      data.sort((a: any, b: any) => {
+        const aValue = a[field];
+        const bValue = b[field];
+        if (aValue === bValue) return 0;
+        let comparison = 0;
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          comparison = aValue.localeCompare(bValue);
+        } else {
+          comparison = aValue < bValue ? -1 : 1;
+        }
+        return order === 'ASC' ? comparison : -comparison;
+      });
+
+      // Client-side pagination
+      const start = (page - 1) * perPage;
+      const end = page * perPage;
+      const paginatedData = data.slice(start, end);
+
+      return {
+        data: paginatedData,
+        total: data.length,
+      };
+    }
+
+    // Специальная обработка для learning-outcomes
+    if (resource === 'learning-outcomes') {
+      let url = `${API_URL}/goso/outcomes`;
+      const queryParams = new URLSearchParams();
+
+      if (params.filter?.framework_id) {
+        queryParams.append('framework_id', params.filter.framework_id);
+      }
+      if (params.filter?.grade) {
+        queryParams.append('grade', params.filter.grade);
+      }
+      if (params.filter?.section_id) {
+        queryParams.append('section_id', params.filter.section_id);
+      }
+      if (params.filter?.subsection_id) {
+        queryParams.append('subsection_id', params.filter.subsection_id);
+      }
+      // Backend поддерживает limit и offset
+      queryParams.append('limit', '1000');
+      queryParams.append('offset', '0');
+
+      if (queryParams.toString()) {
+        url += `?${queryParams.toString()}`;
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        await handleFetchError(response);
+      }
+
+      let data = await response.json();
+
+      // Client-side filtering by search
+      if (params.filter?.q) {
+        const searchTerm = params.filter.q.toLowerCase();
+        data = data.filter(
+          (item: any) =>
+            item.title_ru.toLowerCase().includes(searchTerm) ||
+            item.code.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      // Client-side sorting
+      data.sort((a: any, b: any) => {
+        const aValue = a[field];
+        const bValue = b[field];
+        if (aValue === bValue) return 0;
+        let comparison = 0;
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          comparison = aValue.localeCompare(bValue);
+        } else {
+          comparison = aValue < bValue ? -1 : 1;
+        }
+        return order === 'ASC' ? comparison : -comparison;
+      });
+
+      // Client-side pagination
+      const start = (page - 1) * perPage;
+      const end = page * perPage;
+      const paginatedData = data.slice(start, end);
+
+      return {
+        data: paginatedData,
+        total: data.length,
+      };
+    }
+
     // Специальная обработка для schools - backend не поддерживает query параметры
     // Выполняем client-side pagination, sorting и filtering
     if (resource === 'schools') {
@@ -879,6 +1063,55 @@ export const dataProvider: DataProvider = {
     const token = getAuthToken();
     if (!token) {
       throw new Error('Токен аутентификации не найден. Пожалуйста, войдите в систему.');
+    }
+
+    // ==================== GOSO Resources ====================
+    // Специальная обработка для goso-subjects
+    if (resource === 'goso-subjects') {
+      const response = await fetch(`${API_URL}/goso/subjects/${params.id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { data };
+    }
+
+    // Специальная обработка для goso-frameworks
+    if (resource === 'goso-frameworks') {
+      const response = await fetch(`${API_URL}/goso/frameworks/${params.id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { data };
+    }
+
+    // Специальная обработка для learning-outcomes
+    if (resource === 'learning-outcomes') {
+      const response = await fetch(`${API_URL}/goso/outcomes/${params.id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { data };
     }
 
     // Специальная обработка для school-textbooks, school-tests, school-chapters, school-paragraphs

@@ -360,3 +360,116 @@ export interface AddStudentsRequest {
 export interface AddTeachersRequest {
   teacher_ids: number[];
 }
+
+// ==================== GOSO (Государственный стандарт образования) ====================
+
+export interface Subject {
+  id: number;
+  code: string;
+  name_ru: string;
+  name_kz: string;
+  description_ru?: string;
+  description_kz?: string;
+  grade_from: number;
+  grade_to: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Framework {
+  id: number;
+  code: string;
+  subject_id: number;
+  title_ru: string;
+  title_kz?: string;
+  description_ru?: string;
+  description_kz?: string;
+  document_type?: string;
+  order_number?: string;
+  order_date?: string;
+  ministry?: string;
+  appendix_number?: number;
+  amendments?: any[];
+  valid_from?: string;
+  valid_to?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string;
+  is_deleted: boolean;
+  // Nested
+  subject?: Subject;
+  sections?: GosoSection[];
+}
+
+export interface GosoSection {
+  id: number;
+  framework_id: number;
+  code: string;
+  name_ru: string;
+  name_kz?: string;
+  description_ru?: string;
+  description_kz?: string;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  // Nested
+  subsections?: GosoSubsection[];
+}
+
+export interface GosoSubsection {
+  id: number;
+  section_id: number;
+  code: string;
+  name_ru: string;
+  name_kz?: string;
+  description_ru?: string;
+  description_kz?: string;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  // Nested
+  outcomes?: LearningOutcome[];
+}
+
+export interface LearningOutcome {
+  id: number;
+  framework_id: number;
+  subsection_id: number;
+  grade: number;
+  code: string;
+  title_ru: string;
+  title_kz?: string;
+  description_ru?: string;
+  description_kz?: string;
+  cognitive_level?: string;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string;
+  is_deleted: boolean;
+  // Context (from API)
+  section_code?: string;
+  section_name_ru?: string;
+  subsection_code?: string;
+  subsection_name_ru?: string;
+}
+
+export interface ParagraphOutcome {
+  id: number;
+  paragraph_id: number;
+  outcome_id: number;
+  confidence: number;
+  anchor?: string;
+  notes?: string;
+  created_by?: number;
+  created_at: string;
+  // Nested details
+  outcome_code?: string;
+  outcome_title_ru?: string;
+  outcome_grade?: number;
+}
