@@ -250,9 +250,9 @@ deploy_backend() {
 deploy_frontend() {
     log_frontend "Starting frontend deployment..."
 
-    # Build frontend image
+    # Build frontend image (--no-cache ensures fresh build with latest source files)
     log_step "Building frontend Docker image..."
-    if docker compose -f "$COMPOSE_FILE" --profile build build frontend; then
+    if docker compose -f "$COMPOSE_FILE" --profile build build --no-cache frontend; then
         log_success "Frontend image built"
     else
         log_error "Failed to build frontend image"
