@@ -16,8 +16,9 @@
 ### Основные компоненты системы:
 1. **Организационная структура** - школы, пользователи, учителя, ученики, классы
 2. **Образовательный контент** - учебники, главы, параграфы, тесты, вопросы
-3. **Прогресс обучения** - результаты тестов, история освоения материала, адаптивные группы
-4. **Аналитика** - сессии обучения, активности, события
+3. **ГОСО (стандарты образования)** - предметы, версии ГОСО, разделы, подразделы, цели обучения
+4. **Прогресс обучения** - результаты тестов, история освоения материала, адаптивные группы
+5. **Аналитика** - сессии обучения, активности, события
 
 ---
 
@@ -32,6 +33,7 @@ schools
   │     └── chapters
   │           ├── paragraphs
   │           │     ├── paragraph_embeddings (векторное представление)
+  │           │     ├── paragraph_outcomes → learning_outcomes (связь с ГОСО)
   │           │     ├── tests
   │           │     ├── student_paragraphs (прогресс)
   │           │     ├── mastery_history (история освоения)
@@ -46,6 +48,14 @@ students
   ├── learning_sessions → learning_activities
   ├── analytics_events
   └── sync_queue (синхронизация офлайн/онлайн)
+
+ГОСО (глобальные справочники, без school_id):
+subjects (предметы)
+  └── frameworks (версии ГОСО)
+        └── goso_sections (разделы)
+              └── goso_subsections (подразделы)
+                    └── learning_outcomes (цели обучения)
+                          └── paragraph_outcomes (связь с параграфами)
 ```
 
 ---
@@ -869,6 +879,250 @@ students
 
 ---
 
+## ГОСО - Таблицы государственного стандарта образования
+
+Следующие таблицы являются **глобальными справочниками** (без school_id) и защищены RLS политиками:
+- **Чтение:** доступно всем авторизованным пользователям
+- **Запись:** только SUPER_ADMIN (через `SET app.is_super_admin = 'true'`)
+
+---
+
+### 28. subjects (Предметы)
+
+**Описание:** Справочник учебных предметов для ГОСО.
+
+| Колонка | Тип | Обязательно | Описание |
+|---------|-----|-------------|----------|
+| id | INTEGER | Да | Первичный ключ |
+| code | VARCHAR(50) | Да | Уникальный код предмета (например, "history_kz") |
+| name_ru | VARCHAR(255) | Да | Название на русском |
+| name_kz | VARCHAR(255) | Да | Название на казахском |
+| description_ru | TEXT | Нет | Описание на русском |
+| description_kz | TEXT | Нет | Описание на казахском |
+| grade_from | INTEGER | Да | Начальный класс (по умолчанию 1) |
+| grade_to | INTEGER | Да | Конечный класс (по умолчанию 11) |
+| is_active | BOOLEAN | Да | Активен ли предмет (по умолчанию true) |
+| created_at | TIMESTAMP | Да | Дата создания |
+| updated_at | TIMESTAMP | Да | Дата обновления |
+
+**Индексы:**
+- `ix_subjects_code` (code)
+- `ix_subjects_is_active` (is_active)
+
+**Ограничения:**
+- UNIQUE (code)
+
+**Связи:**
+- → frameworks (subject_id)
+
+**RLS политики:**
+- `subjects_read_policy` - SELECT для всех
+- `subjects_write_policy` - INSERT/UPDATE/DELETE только для SUPER_ADMIN
+
+---
+
+### 29. frameworks (Версии ГОСО)
+
+**Описание:** Версии государственного образовательного стандарта (например, "ГОСО 2022-09-16").
+
+| Колонка | Тип | Обязательно | Описание |
+|---------|-----|-------------|----------|
+| id | INTEGER | Да | Первичный ключ |
+| code | VARCHAR(100) | Да | Уникальный код версии ГОСО |
+| subject_id | INTEGER | Да | FK → subjects.id |
+| title_ru | VARCHAR(500) | Да | Название на русском |
+| title_kz | VARCHAR(500) | Нет | Название на казахском |
+| description_ru | TEXT | Нет | Описание на русском |
+| description_kz | TEXT | Нет | Описание на казахском |
+| document_type | VARCHAR(255) | Нет | Тип документа (приказ, постановление) |
+| order_number | VARCHAR(50) | Нет | Номер приказа |
+| order_date | DATE | Нет | Дата приказа |
+| ministry | VARCHAR(500) | Нет | Министерство |
+| appendix_number | INTEGER | Нет | Номер приложения |
+| amendments | JSON | Нет | История изменений/дополнений |
+| valid_from | DATE | Нет | Дата начала действия |
+| valid_to | DATE | Нет | Дата окончания действия |
+| is_active | BOOLEAN | Да | Активна ли версия (по умолчанию true) |
+| deleted_at | TIMESTAMP | Нет | Дата удаления (soft delete) |
+| is_deleted | BOOLEAN | Да | Удалена ли запись (по умолчанию false) |
+| created_at | TIMESTAMP | Да | Дата создания |
+| updated_at | TIMESTAMP | Да | Дата обновления |
+
+**Индексы:**
+- `ix_frameworks_code` (code)
+- `ix_frameworks_subject_id` (subject_id)
+- `ix_frameworks_is_active` (is_active)
+
+**Ограничения:**
+- UNIQUE (code)
+- FK subject_id → subjects.id CASCADE
+
+**Связи:**
+- ← subjects (subject_id)
+- → goso_sections (framework_id)
+- → learning_outcomes (framework_id)
+
+**RLS политики:**
+- `frameworks_read_policy` - SELECT для всех
+- `frameworks_write_policy` - INSERT/UPDATE/DELETE только для SUPER_ADMIN
+
+---
+
+### 30. goso_sections (Разделы ГОСО)
+
+**Описание:** Разделы внутри версии ГОСО (например, "Қазақстан тарихы" / "История Казахстана").
+
+| Колонка | Тип | Обязательно | Описание |
+|---------|-----|-------------|----------|
+| id | INTEGER | Да | Первичный ключ |
+| framework_id | INTEGER | Да | FK → frameworks.id |
+| code | VARCHAR(20) | Да | Код раздела (например, "1", "2") |
+| name_ru | VARCHAR(500) | Да | Название на русском |
+| name_kz | VARCHAR(500) | Нет | Название на казахском |
+| description_ru | TEXT | Нет | Описание на русском |
+| description_kz | TEXT | Нет | Описание на казахском |
+| display_order | INTEGER | Да | Порядок отображения (по умолчанию 0) |
+| is_active | BOOLEAN | Да | Активен ли раздел (по умолчанию true) |
+| created_at | TIMESTAMP | Да | Дата создания |
+| updated_at | TIMESTAMP | Да | Дата обновления |
+
+**Индексы:**
+- `ix_goso_sections_framework_id` (framework_id)
+- `ix_goso_sections_display_order` (display_order)
+
+**Ограничения:**
+- UNIQUE (framework_id, code)
+- FK framework_id → frameworks.id CASCADE
+
+**Связи:**
+- ← frameworks (framework_id)
+- → goso_subsections (section_id)
+
+**RLS политики:**
+- `goso_sections_read_policy` - SELECT для всех
+- `goso_sections_write_policy` - INSERT/UPDATE/DELETE только для SUPER_ADMIN
+
+---
+
+### 31. goso_subsections (Подразделы ГОСО)
+
+**Описание:** Подразделы внутри разделов ГОСО (тематические блоки).
+
+| Колонка | Тип | Обязательно | Описание |
+|---------|-----|-------------|----------|
+| id | INTEGER | Да | Первичный ключ |
+| section_id | INTEGER | Да | FK → goso_sections.id |
+| code | VARCHAR(20) | Да | Код подраздела (например, "1.1", "1.2") |
+| name_ru | VARCHAR(500) | Да | Название на русском |
+| name_kz | VARCHAR(500) | Нет | Название на казахском |
+| description_ru | TEXT | Нет | Описание на русском |
+| description_kz | TEXT | Нет | Описание на казахском |
+| display_order | INTEGER | Да | Порядок отображения (по умолчанию 0) |
+| is_active | BOOLEAN | Да | Активен ли подраздел (по умолчанию true) |
+| created_at | TIMESTAMP | Да | Дата создания |
+| updated_at | TIMESTAMP | Да | Дата обновления |
+
+**Индексы:**
+- `ix_goso_subsections_section_id` (section_id)
+- `ix_goso_subsections_display_order` (display_order)
+
+**Ограничения:**
+- UNIQUE (section_id, code)
+- FK section_id → goso_sections.id CASCADE
+
+**Связи:**
+- ← goso_sections (section_id)
+- → learning_outcomes (subsection_id)
+
+**RLS политики:**
+- `goso_subsections_read_policy` - SELECT для всех
+- `goso_subsections_write_policy` - INSERT/UPDATE/DELETE только для SUPER_ADMIN
+
+---
+
+### 32. learning_outcomes (Цели обучения ГОСО)
+
+**Описание:** Конкретные цели обучения (learning outcomes) из ГОСО с кодами типа "5.1.2.1".
+
+| Колонка | Тип | Обязательно | Описание |
+|---------|-----|-------------|----------|
+| id | INTEGER | Да | Первичный ключ |
+| framework_id | INTEGER | Да | FK → frameworks.id |
+| subsection_id | INTEGER | Да | FK → goso_subsections.id |
+| grade | INTEGER | Да | Класс (5-11) |
+| code | VARCHAR(20) | Да | Код цели обучения (например, "5.1.2.1") |
+| title_ru | TEXT | Да | Текст цели на русском |
+| title_kz | TEXT | Нет | Текст цели на казахском |
+| description_ru | TEXT | Нет | Дополнительное описание на русском |
+| description_kz | TEXT | Нет | Дополнительное описание на казахском |
+| cognitive_level | VARCHAR(50) | Нет | Когнитивный уровень (знание, понимание, применение) |
+| display_order | INTEGER | Да | Порядок отображения (по умолчанию 0) |
+| is_active | BOOLEAN | Да | Активна ли цель (по умолчанию true) |
+| deleted_at | TIMESTAMP | Нет | Дата удаления (soft delete) |
+| is_deleted | BOOLEAN | Да | Удалена ли запись (по умолчанию false) |
+| created_at | TIMESTAMP | Да | Дата создания |
+| updated_at | TIMESTAMP | Да | Дата обновления |
+
+**Индексы:**
+- `ix_learning_outcomes_framework_id` (framework_id)
+- `ix_learning_outcomes_subsection_id` (subsection_id)
+- `ix_learning_outcomes_grade` (grade)
+- `ix_learning_outcomes_code` (code)
+- `ix_learning_outcomes_is_active` (is_active)
+
+**Ограничения:**
+- UNIQUE (framework_id, code)
+- CHECK (grade >= 1 AND grade <= 11)
+- FK framework_id → frameworks.id CASCADE
+- FK subsection_id → goso_subsections.id CASCADE
+
+**Связи:**
+- ← frameworks (framework_id)
+- ← goso_subsections (subsection_id)
+- → paragraph_outcomes (outcome_id)
+
+**RLS политики:**
+- `learning_outcomes_read_policy` - SELECT для всех
+- `learning_outcomes_write_policy` - INSERT/UPDATE/DELETE только для SUPER_ADMIN
+
+---
+
+### 33. paragraph_outcomes (Связь параграфов с целями ГОСО)
+
+**Описание:** M:N связь между параграфами учебников и целями обучения ГОСО. Позволяет привязать контент к стандартам.
+
+| Колонка | Тип | Обязательно | Описание |
+|---------|-----|-------------|----------|
+| id | INTEGER | Да | Первичный ключ |
+| paragraph_id | INTEGER | Да | FK → paragraphs.id |
+| outcome_id | INTEGER | Да | FK → learning_outcomes.id |
+| confidence | NUMERIC(3,2) | Да | Уверенность в связи (0.00-1.00, по умолчанию 1.00) |
+| anchor | VARCHAR(100) | Нет | Якорь в тексте (для точной привязки) |
+| notes | TEXT | Нет | Заметки к связи |
+| created_by | INTEGER | Нет | FK → users.id (кто создал связь) |
+| created_at | TIMESTAMP | Да | Дата создания |
+
+**Индексы:**
+- `ix_paragraph_outcomes_paragraph_id` (paragraph_id)
+- `ix_paragraph_outcomes_outcome_id` (outcome_id)
+
+**Ограничения:**
+- UNIQUE (paragraph_id, outcome_id)
+- FK paragraph_id → paragraphs.id CASCADE
+- FK outcome_id → learning_outcomes.id CASCADE
+- FK created_by → users.id SET NULL
+
+**Связи:**
+- ← paragraphs (paragraph_id)
+- ← learning_outcomes (outcome_id)
+- ← users (created_by)
+
+**RLS политики:**
+- `paragraph_outcomes_read_policy` - SELECT для своих школьных и глобальных параграфов
+- `paragraph_outcomes_write_policy` - INSERT/UPDATE/DELETE только для своих школьных параграфов или SUPER_ADMIN
+
+---
+
 ## Enum типы
 
 ### userrole
@@ -937,10 +1191,15 @@ students
 005 → Add composite indexes for query optimization
 006 → Add soft delete indexes for filtering
 007 → Fix assignment_tests soft delete fields
-008 → Add school_id to progress tables for data isolation (текущая)
+008 → Add school_id to progress tables for data isolation
+009 → Add SUPER_ADMIN role to UserRole enum
+010 → Rename order to sort_order (reserved keyword fix)
+011 → Add key_terms and questions JSON fields to paragraphs
+012 → Add GOSO core tables (subjects, frameworks, goso_sections, goso_subsections, learning_outcomes)
+013 → Add paragraph_outcomes (paragraph ↔ learning_outcomes mapping) (текущая)
 ```
 
-**Версия базы данных:** 008
+**Версия базы данных:** 013
 
 ### Оптимизация индексов (миграции 005-006)
 
@@ -989,6 +1248,39 @@ students
 - ✅ Готовность к партицированию и шардированию по school_id
 - ✅ Гибкая модель контента (глобальный + школьный)
 - ✅ Улучшенная производительность аналитических запросов
+
+### ГОСО таблицы (миграции 012-013)
+
+Миграции 012-013 добавляют поддержку Государственного общеобязательного стандарта образования (ГОСО):
+
+**Миграция 012 - Базовые таблицы ГОСО:**
+- `subjects` - справочник учебных предметов
+- `frameworks` - версии ГОСО (документы с датами, приказами)
+- `goso_sections` - разделы внутри ГОСО
+- `goso_subsections` - подразделы (тематические блоки)
+- `learning_outcomes` - цели обучения с кодами (например, "5.1.2.1")
+
+**Миграция 013 - Связь контента с ГОСО:**
+- `paragraph_outcomes` - M:N связь между параграфами учебников и целями ГОСО
+
+**RLS политики для ГОСО таблиц:**
+- Все таблицы защищены Row Level Security
+- Чтение (`SELECT`) - доступно всем пользователям
+- Запись (`INSERT/UPDATE/DELETE`) - только при `SET app.is_super_admin = 'true'`
+
+**Новые индексы (012-013):**
+- `ix_subjects_code`, `ix_subjects_is_active`
+- `ix_frameworks_code`, `ix_frameworks_subject_id`, `ix_frameworks_is_active`
+- `ix_goso_sections_framework_id`, `ix_goso_sections_display_order`
+- `ix_goso_subsections_section_id`, `ix_goso_subsections_display_order`
+- `ix_learning_outcomes_framework_id`, `ix_learning_outcomes_subsection_id`, `ix_learning_outcomes_grade`, `ix_learning_outcomes_code`, `ix_learning_outcomes_is_active`
+- `ix_paragraph_outcomes_paragraph_id`, `ix_paragraph_outcomes_outcome_id`
+
+**Преимущества:**
+- ✅ Привязка учебного контента к государственным стандартам
+- ✅ Поддержка двуязычности (русский + казахский)
+- ✅ Полная нормативная информация (приказы, даты, министерства)
+- ✅ Гибкое связывание параграфов с целями обучения
 
 ---
 

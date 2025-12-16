@@ -91,7 +91,10 @@ services:
       ENVIRONMENT: production
       DEBUG: "False"
 
-      # Database connection (использует ai_mentor_app роль для RLS)
+      # Database connection
+      # POSTGRES_HOST/PORT/DB/PASSWORD используются для:
+      # - Runtime (ai_mentor_app user через POSTGRES_USER)
+      # - Migrations (ai_mentor_user SUPERUSER - собирается в alembic/env.py)
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: ai_mentor_db

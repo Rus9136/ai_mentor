@@ -92,7 +92,7 @@ upload_dir_path.mkdir(parents=True, exist_ok=True)
 app.mount(f"/{settings.UPLOAD_DIR}", StaticFiles(directory=str(upload_dir_path)), name="uploads")
 
 # Include routers
-from app.api.v1 import auth, admin_global, admin_school, schools, upload, students
+from app.api.v1 import auth, admin_global, admin_school, schools, upload, students, goso
 
 app.include_router(
     auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"]
@@ -124,4 +124,10 @@ app.include_router(
     students.router,
     prefix=f"{settings.API_V1_PREFIX}/students",
     tags=["Students"],
+)
+
+app.include_router(
+    goso.router,
+    prefix=f"{settings.API_V1_PREFIX}/goso",
+    tags=["GOSO - Learning Standards"],
 )

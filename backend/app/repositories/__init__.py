@@ -12,6 +12,7 @@ from app.repositories.school_repo import SchoolRepository
 from app.repositories.test_attempt_repo import TestAttemptRepository
 from app.repositories.paragraph_mastery_repo import ParagraphMasteryRepository
 from app.repositories.chapter_mastery_repo import ChapterMasteryRepository
+from app.repositories.goso_repo import GosoRepository, ParagraphOutcomeRepository
 
 __all__ = [
     "UserRepository",
@@ -25,4 +26,6 @@ __all__ = [
     "TestAttemptRepository",
     "ParagraphMasteryRepository",
     "ChapterMasteryRepository",
+    "GosoRepository",
+    "ParagraphOutcomeRepository",
 ]

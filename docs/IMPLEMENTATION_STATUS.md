@@ -3,9 +3,9 @@
 Этот документ отслеживает прогресс реализации проекта согласно плану из 12 основных итераций (18 детальных подитераций).
 
 **Дата начала:** 2025-10-28
-**Текущая итерация:** 8 (✅ ЗАВЕРШЕНА)
-**Общий прогресс:** 78% (14 завершены из 18 итераций)
-**Последнее обновление:** 2025-01-07 (✅ Итерация 8 завершена - Mastery Service алгоритм A/B/C группировки. Полный алгоритм с weighted average, trend analysis, consistency. 2 repository метода, 6 методов алгоритма, 4 Pydantic схемы, 2 API endpoints. 12/12 тестов проходят. ChapterMastery автоматически обновляется после каждого теста. MasteryHistory отслеживает изменения C→B→A. 1,630 строк кода. Production-ready.)
+**Текущая итерация:** 8B (✅ ЗАВЕРШЕНА)
+**Общий прогресс:** 83% (15 завершены из 18 итераций)
+**Последнее обновление:** 2025-12-16 (✅ Итерация 8B завершена - GOSO MVP. Интеграция государственного стандарта образования. 6 таблиц БД, 2 миграции, SQLAlchemy модели, Pydantic схемы, 2 Repository класса, 16 API endpoints. Импортирован пилот: История Казахстана 5-9 классы (164 цели обучения). RLS policies настроены. Production-ready.)
 
 ---
 
@@ -1434,7 +1434,107 @@ Database-level multi-tenant isolation полностью реализована 
 - docs/TESTING_ITERATION_8.md (NEW)
 
 **Комментарии:**
-Итерация 8 полностью завершена за 1 день. Реализован полный алгоритм A/B/C группировки студентов по уровню мастерства с использованием взвешенного среднего (weights: [0.35, 0.25, 0.20, 0.12, 0.08]), анализа тренда (улучшение/ухудшение) и консистентности (std_dev). ChapterMastery автоматически обновляется после каждого FORMATIVE/SUMMATIVE теста. MasteryHistory отслеживает изменения уровня (C→B→A). Все 12 тестов проходят успешно, включая tests для tenant isolation, summative tests, paragraph stats, edge cases и idempotency. API endpoints готовы для frontend с полной документацией (OpenAPI). Production-ready. Готово к Итерации 9 (RAG Service с векторным поиском).
+Итерация 8 полностью завершена за 1 день. Реализован полный алгоритм A/B/C группировки студентов по уровню мастерства с использованием взвешенного среднего (weights: [0.35, 0.25, 0.20, 0.12, 0.08]), анализа тренда (улучшение/ухудшение) и консистентности (std_dev). ChapterMastery автоматически обновляется после каждого FORMATIVE/SUMMATIVE теста. MasteryHistory отслеживает изменения уровня (C→B→A). Все 12 тестов проходят успешно, включая tests для tenant isolation, summative tests, paragraph stats, edge cases и idempotency. API endpoints готовы для frontend с полной документацией (OpenAPI). Production-ready. Готово к Итерации 8B (GOSO Integration).
+
+---
+
+### ✅ ИТЕРАЦИЯ 8B: GOSO - интеграция государственного стандарта образования
+**Статус:** ✅ ЗАВЕРШЕНА
+**Дата начала:** 2025-12-09
+**Дата завершения:** 2025-12-16
+
+**Описание:**
+GOSO (Государственный общеобязательный стандарт образования) — нормативный документ МОН РК, определяющий цели обучения для каждого предмета и класса. Интеграция позволяет привязывать параграфы учебников к официальным целям обучения и отслеживать покрытие стандарта.
+
+**Выполненные задачи:**
+- ✅ Создана миграция 012: subjects, frameworks, goso_sections, goso_subsections, learning_outcomes
+- ✅ Создана миграция 013: paragraph_outcomes (M:N связь параграф↔цель)
+- ✅ Настроены RLS policies для всех GOSO таблиц
+- ✅ Созданы SQLAlchemy модели: Subject, Framework, GosoSection, GosoSubsection, LearningOutcome, ParagraphOutcome
+- ✅ Созданы Pydantic схемы: Create/Update/Response для всех сущностей + nested responses
+- ✅ Созданы Repository классы: GosoRepository (12 методов), ParagraphOutcomeRepository (7 методов)
+- ✅ Реализованы read-only API endpoints в /api/v1/goso/* (8 endpoints)
+- ✅ Реализованы admin endpoints для маппинга paragraph↔outcomes (8 endpoints)
+- ✅ Импортирован пилот: История Казахстана 5-9 классы
+- ✅ Протестированы все 16 endpoints
+
+**Структура данных GOSO:**
+```
+subjects (предметы: history_kz, math, physics...)
+    └── frameworks (версии ГОСО: goso_hist_kz_2023)
+            ├── goso_sections (разделы, 4 шт.)
+            │       └── goso_subsections (подразделы, 9 шт.)
+            │               └── learning_outcomes (цели, 164 шт.)
+            │                       └── paragraph_outcomes (M:N → paragraphs)
+```
+
+**API Endpoints (16 шт.):**
+```
+Read-only (все аутентифицированные пользователи):
+  GET /api/v1/goso/subjects
+  GET /api/v1/goso/subjects/{id}
+  GET /api/v1/goso/frameworks
+  GET /api/v1/goso/frameworks/{id}
+  GET /api/v1/goso/frameworks/{id}/structure
+  GET /api/v1/goso/outcomes
+  GET /api/v1/goso/outcomes/{id}
+  GET /api/v1/goso/paragraphs/{id}/outcomes
+
+SUPER_ADMIN (глобальные параграфы):
+  GET/POST /api/v1/admin/global/paragraphs/{id}/outcomes
+  PUT/DELETE /api/v1/admin/global/paragraph-outcomes/{id}
+
+School ADMIN (школьные параграфы):
+  GET/POST /api/v1/admin/school/paragraphs/{id}/outcomes
+  PUT/DELETE /api/v1/admin/school/paragraph-outcomes/{id}
+```
+
+**Импортированные данные (пилот):**
+| Сущность | Количество |
+|----------|------------|
+| subjects | 1 (history_kz) |
+| frameworks | 1 (goso_hist_kz_2023) |
+| goso_sections | 4 |
+| goso_subsections | 9 |
+| learning_outcomes | 164 |
+
+**Критерии завершения:**
+- [x] Миграции 012, 013 созданы и применены
+- [x] RLS policies настроены для всех GOSO таблиц
+- [x] SQLAlchemy модели работают корректно
+- [x] Pydantic схемы валидируют данные
+- [x] Repository методы покрывают все операции
+- [x] Read-only endpoints доступны всем аутентифицированным
+- [x] Admin endpoints доступны только SUPER_ADMIN/School ADMIN
+- [x] Пилотные данные импортированы
+- [x] Все 16 endpoints протестированы
+
+**Файлы:**
+```
+backend/app/models/subject.py (NEW)
+backend/app/models/goso.py (NEW)
+backend/app/schemas/goso.py (NEW)
+backend/app/repositories/goso_repo.py (NEW)
+backend/app/api/v1/goso.py (NEW)
+backend/app/api/v1/admin_global.py (UPDATED +paragraph-outcomes)
+backend/app/api/v1/admin_school.py (UPDATED +paragraph-outcomes)
+backend/app/main.py (UPDATED +goso router)
+backend/alembic/versions/012_add_goso_core_tables.py (NEW)
+backend/alembic/versions/013_add_paragraph_outcomes.py (NEW)
+scripts/import_goso.py (NEW)
+docs/GOSO_INTEGRATION_PLAN.md (NEW)
+docs/adilet_merged.json (исходные данные ГОСО)
+```
+
+**Результаты:**
+- ~2,500 строк кода добавлено
+- 16/16 API endpoints работают
+- 6 новых таблиц в БД
+- 2 новых Repository класса (19 методов)
+- Полная двуязычность (RU/KZ) для всех сущностей
+
+**Комментарии:**
+Итерация 8B завершена за неделю. MVP GOSO полностью реализован: схема БД, модели, схемы, репозитории, API endpoints. Импортирован пилот по Истории Казахстана 5-9 классов (164 цели обучения). RLS policies обеспечивают изоляцию: глобальные справочники read-only для всех, маппинг paragraph_outcomes контролируется по school_id. Production-ready. Документация обновлена (GOSO_INTEGRATION_PLAN.md, ARCHITECTURE.md). Готово к Итерации 9 (RAG Service).
 
 ---
 
@@ -1519,24 +1619,64 @@ Database-level multi-tenant isolation полностью реализована 
 
 | Метрика | Значение |
 |---------|----------|
-| Завершенные итерации | 13 / 18 (Итерации 1, 2, 3, 4A, 4B, 5A, 5B, 5C, 5D, 5E, 6, 7 завершены) |
+| Завершенные итерации | 15 / 19 (Итерации 1, 2, 3, 4A, 4B, 5A, 5B, 5C, 5D, 5E, 6, 7, 8, 8B завершены) |
 | Итерации в процессе | 0 |
-| Процент завершения | **72%** (13 из 18 итераций) |
-| Активная итерация | **Готово к Итерации 8** (Mastery Service - алгоритм A/B/C группировки) |
-| Следующая задача | **Итерация 8** (Полная реализация алгоритма A/B/C, chapter-level mastery) |
-| Всего итераций (основных) | 12 (Итерации 1-12) |
-| Всего подитераций (детально) | 18 (1, 2, 3, 4A, 4B, 5A-5F, 6-12) |
-| Всего миграций БД | 14 (001-014), добавлены mastery tables + test_purpose enum |
+| Процент завершения | **83%** (15 из 19 итераций) |
+| Активная итерация | **Готово к Итерации 9** (RAG Service - интеллектуальные пояснения) |
+| Следующая задача | **Итерация 9** (Векторный поиск, генерация пояснений через OpenAI) |
+| Всего итераций (основных) | 12 (Итерации 1-12) + подитерации |
+| Всего подитераций (детально) | 19 (1, 2, 3, 4A, 4B, 5A-5F, 6-12, 8B) |
+| Всего миграций БД | 16+ (001-013 + GOSO tables) |
 | Технология админ панели | **React Admin v5** |
 | UI библиотека | **Material-UI v5** (с House Theme) |
 | Язык интерфейса | **Русский** (казахский и английский позже) |
-| Backend тесты | **51 тестов** (schools: 9, content_isolation: 9, users: 12, grading: 8, student_api: 13) |
+| Backend тесты | **51+ тестов** (schools: 9, content_isolation: 9, users: 12, grading: 8, student_api: 13) |
 | Общий прогресс Итерации 5 | **83%** (5 из 6 подитераций: 5A, 5B, 5C, 5D, 5E завершены) |
-| **Итерация 7** | **✅ ЗАВЕРШЕНА (2025-01-07)** - Student API, 5 endpoints, GradingService, MasteryService, 21/21 тестов ✅ |
+| **Итерация 8** | **✅ ЗАВЕРШЕНА (2025-01-07)** - Mastery Service, алгоритм A/B/C, 12/12 тестов ✅ |
+| **Итерация 8B** | **✅ ЗАВЕРШЕНА (2025-12-16)** - GOSO MVP, 16 API endpoints, 164 learning outcomes ✅ |
 
 ---
 
 ## История изменений
+
+### 2025-12-16
+- ✅ **ЗАВЕРШЕНА Итерация 8B: GOSO - интеграция государственного стандарта образования (100%)**
+
+  **Выполненные задачи:**
+  - ✅ Создано 2 миграции БД (012: GOSO core tables, 013: paragraph_outcomes)
+  - ✅ Настроены RLS policies для всех 6 GOSO таблиц
+  - ✅ Созданы SQLAlchemy модели (Subject, Framework, GosoSection, GosoSubsection, LearningOutcome, ParagraphOutcome)
+  - ✅ Созданы Pydantic схемы (Create/Update/Response + nested responses)
+  - ✅ Созданы 2 Repository класса: GosoRepository (12 методов), ParagraphOutcomeRepository (7 методов)
+  - ✅ Реализовано 8 read-only API endpoints в /api/v1/goso/*
+  - ✅ Реализовано 8 admin endpoints для маппинга paragraph↔outcomes
+  - ✅ Импортирован пилот: История Казахстана 5-9 классы (164 цели обучения)
+  - ✅ Протестированы все 16 endpoints
+
+  **Ключевые возможности:**
+  - Справочник предметов (subjects) с двуязычными названиями (RU/KZ)
+  - Версионирование стандартов через frameworks (нормативные документы)
+  - Иерархия: разделы → подразделы → цели обучения
+  - Кодировка целей ГОСО (формат: {класс}.{раздел}.{подраздел}.{номер})
+  - M:N связь между параграфами учебников и целями ГОСО
+  - RLS изоляция: глобальные справочники read-only, маппинг по school_id
+
+  **Импортированные данные:**
+  - 1 subject (История Казахстана)
+  - 1 framework (ГОСО 2023)
+  - 4 раздела ГОСО
+  - 9 подразделов
+  - 164 цели обучения (5-9 классы)
+
+  **Документация обновлена:**
+  - docs/GOSO_INTEGRATION_PLAN.md (v2.5, MVP завершён)
+  - docs/ARCHITECTURE.md (раздел 4.8 GOSO)
+
+  **Статистика:** ~2,500 строк кода, 16 API endpoints, 6 таблиц БД, 19 repository методов
+
+  **Следующая итерация:** Итерация 9 - RAG Service (векторный поиск, пояснения через OpenAI)
+
+---
 
 ### 2025-01-07
 - ✅ **ЗАВЕРШЕНА Итерация 7: Student API - прохождение тестов (100%)**
@@ -2262,6 +2402,6 @@ Textbook(
 
 ---
 
-**Последнее обновление:** 2025-11-06 (Итерация 5D завершена - 12 backend тестов, готово к production)
+**Последнее обновление:** 2025-12-16 (Итерация 8B завершена - GOSO MVP, 16 API endpoints, 164 learning outcomes)
 **Обновил:** AI Assistant (Claude Code)
-**Статус:** Итерация 5A полностью завершена ✅ (Все 5 фаз завершены - Backend + Frontend + Schools CRUD + Textbooks read-only view)
+**Статус:** Итерация 8B полностью завершена ✅ (GOSO интеграция - схема БД, модели, API endpoints, импорт данных)

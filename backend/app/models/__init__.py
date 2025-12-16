@@ -19,6 +19,10 @@ from app.models.chapter import Chapter
 from app.models.paragraph import Paragraph, ParagraphEmbedding
 from app.models.test import Test, Question, QuestionOption, DifficultyLevel, QuestionType, TestPurpose
 
+# GOSO models
+from app.models.subject import Subject
+from app.models.goso import Framework, GosoSection, GosoSubsection, LearningOutcome, ParagraphOutcome
+
 # Progress tracking models
 from app.models.test_attempt import TestAttempt, TestAttemptAnswer, AttemptStatus
 from app.models.mastery import MasteryHistory, AdaptiveGroup, ParagraphMastery, ChapterMastery
@@ -64,6 +68,13 @@ __all__ = [
     "DifficultyLevel",
     "QuestionType",
     "TestPurpose",
+    # GOSO
+    "Subject",
+    "Framework",
+    "GosoSection",
+    "GosoSubsection",
+    "LearningOutcome",
+    "ParagraphOutcome",
     # Progress
     "TestAttempt",
     "TestAttemptAnswer",

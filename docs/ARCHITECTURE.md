@@ -1295,6 +1295,202 @@ volumes:
 
 ---
 
+### 4.8 GOSO - Государственный стандарт образования
+
+**Статус:** ✅ MVP реализован (2025-12-16)
+
+GOSO (Государственный общеобязательный стандарт образования) — нормативный документ, определяющий цели обучения для каждого предмета и класса. Интеграция GOSO позволяет:
+- Привязывать параграфы учебников к официальным целям обучения
+- Отслеживать покрытие стандарта учебным материалом
+- Генерировать отчёты о соответствии контента ГОСО
+
+#### 4.8.1 Структура данных GOSO
+
+```
+subjects (справочник предметов)
+    │
+    └── frameworks (версии ГОСО: goso_hist_kz_2023...)
+            │
+            ├── goso_sections (разделы ГОСО, уровень 1)
+            │       │
+            │       └── goso_subsections (подразделы, уровень 2)
+            │               │
+            │               └── learning_outcomes (цели: "5.1.1.1 - Обучающиеся должны...")
+            │                       │
+            │                       └── paragraph_outcomes (M:N → paragraphs)
+```
+
+#### 4.8.2 Таблицы GOSO
+
+```sql
+-- Справочник предметов
+CREATE TABLE subjects (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,       -- "history_kz", "math", "physics"
+    name_ru VARCHAR(255) NOT NULL,
+    name_kz VARCHAR(255) NOT NULL,
+    grade_from INTEGER NOT NULL DEFAULT 1,
+    grade_to INTEGER NOT NULL DEFAULT 11,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Версии ГОСО (нормативные документы)
+CREATE TABLE frameworks (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(100) NOT NULL UNIQUE,      -- "goso_hist_kz_2023_10_31"
+    subject_id INTEGER REFERENCES subjects(id),
+    title_ru VARCHAR(500) NOT NULL,
+    title_kz VARCHAR(500),
+    order_number VARCHAR(50),               -- "399"
+    order_date DATE,                        -- "2022-09-16"
+    amendments JSON,                        -- поправки
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Разделы ГОСО (4 раздела для истории)
+CREATE TABLE goso_sections (
+    id SERIAL PRIMARY KEY,
+    framework_id INTEGER REFERENCES frameworks(id) ON DELETE CASCADE,
+    code VARCHAR(20) NOT NULL,              -- "1", "2", "3", "4"
+    name_ru VARCHAR(500) NOT NULL,
+    name_kz VARCHAR(500),
+    display_order INTEGER NOT NULL DEFAULT 0
+);
+
+-- Подразделы ГОСО (9 подразделов для истории)
+CREATE TABLE goso_subsections (
+    id SERIAL PRIMARY KEY,
+    section_id INTEGER REFERENCES goso_sections(id) ON DELETE CASCADE,
+    code VARCHAR(20) NOT NULL,              -- "1.1", "1.2", "2.1"
+    name_ru VARCHAR(500) NOT NULL,
+    name_kz VARCHAR(500),
+    display_order INTEGER NOT NULL DEFAULT 0
+);
+
+-- Цели обучения (164 цели для истории 5-9 классов)
+CREATE TABLE learning_outcomes (
+    id SERIAL PRIMARY KEY,
+    framework_id INTEGER REFERENCES frameworks(id) ON DELETE CASCADE,
+    subsection_id INTEGER REFERENCES goso_subsections(id) ON DELETE CASCADE,
+    grade INTEGER NOT NULL CHECK (grade BETWEEN 1 AND 11),
+    code VARCHAR(20) NOT NULL,              -- "5.1.1.1", "7.2.1.2"
+    title_ru TEXT NOT NULL,                 -- "описывать антропологические признаки..."
+    title_kz TEXT,
+    cognitive_level VARCHAR(50),            -- "знание", "понимание", "анализ"
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Связь параграф ↔ цели ГОСО (M:N)
+CREATE TABLE paragraph_outcomes (
+    id SERIAL PRIMARY KEY,
+    paragraph_id INTEGER REFERENCES paragraphs(id) ON DELETE CASCADE,
+    outcome_id INTEGER REFERENCES learning_outcomes(id) ON DELETE CASCADE,
+    confidence DECIMAL(3,2) DEFAULT 1.0,    -- уверенность связи (AI: 0.0-1.0)
+    anchor VARCHAR(100),                    -- якорь в тексте
+    notes TEXT,
+    created_by INTEGER REFERENCES users(id),
+    UNIQUE(paragraph_id, outcome_id)
+);
+```
+
+#### 4.8.3 Кодировка целей ГОСО
+
+Формат: `{класс}.{раздел}.{подраздел}.{порядковый_номер}`
+
+Пример: `7.2.1.2`
+- `7` - 7 класс
+- `2` - раздел 2 ("Развитие культуры")
+- `1` - подраздел 1 ("Мировоззрение и религия")
+- `2` - вторая цель в этом подразделе
+
+#### 4.8.4 API Endpoints GOSO
+
+**Read-only endpoints (все аутентифицированные пользователи):**
+```
+GET /api/v1/goso/subjects                    # Список предметов
+GET /api/v1/goso/subjects/{id}               # Детали предмета
+GET /api/v1/goso/frameworks                  # Список версий ГОСО
+GET /api/v1/goso/frameworks/{id}             # Детали версии
+GET /api/v1/goso/frameworks/{id}/structure   # Полная структура (sections/subsections/outcomes)
+GET /api/v1/goso/outcomes                    # Список целей (с фильтрами: grade, subject, subsection)
+GET /api/v1/goso/outcomes/{id}               # Детали цели с контекстом
+GET /api/v1/goso/paragraphs/{id}/outcomes    # Цели для параграфа
+```
+
+**SUPER_ADMIN endpoints (управление маппингом глобальных параграфов):**
+```
+GET    /api/v1/admin/global/paragraphs/{id}/outcomes     # Список связей
+POST   /api/v1/admin/global/paragraphs/{id}/outcomes     # Создать связь
+PUT    /api/v1/admin/global/paragraph-outcomes/{id}      # Обновить связь
+DELETE /api/v1/admin/global/paragraph-outcomes/{id}      # Удалить связь
+```
+
+**School ADMIN endpoints (управление маппингом школьных параграфов):**
+```
+GET    /api/v1/admin/school/paragraphs/{id}/outcomes     # Список связей
+POST   /api/v1/admin/school/paragraphs/{id}/outcomes     # Создать связь
+PUT    /api/v1/admin/school/paragraph-outcomes/{id}      # Обновить связь
+DELETE /api/v1/admin/school/paragraph-outcomes/{id}      # Удалить связь
+```
+
+#### 4.8.5 Права доступа к GOSO
+
+| Роль | subjects/frameworks/outcomes | paragraph_outcomes (global) | paragraph_outcomes (school) |
+|------|------------------------------|-----------------------------|-----------------------------|
+| SUPER_ADMIN | Read | Read/Write | Read |
+| ADMIN | Read | Read | Read/Write (своя школа) |
+| TEACHER | Read | Read | Read (своя школа) |
+| STUDENT | Read | Read | Read (своя школа) |
+| PARENT | Read | Read | Read (своя школа) |
+
+#### 4.8.6 Импортированные данные (пилот)
+
+**История Казахстана 5-9 классы:**
+- 1 subject (history_kz)
+- 1 framework (goso_hist_kz_2023)
+- 4 sections (разделы ГОСО)
+- 9 subsections (подразделы)
+- 164 learning_outcomes (цели обучения)
+
+**Разделы ГОСО для истории:**
+| code | name_ru |
+|------|---------|
+| 1 | Развитие социальных отношений |
+| 2 | Развитие культуры |
+| 3 | Развитие государства |
+| 4 | Экономическое развитие Казахстана |
+
+#### 4.8.7 Файлы реализации
+
+```
+backend/app/
+├── models/
+│   ├── subject.py              # Subject model
+│   └── goso.py                 # Framework, GosoSection, GosoSubsection,
+│                               # LearningOutcome, ParagraphOutcome
+├── schemas/
+│   └── goso.py                 # Pydantic schemas (Create/Update/Response)
+├── repositories/
+│   └── goso_repo.py            # GosoRepository, ParagraphOutcomeRepository
+└── api/v1/
+    ├── goso.py                 # Read-only GOSO endpoints
+    ├── admin_global.py         # +paragraph-outcomes endpoints
+    └── admin_school.py         # +paragraph-outcomes endpoints
+
+backend/alembic/versions/
+├── 012_add_goso_core_tables.py # subjects, frameworks, sections, subsections, outcomes
+└── 013_add_paragraph_outcomes.py # paragraph_outcomes + RLS
+
+scripts/
+└── import_goso.py              # Импорт из adilet_merged.json
+
+docs/
+├── GOSO_INTEGRATION_PLAN.md    # Полный план интеграции
+└── adilet_merged.json          # Исходные данные ГОСО (RU/KZ)
+```
+
+---
+
 ## 5. ДОПОЛНИТЕЛЬНЫЕ ТРЕБОВАНИЯ
 
 ### 5.1 API Endpoints (минимум)
@@ -1354,6 +1550,20 @@ volumes:
 - `POST /api/v1/sync/process` - обработать очередь
 - `GET /api/v1/sync/status` - статус синхронизации
 
+**GOSO (Государственный стандарт образования):** ✅ Реализовано
+- `GET /api/v1/goso/subjects` - список предметов
+- `GET /api/v1/goso/subjects/{id}` - детали предмета
+- `GET /api/v1/goso/frameworks` - список версий ГОСО
+- `GET /api/v1/goso/frameworks/{id}` - детали версии
+- `GET /api/v1/goso/frameworks/{id}/structure` - полная структура с sections/subsections/outcomes
+- `GET /api/v1/goso/outcomes` - список целей обучения (фильтры: grade, subject_id, subsection_id)
+- `GET /api/v1/goso/outcomes/{id}` - детали цели с полным контекстом
+- `GET /api/v1/goso/paragraphs/{id}/outcomes` - цели для параграфа
+- `GET/POST /api/v1/admin/global/paragraphs/{id}/outcomes` - маппинг для SUPER_ADMIN
+- `PUT/DELETE /api/v1/admin/global/paragraph-outcomes/{id}` - управление маппингом
+- `GET/POST /api/v1/admin/school/paragraphs/{id}/outcomes` - маппинг для School ADMIN
+- `PUT/DELETE /api/v1/admin/school/paragraph-outcomes/{id}` - управление маппингом
+
 ### 5.2 Документация
 
 Создай в папке `docs/`:
@@ -1388,6 +1598,7 @@ volumes:
 10. ✅ **Docker Compose** для локальной разработки
 11. ✅ **Seed данные** для тестирования
 12. ✅ **Документация** по API и архитектуре
+13. ✅ **GOSO интеграция** - привязка контента к государственному стандарту образования
 
 ---
 

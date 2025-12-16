@@ -11,7 +11,6 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import JSON
 
 
 # revision identifiers, used by Alembic.
@@ -22,16 +21,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Add key_terms column - array of key terms as JSON
-    op.add_column('paragraphs', sa.Column('key_terms', JSON, nullable=True))
-
-    # Add questions column - array of questions (with order and text) as JSON
-    op.add_column('paragraphs', sa.Column('questions', JSON, nullable=True))
+    # NOTE: make migration idempotent to support environments where columns
+    # might have been added manually.
+    op.execute("ALTER TABLE paragraphs ADD COLUMN IF NOT EXISTS key_terms JSON;")
+    op.execute("ALTER TABLE paragraphs ADD COLUMN IF NOT EXISTS questions JSON;")
 
 
 def downgrade() -> None:
-    # Remove questions column
-    op.drop_column('paragraphs', 'questions')
-
-    # Remove key_terms column
-    op.drop_column('paragraphs', 'key_terms')
+    # NOTE: make migration idempotent
+    op.execute("ALTER TABLE paragraphs DROP COLUMN IF EXISTS questions;")
+    op.execute("ALTER TABLE paragraphs DROP COLUMN IF EXISTS key_terms;")

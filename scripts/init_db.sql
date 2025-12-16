@@ -7,15 +7,18 @@
 -- Проект использует ДВЕ роли для multi-tenant изоляции через RLS:
 
 -- Роль 1: ai_mentor_user (SUPERUSER) - для миграций
--- Используется в: alembic.ini, скрипты миграций
--- Права: SUPERUSER (bypass RLS policies при создании/изменении схемы)
+-- СОЗДАЁТСЯ АВТОМАТИЧЕСКИ docker entrypoint из POSTGRES_USER/POSTGRES_PASSWORD
+-- Этот блок только проверяет наличие и выдаёт SUPERUSER права если нужно
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'ai_mentor_user') THEN
+    IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'ai_mentor_user') THEN
+        -- Убедимся что роль имеет SUPERUSER права (для bypass RLS при миграциях)
+        ALTER ROLE ai_mentor_user WITH SUPERUSER;
+        RAISE NOTICE 'Role ai_mentor_user exists, ensured SUPERUSER privileges';
+    ELSE
+        -- Fallback: создаём если docker entrypoint не создал (не должно случиться)
         CREATE ROLE ai_mentor_user WITH SUPERUSER LOGIN PASSWORD 'ai_mentor_pass';
         RAISE NOTICE 'Role ai_mentor_user created (SUPERUSER for migrations)';
-    ELSE
-        RAISE NOTICE 'Role ai_mentor_user already exists';
     END IF;
 END
 $$;

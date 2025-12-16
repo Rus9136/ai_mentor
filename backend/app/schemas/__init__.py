@@ -103,6 +103,44 @@ from app.schemas.mastery import (
     ChapterMasteryDetailResponse,
     MasteryOverviewResponse,
 )
+from app.schemas.goso import (
+    # Subject
+    SubjectCreate,
+    SubjectUpdate,
+    SubjectResponse,
+    SubjectListResponse,
+    # Framework
+    FrameworkCreate,
+    FrameworkUpdate,
+    FrameworkResponse,
+    FrameworkListResponse,
+    # GosoSection
+    GosoSectionCreate,
+    GosoSectionUpdate,
+    GosoSectionResponse,
+    GosoSectionListResponse,
+    # GosoSubsection
+    GosoSubsectionCreate,
+    GosoSubsectionUpdate,
+    GosoSubsectionResponse,
+    GosoSubsectionListResponse,
+    # LearningOutcome
+    LearningOutcomeCreate,
+    LearningOutcomeUpdate,
+    LearningOutcomeResponse,
+    LearningOutcomeListResponse,
+    # ParagraphOutcome
+    ParagraphOutcomeCreate,
+    ParagraphOutcomeUpdate,
+    ParagraphOutcomeResponse,
+    ParagraphOutcomeListResponse,
+    # Nested responses
+    GosoSubsectionWithOutcomes,
+    GosoSectionWithSubsections,
+    FrameworkWithSections,
+    LearningOutcomeWithContext,
+    ParagraphOutcomeWithDetails,
+)
 
 __all__ = [
     # Auth
@@ -191,4 +229,40 @@ __all__ = [
     "ChapterMasteryResponse",
     "ChapterMasteryDetailResponse",
     "MasteryOverviewResponse",
+    # GOSO - Subject
+    "SubjectCreate",
+    "SubjectUpdate",
+    "SubjectResponse",
+    "SubjectListResponse",
+    # GOSO - Framework
+    "FrameworkCreate",
+    "FrameworkUpdate",
+    "FrameworkResponse",
+    "FrameworkListResponse",
+    # GOSO - GosoSection
+    "GosoSectionCreate",
+    "GosoSectionUpdate",
+    "GosoSectionResponse",
+    "GosoSectionListResponse",
+    # GOSO - GosoSubsection
+    "GosoSubsectionCreate",
+    "GosoSubsectionUpdate",
+    "GosoSubsectionResponse",
+    "GosoSubsectionListResponse",
+    # GOSO - LearningOutcome
+    "LearningOutcomeCreate",
+    "LearningOutcomeUpdate",
+    "LearningOutcomeResponse",
+    "LearningOutcomeListResponse",
+    # GOSO - ParagraphOutcome
+    "ParagraphOutcomeCreate",
+    "ParagraphOutcomeUpdate",
+    "ParagraphOutcomeResponse",
+    "ParagraphOutcomeListResponse",
+    # GOSO - Nested responses
+    "GosoSubsectionWithOutcomes",
+    "GosoSectionWithSubsections",
+    "FrameworkWithSections",
+    "LearningOutcomeWithContext",
+    "ParagraphOutcomeWithDetails",
 ]

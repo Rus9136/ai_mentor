@@ -216,6 +216,8 @@ class TextbookRepository:
                     summary=source_paragraph.summary,
                     learning_objective=source_paragraph.learning_objective,
                     lesson_objective=source_paragraph.lesson_objective,
+                    key_terms=source_paragraph.key_terms,
+                    questions=source_paragraph.questions,
                 )
 
                 self.db.add(forked_paragraph)

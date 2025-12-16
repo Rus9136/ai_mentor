@@ -44,19 +44,41 @@ docker exec -it ai_mentor_postgres psql -U ai_mentor_user -d ai_mentor_db
 
 1. **ai_mentor_user** (SUPERUSER) - для миграций
    - User: `ai_mentor_user`
-   - Password: `ai_mentor_pass`
-   - Используется в: `alembic.ini`, скрипты миграций, прямое подключение к БД
    - Права: SUPERUSER (bypass RLS policies)
    - Почему нужен: RLS политики применяются даже к владельцу таблицы, но SUPERUSER может их обойти для создания/изменения схемы
 
 2. **ai_mentor_app** (обычный пользователь) - для runtime
    - User: `ai_mentor_app`
-   - Password: `ai_mentor_pass`
-   - Используется в: `backend/.env` (POSTGRES_USER)
    - Права: Обычный пользователь, RLS политики активны
    - Почему нужен: Обеспечивает multi-tenant изоляцию на уровне БД через RLS
 
-**Важно:** Всегда используй `ai_mentor_user` для миграций и `ai_mentor_app` для работы приложения.
+**Где хранятся пароли (НЕ хардкодить в коде!):**
+
+| Окружение | Файл | Переменная | Описание |
+|-----------|------|------------|----------|
+| Production & Local | `backend/.env` | `POSTGRES_PASSWORD` | Единый пароль для обеих ролей |
+| Docker default | `docker-compose.infra.yml` | `${POSTGRES_PASSWORD:-ai_mentor_pass}` | Fallback если .env не задан |
+
+**Файл `backend/.env` содержит все секреты и НЕ коммитится в git (в .gitignore).**
+
+**Как работает подключение к БД:**
+
+1. **Runtime (FastAPI приложение):**
+   - Читает `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_DB` из environment
+   - Использует роль `ai_mentor_app` (задаётся в `docker-compose.infra.yml`)
+
+2. **Миграции (Alembic):**
+   - `alembic/env.py` автоматически собирает URL из environment variables
+   - Использует `quote_plus()` для URL-кодирования спецсимволов в пароле (`@`, `!`, и т.д.)
+   - Всегда использует роль `ai_mentor_user` (SUPERUSER)
+   - Fallback на `alembic.ini` если env vars не заданы (для локальной разработки)
+
+**Важно для AI-агентов:**
+- НИКОГДА не хардкодить пароли в коде, конфигах или документации
+- Production пароль хранится ТОЛЬКО в `backend/.env` (файл не в git)
+- `alembic.ini` содержит только fallback URL для локальной разработки (`ai_mentor_pass`)
+- `alembic/env.py` автоматически собирает URL из env vars с URL-кодированием спецсимволов
+- При деплое docker-compose читает `backend/.env` через `env_file` директиву
 
 ### Production Deployment
 
@@ -465,25 +487,41 @@ alembic upgrade head  # вернись обратно
 
 ## Development Workflow
 
-### Текущий этап: Итерация 3 завершена ✅
+### Текущий этап: GOSO API Implementation (2025-12-16)
 
-**Завершенные задачи (Итерация 3 - 2025-10-29):**
-- ✅ Миграция 009: роль SUPER_ADMIN добавлена в enum UserRole
-- ✅ FastAPI приложение создано (`backend/app/main.py`)
-- ✅ JWT аутентификация реализована (`backend/app/core/security.py`)
-- ✅ Auth endpoints работают: login, refresh, /me (`backend/app/api/v1/auth.py`)
-- ✅ RBAC dependencies настроены для всех ролей (`backend/app/api/dependencies.py`)
-- ✅ CORS middleware настроен
-- ✅ User Repository создан (`backend/app/repositories/user_repo.py`)
-- ✅ Pydantic схемы для auth созданы (`backend/app/schemas/auth.py`)
-- ✅ Полный auth флоу протестирован и работает
+**Завершено ранее:**
+- ✅ Итерации 1-4: Auth, RBAC, Content Management API
+- ✅ Миграции 001-011: базовая схема, school_id изоляция, SUPER_ADMIN роль
+- ✅ Admin Panel (React-Admin): CRUD для учебников, тестов, вопросов
+- ✅ Production deploy: api.ai-mentor.kz, admin.ai-mentor.kz
 
-**Следующие задачи (Итерация 4 - Content Management API):**
-1. Создать Pydantic схемы для контента (Textbook, Chapter, Paragraph, Test, Question)
-2. Создать repositories для data access
-3. Реализовать SUPER_ADMIN API для глобального контента
-4. Реализовать School ADMIN API для школьного контента
-5. Реализовать логику кастомизации (fork) глобального контента
+**Текущая работа - ГОСО интеграция:**
+
+| Компонент | Статус | Файл |
+|-----------|--------|------|
+| Миграция 012: GOSO таблицы | ✅ Готово | `012_add_goso_core_tables.py` |
+| Миграция 013: paragraph_outcomes | ✅ Готово | `013_add_paragraph_outcomes.py` |
+| SQLAlchemy модели | ✅ Готово | `models/subject.py`, `models/goso.py` |
+| Pydantic схемы | ✅ Готово | `schemas/goso.py` (425 строк) |
+| Импорт данных | ✅ Готово | 164 learning outcomes (История КЗ 5-9) |
+| GosoRepository | ⏳ В работе | `repositories/goso_repo.py` |
+| GOSO API endpoints | ⏳ В работе | `api/v1/goso.py` |
+
+**План реализации GOSO API (см. `docs/GOSO_API_IMPLEMENTATION_PLAN.md`):**
+1. Этап 1: GosoRepository (~200 строк) - read-only доступ к ГОСО данным
+2. Этап 2: Read-only endpoints в `/goso/*` (8 endpoints)
+3. Этап 3: SUPER_ADMIN endpoints для paragraph_outcomes
+4. Этап 4: School ADMIN endpoints для paragraph_outcomes
+5. Этап 5: Интеграция и тестирование
+
+**Данные в БД:**
+```
+subjects:           1 (История Казахстана)
+frameworks:         1 (ГОСО 2022-09-16)
+goso_sections:      4 (разделы)
+goso_subsections:   9 (подразделы)
+learning_outcomes:  164 (цели обучения: 5кл-27, 6кл-43, 7кл-32, 8кл-26, 9кл-36)
+```
 
 ### Git Commit Conventions
 
