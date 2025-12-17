@@ -2,3 +2,11 @@ export * from './use-schools';
 export * from './use-textbooks';
 export * from './use-tests';
 export * from './use-goso';
+// School Admin hooks
+export * from './use-students';
+export * from './use-teachers';
+export * from './use-parents';
+export * from './use-classes';
+export * from './use-school-textbooks';
+export * from './use-school-tests';
+export * from './use-settings';
