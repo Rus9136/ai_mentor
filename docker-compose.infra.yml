@@ -107,7 +107,7 @@ services:
       REFRESH_TOKEN_EXPIRE_DAYS: 7
 
       # CORS (production domains) - CSV format для корректного парсинга Pydantic
-      BACKEND_CORS_ORIGINS: "https://ai-mentor.kz,https://admin.ai-mentor.kz,https://api.ai-mentor.kz"
+      BACKEND_CORS_ORIGINS: "https://ai-mentor.kz,https://admin.ai-mentor.kz,https://admin-v2.ai-mentor.kz,https://api.ai-mentor.kz"
 
       # OpenAI (опционально, можно добавить позже)
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -173,6 +173,40 @@ services:
     # Статика будет скопирована в /var/www/ai-mentor/ (landing) и /var/www/ai-mentor-admin/ (admin)
     profiles:
       - build
+
+  # ------------------------------------------
+  # Admin Panel v2 (Next.js - admin-v2.ai-mentor.kz)
+  # ------------------------------------------
+  admin-v2:
+    build:
+      context: ./admin-v2
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: https://api.ai-mentor.kz/api/v1
+
+    container_name: ai_mentor_admin_v2_prod
+    restart: unless-stopped
+
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://api.ai-mentor.kz/api/v1
+
+    ports:
+      # Доступен ТОЛЬКО локально на хосте для Nginx
+      - "127.0.0.1:3003:3000"
+
+    networks:
+      - infrastructure_network
+
+    depends_on:
+      - backend
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 # ==========================================
 # ИНСТРУКЦИИ ПО ИСПОЛЬЗОВАНИЮ
