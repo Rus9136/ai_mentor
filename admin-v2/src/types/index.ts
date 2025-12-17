@@ -206,6 +206,8 @@ export interface QuestionOptionCreate {
   is_correct: boolean;
 }
 
+export interface QuestionOptionUpdate extends Partial<QuestionOptionCreate> {}
+
 export interface Question {
   id: number;
   test_id: number;
@@ -227,7 +229,7 @@ export interface QuestionCreate {
   question_text: string;
   explanation?: string;
   points: number;
-  options: QuestionOptionCreate[];
+  options?: QuestionOptionCreate[];
 }
 
 export interface QuestionUpdate extends Partial<QuestionCreate> {}
