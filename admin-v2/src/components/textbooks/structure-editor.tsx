@@ -35,6 +35,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   useChapters,
   useParagraphs,
+  useParagraph,
   useCreateChapter,
   useUpdateChapter,
   useDeleteChapter,
@@ -249,18 +250,25 @@ function ChapterItem({
   const deleteParagraph = useDeleteParagraph(isSchool);
 
   const [paragraphDialogOpen, setParagraphDialogOpen] = useState(false);
-  const [selectedParagraph, setSelectedParagraph] = useState<Paragraph | undefined>();
+  const [selectedParagraphId, setSelectedParagraphId] = useState<number | null>(null);
   const [deleteParagraphDialogOpen, setDeleteParagraphDialogOpen] = useState(false);
   const [paragraphToDelete, setParagraphToDelete] = useState<Paragraph | null>(null);
 
+  // Fetch full paragraph data when editing (list doesn't include content)
+  const { data: selectedParagraph, isLoading: paragraphLoading } = useParagraph(
+    selectedParagraphId ?? 0,
+    isSchool,
+    selectedParagraphId !== null && paragraphDialogOpen
+  );
+
   const handleAddParagraph = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedParagraph(undefined);
+    setSelectedParagraphId(null);
     setParagraphDialogOpen(true);
   };
 
   const handleEditParagraph = (paragraph: Paragraph) => {
-    setSelectedParagraph(paragraph);
+    setSelectedParagraphId(paragraph.id);
     setParagraphDialogOpen(true);
   };
 
@@ -398,6 +406,11 @@ function ChapterItem({
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
+                        {paragraph.questions && paragraph.questions.length > 0 && (
+                          <Badge variant="outline" className="hidden sm:flex">
+                            {paragraph.questions.length} вопр.
+                          </Badge>
+                        )}
                         {paragraph.key_terms && paragraph.key_terms.length > 0 && (
                           <Badge variant="secondary" className="hidden sm:flex">
                             {paragraph.key_terms.length} терминов
@@ -430,12 +443,16 @@ function ChapterItem({
       {/* Paragraph Dialog */}
       <ParagraphDialog
         open={paragraphDialogOpen}
-        onOpenChange={setParagraphDialogOpen}
+        onOpenChange={(open) => {
+          setParagraphDialogOpen(open);
+          if (!open) setSelectedParagraphId(null);
+        }}
         chapterId={chapter.id}
         paragraph={selectedParagraph}
         nextNumber={paragraphs.length + 1}
         onSubmit={handleParagraphSubmit}
         isLoading={createParagraph.isPending || updateParagraph.isPending}
+        isFetchingParagraph={paragraphLoading}
       />
 
       {/* Delete Paragraph Dialog */}

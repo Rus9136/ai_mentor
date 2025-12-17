@@ -81,6 +81,11 @@ export const chapterCreateDefaults = (
 
 // ==================== Paragraph ====================
 
+export const paragraphQuestionSchema = z.object({
+  order: z.number().int().min(1, 'Минимум 1'),
+  text: z.string().min(1, 'Текст вопроса обязателен'),
+});
+
 export const paragraphCreateSchema = z.object({
   chapter_id: z.number().int().positive('Глава обязательна'),
   title: z
@@ -94,6 +99,7 @@ export const paragraphCreateSchema = z.object({
   learning_objective: z.string().optional().or(z.literal('')),
   lesson_objective: z.string().optional().or(z.literal('')),
   key_terms: z.array(z.string()).optional(),
+  questions: z.array(paragraphQuestionSchema).optional(),
 });
 
 export const paragraphUpdateSchema = paragraphCreateSchema.partial().omit({
@@ -115,4 +121,5 @@ export const paragraphCreateDefaults = (
   summary: '',
   learning_objective: '',
   lesson_objective: '',
+  questions: [],
 });
