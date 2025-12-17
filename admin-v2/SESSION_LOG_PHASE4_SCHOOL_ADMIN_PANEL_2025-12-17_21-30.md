@@ -180,4 +180,37 @@ Build passed successfully with all 45 pages generated:
 
 ---
 
-*Session completed successfully. Build passes without errors.*
+## Production Deployment (добавлено позже)
+
+### Что было сделано:
+
+1. **Dockerfile.prod** - Multi-stage build для Next.js
+2. **docker-compose.infra.yml** - Добавлен сервис `admin-v2` на порту 3003
+3. **nginx config** - Проксирование к Next.js серверу
+4. **ARCHITECTURE.md** - Полная документация для AI агентов
+
+### Deployment Info:
+
+| Параметр | Значение |
+|----------|----------|
+| Container | `ai_mentor_admin_v2_prod` |
+| Port | `127.0.0.1:3003 -> 3000` |
+| URL | https://admin.ai-mentor.kz |
+| Status | Running (healthy) |
+
+### Команды деплоя:
+
+```bash
+# Build
+docker compose -f docker-compose.infra.yml build admin-v2
+
+# Start
+docker compose -f docker-compose.infra.yml up -d admin-v2
+
+# Logs
+docker logs -f ai_mentor_admin_v2_prod
+```
+
+---
+
+*Session completed successfully. Build passes without errors. Deployed to production.*
