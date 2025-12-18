@@ -17,6 +17,7 @@ from app.models.school_class import SchoolClass, class_students, class_teachers
 from app.models.textbook import Textbook
 from app.models.chapter import Chapter
 from app.models.paragraph import Paragraph, ParagraphEmbedding
+from app.models.paragraph_content import ParagraphContent, ContentStatus
 from app.models.test import Test, Question, QuestionOption, DifficultyLevel, QuestionType, TestPurpose
 
 # GOSO models
@@ -62,6 +63,8 @@ __all__ = [
     "Chapter",
     "Paragraph",
     "ParagraphEmbedding",
+    "ParagraphContent",
+    "ContentStatus",
     "Test",
     "Question",
     "QuestionOption",

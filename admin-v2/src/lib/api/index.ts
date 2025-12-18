@@ -4,6 +4,7 @@ export { schoolsApi } from './schools';
 export { textbooksApi } from './textbooks';
 export { testsApi } from './tests';
 export { gosoApi } from './goso';
+export { paragraphContentApi } from './paragraph-content';
 // School Admin APIs
 export { studentsApi } from './students';
 export { teachersApi } from './teachers';

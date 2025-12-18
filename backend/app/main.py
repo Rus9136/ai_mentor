@@ -93,6 +93,7 @@ app.mount(f"/{settings.UPLOAD_DIR}", StaticFiles(directory=str(upload_dir_path))
 
 # Include routers
 from app.api.v1 import auth, admin_global, admin_school, schools, upload, students, goso
+from app.api.v1 import paragraph_contents
 
 app.include_router(
     auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"]
@@ -130,4 +131,16 @@ app.include_router(
     goso.router,
     prefix=f"{settings.API_V1_PREFIX}/goso",
     tags=["GOSO - Learning Standards"],
+)
+
+app.include_router(
+    paragraph_contents.router_global,
+    prefix=f"{settings.API_V1_PREFIX}/admin/global/paragraphs",
+    tags=["Admin - Paragraph Content (Global)"],
+)
+
+app.include_router(
+    paragraph_contents.router_school,
+    prefix=f"{settings.API_V1_PREFIX}/admin/school/paragraphs",
+    tags=["Admin - Paragraph Content (School)"],
 )

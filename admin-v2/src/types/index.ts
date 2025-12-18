@@ -447,6 +447,45 @@ export interface LearningOutcome {
   subsection_name_ru?: string;
 }
 
+// Paragraph Content types
+export type ContentStatus = 'empty' | 'draft' | 'ready' | 'outdated';
+export type CardType = 'term' | 'fact' | 'check';
+
+export interface CardItem {
+  id: string;
+  type: CardType;
+  front: string;
+  back: string;
+  order: number;
+}
+
+export interface ParagraphContent {
+  id: number;
+  paragraph_id: number;
+  language: 'ru' | 'kk';
+  explain_text: string | null;
+  audio_url: string | null;
+  slides_url: string | null;
+  video_url: string | null;
+  cards: CardItem[] | null;
+  source_hash: string | null;
+  status_explain: ContentStatus;
+  status_audio: ContentStatus;
+  status_slides: ContentStatus;
+  status_video: ContentStatus;
+  status_cards: ContentStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ParagraphContentUpdate {
+  explain_text?: string | null;
+}
+
+export interface ParagraphContentCardsUpdate {
+  cards: CardItem[];
+}
+
 // API types
 export interface ApiError {
   detail: string;

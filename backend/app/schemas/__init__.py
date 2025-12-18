@@ -27,6 +27,15 @@ from app.schemas.paragraph import (
     ParagraphResponse,
     ParagraphListResponse,
 )
+from app.schemas.paragraph_content import (
+    CardItem,
+    ParagraphContentCreate,
+    ParagraphContentUpdate,
+    ParagraphContentCardsUpdate,
+    ParagraphContentResponse,
+    ParagraphContentListResponse,
+    ParagraphContentSummary,
+)
 from app.schemas.test import (
     TestCreate,
     TestUpdate,
@@ -164,6 +173,14 @@ __all__ = [
     "ParagraphUpdate",
     "ParagraphResponse",
     "ParagraphListResponse",
+    # ParagraphContent
+    "CardItem",
+    "ParagraphContentCreate",
+    "ParagraphContentUpdate",
+    "ParagraphContentCardsUpdate",
+    "ParagraphContentResponse",
+    "ParagraphContentListResponse",
+    "ParagraphContentSummary",
     # Test
     "TestCreate",
     "TestUpdate",

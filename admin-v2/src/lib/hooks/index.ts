@@ -2,6 +2,7 @@ export * from './use-schools';
 export * from './use-textbooks';
 export * from './use-tests';
 export * from './use-goso';
+export * from './use-paragraph-content';
 // School Admin hooks
 export * from './use-students';
 export * from './use-teachers';

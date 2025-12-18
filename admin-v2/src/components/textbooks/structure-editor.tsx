@@ -10,6 +10,7 @@ import {
   BookOpen,
   FileText,
   GripVertical,
+  Layers,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,13 @@ import type {
 import type { Chapter, Paragraph } from '@/types';
 import { ChapterDialog } from './chapter-dialog';
 import { ParagraphDialog } from './paragraph-dialog';
+import Link from 'next/link';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from '@/components/ui/tooltip';
 
 interface StructureEditorProps {
   textbookId: number;
@@ -386,54 +394,74 @@ function ChapterItem({
                   </button>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {sortedParagraphs.map((paragraph) => (
-                    <div
-                      key={paragraph.id}
-                      className="flex items-center justify-between p-3 rounded-md bg-background border"
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <div className="font-medium">
-                            §{paragraph.number}. {paragraph.title}
-                          </div>
-                          {paragraph.summary && (
-                            <div className="text-sm text-muted-foreground line-clamp-1">
-                              {paragraph.summary}
+                <TooltipProvider>
+                  <div className="space-y-2">
+                    {sortedParagraphs.map((paragraph) => (
+                      <div
+                        key={paragraph.id}
+                        className="flex items-center justify-between p-3 rounded-md bg-background border"
+                      >
+                        <div className="flex items-center gap-3">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <div className="font-medium">
+                              §{paragraph.number}. {paragraph.title}
                             </div>
+                            {paragraph.summary && (
+                              <div className="text-sm text-muted-foreground line-clamp-1">
+                                {paragraph.summary}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {paragraph.questions && paragraph.questions.length > 0 && (
+                            <Badge variant="outline" className="hidden sm:flex">
+                              {paragraph.questions.length} вопр.
+                            </Badge>
                           )}
+                          {paragraph.key_terms && paragraph.key_terms.length > 0 && (
+                            <Badge variant="secondary" className="hidden sm:flex">
+                              {paragraph.key_terms.length} терминов
+                            </Badge>
+                          )}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                asChild
+                              >
+                                <Link
+                                  href={`/ru/textbooks/${chapter.textbook_id}/paragraphs/${paragraph.id}/content`}
+                                >
+                                  <Layers className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Контент параграфа</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditParagraph(paragraph)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteParagraph(paragraph)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        {paragraph.questions && paragraph.questions.length > 0 && (
-                          <Badge variant="outline" className="hidden sm:flex">
-                            {paragraph.questions.length} вопр.
-                          </Badge>
-                        )}
-                        {paragraph.key_terms && paragraph.key_terms.length > 0 && (
-                          <Badge variant="secondary" className="hidden sm:flex">
-                            {paragraph.key_terms.length} терминов
-                          </Badge>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEditParagraph(paragraph)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteParagraph(paragraph)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </TooltipProvider>
               )}
             </div>
           </CollapsibleContent>
