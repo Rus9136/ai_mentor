@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Nunito } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -6,9 +7,16 @@ import { routing } from '@/i18n/routing';
 import { AuthProvider } from '@/providers/auth-provider';
 import '../globals.css';
 
+const nunito = Nunito({
+  subsets: ['latin', 'cyrillic'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-nunito',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
-  title: 'AI Mentor - Платформа для обучения',
-  description: 'Адаптивная образовательная платформа для школьников',
+  title: 'AI Mentor - Учись по-своему',
+  description: 'Адаптивная образовательная платформа для школьников 7-11 классов',
 };
 
 interface LocaleLayoutProps {
@@ -34,7 +42,7 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale}>
+    <html lang={locale} className={nunito.variable}>
       <body className="min-h-screen bg-background font-sans antialiased">
         <NextIntlClientProvider messages={messages}>
           <AuthProvider>{children}</AuthProvider>

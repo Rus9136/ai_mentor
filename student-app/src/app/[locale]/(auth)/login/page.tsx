@@ -4,15 +4,8 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/auth-provider';
 import { GoogleSignInButton } from '@/components/auth/google-signin-button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { useRouter } from '@/i18n/routing';
-import { Loader2 } from 'lucide-react';
+import { Loader2, BookOpen, Sparkles, GraduationCap } from 'lucide-react';
 
 export default function LoginPage() {
   const t = useTranslations('auth.login');
@@ -52,45 +45,83 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-8 w-8 text-primary"
-            >
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-              <path d="M6 12v5c3 3 9 3 12 0v-5" />
-            </svg>
-          </div>
-          <CardTitle className="text-2xl font-bold">{t('title')}</CardTitle>
-          <CardDescription>{t('subtitle')}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center space-y-4">
-          {isLoading ? (
-            <div className="flex items-center space-x-2">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span>{t('loading')}</span>
-            </div>
-          ) : (
-            <GoogleSignInButton
-              onSuccess={handleGoogleSuccess}
-              onError={handleGoogleError}
-            />
-          )}
+    <div className="relative flex min-h-screen overflow-hidden">
+      {/* Decorative blobs */}
+      <div className="blob blob-orange blob-animate absolute -top-32 -right-32 h-96 w-96 opacity-60" />
+      <div className="blob blob-orange absolute -bottom-24 -left-24 h-80 w-80 opacity-40" />
+      <div className="blob blob-green absolute top-1/3 -left-16 h-48 w-48 opacity-30" />
+      <div className="blob blob-cream absolute bottom-1/4 right-1/4 h-64 w-64 opacity-50" />
 
-          {error && (
-            <p className="text-center text-sm text-destructive">{error}</p>
-          )}
-        </CardContent>
-      </Card>
+      {/* Main content */}
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
+        {/* Logo & Brand */}
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary shadow-soft-lg">
+            <GraduationCap className="h-10 w-10 text-white" />
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+            AI Mentor
+          </h1>
+          <p className="mt-1 text-sm font-medium text-muted-foreground">
+            {t('tagline')}
+          </p>
+        </div>
+
+        {/* Login Card */}
+        <div className="w-full max-w-sm">
+          <div className="card-elevated p-8">
+            <div className="mb-6 text-center">
+              <h2 className="text-xl font-bold text-foreground">{t('title')}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t('subtitle')}
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center space-y-4">
+              {isLoading ? (
+                <div className="flex items-center space-x-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>{t('loading')}</span>
+                </div>
+              ) : (
+                <GoogleSignInButton
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                />
+              )}
+
+              {error && (
+                <p className="text-center text-sm text-destructive">{error}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Features preview */}
+          <div className="mt-8 grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-3 rounded-xl bg-white/60 p-3 backdrop-blur-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                <BookOpen className="h-5 w-5 text-primary" />
+              </div>
+              <span className="text-xs font-medium text-foreground">
+                {t('features.adaptive')}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl bg-white/60 p-3 backdrop-blur-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-success/10">
+                <Sparkles className="h-5 w-5 text-success" />
+              </div>
+              <span className="text-xs font-medium text-foreground">
+                {t('features.interactive')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <p className="mt-12 text-center text-xs text-muted-foreground">
+          {t('footer')}
+        </p>
+      </div>
     </div>
   );
 }
