@@ -6,12 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AI Mentor - адаптивная образовательная платформа для школьников (7-11 классы) с автоматической группировкой учеников по уровню мастерства (A/B/C). Multi-tenant SaaS решение с гибридной моделью контента.
 
-**Текущий статус:** Итерация 3 завершена (25% проекта). Backend основа + JWT аутентификация работают. Следующая итерация: Content Management API.
+**Текущий статус:** Backend API + Admin Panel v2 в production. ГОСО интеграция в процессе.
 
 **Важные документы:**
 - `docs/IMPLEMENTATION_STATUS.md` - план из 12 итераций с текущим прогрессом
 - `docs/ARCHITECTURE.md` - полное техническое задание
-- `docs/ADMIN_PANEL.md` - детальная спецификация админ панели
+- `admin-v2/ARCHITECTURE.md` - документация новой админ панели (Next.js)
 - `docs/database_schema.md` - документация схемы БД
 - `docs/migrations_quick_guide.md` - инструкции по работе с миграциями
 
@@ -89,8 +89,11 @@ docker exec -it ai_mentor_postgres psql -U ai_mentor_user -d ai_mentor_db
 
 # Принудительный деплой конкретного компонента
 ./deploy.sh backend      # Только backend
-./deploy.sh frontend     # Только frontend
+./deploy.sh frontend     # Только frontend (старый)
 ./deploy.sh full         # Полный деплой всего
+
+# Admin Panel v2 (отдельно через docker-compose)
+docker compose -f docker-compose.infra.yml up -d --build admin-v2
 ```
 
 **Что происходит автоматически:**
@@ -181,7 +184,7 @@ mypy backend/
 - student7@school001.com / student123 (Ернар Токаев - 10-А класс)
 - student8@school001.com / student123 (Камила Нурланова - 10-А класс)
 
-**Frontend:** http://localhost:5173
+**Local Dev:** http://localhost:3000 (admin-v2)
 
 ## Architecture & Key Concepts
 
@@ -243,6 +246,51 @@ Textbook(
 
 **Важно:** SUPER_ADMIN и ADMIN - это разные роли с разными правами. SUPER_ADMIN НЕ управляет конкретными школами, а ADMIN НЕ создает глобальный контент.
 
+### Admin Panel v2 (Frontend)
+
+**Стек:** Next.js 15 + shadcn/ui + TanStack Query + Tailwind CSS + next-intl (ru/kk)
+
+**URL:** https://admin.ai-mentor.kz | **Container:** `ai_mentor_admin_v2_prod:3003`
+
+**Структура `admin-v2/src/`:**
+```
+app/[locale]/
+├── (auth)/login/           # Логин (без sidebar)
+└── (dashboard)/            # Dashboard layout (с sidebar)
+    ├── schools/            # SUPER_ADMIN: CRUD школ
+    ├── textbooks/          # SUPER_ADMIN: глобальные учебники
+    ├── tests/              # SUPER_ADMIN: глобальные тесты
+    ├── goso/               # SUPER_ADMIN: ГОСО (read-only)
+    ├── students/           # School ADMIN: ученики
+    ├── teachers/           # School ADMIN: учителя
+    ├── classes/            # School ADMIN: классы
+    └── school-textbooks/   # School ADMIN: библиотека
+
+lib/
+├── api/                    # Axios clients (auth.ts, students.ts, etc.)
+├── hooks/                  # TanStack Query hooks (use-students.ts, etc.)
+└── validations/            # Zod schemas
+
+components/
+├── ui/                     # shadcn/ui компоненты
+├── data-table/             # DataTable + pagination + toolbar
+├── forms/                  # Entity forms (student-form.tsx, etc.)
+└── auth/                   # AuthGuard, RoleGuard
+```
+
+**Ключевые паттерны:**
+- **API Client:** `src/lib/api/*.ts` → axios instance с JWT interceptors
+- **Hooks:** `src/lib/hooks/use-*.ts` → Query Keys Factory pattern
+- **RoleGuard:** `<RoleGuard allowedRoles={['super_admin']}>` для защиты страниц
+- **Forms:** Discriminated union `mode: 'create' | 'edit'` для переиспользования
+
+**Команды:**
+```bash
+cd admin-v2 && npm run dev                                      # Dev server :3000
+docker compose -f docker-compose.infra.yml up -d --build admin-v2  # Production deploy
+docker logs ai_mentor_admin_v2_prod                             # Логи
+```
+
 ### Database Models Patterns
 
 **Все модели наследуются от базовых классов:**
@@ -296,9 +344,9 @@ class SoftDeleteModel(Base, TimestampMixin, SoftDeleteMixin):
 - Student: `/api/v1/students/*`
 - Parent: `/api/v1/parents/*`
 
-## Development Principles (MVP Approach)
+## Development Principles
 
-**Философия:** Это MVP - пиши качественный код, но избегай преждевременной оптимизации и сложности.
+**Философия:** Пиши качественный код, избегай преждевременной оптимизации.
 
 ### КРИТИЧНО - Всегда обязательно
 
@@ -362,33 +410,42 @@ if student.school_id != current_user.school_id:
     raise HTTPException(403, "Access denied")
 ```
 
-### Упрощенная архитектура для MVP
+### Backend архитектура
 
-**Структура кода:**
-
+**Структура `backend/app/`:**
 ```
-backend/app/
-├── main.py                 # FastAPI app, CORS, middleware
+├── main.py                    # FastAPI app, CORS, routers
 ├── core/
-│   ├── config.py          # Settings (Pydantic Settings)
-│   ├── security.py        # JWT функции
-│   └── dependencies.py    # get_db, get_current_user, get_current_user_school_id
-├── models/                # SQLAlchemy (готово)
-├── schemas/               # Pydantic Request/Response
-└── api/v1/
-    ├── auth.py           # Login, register
-    ├── students.py       # CRUD endpoints
-    └── textbooks.py      # CRUD endpoints
+│   ├── config.py              # Settings (Pydantic Settings)
+│   ├── database.py            # AsyncSession, engine
+│   ├── security.py            # JWT create/verify
+│   └── tenancy.py             # Multi-tenant context
+├── api/
+│   ├── dependencies.py        # get_db, get_current_user, require_role
+│   └── v1/
+│       ├── auth.py            # Login, refresh, me
+│       ├── admin_global.py    # SUPER_ADMIN: textbooks, tests, questions
+│       ├── admin_school.py    # School ADMIN: students, teachers, classes
+│       ├── goso.py            # ГОСО endpoints (read-only + admin)
+│       ├── schools.py         # CRUD школ
+│       └── upload.py          # File uploads
+├── models/                    # SQLAlchemy models (20+ файлов)
+├── schemas/                   # Pydantic Request/Response (15+ файлов)
+├── repositories/              # Data access layer
+│   ├── textbook_repo.py, test_repo.py, question_repo.py
+│   ├── student_repo.py, teacher_repo.py, parent_repo.py
+│   ├── school_class_repo.py, goso_repo.py
+│   └── *_mastery_repo.py      # Chapter/Paragraph mastery
+├── services/                  # Business logic
+│   ├── mastery_service.py     # A/B/C группировка
+│   ├── grading_service.py     # Проверка ответов
+│   └── upload_service.py      # Обработка файлов
+└── middleware/
+    ├── database.py            # DB session middleware
+    └── tenancy.py             # school_id injection
 ```
 
-**Двухслойная архитектура на старте:**
-```
-API Routes → Database (SQLAlchemy напрямую)
-```
-
-**Когда добавлять Service/Repository слои:**
-- Если логика в endpoint > 50 строк → вынеси в Service
-- Если один запрос повторяется в 3+ местах → создай Repository метод
+**Архитектура:** `API → Repository → Database` (Services для сложной логики)
 
 **Пример простого endpoint (достаточно для MVP):**
 
@@ -405,15 +462,6 @@ async def create_student(
     await db.refresh(student)
     return student
 ```
-
-### Что НЕ делать в MVP
-
-- ❌ Сложные базовые классы (BaseRepository, BaseService) - добавишь при рефакторинге
-- ❌ Декораторы для permissions - используй `if current_user.role not in [...]`
-- ❌ MyPy проверки типов - потом
-- ❌ Structlog - обычный logging хватит
-- ❌ Pagination везде - добавь когда понадобится
-- ❌ Множественные Pydantic схемы (Base, Create, Update, InDB) - только Create и Response
 
 ### Code Quality минимум
 
@@ -462,10 +510,10 @@ settings = Settings()
 
 ## Migration Strategy
 
-**Текущие миграции (8 штук):**
-- 001: Initial schema (28 таблиц)
-- 002-007: Различные улучшения (learning objectives, JSON типы, индексы)
-- 008: **Критическая** - добавление school_id для изоляции данных + гибридная модель
+**Текущие миграции (20+):**
+- 001-008: Initial schema, school_id isolation, hybrid model
+- 009-013: GOSO tables, paragraph_outcomes, RLS policies
+- 014+: Parent model, mastery tables, test_purpose enum
 
 **При создании новых миграций:**
 1. Всегда проверяй, что модель обновлена ПЕРЕД созданием миграции
@@ -487,41 +535,13 @@ alembic upgrade head  # вернись обратно
 
 ## Development Workflow
 
-### Текущий этап: GOSO API Implementation (2025-12-16)
+### Текущий этап: GOSO интеграция (2025-12)
 
-**Завершено ранее:**
-- ✅ Итерации 1-4: Auth, RBAC, Content Management API
-- ✅ Миграции 001-011: базовая схема, school_id изоляция, SUPER_ADMIN роль
-- ✅ Admin Panel (React-Admin): CRUD для учебников, тестов, вопросов
-- ✅ Production deploy: api.ai-mentor.kz, admin.ai-mentor.kz
-
-**Текущая работа - ГОСО интеграция:**
-
-| Компонент | Статус | Файл |
-|-----------|--------|------|
-| Миграция 012: GOSO таблицы | ✅ Готово | `012_add_goso_core_tables.py` |
-| Миграция 013: paragraph_outcomes | ✅ Готово | `013_add_paragraph_outcomes.py` |
-| SQLAlchemy модели | ✅ Готово | `models/subject.py`, `models/goso.py` |
-| Pydantic схемы | ✅ Готово | `schemas/goso.py` (425 строк) |
-| Импорт данных | ✅ Готово | 164 learning outcomes (История КЗ 5-9) |
-| GosoRepository | ⏳ В работе | `repositories/goso_repo.py` |
-| GOSO API endpoints | ⏳ В работе | `api/v1/goso.py` |
-
-**План реализации GOSO API (см. `docs/GOSO_API_IMPLEMENTATION_PLAN.md`):**
-1. Этап 1: GosoRepository (~200 строк) - read-only доступ к ГОСО данным
-2. Этап 2: Read-only endpoints в `/goso/*` (8 endpoints)
-3. Этап 3: SUPER_ADMIN endpoints для paragraph_outcomes
-4. Этап 4: School ADMIN endpoints для paragraph_outcomes
-5. Этап 5: Интеграция и тестирование
-
-**Данные в БД:**
-```
-subjects:           1 (История Казахстана)
-frameworks:         1 (ГОСО 2022-09-16)
-goso_sections:      4 (разделы)
-goso_subsections:   9 (подразделы)
-learning_outcomes:  164 (цели обучения: 5кл-27, 6кл-43, 7кл-32, 8кл-26, 9кл-36)
-```
+**Завершено:**
+- ✅ Backend API: Auth, RBAC, Content Management, GOSO endpoints
+- ✅ Admin Panel v2: Next.js панель заменила React-Admin
+- ✅ Production: api.ai-mentor.kz, admin.ai-mentor.kz
+- ✅ ГОСО данные: 164 learning outcomes (История КЗ 5-9 классы)
 
 ### Git Commit Conventions
 
