@@ -115,6 +115,7 @@ export default function TextbooksPage() {
           searchKey="title"
           searchPlaceholder="Поиск по названию..."
           filterableColumns={filterableColumns}
+          onRowClick={handleStructure}
         />
 
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
