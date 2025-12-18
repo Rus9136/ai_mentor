@@ -1,6 +1,6 @@
 # Статус реализации AI Mentor
 
-**Прогресс:** 83% (15/18 итераций) | **Последнее обновление:** 2025-12-16
+**Прогресс:** 89% (16/18 итераций) | **Последнее обновление:** 2025-12-18
 
 ## Обзор проекта
 
@@ -92,6 +92,23 @@ subjects → frameworks → goso_sections → goso_subsections → learning_outc
 | goso_subsections | 9 |
 | learning_outcomes | 164 (5-9 кл.) |
 
+### Итерация 8C: Paragraph Rich Content (2025-12-18)
+Обогащённый контент параграфов (объяснения, аудио, слайды, видео, карточки):
+
+**Backend:**
+- Таблица `paragraph_contents` с RLS политиками
+- 10 API endpoints для SUPER_ADMIN и School ADMIN
+- `ParagraphContentService` для загрузки медиа файлов
+
+**Frontend (Admin Panel v2):**
+- Страница редактирования контента параграфа
+- Компоненты: MediaUploader (drag & drop), CardsEditor, LanguageSwitcher
+- Поддержка двух языков: RU/KK
+
+**Лимиты файлов:** Audio 50MB, Slides 50MB, Video 200MB
+
+**Детальный план:** `docs/PARAGRAPH_RICH_CONTENT_PLAN.md`
+
 ---
 
 ## Следующие итерации
@@ -133,10 +150,10 @@ subjects → frameworks → goso_sections → goso_subsections → learning_outc
 
 | Метрика | Значение |
 |---------|----------|
-| Завершено итераций | 15/18 (83%) |
-| Таблиц в БД | 34+ |
-| Миграций | 16+ |
-| API endpoints | 100+ |
+| Завершено итераций | 16/18 (89%) |
+| Таблиц в БД | 35+ |
+| Миграций | 17+ |
+| API endpoints | 110+ |
 | Backend тестов | 51+ |
 | Frontend тестов | 117 (42 unit + 75 E2E) |
 
@@ -150,6 +167,7 @@ subjects → frameworks → goso_sections → goso_subsections → learning_outc
 | Схема БД | `docs/database_schema.md` |
 | Миграции | `docs/migrations_quick_guide.md` |
 | GOSO план | `docs/GOSO_INTEGRATION_PLAN.md` |
+| Rich Content план | `docs/PARAGRAPH_RICH_CONTENT_PLAN.md` |
 | Admin Panel | `docs/ADMIN_PANEL.md` |
 | Деплой | `deploy.sh`, `deploy-infra.sh` |
 

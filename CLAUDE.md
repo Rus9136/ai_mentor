@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AI Mentor - адаптивная образовательная платформа для школьников (7-11 классы) с автоматической группировкой учеников по уровню мастерства (A/B/C). Multi-tenant SaaS решение с гибридной моделью контента.
 
-**Текущий статус:** Backend API + Admin Panel v2 в production. ГОСО интеграция в процессе.
+**Текущий статус:** Backend API + Admin Panel v2 в production. ГОСО интеграция завершена. Rich Content параграфов реализован.
 
 **Важные документы:**
 - `docs/IMPLEMENTATION_STATUS.md` - план из 12 итераций с текущим прогрессом
@@ -259,6 +259,7 @@ app/[locale]/
 └── (dashboard)/            # Dashboard layout (с sidebar)
     ├── schools/            # SUPER_ADMIN: CRUD школ
     ├── textbooks/          # SUPER_ADMIN: глобальные учебники
+    │   └── [id]/paragraphs/[paragraphId]/content/  # Rich Content
     ├── tests/              # SUPER_ADMIN: глобальные тесты
     ├── goso/               # SUPER_ADMIN: ГОСО (read-only)
     ├── students/           # School ADMIN: ученики
@@ -319,6 +320,7 @@ class SoftDeleteModel(Base, TimestampMixin, SoftDeleteMixin):
 **Важные модели:**
 - `Textbook` - имеет `school_id` (nullable), `global_textbook_id`, `is_customized`
 - `Test` - имеет `school_id` (nullable) для глобальных тестов
+- `ParagraphContent` - обогащённый контент параграфа (explain_text, audio, video, slides, cards)
 - `ParagraphEmbedding` - векторные embeddings (vector(1536)) для RAG с pgvector
 - `TestAttempt` - имеет denormalized `school_id` для быстрой фильтрации
 - `MasteryHistory` - история изменений уровня мастерства ученика
@@ -340,6 +342,7 @@ class SoftDeleteModel(Base, TimestampMixin, SoftDeleteMixin):
 **API Endpoints:**
 - SUPER_ADMIN: `/api/v1/admin/global/*` и `/api/v1/admin/schools`
 - School ADMIN: `/api/v1/admin/school/*`
+- Rich Content: `/api/v1/admin/*/paragraphs/{id}/content` (медиа, карточки)
 - Teacher: `/api/v1/teachers/*`
 - Student: `/api/v1/students/*`
 - Parent: `/api/v1/parents/*`
@@ -535,13 +538,14 @@ alembic upgrade head  # вернись обратно
 
 ## Development Workflow
 
-### Текущий этап: GOSO интеграция (2025-12)
+### Текущий этап: Rich Content + RAG (2025-12)
 
 **Завершено:**
 - ✅ Backend API: Auth, RBAC, Content Management, GOSO endpoints
 - ✅ Admin Panel v2: Next.js панель заменила React-Admin
 - ✅ Production: api.ai-mentor.kz, admin.ai-mentor.kz
 - ✅ ГОСО данные: 164 learning outcomes (История КЗ 5-9 классы)
+- ✅ Rich Content: аудио, видео, слайды, карточки для параграфов
 
 ### Git Commit Conventions
 

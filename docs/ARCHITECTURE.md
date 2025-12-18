@@ -232,6 +232,11 @@ subjects (предметы)
 - `GET /goso/frameworks/{id}/structure` — полная иерархия
 - `CRUD /admin/*/paragraphs/{id}/outcomes` — маппинг
 
+**Rich Content (SUPER_ADMIN / School ADMIN):**
+- `GET/PUT /admin/*/paragraphs/{id}/content` — текст объяснения, карточки
+- `POST /admin/*/paragraphs/{id}/content/{audio|slides|video}` — загрузка медиа
+- `DELETE /admin/*/paragraphs/{id}/content/{audio|slides|video}` — удаление медиа
+
 ---
 
 ## 8. Структура БД
@@ -243,7 +248,7 @@ subjects (предметы)
 | Категория | Таблицы |
 |-----------|---------|
 | Core | schools, users |
-| Content | textbooks, chapters, paragraphs, paragraph_embeddings |
+| Content | textbooks, chapters, paragraphs, paragraph_contents, paragraph_embeddings |
 | Tests | tests, questions, question_options |
 | Progress | test_attempts, test_attempt_answers, paragraph_mastery, chapter_mastery, mastery_history |
 | Users | students, teachers, parents, school_classes, class_students, class_teachers, parent_students |
@@ -344,5 +349,6 @@ frontend/                    # React Admin
 | `IMPLEMENTATION_STATUS.md` | Прогресс итераций |
 | `database_schema.md` | Детальная схема БД |
 | `GOSO_INTEGRATION_PLAN.md` | План интеграции ГОСО |
+| `PARAGRAPH_RICH_CONTENT_PLAN.md` | План Rich Content параграфов |
 | `ADMIN_PANEL.md` | Спецификация админ панели |
 | `migrations_quick_guide.md` | Работа с миграциями |
