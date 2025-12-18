@@ -40,6 +40,7 @@ class Student(SoftDeleteModel):
     adaptive_groups = relationship("AdaptiveGroup", back_populates="student", cascade="all, delete-orphan")
     paragraph_progress = relationship("StudentParagraph", back_populates="student", cascade="all, delete-orphan")
     learning_sessions = relationship("LearningSession", back_populates="student", cascade="all, delete-orphan")
+    embedded_answers = relationship("StudentEmbeddedAnswer", back_populates="student", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Student(id={self.id}, student_code='{self.student_code}', grade={self.grade_level})>"

@@ -69,5 +69,106 @@
     "subjects": "Пәндер",
     "profile": "Профиль",
     "logout": "Шығу"
+  },
+  "textbook": {
+    "untitled": "Оқулық",
+    "grade": "сынып",
+    "level": "Деңгей",
+    "overallProgress": "Жалпы прогресс",
+    "paragraphsCompleted": "параграф өтілді",
+    "chapters": "Тараулар",
+    "noChapters": "Тараулар әлі қосылмаған",
+    "errorLoading": "Оқулықты жүктеу мүмкін болмады",
+    "hasTest": "Тарау бойынша тест",
+    "status": {
+      "completed": "Өтілді",
+      "inProgress": "Орындалуда",
+      "notStarted": "Басталмаған",
+      "locked": "Құлыпталған"
+    }
+  },
+  "chapter": {
+    "chapter": "Тарау",
+    "chapterNumber": "Тарау {number}",
+    "progress": "Прогресс",
+    "paragraphsCompleted": "параграф өтілді",
+    "paragraphs": "Параграфтар",
+    "noParagraphs": "Параграфтар әлі қосылмаған",
+    "errorLoading": "Тарауды жүктеу мүмкін болмады",
+    "continue": "Оқуды жалғастыру",
+    "start": "Оқуды бастау",
+    "minutes": "мин",
+    "hasPractice": "Тәжірибе",
+    "status": {
+      "completed": "Өтілді",
+      "in_progress": "Орындалуда",
+      "not_started": "Басталмаған"
+    }
+  },
+  "paragraph": {
+    "untitled": "Атаусыз",
+    "errorLoading": "Параграфты жүктеу мүмкін болмады",
+    "chapterShort": "Тар. {number}",
+    "progressInChapter": "Тараудағы прогресс",
+    "of": "ішінен",
+    "learningObjective": "Сабақ мақсаты",
+    "keyTerms": "Негізгі терминдер",
+    "noContent": "Мазмұн әлі қосылмаған",
+    "previous": "Алдыңғы",
+    "backToChapter": "Тарауға",
+    "finishChapter": "Тарауды аяқтау",
+    "tabs": {
+      "text": "Мәтін",
+      "audio": "Аудио",
+      "cards": "Карточкалар"
+    },
+    "noAudio": "Аудио әлі қосылмаған",
+    "noCards": "Карточкалар әлі қосылмаған",
+    "cardProgress": "{current} ішінен {total}",
+    "tapToFlip": "Аудару үшін басыңыз",
+    "cardFront": "Сұрақ",
+    "cardBack": "Жауап",
+    "previousCard": "Артқа",
+    "nextCard": "Келесі",
+    "steps": {
+      "intro": "Кіріспе",
+      "content": "Материал",
+      "practice": "Тәжірибе",
+      "summary": "Қорытынды",
+      "completed": "Аяқталды"
+    },
+    "stepProgress": "{current} қадам {total} ішінен",
+    "question": {
+      "number": "Сұрақ {current} ішінен {total}",
+      "hint": "Кеңес",
+      "submit": "Жауап беру",
+      "checking": "Тексерілуде...",
+      "correct": "Дұрыс!",
+      "incorrect": "Қате",
+      "next": "Келесі",
+      "finish": "Аяқтау",
+      "true": "Дұрыс",
+      "false": "Қате"
+    },
+    "selfAssessment": {
+      "title": "Бұл материал қалай болды?",
+      "subtitle": "Сіздің бағаңыз оқытуды жақсартуға көмектеседі",
+      "understood": "Барлығы түсінікті",
+      "understoodDesc": "Материал жақсы меңгерілді",
+      "questions": "Сұрақтар бар",
+      "questionsDesc": "Әлі түсіну керек",
+      "difficult": "Қиын",
+      "difficultDesc": "Қосымша көмек керек",
+      "submit": "Бағаны жіберу",
+      "submitting": "Жіберілуде...",
+      "submitted": "Баға сақталды"
+    },
+    "practice": {
+      "title": "Тәжірибе",
+      "subtitle": "Материалды түсінуіңізді тексеріңіз",
+      "questionsCount": "{count} сұрақ",
+      "completed": "Орындалды",
+      "score": "{correct} ішінен {total} дұрыс"
+    }
   }
 }

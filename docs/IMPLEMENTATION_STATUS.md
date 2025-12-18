@@ -1,6 +1,6 @@
 # Статус реализации AI Mentor
 
-**Прогресс:** 89% (16/18 итераций) | **Последнее обновление:** 2025-12-18
+**Прогресс:** 69% (9/13 итераций) | **Последнее обновление:** 2025-12-18
 
 ## Обзор проекта
 
@@ -109,11 +109,55 @@ subjects → frameworks → goso_sections → goso_subsections → learning_outc
 
 **Детальный план:** `docs/PARAGRAPH_RICH_CONTENT_PLAN.md`
 
+### Итерация 9: Student Interface MVP (2025-12-18)
+**Студенческое веб-приложение для обучения (Next.js 15)**
+
+**Технологии:**
+- Next.js 15 (App Router) + TypeScript
+- TanStack Query для data fetching
+- next-intl (ru/kk локализация)
+- Tailwind CSS + shadcn/ui
+- Google OAuth авторизация
+
+**Реализованные страницы:**
+- `/login` — авторизация через Google
+- `/onboarding` — ввод кода школы + профиль
+- `/` — главная с приветствием и списком предметов
+- `/subjects/[id]` — учебник с главами
+- `/chapters/[id]` — глава с параграфами
+- `/paragraphs/[id]` — изучение параграфа
+
+**Learning Flow (страница параграфа):**
+- StepIndicator: intro → content → practice → summary → completed
+- Табы контента: Текст / Аудио / Карточки
+- EmbeddedQuestion: встроенные вопросы (single/multiple choice, true/false)
+- SelfAssessment: самооценка после изучения (understood/questions/difficult)
+- Прогресс сохраняется в БД
+
+**Backend дополнения:**
+- Миграция: `embedded_questions`, `student_embedded_answers`
+- Колонки в `student_paragraphs`: `current_step`, `self_assessment`
+- 5 новых endpoints в `/students/*`
+
+**Этапы:**
+- [x] Этап 1: Инфраструктура (auth, layout, deploy)
+- [x] Этап 2: Навигация (главная → предмет → глава → параграф)
+- [x] Этап 3: Изучение параграфа (learning flow + Rich Content)
+- [x] Этап 4: Практика (embedded questions + self-assessment)
+- [ ] Этап 5: Профиль пользователя
+- [ ] Этап 6: E2E тесты
+
+**Production:** https://ai-mentor.kz (контейнер `ai_mentor_student_app_prod:3006`)
+
+**План:** `docs/STUDENT_INTERFACE_PLAN.md`
+
 ---
 
 ## Следующие итерации
 
-### ⏳ Итерация 9: RAG Service — интеллектуальные пояснения
+---
+
+### ⏳ Итерация 10: RAG Service — интеллектуальные пояснения
 **Задачи:**
 - [ ] LangChain + OpenAI integration
 - [ ] Embeddings для параграфов (text-embedding-3-small, 1536 dims)
@@ -121,14 +165,14 @@ subjects → frameworks → goso_sections → goso_subsections → learning_outc
 - [ ] `POST /questions/{id}/explanation` — персонализированные пояснения
 - [ ] Адаптация под уровень mastery (A/B/C)
 
-### ⏳ Итерация 10: Teacher Dashboard API
+### ⏳ Итерация 11: Teacher Dashboard API
 **Задачи:**
 - [ ] `GET /teacher/classes/{id}/overview` — обзор класса
 - [ ] `GET /teacher/students/{id}/progress` — прогресс студента
 - [ ] `GET /teacher/analytics/mastery-distribution` — распределение A/B/C
 - [ ] AnalyticsService с рекомендациями
 
-### ⏳ Итерация 11: Offline Sync Service
+### ⏳ Итерация 12: Offline Sync Service
 **Задачи:**
 - [ ] SyncQueue management
 - [ ] `POST /sync/queue` — добавление операций
@@ -136,7 +180,7 @@ subjects → frameworks → goso_sections → goso_subsections → learning_outc
 - [ ] Conflict resolution
 - [ ] `GET /sync/status`
 
-### ⏳ Итерация 12: Тестирование и документация
+### ⏳ Итерация 13: Тестирование и документация
 **Задачи:**
 - [ ] Unit тесты для всех сервисов (coverage >80%)
 - [ ] Integration тесты для API
@@ -150,12 +194,13 @@ subjects → frameworks → goso_sections → goso_subsections → learning_outc
 
 | Метрика | Значение |
 |---------|----------|
-| Завершено итераций | 16/18 (89%) |
-| Таблиц в БД | 35+ |
-| Миграций | 17+ |
-| API endpoints | 110+ |
+| Завершено итераций | 9/13 (69%) |
+| Таблиц в БД | 37+ |
+| Миграций | 18+ |
+| API endpoints | 115+ |
 | Backend тестов | 51+ |
 | Frontend тестов | 117 (42 unit + 75 E2E) |
+| Student App компонентов | 15+ |
 
 ---
 
@@ -168,6 +213,7 @@ subjects → frameworks → goso_sections → goso_subsections → learning_outc
 | Миграции | `docs/migrations_quick_guide.md` |
 | GOSO план | `docs/GOSO_INTEGRATION_PLAN.md` |
 | Rich Content план | `docs/PARAGRAPH_RICH_CONTENT_PLAN.md` |
+| Student Interface план | `docs/STUDENT_INTERFACE_PLAN.md` |
 | Admin Panel | `docs/ADMIN_PANEL.md` |
 | Деплой | `deploy.sh`, `deploy-infra.sh` |
 

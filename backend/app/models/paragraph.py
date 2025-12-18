@@ -34,6 +34,7 @@ class Paragraph(SoftDeleteModel):
     student_progress = relationship("StudentParagraph", back_populates="paragraph", cascade="all, delete-orphan")
     outcome_links = relationship("ParagraphOutcome", back_populates="paragraph", cascade="all, delete-orphan")
     contents = relationship("ParagraphContent", back_populates="paragraph", cascade="all, delete-orphan")
+    embedded_questions = relationship("EmbeddedQuestion", back_populates="paragraph", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Paragraph(id={self.id}, number={self.number}, title='{self.title}')>"

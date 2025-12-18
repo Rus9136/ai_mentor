@@ -33,7 +33,10 @@ from app.models.mastery import MasteryHistory, AdaptiveGroup, ParagraphMastery, 
 from app.models.assignment import Assignment, AssignmentTest, StudentAssignment, AssignmentStatus
 
 # Learning models
-from app.models.learning import StudentParagraph, LearningSession, LearningActivity, ActivityType
+from app.models.learning import StudentParagraph, LearningSession, LearningActivity, ActivityType, SelfAssessmentRating, ParagraphStep
+
+# Embedded questions models
+from app.models.embedded_question import EmbeddedQuestion, StudentEmbeddedAnswer, EmbeddedQuestionType
 
 # Analytics models
 from app.models.analytics import AnalyticsEvent
@@ -100,6 +103,12 @@ __all__ = [
     "LearningSession",
     "LearningActivity",
     "ActivityType",
+    "SelfAssessmentRating",
+    "ParagraphStep",
+    # Embedded questions
+    "EmbeddedQuestion",
+    "StudentEmbeddedAnswer",
+    "EmbeddedQuestionType",
     # Analytics
     "AnalyticsEvent",
     # Sync

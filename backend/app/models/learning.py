@@ -19,6 +19,24 @@ class ActivityType(str, enum.Enum):
     VIEW_EXPLANATION = "view_explanation"
 
 
+class SelfAssessmentRating(str, enum.Enum):
+    """Self-assessment rating enumeration."""
+
+    UNDERSTOOD = "understood"      # Всё понятно
+    QUESTIONS = "questions"        # Есть вопросы
+    DIFFICULT = "difficult"        # Сложно
+
+
+class ParagraphStep(str, enum.Enum):
+    """Paragraph learning step enumeration."""
+
+    INTRO = "intro"           # Введение (цель урока, ключевые термины)
+    CONTENT = "content"       # Основной контент
+    PRACTICE = "practice"     # Встроенные вопросы "Проверь себя"
+    SUMMARY = "summary"       # Итог
+    COMPLETED = "completed"   # Полностью пройден
+
+
 class StudentParagraph(BaseModel):
     """Student paragraph progress model."""
 
@@ -34,6 +52,13 @@ class StudentParagraph(BaseModel):
     time_spent = Column(Integer, nullable=False, default=0)  # Time spent in seconds
     last_accessed_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Step tracking (new)
+    current_step = Column(String(20), default="intro", nullable=True)
+
+    # Self-assessment (new)
+    self_assessment = Column(String(20), nullable=True)
+    self_assessment_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     student = relationship("Student", back_populates="paragraph_progress")

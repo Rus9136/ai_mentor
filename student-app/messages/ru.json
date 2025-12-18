@@ -69,5 +69,106 @@
     "subjects": "Предметы",
     "profile": "Профиль",
     "logout": "Выйти"
+  },
+  "textbook": {
+    "untitled": "Учебник",
+    "grade": "класс",
+    "level": "Уровень",
+    "overallProgress": "Общий прогресс",
+    "paragraphsCompleted": "параграфов пройдено",
+    "chapters": "Главы",
+    "noChapters": "Главы пока не добавлены",
+    "errorLoading": "Не удалось загрузить учебник",
+    "hasTest": "Тест по главе",
+    "status": {
+      "completed": "Пройдено",
+      "inProgress": "В процессе",
+      "notStarted": "Не начато",
+      "locked": "Заблокировано"
+    }
+  },
+  "chapter": {
+    "chapter": "Глава",
+    "chapterNumber": "Глава {number}",
+    "progress": "Прогресс",
+    "paragraphsCompleted": "параграфов пройдено",
+    "paragraphs": "Параграфы",
+    "noParagraphs": "Параграфы пока не добавлены",
+    "errorLoading": "Не удалось загрузить главу",
+    "continue": "Продолжить изучение",
+    "start": "Начать изучение",
+    "minutes": "мин",
+    "hasPractice": "Практика",
+    "status": {
+      "completed": "Пройдено",
+      "in_progress": "В процессе",
+      "not_started": "Не начато"
+    }
+  },
+  "paragraph": {
+    "untitled": "Без названия",
+    "errorLoading": "Не удалось загрузить параграф",
+    "chapterShort": "Гл. {number}",
+    "progressInChapter": "Прогресс в главе",
+    "of": "из",
+    "learningObjective": "Цель урока",
+    "keyTerms": "Ключевые термины",
+    "noContent": "Контент пока не добавлен",
+    "previous": "Предыдущий",
+    "backToChapter": "К главе",
+    "finishChapter": "Завершить главу",
+    "tabs": {
+      "text": "Текст",
+      "audio": "Аудио",
+      "cards": "Карточки"
+    },
+    "noAudio": "Аудио пока не добавлено",
+    "noCards": "Карточки пока не добавлены",
+    "cardProgress": "{current} из {total}",
+    "tapToFlip": "Нажмите, чтобы перевернуть",
+    "cardFront": "Вопрос",
+    "cardBack": "Ответ",
+    "previousCard": "Назад",
+    "nextCard": "Далее",
+    "steps": {
+      "intro": "Введение",
+      "content": "Материал",
+      "practice": "Практика",
+      "summary": "Итоги",
+      "completed": "Завершено"
+    },
+    "stepProgress": "Шаг {current} из {total}",
+    "question": {
+      "number": "Вопрос {current} из {total}",
+      "hint": "Подсказка",
+      "submit": "Ответить",
+      "checking": "Проверка...",
+      "correct": "Правильно!",
+      "incorrect": "Неправильно",
+      "next": "Следующий",
+      "finish": "Завершить",
+      "true": "Верно",
+      "false": "Неверно"
+    },
+    "selfAssessment": {
+      "title": "Как вам этот материал?",
+      "subtitle": "Ваша оценка поможет нам улучшить обучение",
+      "understood": "Всё понятно",
+      "understoodDesc": "Материал усвоен хорошо",
+      "questions": "Есть вопросы",
+      "questionsDesc": "Нужно ещё разобраться",
+      "difficult": "Сложно",
+      "difficultDesc": "Требуется дополнительная помощь",
+      "submit": "Отправить оценку",
+      "submitting": "Отправка...",
+      "submitted": "Оценка сохранена"
+    },
+    "practice": {
+      "title": "Практика",
+      "subtitle": "Проверьте своё понимание материала",
+      "questionsCount": "{count} вопросов",
+      "completed": "Выполнено",
+      "score": "{correct} из {total} правильно"
+    }
   }
 }

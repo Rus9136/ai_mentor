@@ -112,6 +112,19 @@ from app.schemas.mastery import (
     ChapterMasteryDetailResponse,
     MasteryOverviewResponse,
 )
+from app.schemas.embedded_question import (
+    EmbeddedQuestionCreate,
+    EmbeddedQuestionResponse,
+    EmbeddedQuestionForStudent,
+    AnswerEmbeddedQuestionRequest,
+    AnswerEmbeddedQuestionResponse,
+    StudentEmbeddedAnswerResponse,
+    SelfAssessmentRequest,
+    SelfAssessmentResponse,
+    UpdateStepRequest,
+    StepProgressResponse,
+    ParagraphProgressResponse,
+)
 from app.schemas.goso import (
     # Subject
     SubjectCreate,
@@ -282,4 +295,16 @@ __all__ = [
     "FrameworkWithSections",
     "LearningOutcomeWithContext",
     "ParagraphOutcomeWithDetails",
+    # Embedded Questions
+    "EmbeddedQuestionCreate",
+    "EmbeddedQuestionResponse",
+    "EmbeddedQuestionForStudent",
+    "AnswerEmbeddedQuestionRequest",
+    "AnswerEmbeddedQuestionResponse",
+    "StudentEmbeddedAnswerResponse",
+    "SelfAssessmentRequest",
+    "SelfAssessmentResponse",
+    "UpdateStepRequest",
+    "StepProgressResponse",
+    "ParagraphProgressResponse",
 ]
