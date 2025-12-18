@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Google OAuth
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_ID_MOBILE: Optional[str] = None  # For mobile app later
+
     # CORS
     # Поддерживает как list[str] так и CSV строку "domain1,domain2,domain3"
     BACKEND_CORS_ORIGINS: list[str] | str = [

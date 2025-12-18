@@ -7,8 +7,9 @@ from app.models.base import BaseModel, SoftDeleteModel
 
 # Core models
 from app.models.school import School
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, AuthProvider
 from app.models.student import Student
+from app.models.invitation_code import InvitationCode, InvitationCodeUse
 from app.models.teacher import Teacher
 from app.models.parent import Parent, parent_students
 from app.models.school_class import SchoolClass, class_students, class_teachers
@@ -51,6 +52,7 @@ __all__ = [
     "School",
     "User",
     "UserRole",
+    "AuthProvider",
     "Student",
     "Teacher",
     "Parent",
@@ -58,6 +60,8 @@ __all__ = [
     "SchoolClass",
     "class_students",
     "class_teachers",
+    "InvitationCode",
+    "InvitationCodeUse",
     # Content
     "Textbook",
     "Chapter",

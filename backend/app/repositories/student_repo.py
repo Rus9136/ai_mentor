@@ -154,6 +154,65 @@ class StudentRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_user_id(self, user_id: int) -> Optional[Student]:
+        """
+        Get student by user ID.
+
+        Note: Does not enforce school isolation because we're looking
+        up by the specific user_id.
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            Student or None if not found
+        """
+        result = await self.db.execute(
+            select(Student).where(
+                Student.user_id == user_id,
+                Student.is_deleted == False  # noqa: E712
+            ).options(selectinload(Student.user))
+        )
+        return result.scalar_one_or_none()
+
+    async def generate_student_code(self, school_id: int) -> str:
+        """
+        Generate a unique student code for a school.
+
+        Format: STU{school_id}{year}{sequence}
+        Example: STU72401 (school 7, year 24, sequence 01)
+
+        Args:
+            school_id: School ID
+
+        Returns:
+            Generated unique student code
+        """
+        from datetime import datetime
+        from sqlalchemy import func
+
+        year = datetime.now().year % 100  # Last 2 digits of year
+
+        # Get the count of students in this school this year
+        # to generate sequence number
+        count = await self.count_by_school(school_id)
+
+        # Try to generate unique code
+        for attempt in range(100):
+            sequence = count + attempt + 1
+            code = f"STU{school_id}{year:02d}{sequence:02d}"
+
+            # Check if code exists
+            existing = await self.db.execute(
+                select(Student).where(Student.student_code == code)
+            )
+            if not existing.scalar_one_or_none():
+                return code
+
+        # Fallback with random suffix
+        import secrets
+        return f"STU{school_id}{year:02d}{secrets.token_hex(2).upper()}"
+
     async def create(self, student: Student) -> Student:
         """
         Create a new student.

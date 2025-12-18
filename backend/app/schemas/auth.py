@@ -38,6 +38,8 @@ class UserResponse(BaseModel):
     school_id: Optional[int] = None
     is_active: bool
     is_verified: bool
+    avatar_url: Optional[str] = None
+    auth_provider: Optional[str] = None
 
     class Config:
         from_attributes = True

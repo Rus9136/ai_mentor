@@ -1,0 +1,43 @@
+{
+  "common": {
+    "loading": "Жүктелуде...",
+    "error": "Қате",
+    "retry": "Қайталау",
+    "back": "Артқа",
+    "next": "Келесі",
+    "continue": "Жалғастыру",
+    "cancel": "Болдырмау",
+    "save": "Сақтау"
+  },
+  "auth": {
+    "login": {
+      "title": "AI Mentor-ға кіру",
+      "subtitle": "Оқуды бастау үшін Google арқылы кіріңіз",
+      "googleButton": "Google арқылы кіру",
+      "loading": "Кіру орындалуда...",
+      "error": "Кіру қатесі. Қайта көріңіз."
+    },
+    "onboarding": {
+      "codeTitle": "Шақыру кодын енгізіңіз",
+      "codeSubtitle": "Кодты мектеп әкімшісінен алуға болады",
+      "codePlaceholder": "Кодты енгізіңіз",
+      "codeInvalid": "Шақыру коды дұрыс емес",
+      "codeExpired": "Кодтың мерзімі өтіп кеткен",
+      "codeUsed": "Код максималды рет қолданылды",
+      "schoolInfo": "Сіз тіркелесіз:",
+      "profileTitle": "Профильді толтырыңыз",
+      "firstName": "Аты",
+      "lastName": "Тегі",
+      "middleName": "Әкесінің аты (міндетті емес)",
+      "birthDate": "Туған күні",
+      "completeButton": "Тіркелуді аяқтау",
+      "skipCode": "Мектепсіз жалғастыру",
+      "skipCodeHint": "Мектепке кейін қосыла аласыз",
+      "individualStudent": "Жеке оқушы"
+    }
+  },
+  "home": {
+    "title": "Қош келдіңіз",
+    "subtitle": "Оқу пәнін таңдаңыз"
+  }
+}

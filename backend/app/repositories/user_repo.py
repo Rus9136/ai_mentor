@@ -50,6 +50,24 @@ class UserRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_google_id(self, google_id: str) -> Optional[User]:
+        """
+        Get user by Google ID (for OAuth users).
+
+        Args:
+            google_id: Google account ID
+
+        Returns:
+            User object or None if not found
+        """
+        result = await self.db.execute(
+            select(User).where(
+                User.google_id == google_id,
+                User.is_deleted == False  # noqa: E712
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_by_school(
         self,
         school_id: int,

@@ -18,6 +18,13 @@ class UserRole(str, enum.Enum):
     PARENT = "parent"
 
 
+class AuthProvider(str, enum.Enum):
+    """Authentication provider enumeration."""
+
+    LOCAL = "local"
+    GOOGLE = "google"
+
+
 class User(SoftDeleteModel):
     """User model."""
 
@@ -28,9 +35,19 @@ class User(SoftDeleteModel):
 
     # Authentication
     email = Column(String(255), nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=True)  # Nullable for OAuth users
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
+
+    # OAuth fields
+    auth_provider = Column(
+        SQLEnum(AuthProvider, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=AuthProvider.LOCAL,
+        server_default="local"
+    )
+    google_id = Column(String(255), nullable=True, unique=True, index=True)
+    avatar_url = Column(String(500), nullable=True)
 
     # Profile
     first_name = Column(String(100), nullable=False)
