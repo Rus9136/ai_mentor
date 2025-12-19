@@ -7,7 +7,8 @@
     "next": "Келесі",
     "continue": "Жалғастыру",
     "cancel": "Болдырмау",
-    "save": "Сақтау"
+    "save": "Сақтау",
+    "or": "немесе"
   },
   "auth": {
     "login": {
@@ -39,7 +40,19 @@
       "completeButton": "Тіркелуді аяқтау",
       "skipCode": "Мектепсіз жалғастыру",
       "skipCodeHint": "Мектепке кейін қосыла аласыз",
-      "individualStudent": "Жеке оқушы"
+      "individualStudent": "Жеке оқушы",
+      "selectGrade": "Сыныпты таңдаңыз",
+      "selectGradeSubtitle": "Бұл бізге сәйкес материалдарды таңдауға көмектеседі",
+      "grade7": "7 сынып",
+      "grade8": "8 сынып",
+      "grade9": "9 сынып",
+      "grade10": "10 сынып",
+      "grade11": "11 сынып",
+      "haveSchoolCode": "Менде мектеп коды бар",
+      "haveSchoolCodeHint": "Егер мектебіңіз AI Mentor-ға қосылған болса",
+      "publicSchoolInfo": "Сіз тіркелесіз:",
+      "publicSchoolName": "AI Mentor Public",
+      "backToGradeSelection": "Сынып таңдауға оралу"
     }
   },
   "home": {
@@ -186,5 +199,42 @@
       "toChapter": "Тарауға",
       "chapterComplete": "Тарау аяқталды!"
     }
+  },
+  "profile": {
+    "title": "Профиль",
+    "myStats": "Менің статистикам",
+    "myLevel": "Менің деңгейім",
+    "settings": "Параметрлер",
+    "logout": "Шығу",
+    "stats": {
+      "streak": "күн қатарынан",
+      "streakTitle": "Серия",
+      "paragraphs": "параграф",
+      "paragraphsTitle": "Өтілді",
+      "tasks": "тапсырма",
+      "tasksTitle": "Шешілді",
+      "time": "мин",
+      "timeTitle": "Оқу уақыты",
+      "hours": "сағ",
+      "minutes": "мин"
+    },
+    "mastery": {
+      "levelA": "A тобы",
+      "levelB": "B тобы",
+      "levelC": "C тобы",
+      "levelADesc": "Өте жақсы меңгеру",
+      "levelBDesc": "Жақсы меңгеру",
+      "levelCDesc": "Тәжірибе керек",
+      "noData": "Деңгейіңізді көру үшін оқуды бастаңыз",
+      "overall": "Жалпы деңгей",
+      "bySubject": "Тараулар бойынша"
+    },
+    "language": {
+      "title": "Қолданба тілі",
+      "ru": "Орысша",
+      "kk": "Қазақша"
+    },
+    "confirmLogout": "Шығуды қалайсыз ба?",
+    "cancel": "Болдырмау"
   }
 }

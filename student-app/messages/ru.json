@@ -7,7 +7,8 @@
     "next": "Далее",
     "continue": "Продолжить",
     "cancel": "Отмена",
-    "save": "Сохранить"
+    "save": "Сохранить",
+    "or": "или"
   },
   "auth": {
     "login": {
@@ -39,7 +40,19 @@
       "completeButton": "Завершить регистрацию",
       "skipCode": "Продолжить без школы",
       "skipCodeHint": "Вы сможете присоединиться к школе позже",
-      "individualStudent": "Индивидуальный ученик"
+      "individualStudent": "Индивидуальный ученик",
+      "selectGrade": "Выберите свой класс",
+      "selectGradeSubtitle": "Это поможет нам подобрать подходящие материалы",
+      "grade7": "7 класс",
+      "grade8": "8 класс",
+      "grade9": "9 класс",
+      "grade10": "10 класс",
+      "grade11": "11 класс",
+      "haveSchoolCode": "У меня есть код школы",
+      "haveSchoolCodeHint": "Если ваша школа подключена к AI Mentor",
+      "publicSchoolInfo": "Вы будете зарегистрированы как:",
+      "publicSchoolName": "AI Mentor Public",
+      "backToGradeSelection": "Назад к выбору класса"
     }
   },
   "home": {
@@ -186,5 +199,42 @@
       "toChapter": "К главе",
       "chapterComplete": "Глава завершена!"
     }
+  },
+  "profile": {
+    "title": "Профиль",
+    "myStats": "Моя статистика",
+    "myLevel": "Мой уровень",
+    "settings": "Настройки",
+    "logout": "Выйти",
+    "stats": {
+      "streak": "дней подряд",
+      "streakTitle": "Серия",
+      "paragraphs": "параграфов",
+      "paragraphsTitle": "Пройдено",
+      "tasks": "задач",
+      "tasksTitle": "Решено",
+      "time": "мин",
+      "timeTitle": "Время обучения",
+      "hours": "ч",
+      "minutes": "мин"
+    },
+    "mastery": {
+      "levelA": "Группа A",
+      "levelB": "Группа B",
+      "levelC": "Группа C",
+      "levelADesc": "Отличное владение",
+      "levelBDesc": "Хорошее владение",
+      "levelCDesc": "Нужна практика",
+      "noData": "Начните изучение, чтобы увидеть ваш уровень",
+      "overall": "Общий уровень",
+      "bySubject": "По главам"
+    },
+    "language": {
+      "title": "Язык приложения",
+      "ru": "Русский",
+      "kk": "Қазақша"
+    },
+    "confirmLogout": "Вы уверены, что хотите выйти?",
+    "cancel": "Отмена"
   }
 }
