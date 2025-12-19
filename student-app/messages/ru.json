@@ -169,6 +169,22 @@
       "questionsCount": "{count} вопросов",
       "completed": "Выполнено",
       "score": "{correct} из {total} правильно"
+    },
+    "completion": {
+      "title": "Параграф завершён!",
+      "questionsLabel": "верно",
+      "timeLabel": "мин",
+      "assessmentLabel": "оценка",
+      "minutes": "{minutes} мин",
+      "seconds": "{seconds} сек",
+      "selfAssessment": {
+        "understood": "Понятно",
+        "questions": "Вопросы",
+        "difficult": "Сложно"
+      },
+      "nextParagraph": "Следующий параграф",
+      "toChapter": "К главе",
+      "chapterComplete": "Глава завершена!"
     }
   }
 }

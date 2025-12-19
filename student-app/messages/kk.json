@@ -169,6 +169,22 @@
       "questionsCount": "{count} сұрақ",
       "completed": "Орындалды",
       "score": "{correct} ішінен {total} дұрыс"
+    },
+    "completion": {
+      "title": "Параграф аяқталды!",
+      "questionsLabel": "дұрыс",
+      "timeLabel": "мин",
+      "assessmentLabel": "баға",
+      "minutes": "{minutes} мин",
+      "seconds": "{seconds} сек",
+      "selfAssessment": {
+        "understood": "Түсінікті",
+        "questions": "Сұрақтар",
+        "difficult": "Қиын"
+      },
+      "nextParagraph": "Келесі параграф",
+      "toChapter": "Тарауға",
+      "chapterComplete": "Тарау аяқталды!"
     }
   }
 }

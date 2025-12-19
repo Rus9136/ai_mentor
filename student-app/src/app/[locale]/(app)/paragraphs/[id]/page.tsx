@@ -14,7 +14,7 @@ import {
   useAnswerEmbeddedQuestion,
 } from '@/lib/hooks/use-textbooks';
 import { ParagraphStep, SelfAssessmentRating, AnswerResult } from '@/lib/api/textbooks';
-import { StepIndicator, EmbeddedQuestion, SelfAssessment } from '@/components/learning';
+import { StepIndicator, EmbeddedQuestion, SelfAssessment, CompletionScreen } from '@/components/learning';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -51,6 +51,7 @@ export default function ParagraphPage({ params }: PageProps) {
   // Active content tab
   const [activeTab, setActiveTab] = useState<ContentTab>('text');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [showCompletion, setShowCompletion] = useState(false);
 
   // Fetch paragraph data
   const { data: paragraph, isLoading, error } = useParagraphDetail(paragraphId);
@@ -79,8 +80,12 @@ export default function ParagraphPage({ params }: PageProps) {
   // Handle self-assessment submission
   const handleSelfAssessment = useCallback(async (rating: SelfAssessmentRating) => {
     await submitAssessmentMutation.mutateAsync(rating);
+    // Update step to completed
+    await updateStepMutation.mutateAsync({ step: 'completed' });
     await refetchProgress();
-  }, [submitAssessmentMutation, refetchProgress]);
+    // Show completion screen
+    setShowCompletion(true);
+  }, [submitAssessmentMutation, updateStepMutation, refetchProgress]);
 
   // Handle embedded question answer
   const handleAnswerQuestion = useCallback(async (questionId: number, answer: string | string[]): Promise<AnswerResult> => {
@@ -370,8 +375,8 @@ export default function ParagraphPage({ params }: PageProps) {
         )}
       </main>
 
-      {/* Self Assessment - Show after completing content or practice */}
-      {progress && (progress.current_step === 'summary' || progress.current_step === 'completed') && (
+      {/* Self Assessment - Show after completing content or practice (before completion) */}
+      {progress && (progress.current_step === 'summary' || progress.current_step === 'completed') && !showCompletion && !progress.self_assessment && (
         <section className="mb-8">
           <SelfAssessment
             onSubmit={handleSelfAssessment}
@@ -380,51 +385,77 @@ export default function ParagraphPage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 md:static md:border-0 md:bg-transparent md:p-0">
-        <div className="mx-auto max-w-4xl flex items-center justify-between gap-4">
-          {/* Previous */}
-          {navigation?.previous_paragraph_id ? (
-            <Link
-              href={`/paragraphs/${navigation.previous_paragraph_id}`}
-              className="flex items-center gap-2 rounded-full bg-muted px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-all"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">{t('previous')}</span>
-            </Link>
-          ) : (
-            <div />
-          )}
+      {/* Completion Screen - Show after self-assessment */}
+      {showCompletion && progress && navigation && paragraph && (
+        <CompletionScreen
+          paragraphTitle={paragraph.title}
+          paragraphNumber={paragraph.number}
+          questionsTotal={progress.embedded_questions_total}
+          questionsCorrect={progress.embedded_questions_correct}
+          timeSpentSeconds={progress.time_spent || 0}
+          selfAssessment={progress.self_assessment}
+          nextParagraphId={navigation.next_paragraph_id}
+          chapterId={navigation.chapter_id}
+          chapterTitle={navigation.chapter_title}
+          isLastInChapter={!navigation.next_paragraph_id}
+          onGoToNext={() => {
+            if (navigation.next_paragraph_id) {
+              router.push(`/paragraphs/${navigation.next_paragraph_id}`);
+            }
+          }}
+          onGoToChapter={() => {
+            router.push(`/chapters/${navigation.chapter_id}`);
+          }}
+        />
+      )}
 
-          {/* Chapter link (center) */}
-          {navigation && (
-            <Link
-              href={`/chapters/${navigation.chapter_id}`}
-              className="text-sm text-muted-foreground hover:text-primary"
-            >
-              {t('backToChapter')}
-            </Link>
-          )}
+      {/* Navigation - hide when showing completion screen */}
+      {!showCompletion && (
+        <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 md:static md:border-0 md:bg-transparent md:p-0">
+          <div className="mx-auto max-w-4xl flex items-center justify-between gap-4">
+            {/* Previous */}
+            {navigation?.previous_paragraph_id ? (
+              <Link
+                href={`/paragraphs/${navigation.previous_paragraph_id}`}
+                className="flex items-center gap-2 rounded-full bg-muted px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-all"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">{t('previous')}</span>
+              </Link>
+            ) : (
+              <div />
+            )}
 
-          {/* Next */}
-          {navigation?.next_paragraph_id ? (
-            <Link
-              href={`/paragraphs/${navigation.next_paragraph_id}`}
-              className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-all"
-            >
-              <span className="hidden sm:inline">{tCommon('next')}</span>
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          ) : (
-            <Link
-              href={`/chapters/${navigation?.chapter_id || ''}`}
-              className="flex items-center gap-2 rounded-full bg-success px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-all"
-            >
-              <span>{t('finishChapter')}</span>
-            </Link>
-          )}
-        </div>
-      </nav>
+            {/* Chapter link (center) */}
+            {navigation && (
+              <Link
+                href={`/chapters/${navigation.chapter_id}`}
+                className="text-sm text-muted-foreground hover:text-primary"
+              >
+                {t('backToChapter')}
+              </Link>
+            )}
+
+            {/* Next */}
+            {navigation?.next_paragraph_id ? (
+              <Link
+                href={`/paragraphs/${navigation.next_paragraph_id}`}
+                className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-all"
+              >
+                <span className="hidden sm:inline">{tCommon('next')}</span>
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            ) : (
+              <Link
+                href={`/chapters/${navigation?.chapter_id || ''}`}
+                className="flex items-center gap-2 rounded-full bg-success px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-all"
+              >
+                <span>{t('finishChapter')}</span>
+              </Link>
+            )}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
