@@ -38,7 +38,7 @@ export default function ParagraphContentPage() {
   const textbookId = Number(params.id);
   const paragraphId = Number(params.paragraphId);
 
-  const [language, setLanguage] = useState<'ru' | 'kk'>('ru');
+  const [language, setLanguage] = useState<'ru' | 'kz'>('ru');
 
   // Data fetching
   const { data: textbook, isLoading: textbookLoading } = useTextbook(textbookId, false);

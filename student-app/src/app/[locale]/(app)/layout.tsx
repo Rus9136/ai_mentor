@@ -32,7 +32,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const isActive = (href: string) => {
     if (href === '/') {
-      return pathname.endsWith('/ru') || pathname.endsWith('/kk') || pathname === '/';
+      return pathname.endsWith('/ru') || pathname.endsWith('/kz') || pathname === '/';
     }
     return pathname.includes(href);
   };

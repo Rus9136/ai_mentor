@@ -96,7 +96,7 @@ export function useParagraphDetail(paragraphId: number | undefined) {
  */
 export function useParagraphRichContent(
   paragraphId: number | undefined,
-  language: 'ru' | 'kk' = 'ru'
+  language: 'ru' | 'kz' = 'ru'
 ) {
   return useQuery<ParagraphRichContent, Error>({
     queryKey: textbookKeys.paragraphContent(paragraphId!, language),

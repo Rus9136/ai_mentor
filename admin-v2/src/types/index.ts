@@ -462,7 +462,7 @@ export interface CardItem {
 export interface ParagraphContent {
   id: number;
   paragraph_id: number;
-  language: 'ru' | 'kk';
+  language: 'ru' | 'kz';
   explain_text: string | null;
   audio_url: string | null;
   slides_url: string | null;

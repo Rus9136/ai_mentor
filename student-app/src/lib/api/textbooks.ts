@@ -165,16 +165,20 @@ export async function getParagraphDetail(paragraphId: number): Promise<Paragraph
   return response.data;
 }
 
+// Маппинг URL локали на API параметр
+// URL использует 'kz', но API принимает 'kk'
+const urlLocaleToApiLocale = (locale: string): string => (locale === 'kz' ? 'kk' : locale);
+
 /**
  * Get rich content for a paragraph (audio, video, slides, cards).
  */
 export async function getParagraphRichContent(
   paragraphId: number,
-  language: 'ru' | 'kk' = 'ru'
+  language: 'ru' | 'kz' = 'ru'
 ): Promise<ParagraphRichContent> {
   const response = await apiClient.get<ParagraphRichContent>(
     `/students/paragraphs/${paragraphId}/content`,
-    { params: { language } }
+    { params: { language: urlLocaleToApiLocale(language) } }
   );
   return response.data;
 }

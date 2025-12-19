@@ -14,7 +14,7 @@ export function SettingsSection() {
   const { logout } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const handleLanguageChange = (newLocale: 'ru' | 'kk') => {
+  const handleLanguageChange = (newLocale: 'ru' | 'kz') => {
     if (newLocale !== locale) {
       router.replace(pathname, { locale: newLocale });
     }
@@ -36,7 +36,7 @@ export function SettingsSection() {
             <div>
               <p className="font-medium text-foreground">{t('language.title')}</p>
               <p className="text-sm text-muted-foreground">
-                {locale === 'ru' ? t('language.ru') : t('language.kk')}
+                {locale === 'ru' ? t('language.ru') : t('language.kz')}
               </p>
             </div>
           </div>
@@ -52,14 +52,14 @@ export function SettingsSection() {
               RU
             </button>
             <button
-              onClick={() => handleLanguageChange('kk')}
+              onClick={() => handleLanguageChange('kz')}
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                locale === 'kk'
+                locale === 'kz'
                   ? 'bg-primary text-white'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
               }`}
             >
-              KK
+              KZ
             </button>
           </div>
         </div>

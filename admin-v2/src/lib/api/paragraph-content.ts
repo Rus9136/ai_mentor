@@ -13,6 +13,10 @@ const DIRECT_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.ai-mentor
 const getEndpoint = (isSchool: boolean) =>
   isSchool ? '/admin/school' : '/admin/global';
 
+// Маппинг URL локали на API параметр
+// URL использует 'kz', но API принимает 'kk'
+const toApiLanguage = (lang: string): string => (lang === 'kz' ? 'kk' : lang);
+
 // Helper to get auth token
 const getAuthToken = (): string | null => {
   if (typeof window !== 'undefined') {
@@ -31,7 +35,7 @@ export const paragraphContentApi = {
     try {
       const { data } = await apiClient.get<ParagraphContent>(
         `${getEndpoint(isSchool)}/paragraphs/${paragraphId}/content`,
-        { params: { language } }
+        { params: { language: toApiLanguage(language) } }
       );
       return data;
     } catch (error: unknown) {
@@ -56,7 +60,7 @@ export const paragraphContentApi = {
     const { data: result } = await apiClient.put<ParagraphContent>(
       `${getEndpoint(isSchool)}/paragraphs/${paragraphId}/content`,
       data,
-      { params: { language } }
+      { params: { language: toApiLanguage(language) } }
     );
     return result;
   },
@@ -71,7 +75,7 @@ export const paragraphContentApi = {
     const { data: result } = await apiClient.put<ParagraphContent>(
       `${getEndpoint(isSchool)}/paragraphs/${paragraphId}/content/cards`,
       data,
-      { params: { language } }
+      { params: { language: toApiLanguage(language) } }
     );
     return result;
   },
@@ -88,7 +92,7 @@ export const paragraphContentApi = {
 
     const token = getAuthToken();
     const { data } = await axios.post<ParagraphContent>(
-      `${DIRECT_API_URL}${getEndpoint(isSchool)}/paragraphs/${paragraphId}/content/audio?language=${language}`,
+      `${DIRECT_API_URL}${getEndpoint(isSchool)}/paragraphs/${paragraphId}/content/audio?language=${toApiLanguage(language)}`,
       formData,
       {
         headers: {
@@ -112,7 +116,7 @@ export const paragraphContentApi = {
 
     const token = getAuthToken();
     const { data } = await axios.post<ParagraphContent>(
-      `${DIRECT_API_URL}${getEndpoint(isSchool)}/paragraphs/${paragraphId}/content/slides?language=${language}`,
+      `${DIRECT_API_URL}${getEndpoint(isSchool)}/paragraphs/${paragraphId}/content/slides?language=${toApiLanguage(language)}`,
       formData,
       {
         headers: {
@@ -136,7 +140,7 @@ export const paragraphContentApi = {
 
     const token = getAuthToken();
     const { data } = await axios.post<ParagraphContent>(
-      `${DIRECT_API_URL}${getEndpoint(isSchool)}/paragraphs/${paragraphId}/content/video?language=${language}`,
+      `${DIRECT_API_URL}${getEndpoint(isSchool)}/paragraphs/${paragraphId}/content/video?language=${toApiLanguage(language)}`,
       formData,
       {
         headers: {
@@ -156,7 +160,7 @@ export const paragraphContentApi = {
   ): Promise<void> => {
     await apiClient.delete(
       `${getEndpoint(isSchool)}/paragraphs/${paragraphId}/content/audio`,
-      { params: { language } }
+      { params: { language: toApiLanguage(language) } }
     );
   },
 
@@ -168,7 +172,7 @@ export const paragraphContentApi = {
   ): Promise<void> => {
     await apiClient.delete(
       `${getEndpoint(isSchool)}/paragraphs/${paragraphId}/content/slides`,
-      { params: { language } }
+      { params: { language: toApiLanguage(language) } }
     );
   },
 
@@ -180,7 +184,7 @@ export const paragraphContentApi = {
   ): Promise<void> => {
     await apiClient.delete(
       `${getEndpoint(isSchool)}/paragraphs/${paragraphId}/content/video`,
-      { params: { language } }
+      { params: { language: toApiLanguage(language) } }
     );
   },
 };

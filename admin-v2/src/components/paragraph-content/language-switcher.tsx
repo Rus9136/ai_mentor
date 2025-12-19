@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface LanguageSwitcherProps {
-  value: 'ru' | 'kk';
-  onChange: (value: 'ru' | 'kk') => void;
+  value: 'ru' | 'kz';
+  onChange: (value: 'ru' | 'kz') => void;
   className?: string;
 }
 
@@ -21,9 +21,9 @@ export function LanguageSwitcher({ value, onChange, className }: LanguageSwitche
         Русский
       </Button>
       <Button
-        variant={value === 'kk' ? 'default' : 'ghost'}
+        variant={value === 'kz' ? 'default' : 'ghost'}
         size="sm"
-        onClick={() => onChange('kk')}
+        onClick={() => onChange('kz')}
         className="h-8"
       >
         Қазақша
