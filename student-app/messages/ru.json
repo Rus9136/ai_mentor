@@ -91,7 +91,8 @@
     "paragraphsCompleted": "параграфов пройдено",
     "chapters": "Главы",
     "noChapters": "Главы пока не добавлены",
-    "errorLoading": "Не удалось загрузить учебник",
+    "noTextbooks": "Учебники пока не доступны",
+    "errorLoading": "Не удалось загрузить учебники",
     "hasTest": "Тест по главе",
     "status": {
       "completed": "Пройдено",

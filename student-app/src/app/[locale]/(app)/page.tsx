@@ -4,71 +4,17 @@ import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/auth-provider';
 import { useTextbooks } from '@/lib/hooks/use-textbooks';
 import { Link } from '@/i18n/routing';
+import { TextbookCard } from '@/components/textbooks';
 import {
   BookOpen,
   Play,
   Flame,
   CheckCircle2,
   ChevronRight,
-  TrendingUp,
   Trophy,
   Loader2,
   AlertCircle,
 } from 'lucide-react';
-
-// Subject icons mapping
-const SUBJECT_ICONS: Record<string, string> = {
-  'история': '📜',
-  'история казахстана': '📜',
-  'всемирная история': '📜',
-  'алгебра': '📐',
-  'математика': '📐',
-  'геометрия': '📐',
-  'физика': '⚡',
-  'биология': '🧬',
-  'химия': '🧪',
-  'география': '🌍',
-  'информатика': '💻',
-  'английский': '🇬🇧',
-  'казахский': '🇰🇿',
-  'русский': '📝',
-  'литература': '📚',
-};
-
-// Subject colors mapping
-const SUBJECT_COLORS: Record<string, string> = {
-  'история': 'bg-amber-500',
-  'история казахстана': 'bg-amber-500',
-  'всемирная история': 'bg-amber-600',
-  'алгебра': 'bg-blue-500',
-  'математика': 'bg-blue-500',
-  'геометрия': 'bg-blue-600',
-  'физика': 'bg-purple-500',
-  'биология': 'bg-green-500',
-  'химия': 'bg-red-500',
-  'география': 'bg-teal-500',
-  'информатика': 'bg-indigo-500',
-  'английский': 'bg-pink-500',
-  'казахский': 'bg-cyan-500',
-  'русский': 'bg-orange-500',
-  'литература': 'bg-rose-500',
-};
-
-function getSubjectIcon(subject: string): string {
-  const key = subject.toLowerCase();
-  for (const [keyword, icon] of Object.entries(SUBJECT_ICONS)) {
-    if (key.includes(keyword)) return icon;
-  }
-  return '📚';
-}
-
-function getSubjectColor(subject: string): string {
-  const key = subject.toLowerCase();
-  for (const [keyword, color] of Object.entries(SUBJECT_COLORS)) {
-    if (key.includes(keyword)) return color;
-  }
-  return 'bg-gray-500';
-}
 
 // Mock stats - will be replaced with real API
 const mockStats = {
@@ -223,57 +169,7 @@ export default function HomePage() {
               </div>
             ) : (
               textbooks.map((textbook) => (
-                <Link key={textbook.id} href={`/subjects/${textbook.id}`}>
-                  <div className="card-elevated group h-full overflow-hidden transition-all hover:shadow-soft-lg">
-                    {/* Subject Icon & Title */}
-                    <div className="p-4">
-                      <div className="mb-3 flex items-start justify-between">
-                        <div
-                          className={`flex h-12 w-12 items-center justify-center rounded-2xl ${getSubjectColor(textbook.subject)} text-2xl`}
-                        >
-                          {getSubjectIcon(textbook.subject)}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {textbook.mastery_level && (
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                                textbook.mastery_level === 'A'
-                                  ? 'bg-green-100 text-green-700'
-                                  : textbook.mastery_level === 'B'
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-orange-100 text-orange-700'
-                              }`}
-                            >
-                              {textbook.mastery_level}
-                            </span>
-                          )}
-                          {textbook.progress.percentage > 0 && (
-                            <div className="flex items-center gap-1 text-xs font-medium text-success">
-                              <TrendingUp className="h-3 w-3" />
-                              {textbook.progress.percentage}%
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <h3 className="font-bold text-foreground group-hover:text-primary">
-                        {textbook.title}
-                      </h3>
-
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {textbook.progress.chapters_completed} / {textbook.progress.chapters_total} {t('subjects.chapters')}
-                      </p>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="h-1.5 bg-muted">
-                      <div
-                        className={`h-full ${getSubjectColor(textbook.subject)} transition-all`}
-                        style={{ width: `${textbook.progress.percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                </Link>
+                <TextbookCard key={textbook.id} textbook={textbook} />
               ))
             )}
           </div>
