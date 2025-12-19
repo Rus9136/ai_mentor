@@ -9,7 +9,7 @@ import logging
 
 from app.core.database import get_db
 from app.core.security import decode_token, verify_token_type
-from app.core.tenancy import set_current_tenant, reset_tenant, set_super_admin_flag
+from app.core.tenancy import set_current_tenant, reset_tenant, set_super_admin_flag, set_current_user_id
 from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
 from app.schemas.auth import TokenPayload
@@ -93,6 +93,10 @@ async def get_current_user(
 
     # Set tenant context for RLS policies
     # This MUST be done in the SAME session that will be used by endpoints
+
+    # Always set current user ID (for self-update RLS policies)
+    await set_current_user_id(db, user.id)
+
     if user.role == UserRole.SUPER_ADMIN:
         await set_super_admin_flag(db, True)
         await reset_tenant(db)
@@ -103,6 +107,12 @@ async def get_current_user(
         await set_super_admin_flag(db, False)
         await db.commit()
         logger.info(f"Set tenant context: school_id={user.school_id}, user_id={user.id}")
+    else:
+        # User without school_id (e.g., student in onboarding)
+        await set_super_admin_flag(db, False)
+        await reset_tenant(db)
+        await db.commit()
+        logger.info(f"Set context for user without school: user_id={user.id}")
 
     return user
 

@@ -53,10 +53,14 @@ class Settings(BaseSettings):
         Build async database URL.
 
         Используем asyncpg - он работает, но требует selectinload вместо joinedload для relationships.
+        ssl=disable нужен для внутренней Docker-сети (postgres без SSL).
         """
+        from urllib.parse import quote_plus
+        # URL-encode password для спецсимволов (@, !, etc.)
+        password = quote_plus(self.POSTGRES_PASSWORD)
         return (
-            f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
-            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+            f"postgresql+asyncpg://{self.POSTGRES_USER}:{password}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}?ssl=disable"
         )
 
     # JWT

@@ -72,8 +72,9 @@ async def reset_tenant(db: AsyncSession) -> None:
         await reset_tenant(db)
         # All subsequent queries will not be filtered by tenant
     """
+    # Use NULL instead of empty string to avoid casting errors in RLS policies
     await db.execute(
-        text("SELECT set_config('app.current_tenant_id', '', false)")
+        text("SELECT set_config('app.current_tenant_id', NULL, false)")
     )
 
 
@@ -94,4 +95,23 @@ async def set_super_admin_flag(db: AsyncSession, is_super_admin: bool) -> None:
     await db.execute(
         text("SELECT set_config('app.is_super_admin', :value, false)"),
         {"value": "true" if is_super_admin else "false"}
+    )
+
+
+async def set_current_user_id(db: AsyncSession, user_id: int) -> None:
+    """
+    Set current user ID for RLS policies.
+
+    Used by RLS policies to allow users to update their own records.
+
+    Args:
+        db: Database session
+        user_id: ID of the current user
+
+    Example:
+        await set_current_user_id(db, 123)
+    """
+    await db.execute(
+        text("SELECT set_config('app.current_user_id', :user_id, false)"),
+        {"user_id": str(user_id)}
     )

@@ -26,13 +26,17 @@ $$;
 -- Роль 2: ai_mentor_app (обычный пользователь) - для runtime
 -- Используется в: backend/.env (POSTGRES_USER), FastAPI приложение
 -- Права: Обычный пользователь, RLS политики активны
+-- ВАЖНО: Пароль должен совпадать с POSTGRES_PASSWORD в docker-compose.infra.yml
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'ai_mentor_app') THEN
-        CREATE ROLE ai_mentor_app WITH LOGIN PASSWORD 'ai_mentor_pass';
+        -- Используем тот же пароль что и для ai_mentor_user (из POSTGRES_PASSWORD env)
+        CREATE ROLE ai_mentor_app WITH LOGIN PASSWORD 'AiM3nt0r_Pr0d_S3cur3_P@ssw0rd_2025!';
         RAISE NOTICE 'Role ai_mentor_app created (normal user for runtime with RLS)';
     ELSE
-        RAISE NOTICE 'Role ai_mentor_app already exists';
+        -- Обновляем пароль на случай если он устарел
+        ALTER ROLE ai_mentor_app WITH PASSWORD 'AiM3nt0r_Pr0d_S3cur3_P@ssw0rd_2025!';
+        RAISE NOTICE 'Role ai_mentor_app password updated';
     END IF;
 END
 $$;
