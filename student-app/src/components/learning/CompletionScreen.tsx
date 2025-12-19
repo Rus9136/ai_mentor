@@ -203,10 +203,10 @@ export function CompletionScreen({
   }, [onGoToChapter]);
 
   return (
-    <div className={cn('flex flex-col items-center justify-center min-h-[60vh] px-4', className)}>
+    <div data-testid="completion-screen" className={cn('flex flex-col items-center justify-center min-h-[60vh] px-4', className)}>
       {/* Success Icon */}
       <div className="relative mb-6">
-        <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center animate-bounce-slow">
+        <div data-testid="completion-trophy" className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center animate-bounce-slow">
           <Trophy className="w-12 h-12 text-green-600" />
         </div>
         <div className="absolute -top-1 -right-1 w-8 h-8 bg-amber-400 rounded-full flex items-center justify-center">
@@ -224,9 +224,9 @@ export function CompletionScreen({
       </p>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-3 md:gap-4 w-full max-w-md mb-8">
+      <div data-testid="completion-stats" className="grid grid-cols-3 gap-3 md:gap-4 w-full max-w-md mb-8">
         {/* Score */}
-        <div className="bg-white rounded-xl shadow-md p-4 text-center">
+        <div data-testid="score-display" className="bg-white rounded-xl shadow-md p-4 text-center">
           <div className={cn(
             'w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2',
             scorePercentage >= 80 ? 'bg-green-100' : scorePercentage >= 60 ? 'bg-amber-100' : 'bg-red-100'
@@ -236,7 +236,7 @@ export function CompletionScreen({
               scorePercentage >= 80 ? 'text-green-600' : scorePercentage >= 60 ? 'text-amber-600' : 'text-red-600'
             )} />
           </div>
-          <div className="font-bold text-lg text-gray-900">
+          <div data-testid="score-value" className="font-bold text-lg text-gray-900">
             {questionsTotal > 0 ? `${questionsCorrect}/${questionsTotal}` : '-'}
           </div>
           <div className="text-xs text-gray-500">
@@ -245,11 +245,11 @@ export function CompletionScreen({
         </div>
 
         {/* Time */}
-        <div className="bg-white rounded-xl shadow-md p-4 text-center">
+        <div data-testid="time-display" className="bg-white rounded-xl shadow-md p-4 text-center">
           <div className="w-12 h-12 mx-auto rounded-full bg-blue-100 flex items-center justify-center mb-2">
             <Clock className="w-6 h-6 text-blue-600" />
           </div>
-          <div className="font-bold text-lg text-gray-900">
+          <div data-testid="time-value" className="font-bold text-lg text-gray-900">
             {Math.floor(timeSpentSeconds / 60) || '<1'}
           </div>
           <div className="text-xs text-gray-500">
@@ -258,7 +258,7 @@ export function CompletionScreen({
         </div>
 
         {/* Self Assessment */}
-        <div className="bg-white rounded-xl shadow-md p-4 text-center">
+        <div data-testid="assessment-display" className="bg-white rounded-xl shadow-md p-4 text-center">
           <div className={cn(
             'w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2',
             assessmentConfig?.bgColor || 'bg-gray-100'
@@ -268,7 +268,7 @@ export function CompletionScreen({
               assessmentConfig?.color || 'text-gray-400'
             )} />
           </div>
-          <div className="font-bold text-lg text-gray-900 truncate">
+          <div data-testid="assessment-value" className="font-bold text-lg text-gray-900 truncate">
             {selfAssessment ? t(`completion.selfAssessment.${selfAssessment}`) : '-'}
           </div>
           <div className="text-xs text-gray-500">
@@ -293,6 +293,7 @@ export function CompletionScreen({
       <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
         {/* To Chapter */}
         <button
+          data-testid="to-chapter-btn"
           onClick={handleGoToChapter}
           className={cn(
             'flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200',
@@ -307,6 +308,7 @@ export function CompletionScreen({
         {/* Next Paragraph */}
         {nextParagraphId && !isLastInChapter && (
           <button
+            data-testid="next-paragraph-btn"
             onClick={handleGoToNext}
             className={cn(
               'flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200',

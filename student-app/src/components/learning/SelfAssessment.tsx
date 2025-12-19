@@ -96,10 +96,10 @@ export function SelfAssessment({
   };
 
   return (
-    <div className={cn('bg-white rounded-2xl shadow-md p-6', className)}>
+    <div data-testid="self-assessment" className={cn('bg-white rounded-2xl shadow-md p-6', className)}>
       {/* Header */}
       <div className="text-center mb-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-2">
+        <h3 data-testid="self-assessment-title" className="text-xl font-bold text-gray-900 mb-2">
           {t('selfAssessment.title')}
         </h3>
         <p className="text-gray-600">
@@ -117,6 +117,7 @@ export function SelfAssessment({
           return (
             <button
               key={option.value}
+              data-testid={`rating-${option.value}`}
               onClick={() => handleSelect(option.value)}
               disabled={isSubmitted}
               className={cn(
@@ -158,6 +159,7 @@ export function SelfAssessment({
       {!isSubmitted ? (
         <div className="text-center">
           <button
+            data-testid="submit-assessment"
             onClick={handleSubmit}
             disabled={!selectedRating || isSubmitting}
             className={cn(
@@ -172,7 +174,7 @@ export function SelfAssessment({
         </div>
       ) : (
         <div className="text-center">
-          <div className="inline-flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-full">
+          <div data-testid="assessment-submitted" className="inline-flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-full">
             <CheckCircle2 className="w-5 h-5" />
             <span className="font-medium">{t('selfAssessment.submitted')}</span>
           </div>

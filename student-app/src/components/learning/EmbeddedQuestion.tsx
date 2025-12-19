@@ -106,14 +106,15 @@ export function EmbeddedQuestion({
   const displayOptions = trueFalseOptions || question.options || [];
 
   return (
-    <div className={cn('bg-white rounded-2xl shadow-md p-6', className)}>
+    <div data-testid="embedded-question" className={cn('bg-white rounded-2xl shadow-md p-6', className)}>
       {/* Question header */}
       <div className="flex items-center justify-between mb-4">
-        <span className="text-sm font-medium text-amber-600 bg-amber-100 px-3 py-1 rounded-full">
+        <span data-testid="question-number" className="text-sm font-medium text-amber-600 bg-amber-100 px-3 py-1 rounded-full">
           {t('question.number', { current: questionNumber, total: totalQuestions })}
         </span>
         {question.hint && !hasAnswered && (
           <button
+            data-testid="show-hint"
             onClick={() => setShowHint(!showHint)}
             className="flex items-center gap-1 text-sm text-gray-500 hover:text-amber-600 transition-colors"
           >
@@ -125,13 +126,13 @@ export function EmbeddedQuestion({
 
       {/* Hint */}
       {showHint && question.hint && !hasAnswered && (
-        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+        <div data-testid="hint-box" className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
           <p className="text-sm text-amber-800">{question.hint}</p>
         </div>
       )}
 
       {/* Question text */}
-      <h3 className="text-lg font-semibold text-gray-900 mb-6">
+      <h3 data-testid="question-text" className="text-lg font-semibold text-gray-900 mb-6">
         {question.question_text}
       </h3>
 
@@ -150,6 +151,7 @@ export function EmbeddedQuestion({
           return (
             <button
               key={option.id}
+              data-testid={`option-${option.id}`}
               onClick={() => handleOptionClick(option.id)}
               disabled={hasAnswered}
               className={cn(
@@ -200,10 +202,13 @@ export function EmbeddedQuestion({
 
       {/* Result feedback */}
       {hasAnswered && result && (
-        <div className={cn(
-          'mt-6 p-4 rounded-xl',
-          answerState === 'correct' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-        )}>
+        <div
+          data-testid={`feedback-${answerState}`}
+          className={cn(
+            'mt-6 p-4 rounded-xl',
+            answerState === 'correct' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+          )}
+        >
           <div className="flex items-center gap-2 mb-2">
             {answerState === 'correct' ? (
               <CheckCircle2 className="w-5 h-5 text-green-600" />
@@ -227,6 +232,7 @@ export function EmbeddedQuestion({
       <div className="mt-6 flex justify-end gap-3">
         {!hasAnswered ? (
           <button
+            data-testid="submit-answer"
             onClick={handleSubmit}
             disabled={isSubmitting || (!selectedAnswer && selectedMultiple.length === 0)}
             className={cn(
@@ -240,6 +246,7 @@ export function EmbeddedQuestion({
           </button>
         ) : (
           <button
+            data-testid="next-question"
             onClick={onNext}
             className="px-6 py-2.5 rounded-xl font-medium bg-amber-500 text-white hover:bg-amber-600 active:scale-95 transition-all duration-200 flex items-center gap-2"
           >
