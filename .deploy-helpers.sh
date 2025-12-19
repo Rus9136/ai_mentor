@@ -27,6 +27,7 @@ EMOJI_BACKEND="🔨"
 EMOJI_FRONTEND="⚛️"
 EMOJI_DATABASE="🗄️"
 EMOJI_TIMER="⏱️"
+EMOJI_STUDENT="📱"
 EMOJI_DOCKER="🐳"
 EMOJI_CHECK="✓"
 EMOJI_CROSS="✗"
@@ -65,6 +66,10 @@ log_frontend() {
 
 log_database() {
     echo -e "${YELLOW}${EMOJI_DATABASE} Database:${NC} $1"
+}
+
+log_student_app() {
+    echo -e "${GREEN}${EMOJI_STUDENT} Student App:${NC} $1"
 }
 
 log_separator() {
@@ -272,6 +277,12 @@ show_troubleshooting() {
             echo "   2. Check package.json dependencies"
             echo "   3. Review build output above"
             ;;
+        student-app)
+            echo "   1. Check TypeScript/Next.js syntax errors"
+            echo "   2. Check package.json dependencies"
+            echo "   3. Review logs: docker compose -f docker-compose.infra.yml logs student-app"
+            echo "   4. Check Next.js build output"
+            ;;
         postgres)
             echo "   1. Check database credentials in backend/.env"
             echo "   2. Review logs: docker compose -f docker-compose.infra.yml logs postgres"
@@ -311,18 +322,21 @@ ask_confirmation() {
 # ==========================================
 
 # Показать итоговую статистику деплоя
+# Аргументы: backend_deployed, frontend_deployed, student_app_deployed, migrations_applied, success
 show_deploy_summary() {
     local backend_deployed=$1
     local frontend_deployed=$2
-    local migrations_applied=$3
-    local success=$4
+    local student_app_deployed=$3
+    local migrations_applied=$4
+    local success=$5
 
     echo ""
     log_header "📊 DEPLOY SUMMARY"
 
-    echo -e "   ${EMOJI_BACKEND} Backend:   $([ "$backend_deployed" = "true" ] && echo "${GREEN}DEPLOYED${NC}" || echo "${GRAY}Skipped${NC}")"
-    echo -e "   ${EMOJI_FRONTEND} Frontend:  $([ "$frontend_deployed" = "true" ] && echo "${GREEN}DEPLOYED${NC}" || echo "${GRAY}Skipped${NC}")"
-    echo -e "   ${EMOJI_DATABASE} Migrations: $([ "$migrations_applied" = "true" ] && echo "${GREEN}APPLIED${NC}" || echo "${GRAY}Skipped${NC}")"
+    echo -e "   ${EMOJI_BACKEND} Backend:     $([ "$backend_deployed" = "true" ] && echo "${GREEN}DEPLOYED${NC}" || echo "${GRAY}Skipped${NC}")"
+    echo -e "   ${EMOJI_FRONTEND} Frontend:    $([ "$frontend_deployed" = "true" ] && echo "${GREEN}DEPLOYED${NC}" || echo "${GRAY}Skipped${NC}")"
+    echo -e "   ${EMOJI_STUDENT} Student App: $([ "$student_app_deployed" = "true" ] && echo "${GREEN}DEPLOYED${NC}" || echo "${GRAY}Skipped${NC}")"
+    echo -e "   ${EMOJI_DATABASE} Migrations:  $([ "$migrations_applied" = "true" ] && echo "${GREEN}APPLIED${NC}" || echo "${GRAY}Skipped${NC}")"
 
     echo ""
 
@@ -331,10 +345,10 @@ show_deploy_summary() {
         show_elapsed
         echo ""
         echo -e "${CYAN}🌐 Services:${NC}"
-        echo -e "   • Landing:  ${GREEN}https://ai-mentor.kz${NC}"
-        echo -e "   • Admin:    ${GREEN}https://admin.ai-mentor.kz${NC}"
-        echo -e "   • API:      ${GREEN}https://api.ai-mentor.kz${NC}"
-        echo -e "   • API Docs: ${GREEN}https://api.ai-mentor.kz/docs${NC}"
+        echo -e "   • Student App: ${GREEN}https://ai-mentor.kz${NC}"
+        echo -e "   • Admin Panel: ${GREEN}https://admin.ai-mentor.kz${NC}"
+        echo -e "   • API:         ${GREEN}https://api.ai-mentor.kz${NC}"
+        echo -e "   • API Docs:    ${GREEN}https://api.ai-mentor.kz/docs${NC}"
     else
         log_error "Deployment failed!"
         show_elapsed
@@ -351,7 +365,7 @@ show_deploy_summary() {
 # ==========================================
 
 export -f log_info log_success log_error log_warning log_step
-export -f log_backend log_frontend log_database
+export -f log_backend log_frontend log_database log_student_app
 export -f log_separator log_header
 export -f show_progress show_status show_service_status
 export -f start_timer show_elapsed
