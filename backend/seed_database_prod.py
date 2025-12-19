@@ -28,6 +28,7 @@ from app.models.test import Test, Question, QuestionOption, QuestionType, Diffic
 from app.models.teacher import Teacher
 from app.models.student import Student
 from app.models.school_class import SchoolClass
+from app.models.invitation_code import InvitationCode
 from app.core.security import get_password_hash
 
 # Production DATABASE_URL с ai_mentor_user (superuser) для обхода RLS
@@ -138,6 +139,35 @@ async def seed_database():
             print(f"  ✅ School ADMIN: school.admin@test.com / admin123 (школа: {school.name})")
         else:
             print("  ⏭️  School ADMIN уже существует")
+
+        await session.commit()
+        print()
+
+        # ========================================
+        # 2.1 Создаем публичную школу
+        # ========================================
+        print("🌐 Создание публичной школы...")
+
+        result = await session.execute(
+            select(School).where(School.code == "AIMENTOR_PUBLIC")
+        )
+        public_school = result.scalar_one_or_none()
+
+        if not public_school:
+            public_school = School(
+                name="AI Mentor Public",
+                code="AIMENTOR_PUBLIC",
+                address="Online",
+                phone=None,
+                email="public@ai-mentor.kz",
+                description="Публичная школа для самостоятельного обучения без привязки к учебному заведению",
+                is_active=True,
+            )
+            session.add(public_school)
+            await session.flush()
+            print(f"  ✅ Публичная школа: {public_school.name} (код: {public_school.code})")
+        else:
+            print(f"  ⏭️  Публичная школа уже существует")
 
         await session.commit()
         print()
@@ -660,6 +690,48 @@ async def seed_database():
 
         await session.commit()
         print("✅ Ученики распределены по классам")
+        print()
+
+        # ========================================
+        # 9. Создаем публичные коды приглашения
+        # ========================================
+        print("🎫 Создание публичных кодов приглашения...")
+
+        public_codes_data = [
+            {"code": "PUBLIC7", "grade_level": 7},
+            {"code": "PUBLIC8", "grade_level": 8},
+            {"code": "PUBLIC9", "grade_level": 9},
+            {"code": "PUBLIC10", "grade_level": 10},
+            {"code": "PUBLIC11", "grade_level": 11},
+        ]
+
+        created_codes_count = 0
+        for code_data in public_codes_data:
+            result = await session.execute(
+                select(InvitationCode).where(InvitationCode.code == code_data["code"])
+            )
+            existing_code = result.scalar_one_or_none()
+
+            if not existing_code:
+                invitation_code = InvitationCode(
+                    code=code_data["code"],
+                    school_id=public_school.id,
+                    class_id=None,  # Без привязки к классу
+                    grade_level=code_data["grade_level"],
+                    expires_at=None,  # Никогда не истекает
+                    max_uses=None,  # Неограниченное использование
+                    created_by=super_admin.id,
+                    is_active=True,
+                    uses_count=0,
+                )
+                session.add(invitation_code)
+                created_codes_count += 1
+                print(f"  ✅ Код: {code_data['code']} ({code_data['grade_level']} класс)")
+            else:
+                print(f"  ⏭️  Код {code_data['code']} уже существует")
+
+        await session.commit()
+        print(f"✅ Создано {created_codes_count} публичных кодов")
         print()
 
         # ========================================
