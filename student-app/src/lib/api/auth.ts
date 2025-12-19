@@ -26,14 +26,22 @@ export interface ValidateCodeRequest {
 
 export interface ValidateCodeResponse {
   valid: boolean;
-  school_name?: string;
-  class_name?: string;
+  school?: {
+    id: number;
+    name: string;
+    code: string;
+  };
+  school_class?: {
+    id: number;
+    name: string;
+    grade_level: number;
+  };
   grade_level?: number;
-  message?: string;
+  error?: string; // "code_not_found" | "code_expired" | "code_exhausted" | "code_inactive"
 }
 
 export interface OnboardingCompleteRequest {
-  code: string;
+  invitation_code: string;  // Backend expects "invitation_code", not "code"
   first_name: string;
   last_name: string;
   middle_name?: string;
@@ -41,11 +49,23 @@ export interface OnboardingCompleteRequest {
 }
 
 export interface OnboardingCompleteResponse {
-  success: boolean;
-  message: string;
-  student_code: string;
   access_token: string;
   refresh_token: string;
+  token_type: string;
+  user: {
+    id: number;
+    email: string;
+    first_name: string;
+    last_name: string;
+    role: string;
+    school_id: number | null;
+  };
+  student: {
+    id: number;
+    student_code: string;
+    grade_level: number;
+    classes: { id: number; name: string }[];
+  };
 }
 
 export interface UserResponse {
