@@ -124,6 +124,11 @@ class Settings(BaseSettings):
     MASTERY_THRESHOLD: float = 0.7
     DAYS_TO_TRACK: int = 30
 
+    # Learning & Streak Settings
+    MIN_DAILY_ACTIVITY_SECONDS: int = 600  # 10 minutes for streak (active day)
+    MASTERY_LEVEL_A_THRESHOLD: int = 85  # Score >= 85 → Level A
+    MASTERY_LEVEL_B_THRESHOLD: int = 60  # Score >= 60 → Level B, else C
+
     # File Uploads
     UPLOAD_DIR: str = "uploads"
     MAX_IMAGE_SIZE_MB: int = 5

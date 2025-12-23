@@ -1431,13 +1431,13 @@ backend/app/
 **Примечание:** tests.py и content.py превышают лимит 400 строк.
 Требуется дальнейшая оптимизация через reusable dependencies (Phase 1).
 
-### Phase 3: Stats Service
-- [ ] Добавить индекс `idx_student_paragraph_streak`
-- [ ] Добавить settings в `config.py`
-- [ ] Создать `student_stats_service.py`
-- [ ] Добавить DI factory в `dependencies.py`
-- [ ] Обновить endpoint в `stats.py`
-- [ ] Написать unit tests
+### Phase 3: Stats Service ✅ DONE (2025-12-23)
+- [x] Добавить индекс `idx_student_paragraph_streak`
+- [x] Добавить settings в `config.py` (MIN_DAILY_ACTIVITY_SECONDS, MASTERY_LEVEL_*_THRESHOLD)
+- [x] Создать `student_stats_service.py` (160 строк)
+- [x] Добавить DI factory `get_student_stats_service` в `dependencies.py`
+- [x] Обновить endpoint в `stats.py` (43 строки, было 156)
+- [x] Написать unit tests (`test_student_stats_service.py`)
 
 ### Phase 4: Content Service
 - [ ] Создать `student_content_service.py`
