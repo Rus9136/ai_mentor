@@ -47,6 +47,10 @@ from app.models.sync import SyncQueue, SyncStatus
 # Settings models
 from app.models.settings import SystemSetting
 
+# Chat models
+from app.models.chat import ChatSession, ChatMessage, ChatSessionType
+from app.models.system_prompt import SystemPromptTemplate
+
 __all__ = [
     # Base
     "BaseModel",
@@ -116,4 +120,9 @@ __all__ = [
     "SyncStatus",
     # Settings
     "SystemSetting",
+    # Chat
+    "ChatSession",
+    "ChatMessage",
+    "ChatSessionType",
+    "SystemPromptTemplate",
 ]

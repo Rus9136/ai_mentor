@@ -123,7 +123,9 @@ class GosoRepository:
 
         if load_structure:
             query = query.options(
-                selectinload(Framework.sections).selectinload(GosoSection.subsections)
+                selectinload(Framework.sections)
+                .selectinload(GosoSection.subsections)
+                .selectinload(GosoSubsection.outcomes)
             )
 
         result = await self.db.execute(query)
@@ -134,7 +136,8 @@ class GosoRepository:
     async def get_sections_by_framework(
         self,
         framework_id: int,
-        is_active: bool = True
+        is_active: bool = True,
+        load_full_structure: bool = False
     ) -> List[GosoSection]:
         """
         Get sections by framework.
@@ -142,6 +145,7 @@ class GosoRepository:
         Args:
             framework_id: Framework ID
             is_active: Filter by active status
+            load_full_structure: Load subsections and outcomes
 
         Returns:
             List of sections
@@ -150,6 +154,12 @@ class GosoRepository:
 
         if is_active:
             query = query.where(GosoSection.is_active == True)
+
+        if load_full_structure:
+            query = query.options(
+                selectinload(GosoSection.subsections)
+                .selectinload(GosoSubsection.outcomes)
+            )
 
         query = query.order_by(GosoSection.display_order)
 

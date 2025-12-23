@@ -49,7 +49,7 @@ from app.schemas.mastery import (
     MasteryOverviewResponse,
 )
 from app.schemas.question import QuestionResponse, QuestionResponseStudent
-from app.schemas.test import TestResponse
+from app.schemas.test import TestResponse, TestQuestionAnswerRequest, TestAnswerResponse
 from app.schemas.student_content import StudentDashboardStats
 
 
@@ -628,6 +628,272 @@ async def submit_test(
         time_spent=attempt_with_data.time_spent,
         created_at=attempt_with_data.created_at,
         updated_at=attempt_with_data.updated_at,
+        test=test_data,
+        answers=answers_data
+    )
+
+
+@router.post("/attempts/{attempt_id}/answer", response_model=TestAnswerResponse)
+async def answer_test_question(
+    attempt_id: int,
+    answer_request: TestQuestionAnswerRequest,
+    current_user: User = Depends(require_student),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Submit answer for a single question in test attempt.
+
+    Returns immediate feedback with is_correct, correct_option_ids, and explanation.
+    This endpoint is used for chat-like quiz interface where feedback is shown
+    after each answer.
+
+    Does NOT complete the attempt - allows answering questions one by one.
+    The attempt should be completed via submit_test endpoint when all questions
+    are answered.
+
+    Args:
+        attempt_id: Test attempt ID
+        answer_request: Question answer data (question_id, selected_option_ids)
+        current_user: Current authenticated student
+        school_id: Student's school ID (from token)
+        db: Database session
+
+    Returns:
+        TestAnswerResponse with is_correct, correct_option_ids, explanation, points_earned
+
+    Raises:
+        HTTPException 404: Attempt not found
+        HTTPException 403: Access denied (ownership or tenant isolation)
+        HTTPException 400: Attempt not in IN_PROGRESS status
+        HTTPException 400: Question not found in this test
+        HTTPException 400: Question already answered
+    """
+    student = await get_student_from_user(db, current_user)
+    student_id = student.id
+
+    # Get attempt with ownership and tenant checks
+    attempt_repo = TestAttemptRepository(db)
+    attempt = await attempt_repo.get_by_id(
+        attempt_id=attempt_id,
+        student_id=student_id,
+        school_id=school_id
+    )
+
+    if not attempt:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test attempt {attempt_id} not found or access denied"
+        )
+
+    # Check attempt status
+    if attempt.status != AttemptStatus.IN_PROGRESS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot answer: attempt status is {attempt.status}, expected IN_PROGRESS"
+        )
+
+    # Get question with options
+    question_repo = QuestionRepository(db)
+    option_repo = QuestionOptionRepository(db)
+
+    question = await question_repo.get_by_id(answer_request.question_id)
+
+    if not question or question.test_id != attempt.test_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Question {answer_request.question_id} not found in this test"
+        )
+
+    # Check if question already answered in this attempt
+    existing_answer_result = await db.execute(
+        select(TestAttemptAnswer).where(
+            TestAttemptAnswer.attempt_id == attempt_id,
+            TestAttemptAnswer.question_id == answer_request.question_id
+        )
+    )
+    existing_answer = existing_answer_result.scalar_one_or_none()
+
+    if existing_answer:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Question {answer_request.question_id} already answered in this attempt"
+        )
+
+    # Load options to check correctness
+    options = await option_repo.get_by_question(answer_request.question_id)
+
+    # Determine correct option IDs
+    correct_option_ids = [opt.id for opt in options if opt.is_correct]
+
+    # Check if answer is correct
+    selected_set = set(answer_request.selected_option_ids)
+    correct_set = set(correct_option_ids)
+    is_correct = selected_set == correct_set
+
+    # Calculate points
+    points_earned = question.points if is_correct else 0.0
+
+    # Create answer record
+    answer = TestAttemptAnswer(
+        attempt_id=attempt_id,
+        question_id=answer_request.question_id,
+        selected_option_ids=answer_request.selected_option_ids,
+        is_correct=is_correct,
+        points_earned=points_earned,
+        answered_at=datetime.now(timezone.utc)
+    )
+    db.add(answer)
+    await db.commit()
+
+    logger.info(
+        f"Student {student_id} answered question {answer_request.question_id} "
+        f"in attempt {attempt_id}: correct={is_correct}, points={points_earned}"
+    )
+
+    return TestAnswerResponse(
+        question_id=answer_request.question_id,
+        is_correct=is_correct,
+        correct_option_ids=correct_option_ids,
+        explanation=question.explanation,
+        points_earned=points_earned
+    )
+
+
+@router.post("/attempts/{attempt_id}/complete")
+async def complete_test_attempt(
+    attempt_id: int,
+    current_user: User = Depends(require_student),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Complete a test attempt after all questions have been answered via /answer endpoint.
+
+    This endpoint is used when questions were answered one-by-one (chat-like quiz).
+    It verifies all questions are answered, triggers grading, and updates mastery.
+
+    Args:
+        attempt_id: Test attempt ID
+        current_user: Current authenticated student
+        school_id: Student's school ID (from token)
+        db: Database session
+
+    Returns:
+        TestAttemptDetail with grading results and correct answers
+
+    Raises:
+        HTTPException 404: Attempt not found
+        HTTPException 403: Access denied
+        HTTPException 400: Attempt not in IN_PROGRESS status
+        HTTPException 400: Not all questions answered
+    """
+    student = await get_student_from_user(db, current_user)
+    student_id = student.id
+
+    # Get attempt with ownership and tenant checks
+    attempt_repo = TestAttemptRepository(db)
+    attempt = await attempt_repo.get_by_id(
+        attempt_id=attempt_id,
+        student_id=student_id,
+        school_id=school_id
+    )
+
+    if not attempt:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test attempt {attempt_id} not found or access denied"
+        )
+
+    # Check attempt status
+    if attempt.status != AttemptStatus.IN_PROGRESS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot complete: attempt status is {attempt.status}, expected IN_PROGRESS"
+        )
+
+    # Get test questions count
+    question_repo = QuestionRepository(db)
+    questions = await question_repo.get_by_test(attempt.test_id, load_options=False)
+    total_questions = len(questions)
+
+    # Count answered questions
+    answered_count_result = await db.execute(
+        select(func.count(TestAttemptAnswer.id)).where(
+            TestAttemptAnswer.attempt_id == attempt_id
+        )
+    )
+    answered_count = answered_count_result.scalar() or 0
+
+    if answered_count < total_questions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Not all questions answered: {answered_count}/{total_questions}"
+        )
+
+    logger.info(
+        f"Student {student_id} completing attempt {attempt_id} "
+        f"with {answered_count} answers"
+    )
+
+    # Trigger automatic grading (this updates mastery!)
+    grading_service = GradingService(db)
+    graded_attempt = await grading_service.grade_attempt(
+        attempt_id=attempt_id,
+        student_id=student_id,
+        school_id=school_id
+    )
+
+    logger.info(
+        f"Attempt {attempt_id} graded: score={graded_attempt.score}, "
+        f"passed={graded_attempt.passed}"
+    )
+
+    # Get updated attempt with all data
+    attempt_with_data = await attempt_repo.get_with_answers(attempt_id)
+
+    # Get test for response
+    test_repo = TestRepository(db)
+    test = await test_repo.get_by_id(attempt.test_id, load_questions=False)
+
+    # Build response with correct answers
+    test_data = TestResponse.model_validate(test).model_dump()
+
+    questions_data = []
+    for question in sorted(test.questions, key=lambda q: q.order):
+        q_dict = QuestionResponse.model_validate(question).model_dump()
+        questions_data.append(q_dict)
+    test_data["questions"] = questions_data
+
+    answers_data = []
+    for answer in sorted(attempt_with_data.answers, key=lambda a: a.question.order):
+        question_data = QuestionResponse.model_validate(answer.question).model_dump()
+        answers_data.append(TestAttemptAnswerDetailResponse(
+            id=answer.id,
+            attempt_id=answer.attempt_id,
+            question_id=answer.question_id,
+            selected_option_ids=answer.selected_option_ids,
+            answer_text=answer.answer_text,
+            is_correct=answer.is_correct,
+            points_earned=answer.points_earned,
+            answered_at=answer.answered_at,
+            question=question_data
+        ))
+
+    return TestAttemptDetailResponse(
+        id=attempt_with_data.id,
+        student_id=attempt_with_data.student_id,
+        test_id=attempt_with_data.test_id,
+        school_id=attempt_with_data.school_id,
+        attempt_number=attempt_with_data.attempt_number,
+        status=attempt_with_data.status,
+        started_at=attempt_with_data.started_at,
+        completed_at=attempt_with_data.completed_at,
+        score=attempt_with_data.score,
+        points_earned=attempt_with_data.points_earned,
+        total_points=attempt_with_data.total_points,
+        passed=attempt_with_data.passed,
+        time_spent=attempt_with_data.time_spent,
         test=test_data,
         answers=answers_data
     )

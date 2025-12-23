@@ -41,6 +41,7 @@ class Test(SoftDeleteModel):
 
     # Relationships (school_id NULL = global test, NOT NULL = school-specific)
     school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=True, index=True)
+    textbook_id = Column(Integer, ForeignKey("textbooks.id", ondelete="CASCADE"), nullable=True, index=True)
     chapter_id = Column(Integer, ForeignKey("chapters.id", ondelete="CASCADE"), nullable=True, index=True)
     paragraph_id = Column(Integer, ForeignKey("paragraphs.id", ondelete="CASCADE"), nullable=True, index=True)
 
@@ -64,6 +65,7 @@ class Test(SoftDeleteModel):
     is_active = Column(Boolean, default=True, nullable=False)
 
     # Relationships
+    textbook = relationship("Textbook", back_populates="tests")
     chapter = relationship("Chapter", back_populates="tests")
     paragraph = relationship("Paragraph", back_populates="tests")
     questions = relationship("Question", back_populates="test", cascade="all, delete-orphan")

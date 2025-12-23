@@ -181,3 +181,95 @@ require_parent = require_role([UserRole.PARENT])
 # Combined role dependencies
 require_super_admin_or_admin = require_role([UserRole.SUPER_ADMIN, UserRole.ADMIN])
 require_admin_or_teacher = require_role([UserRole.ADMIN, UserRole.TEACHER])
+
+
+async def get_db_with_rls_context(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> AsyncSession:
+    """
+    Get database session with RLS context properly set.
+
+    This dependency ensures that RLS session variables are set in the SAME
+    database session that will be used by the endpoint. This is necessary
+    because get_current_user creates its own db session for authentication,
+    but the endpoint uses a different session for data operations.
+
+    Args:
+        db: Database session (same one endpoint will use)
+        current_user: Authenticated user (triggers authentication)
+
+    Returns:
+        Database session with RLS context configured
+    """
+    # Re-set RLS context in THIS session (the one endpoint will use)
+    await set_current_user_id(db, current_user.id)
+
+    if current_user.role == UserRole.SUPER_ADMIN:
+        await set_super_admin_flag(db, True)
+        await reset_tenant(db)
+    elif current_user.school_id is not None:
+        await set_current_tenant(db, current_user.school_id)
+        await set_super_admin_flag(db, False)
+    else:
+        await set_super_admin_flag(db, False)
+        await reset_tenant(db)
+
+    return db
+
+
+async def get_db_for_super_admin(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_super_admin)
+) -> AsyncSession:
+    """
+    Get database session with SUPER_ADMIN RLS context.
+
+    Convenience dependency that combines require_super_admin check
+    and RLS context setup in one step.
+    """
+    await set_current_user_id(db, current_user.id)
+    await set_super_admin_flag(db, True)
+    await reset_tenant(db)
+    return db
+
+
+async def get_db_for_admin(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+) -> AsyncSession:
+    """
+    Get database session with School ADMIN RLS context.
+
+    Convenience dependency that combines require_admin check
+    and RLS context setup in one step.
+    """
+    await set_current_user_id(db, current_user.id)
+    await set_super_admin_flag(db, False)
+    if current_user.school_id is not None:
+        await set_current_tenant(db, current_user.school_id)
+    else:
+        await reset_tenant(db)
+    return db
+
+
+async def get_db_and_admin_user(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+) -> tuple[AsyncSession, User]:
+    """
+    Get database session with School ADMIN RLS context AND the user object.
+
+    Use this when you need both the db session with proper RLS and access
+    to current_user (e.g., to get school_id for validation).
+
+    Returns:
+        Tuple of (db session with RLS context, current user)
+    """
+    await set_current_user_id(db, current_user.id)
+    await set_super_admin_flag(db, False)
+    if current_user.school_id is not None:
+        await set_current_tenant(db, current_user.school_id)
+    else:
+        await reset_tenant(db)
+    return db, current_user

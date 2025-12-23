@@ -9,10 +9,9 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
 from app.core.config import settings
 from app.models.user import User
-from app.api.dependencies import require_super_admin, require_admin, get_current_user
+from app.api.dependencies import get_db_for_super_admin, get_db_and_admin_user
 from app.repositories.paragraph_content_repo import ParagraphContentRepository
 from app.services.paragraph_content_service import ParagraphContentService
 from app.schemas.paragraph_content import (
@@ -107,8 +106,7 @@ async def _get_paragraph_or_404(
 async def get_global_paragraph_content(
     paragraph_id: int,
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db_for_super_admin),
 ):
     """
     Get rich content for a global paragraph.
@@ -131,8 +129,7 @@ async def update_global_paragraph_content(
     paragraph_id: int,
     data: ParagraphContentUpdate,
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db_for_super_admin),
 ):
     """
     Create or update explanation text for a global paragraph.
@@ -163,8 +160,7 @@ async def update_global_paragraph_cards(
     paragraph_id: int,
     data: ParagraphContentCardsUpdate,
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db_for_super_admin),
 ):
     """
     Update flashcards for a global paragraph.
@@ -186,8 +182,7 @@ async def upload_global_audio(
     paragraph_id: int,
     file: UploadFile = File(...),
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db_for_super_admin),
 ):
     """
     Upload audio file (MP3, OGG, WAV) for a global paragraph.
@@ -218,8 +213,7 @@ async def upload_global_slides(
     paragraph_id: int,
     file: UploadFile = File(...),
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db_for_super_admin),
 ):
     """
     Upload slides file (PDF, PPTX) for a global paragraph.
@@ -250,8 +244,7 @@ async def upload_global_video(
     paragraph_id: int,
     file: UploadFile = File(...),
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db_for_super_admin),
 ):
     """
     Upload video file (MP4, WEBM) for a global paragraph.
@@ -281,8 +274,7 @@ async def upload_global_video(
 async def delete_global_audio(
     paragraph_id: int,
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db_for_super_admin),
 ):
     """Delete audio file for a global paragraph."""
     await _get_paragraph_or_404(db, paragraph_id, require_global=True)
@@ -303,8 +295,7 @@ async def delete_global_audio(
 async def delete_global_slides(
     paragraph_id: int,
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db_for_super_admin),
 ):
     """Delete slides file for a global paragraph."""
     await _get_paragraph_or_404(db, paragraph_id, require_global=True)
@@ -325,8 +316,7 @@ async def delete_global_slides(
 async def delete_global_video(
     paragraph_id: int,
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db_for_super_admin),
 ):
     """Delete video file for a global paragraph."""
     await _get_paragraph_or_404(db, paragraph_id, require_global=True)
@@ -351,14 +341,14 @@ async def delete_global_video(
 async def get_school_paragraph_content(
     paragraph_id: int,
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    db_and_user: tuple[AsyncSession, User] = Depends(get_db_and_admin_user),
 ):
     """
     Get rich content for a school paragraph.
 
     Returns content for specified language, or None if not exists.
     """
+    db, current_user = db_and_user
     await _get_paragraph_or_404(db, paragraph_id, school_id=current_user.school_id)
 
     repo = ParagraphContentRepository(db)
@@ -375,12 +365,12 @@ async def update_school_paragraph_content(
     paragraph_id: int,
     data: ParagraphContentUpdate,
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    db_and_user: tuple[AsyncSession, User] = Depends(get_db_and_admin_user),
 ):
     """
     Create or update explanation text for a school paragraph.
     """
+    db, current_user = db_and_user
     paragraph = await _get_paragraph_or_404(db, paragraph_id, school_id=current_user.school_id)
 
     repo = ParagraphContentRepository(db)
@@ -407,12 +397,12 @@ async def update_school_paragraph_cards(
     paragraph_id: int,
     data: ParagraphContentCardsUpdate,
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    db_and_user: tuple[AsyncSession, User] = Depends(get_db_and_admin_user),
 ):
     """
     Update flashcards for a school paragraph.
     """
+    db, current_user = db_and_user
     await _get_paragraph_or_404(db, paragraph_id, school_id=current_user.school_id)
 
     repo = ParagraphContentRepository(db)
@@ -430,13 +420,13 @@ async def upload_school_audio(
     paragraph_id: int,
     file: UploadFile = File(...),
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    db_and_user: tuple[AsyncSession, User] = Depends(get_db_and_admin_user),
 ):
     """
     Upload audio file (MP3, OGG, WAV) for a school paragraph.
     Max size: 50 MB
     """
+    db, current_user = db_and_user
     await _get_paragraph_or_404(db, paragraph_id, school_id=current_user.school_id)
 
     repo = ParagraphContentRepository(db)
@@ -462,13 +452,13 @@ async def upload_school_slides(
     paragraph_id: int,
     file: UploadFile = File(...),
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    db_and_user: tuple[AsyncSession, User] = Depends(get_db_and_admin_user),
 ):
     """
     Upload slides file (PDF, PPTX) for a school paragraph.
     Max size: 50 MB
     """
+    db, current_user = db_and_user
     await _get_paragraph_or_404(db, paragraph_id, school_id=current_user.school_id)
 
     repo = ParagraphContentRepository(db)
@@ -494,13 +484,13 @@ async def upload_school_video(
     paragraph_id: int,
     file: UploadFile = File(...),
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    db_and_user: tuple[AsyncSession, User] = Depends(get_db_and_admin_user),
 ):
     """
     Upload video file (MP4, WEBM) for a school paragraph.
     Max size: 200 MB
     """
+    db, current_user = db_and_user
     await _get_paragraph_or_404(db, paragraph_id, school_id=current_user.school_id)
 
     repo = ParagraphContentRepository(db)
@@ -525,10 +515,10 @@ async def upload_school_video(
 async def delete_school_audio(
     paragraph_id: int,
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    db_and_user: tuple[AsyncSession, User] = Depends(get_db_and_admin_user),
 ):
     """Delete audio file for a school paragraph."""
+    db, current_user = db_and_user
     await _get_paragraph_or_404(db, paragraph_id, school_id=current_user.school_id)
 
     repo = ParagraphContentRepository(db)
@@ -547,10 +537,10 @@ async def delete_school_audio(
 async def delete_school_slides(
     paragraph_id: int,
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    db_and_user: tuple[AsyncSession, User] = Depends(get_db_and_admin_user),
 ):
     """Delete slides file for a school paragraph."""
+    db, current_user = db_and_user
     await _get_paragraph_or_404(db, paragraph_id, school_id=current_user.school_id)
 
     repo = ParagraphContentRepository(db)
@@ -569,10 +559,10 @@ async def delete_school_slides(
 async def delete_school_video(
     paragraph_id: int,
     language: Literal["ru", "kk"] = Query(default="ru", description="Content language"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    db_and_user: tuple[AsyncSession, User] = Depends(get_db_and_admin_user),
 ):
     """Delete video file for a school paragraph."""
+    db, current_user = db_and_user
     await _get_paragraph_or_404(db, paragraph_id, school_id=current_user.school_id)
 
     repo = ParagraphContentRepository(db)

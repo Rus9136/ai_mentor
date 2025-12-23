@@ -18,7 +18,10 @@ from app.schemas.goso import (
     FrameworkResponse,
     FrameworkListResponse,
     FrameworkWithSections,
+    FrameworkWithFullStructure,
     GosoSectionListResponse,
+    GosoSectionWithFullStructure,
+    GosoSubsectionWithOutcomes,
     LearningOutcomeListResponse,
     LearningOutcomeWithContext,
     ParagraphOutcomeWithDetails,
@@ -155,6 +158,83 @@ async def get_framework_structure(
     response_data["sections"] = [s.model_dump() for s in sections_list]
 
     return FrameworkWithSections(**response_data)
+
+
+@router.get("/frameworks/{framework_id}/sections", response_model=List[GosoSectionWithFullStructure])
+async def get_framework_sections(
+    framework_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get sections for a framework with full structure (subsections and outcomes).
+
+    Returns list of sections with nested subsections and learning outcomes.
+    Useful for displaying the full GOSO structure in admin panel.
+    Requires authentication (any role).
+    """
+    repo = GosoRepository(db)
+
+    # First check if framework exists
+    framework = await repo.get_framework_by_id(framework_id)
+    if not framework:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Framework with id {framework_id} not found"
+        )
+
+    # Get sections with full structure
+    sections = await repo.get_sections_by_framework(
+        framework_id,
+        load_full_structure=True
+    )
+
+    # Build response with nested structure
+    result = []
+    for section in sections:
+        section_data = {
+            "id": section.id,
+            "framework_id": section.framework_id,
+            "code": section.code,
+            "name_ru": section.name_ru,
+            "name_kz": section.name_kz,
+            "display_order": section.display_order,
+            "is_active": section.is_active,
+            "subsections": []
+        }
+
+        # Add subsections with outcomes
+        for subsection in sorted(section.subsections, key=lambda x: x.display_order):
+            subsection_data = {
+                "id": subsection.id,
+                "section_id": subsection.section_id,
+                "code": subsection.code,
+                "name_ru": subsection.name_ru,
+                "name_kz": subsection.name_kz,
+                "display_order": subsection.display_order,
+                "is_active": subsection.is_active,
+                "outcomes": []
+            }
+
+            # Add outcomes
+            for outcome in sorted(subsection.outcomes, key=lambda x: (x.grade, x.display_order)):
+                outcome_data = {
+                    "id": outcome.id,
+                    "framework_id": outcome.framework_id,
+                    "subsection_id": outcome.subsection_id,
+                    "grade": outcome.grade,
+                    "code": outcome.code,
+                    "title_ru": outcome.title_ru,
+                    "title_kz": outcome.title_kz,
+                    "is_active": outcome.is_active,
+                }
+                subsection_data["outcomes"].append(outcome_data)
+
+            section_data["subsections"].append(GosoSubsectionWithOutcomes(**subsection_data))
+
+        result.append(GosoSectionWithFullStructure(**section_data))
+
+    return result
 
 
 # ==================== Learning Outcomes ====================

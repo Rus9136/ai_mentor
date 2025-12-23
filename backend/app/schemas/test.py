@@ -13,6 +13,7 @@ class TestCreate(BaseModel):
 
     title: str = Field(..., min_length=1, max_length=255, description="Test title")
     description: Optional[str] = Field(None, description="Test description")
+    textbook_id: int = Field(..., description="Textbook ID (required)")
     chapter_id: Optional[int] = Field(None, description="Chapter ID (optional)")
     paragraph_id: Optional[int] = Field(None, description="Paragraph ID (optional)")
     test_purpose: TestPurpose = Field(default=TestPurpose.FORMATIVE, description="Test purpose (diagnostic, formative, summative, practice)")
@@ -27,6 +28,7 @@ class TestUpdate(BaseModel):
 
     title: Optional[str] = Field(None, min_length=1, max_length=255, description="Test title")
     description: Optional[str] = Field(None, description="Test description")
+    textbook_id: Optional[int] = Field(None, description="Textbook ID")
     chapter_id: Optional[int] = Field(None, description="Chapter ID")
     paragraph_id: Optional[int] = Field(None, description="Paragraph ID")
     test_purpose: Optional[TestPurpose] = Field(None, description="Test purpose")
@@ -43,6 +45,7 @@ class TestResponse(BaseModel):
 
     id: int
     school_id: Optional[int] = Field(None, description="School ID (None for global tests)")
+    textbook_id: Optional[int] = Field(None, description="Textbook ID")
     chapter_id: Optional[int]
     paragraph_id: Optional[int]
 
@@ -67,9 +70,31 @@ class TestListResponse(BaseModel):
 
     id: int
     school_id: Optional[int]
+    textbook_id: Optional[int]
     chapter_id: Optional[int]
     title: str
     test_purpose: TestPurpose
     difficulty: DifficultyLevel
     is_active: bool
     created_at: datetime
+
+
+# =============================================================================
+# Single Answer API (for chat-like quiz in paragraph)
+# =============================================================================
+
+class TestQuestionAnswerRequest(BaseModel):
+    """Request schema for answering a single question in test attempt."""
+
+    question_id: int = Field(..., description="Question ID to answer")
+    selected_option_ids: list[int] = Field(..., description="Selected option IDs")
+
+
+class TestAnswerResponse(BaseModel):
+    """Response schema for single question answer with immediate feedback."""
+
+    question_id: int = Field(..., description="Question ID that was answered")
+    is_correct: bool = Field(..., description="Whether the answer is correct")
+    correct_option_ids: list[int] = Field(..., description="IDs of correct options")
+    explanation: Optional[str] = Field(None, description="Explanation for the correct answer")
+    points_earned: float = Field(..., description="Points earned for this answer")

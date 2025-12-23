@@ -102,10 +102,23 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "gpt-4"
     EMBEDDING_MODEL: str = "text-embedding-3-small"
 
+    # Jina AI Embeddings (free tier: 1M tokens/month)
+    JINA_API_KEY: Optional[str] = None
+    JINA_EMBEDDING_MODEL: str = "jina-embeddings-v3"
+    EMBEDDING_PROVIDER: str = "jina"  # openai | jina
+    EMBEDDING_DIMENSIONS: int = 1024  # 1024 for Jina, can be 1536 for OpenAI
+
+    # OpenRouter / Cerebras (cost-effective LLM provider)
+    OPENROUTER_API_KEY: Optional[str] = None
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    LLM_PROVIDER: str = "openrouter"  # openai | openrouter
+    CEREBRAS_MODEL: str = "cerebras/llama-3.3-70b"  # ~$0.50/1M tokens
+
     # RAG
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 200
     TOP_K_RESULTS: int = 5
+    MIN_SIMILARITY: float = 0.5  # Minimum cosine similarity for vector search
 
     # Adaptive Learning
     MASTERY_THRESHOLD: float = 0.7

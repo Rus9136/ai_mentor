@@ -51,8 +51,8 @@ class ParagraphEmbedding(SoftDeleteModel):
     # Embedding info
     chunk_index = Column(Integer, nullable=False)  # Index of chunk in paragraph
     chunk_text = Column(Text, nullable=False)  # The chunked text
-    embedding = Column(Vector(1536), nullable=False)  # OpenAI embedding dimension
-    model = Column(String(100), nullable=False, default="text-embedding-3-small")
+    embedding = Column(Vector(1024), nullable=False)  # Configurable: 1024 for Jina, 1536 for OpenAI
+    model = Column(String(100), nullable=False, default="jina-embeddings-v3")
 
     # Relationships
     paragraph = relationship("Paragraph", back_populates="embeddings")

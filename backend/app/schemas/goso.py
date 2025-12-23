@@ -389,7 +389,7 @@ class ParagraphOutcomeListResponse(BaseModel):
 
 # ==================== Nested responses (for API convenience) ====================
 
-class GosoSubsectionWithOutcomes(GosoSubsectionResponse):
+class GosoSubsectionWithOutcomes(GosoSubsectionListResponse):
     """Subsection with nested learning outcomes."""
 
     outcomes: List[LearningOutcomeListResponse] = []
@@ -401,10 +401,22 @@ class GosoSectionWithSubsections(GosoSectionResponse):
     subsections: List[GosoSubsectionListResponse] = []
 
 
+class GosoSectionWithFullStructure(GosoSectionListResponse):
+    """Section with nested subsections and outcomes (full structure)."""
+
+    subsections: List[GosoSubsectionWithOutcomes] = []
+
+
 class FrameworkWithSections(FrameworkResponse):
     """Framework with nested sections."""
 
     sections: List[GosoSectionListResponse] = []
+
+
+class FrameworkWithFullStructure(FrameworkResponse):
+    """Framework with full nested structure (sections -> subsections -> outcomes)."""
+
+    sections: List[GosoSectionWithFullStructure] = []
 
 
 class LearningOutcomeWithContext(LearningOutcomeResponse):

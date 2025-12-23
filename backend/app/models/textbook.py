@@ -37,6 +37,7 @@ class Textbook(SoftDeleteModel):
     # Relationships
     school = relationship("School", back_populates="textbooks")
     chapters = relationship("Chapter", back_populates="textbook", cascade="all, delete-orphan", order_by="Chapter.order")
+    tests = relationship("Test", back_populates="textbook", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Textbook(id={self.id}, title='{self.title}', subject='{self.subject}', grade={self.grade_level})>"
