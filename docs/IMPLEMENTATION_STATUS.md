@@ -1,6 +1,6 @@
 # Статус реализации AI Mentor
 
-**Прогресс:** 69% (9/13 итераций) | **Последнее обновление:** 2025-12-18
+**Прогресс:** 77% (10/13 итераций) | **Последнее обновление:** 2025-12-19
 
 ## Обзор проекта
 
@@ -151,19 +151,50 @@ subjects → frameworks → goso_sections → goso_subsections → learning_outc
 
 **План:** `docs/STUDENT_INTERFACE_PLAN.md`
 
+### Итерация 10: RAG Service — персонализированные пояснения (2025-12-19)
+**Retrieval-Augmented Generation для объяснения учебного материала**
+
+**Архитектура:**
+- **Embeddings:** Jina AI (jina-embeddings-v3, 1024 dims) — бесплатно 1M токенов/мес
+- **Vector DB:** pgvector с IVFFlat индексом
+- **LLM:** Cerebras (llama-3.3-70b) — direct API, fastest inference
+
+**Персонализация A/B/C:**
+- **Level A:** Краткий, продвинутый стиль для сильных учеников (≥85%)
+- **Level B:** Сбалансированный с примерами (60-84%)
+- **Level C:** Простой, пошаговый для учеников, требующих поддержки (<60%)
+
+**API Endpoints (5):**
+| Endpoint | Роль | Описание |
+|----------|------|----------|
+| `POST /rag/explain` | STUDENT | Объяснить вопрос/концепцию |
+| `POST /rag/paragraphs/{id}/explain` | STUDENT | Объяснить параграф |
+| `POST /rag/admin/global/paragraphs/{id}/embeddings` | SUPER_ADMIN | Генерация embeddings |
+| `GET /rag/admin/global/paragraphs/{id}/embeddings` | SUPER_ADMIN | Статус embeddings |
+| `POST /rag/admin/global/textbooks/{id}/embeddings` | SUPER_ADMIN | Batch для учебника |
+
+**Файловая структура:**
+```
+backend/app/
+├── api/v1/rag.py              # API endpoints
+├── services/
+│   ├── rag_service.py         # RAG orchestration
+│   ├── embedding_service.py   # Jina/OpenAI embeddings
+│   └── llm_service.py         # Cerebras/OpenRouter LLM
+├── repositories/
+│   └── embedding_repo.py      # Vector search
+└── schemas/rag.py             # Pydantic models
+```
+
+**Стоимость:** $0 (бесплатные тиры Jina + Cerebras)
+
+**Документация:** `docs/RAG_SERVICE.md`
+
 ---
 
 ## Следующие итерации
 
 ---
-
-### ⏳ Итерация 10: RAG Service — интеллектуальные пояснения
-**Задачи:**
-- [ ] LangChain + OpenAI integration
-- [ ] Embeddings для параграфов (text-embedding-3-small, 1536 dims)
-- [ ] Векторный поиск через pgvector
-- [ ] `POST /questions/{id}/explanation` — персонализированные пояснения
-- [ ] Адаптация под уровень mastery (A/B/C)
 
 ### ⏳ Итерация 11: Teacher Dashboard API
 **Задачи:**
@@ -194,9 +225,9 @@ subjects → frameworks → goso_sections → goso_subsections → learning_outc
 
 | Метрика | Значение |
 |---------|----------|
-| Завершено итераций | 9/13 (69%) |
+| Завершено итераций | 10/13 (77%) |
 | Таблиц в БД | 37+ |
-| Миграций | 18+ |
+| Миграций | 19+ |
 | API endpoints | 115+ |
 | Backend тестов | 51+ |
 | Frontend тестов | 117 (42 unit + 75 E2E) |

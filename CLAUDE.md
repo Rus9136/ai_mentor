@@ -6,11 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AI Mentor - адаптивная образовательная платформа для школьников (7-11 классы) с автоматической группировкой учеников по уровню мастерства (A/B/C). Multi-tenant SaaS решение с гибридной моделью контента.
 
-**Текущий статус:** Backend API + Admin Panel v2 в production. ГОСО интеграция завершена. Rich Content параграфов реализован.
+**Текущий статус:** Backend API + Admin Panel v2 в production. ГОСО интеграция завершена. Rich Content параграфов реализован. RAG Service (Jina + Cerebras) запущен. Chat Service с A/B/C персонализацией реализован.
 
 **Важные документы:**
-- `docs/IMPLEMENTATION_STATUS.md` - план из 12 итераций с текущим прогрессом
+- `docs/IMPLEMENTATION_STATUS.md` - план из 13 итераций с текущим прогрессом
 - `docs/ARCHITECTURE.md` - полное техническое задание
+- `docs/RAG_SERVICE.md` - документация RAG сервиса (Jina + Cerebras + pgvector)
+- `docs/CHAT_SERVICE.md` - документация Chat API (multi-turn чат с RAG)
 - `admin-v2/ARCHITECTURE.md` - документация новой админ панели (Next.js)
 - `docs/database_schema.md` - документация схемы БД
 - `docs/migrations_quick_guide.md` - инструкции по работе с миграциями
@@ -510,6 +512,211 @@ settings = Settings()
 - Тесты дублируют setup → создай fixtures в conftest.py
 
 **Принцип:** Start simple, refactor when needed.
+
+## Code Architecture Standards (ОБЯЗАТЕЛЬНО для AI-агентов)
+
+### Лимиты размера файлов
+
+| Тип файла | Максимум строк | Действие при превышении |
+|-----------|----------------|-------------------------|
+| API endpoint файл | **400 строк** | Разбить на субмодули по доменам |
+| Service класс | **300 строк** | Выделить отдельные services |
+| Repository | **250 строк** | OK, но следи за SRP |
+| Pydantic schemas | **200 строк** | Разбить по сущностям |
+
+**КРИТИЧНО:** Если файл превышает лимит — ОБЯЗАТЕЛЬНО разбей его перед добавлением нового кода.
+
+### Структура API модулей
+
+**Плохо — всё в одном файле:**
+```
+api/v1/students.py  # 2500+ строк, 20+ endpoints
+```
+
+**Хорошо — разбивка по доменам:**
+```
+api/v1/students/
+├── __init__.py           # router = APIRouter(); router.include_router(...)
+├── tests.py              # Test-taking: start, submit, answer (~400 строк)
+├── content.py            # Textbooks, chapters, paragraphs (~400 строк)
+├── learning.py           # Progress, steps, self-assessment (~300 строк)
+├── mastery.py            # Mastery endpoints (~200 строк)
+└── stats.py              # Dashboard stats (~100 строк)
+```
+
+**Правило:** Если в файле > 5-6 endpoints разных доменов → разбивай.
+
+### Layered Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    API Layer (Thin)                      │
+│  - Валидация входных данных (Pydantic)                  │
+│  - Авторизация (dependencies)                           │
+│  - Вызов Service/Repository                             │
+│  - Формирование response                                │
+│  - НЕ содержит бизнес-логику                            │
+└─────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│                   Service Layer                          │
+│  - Бизнес-логика (расчёты, валидации, orchestration)    │
+│  - Транзакции spanning multiple repositories            │
+│  - Сложные алгоритмы (streak, mastery, grading)         │
+│  - Интеграции с внешними сервисами                      │
+└─────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│                  Repository Layer                        │
+│  - CRUD операции                                         │
+│  - Сложные SQL запросы                                  │
+│  - Кэширование (если нужно)                             │
+│  - НЕ содержит бизнес-логику                            │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Когда создавать Service
+
+**Создавай Service если:**
+1. Логика используется в 2+ endpoints
+2. Алгоритм > 20 строк (streak, mastery calculation, grading)
+3. Операция затрагивает 2+ repositories
+4. Нужна транзакция с rollback при ошибке
+5. Интеграция с внешним сервисом (email, LLM, storage)
+
+**НЕ создавай Service для:**
+- Простой CRUD (достаточно Repository)
+- Одноразовой логики < 10 строк
+
+**Пример — когда нужен Service:**
+```python
+# BAD: бизнес-логика в endpoint (60+ строк)
+@router.get("/stats")
+async def get_stats(db: AsyncSession = Depends(get_db)):
+    # ... 50 строк расчёта streak, time_spent, etc.
+    return stats
+
+# GOOD: endpoint вызывает service
+@router.get("/stats")
+async def get_stats(
+    student_id: int = Depends(get_student_id),
+    stats_service: StudentStatsService = Depends()
+):
+    return await stats_service.get_dashboard_stats(student_id)
+```
+
+### Reusable Dependencies
+
+**Создавай dependency для повторяющихся проверок:**
+
+```python
+# backend/app/api/dependencies.py
+
+async def get_student_from_user(
+    current_user: User = Depends(require_student),
+    db: AsyncSession = Depends(get_db)
+) -> Student:
+    """Получить Student из User (избегает lazy loading)"""
+    result = await db.execute(
+        select(Student).where(Student.user_id == current_user.id)
+    )
+    student = result.scalar_one_or_none()
+    if not student:
+        raise HTTPException(400, "Student record not found")
+    return student
+
+async def get_paragraph_with_access(
+    paragraph_id: int,
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> Paragraph:
+    """Получить параграф с проверкой доступа к учебнику"""
+    para = await db.execute(
+        select(Paragraph)
+        .options(selectinload(Paragraph.chapter).selectinload(Chapter.textbook))
+        .where(Paragraph.id == paragraph_id, Paragraph.is_deleted == False)
+    )
+    paragraph = para.scalar_one_or_none()
+    if not paragraph:
+        raise HTTPException(404, f"Paragraph {paragraph_id} not found")
+    if paragraph.chapter.textbook.school_id not in (None, school_id):
+        raise HTTPException(403, "Access denied")
+    return paragraph
+```
+
+**Использование в endpoint:**
+```python
+@router.get("/paragraphs/{paragraph_id}/content")
+async def get_content(
+    paragraph: Paragraph = Depends(get_paragraph_with_access),  # Проверка уже сделана!
+    student: Student = Depends(get_student_from_user)
+):
+    # Код endpoint'а чистый и короткий
+    ...
+```
+
+### Anti-patterns (ЗАПРЕЩЕНО)
+
+**1. God Files — файлы > 500 строк с разными доменами**
+```python
+# ЗАПРЕЩЕНО: students.py с 2600 строк
+# tests + content + progress + mastery + embedded questions + stats
+```
+
+**2. Дублирование проверок доступа**
+```python
+# ЗАПРЕЩЕНО: копипаста в каждом endpoint
+para_result = await db.execute(select(Paragraph).options(...).where(...))
+paragraph = para_result.scalar_one_or_none()
+if not paragraph:
+    raise HTTPException(404, ...)
+textbook = paragraph.chapter.textbook
+if textbook.school_id is not None and textbook.school_id != school_id:
+    raise HTTPException(403, ...)
+# Эти 10 строк повторяются 15 раз!
+```
+
+**3. Бизнес-логика в endpoints**
+```python
+# ЗАПРЕЩЕНО: расчёт streak прямо в endpoint
+@router.get("/stats")
+async def get_stats(...):
+    # 50 строк SQL запросов и циклов для расчёта streak
+    daily_time_query = select(...)
+    result = await db.execute(daily_time_query)
+    for row in result:
+        if row.activity_date == expected_date:
+            streak += 1
+    # ... ещё 30 строк
+```
+
+**4. N+1 запросы в циклах**
+```python
+# ЗАПРЕЩЕНО: запрос в каждой итерации цикла
+for textbook in textbooks:
+    chapters_result = await db.execute(
+        select(func.count(Chapter.id)).where(Chapter.textbook_id == textbook.id)
+    )
+    # Это N+1 problem!
+```
+
+### Checklist перед PR (для AI-агентов)
+
+Перед созданием PR проверь:
+
+- [ ] **Файл < 400 строк** — если больше, разбей на модули
+- [ ] **Нет дублирования** — повторяющийся код вынесен в dependency/service
+- [ ] **Бизнес-логика в Service** — endpoints только orchestration
+- [ ] **Нет N+1 запросов** — используй JOIN или batch queries
+- [ ] **school_id изоляция** — все endpoints проверяют доступ
+- [ ] **Response schemas** — все endpoints имеют response_model
+
+### Документация по рефакторингу
+
+Подробный план рефакторинга существующего кода:
+- `docs/REFACTORING_SERVICES.md` — вынесение бизнес-логики в Services
 
 ## Migration Strategy
 
