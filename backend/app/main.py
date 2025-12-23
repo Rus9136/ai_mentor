@@ -93,7 +93,7 @@ app.mount(f"/{settings.UPLOAD_DIR}", StaticFiles(directory=str(upload_dir_path))
 
 # Include routers
 from app.api.v1 import auth, auth_oauth, admin_global, admin_school, schools, upload, students, goso
-from app.api.v1 import paragraph_contents, invitation_codes, rag, chat
+from app.api.v1 import paragraph_contents, invitation_codes, rag, chat, teachers
 
 app.include_router(
     auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"]
@@ -165,4 +165,10 @@ app.include_router(
     chat.router,
     prefix=f"{settings.API_V1_PREFIX}/chat",
     tags=["Chat - RAG Conversations"],
+)
+
+app.include_router(
+    teachers.router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Teachers - Dashboard & Analytics"],
 )
