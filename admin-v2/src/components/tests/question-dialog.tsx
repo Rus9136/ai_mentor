@@ -104,8 +104,8 @@ export function QuestionDialog({
   useEffect(() => {
     if (questionType === 'true_false' && !isEdit) {
       form.setValue('options', [
-        { sort_order: 0, option_text: 'Верно', is_correct: true },
-        { sort_order: 1, option_text: 'Неверно', is_correct: false },
+        { sort_order: 1, option_text: 'Верно', is_correct: true },
+        { sort_order: 2, option_text: 'Неверно', is_correct: false },
       ]);
     }
   }, [questionType, form, isEdit]);
@@ -116,7 +116,7 @@ export function QuestionDialog({
 
   const addOption = () => {
     append({
-      sort_order: fields.length,
+      sort_order: fields.length + 1, // Backend expects sort_order >= 1
       option_text: '',
       is_correct: false,
     });

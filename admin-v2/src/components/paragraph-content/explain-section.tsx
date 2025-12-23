@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FileText, Save, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from './status-badge';
 import type { ParagraphContent } from '@/types';
@@ -32,10 +32,10 @@ export function ExplainSection({
     setIsDirty(false);
   }, [content?.explain_text, paragraphId, language]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setText(e.target.value);
-    setIsDirty(e.target.value !== (content?.explain_text || ''));
-  };
+  const handleChange = useCallback((newValue: string) => {
+    setText(newValue);
+    setIsDirty(newValue !== (content?.explain_text || ''));
+  }, [content?.explain_text]);
 
   const handleSave = () => {
     onSave(text);
@@ -52,11 +52,11 @@ export function ExplainSection({
         <StatusBadge status={content?.status_explain || 'empty'} />
       </CardHeader>
       <CardContent className="space-y-4">
-        <Textarea
+        <RichTextEditor
           value={text}
           onChange={handleChange}
           placeholder="Введите переработанный текст параграфа простыми словами для школьника..."
-          className="min-h-[200px] resize-y"
+          disabled={isLoading}
         />
         <div className="flex justify-end">
           <Button onClick={handleSave} disabled={!isDirty || isLoading}>

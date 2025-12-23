@@ -105,6 +105,42 @@ export function getColumns({
       },
     },
     {
+      accessorKey: 'textbook_id',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Учебник" />
+      ),
+      cell: ({ row }) => {
+        const textbookId = row.getValue('textbook_id') as number | null;
+        return textbookId ? (
+          <Badge variant="outline">ID: {textbookId}</Badge>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        );
+      },
+      filterFn: (row, id, value) => {
+        if (!value) return true;
+        return row.getValue(id) === value;
+      },
+    },
+    {
+      accessorKey: 'chapter_id',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Глава" />
+      ),
+      cell: ({ row }) => {
+        const chapterId = row.getValue('chapter_id') as number | null;
+        return chapterId ? (
+          <Badge variant="outline">ID: {chapterId}</Badge>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        );
+      },
+      filterFn: (row, id, value) => {
+        if (!value) return true;
+        return row.getValue(id) === value;
+      },
+    },
+    {
       accessorKey: 'test_purpose',
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Назначение" />

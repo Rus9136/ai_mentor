@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
@@ -29,12 +30,14 @@ import {
   testCreateDefaults,
   type TestCreateInput,
 } from '@/lib/validations/test';
+import { useTextbooks, useChapters, useParagraphs } from '@/lib/hooks/use-textbooks';
 import type { Test } from '@/types';
 
 interface TestFormProps {
   test?: Test;
   onSubmit: (data: TestCreateInput) => void;
   isLoading?: boolean;
+  isSchool?: boolean;
 }
 
 const TEST_PURPOSES = [
@@ -50,7 +53,7 @@ const DIFFICULTIES = [
   { value: 'hard', label: 'Сложный' },
 ] as const;
 
-export function TestForm({ test, onSubmit, isLoading }: TestFormProps) {
+export function TestForm({ test, onSubmit, isLoading, isSchool = false }: TestFormProps) {
   const t = useTranslations('tests');
   const tCommon = useTranslations('common');
 
@@ -60,6 +63,7 @@ export function TestForm({ test, onSubmit, isLoading }: TestFormProps) {
       ? {
           title: test.title,
           description: test.description || '',
+          textbook_id: test.textbook_id || 0,
           chapter_id: test.chapter_id || undefined,
           paragraph_id: test.paragraph_id || undefined,
           test_purpose: test.test_purpose,
@@ -70,6 +74,56 @@ export function TestForm({ test, onSubmit, isLoading }: TestFormProps) {
         }
       : testCreateDefaults,
   });
+
+  // Watch values for cascading selects
+  const selectedTextbookId = form.watch('textbook_id');
+  const selectedChapterId = form.watch('chapter_id');
+
+  // Fetch textbooks
+  const { data: textbooks = [], isLoading: textbooksLoading } = useTextbooks(isSchool);
+
+  // Fetch chapters when textbook is selected
+  const { data: chapters = [], isLoading: chaptersLoading } = useChapters(
+    selectedTextbookId,
+    isSchool,
+    selectedTextbookId > 0
+  );
+
+  // Fetch paragraphs when chapter is selected
+  const { data: paragraphs = [], isLoading: paragraphsLoading } = useParagraphs(
+    selectedChapterId || 0,
+    isSchool,
+    !!selectedChapterId && selectedChapterId > 0
+  );
+
+  // Reset chapter and paragraph when textbook changes (only on create)
+  useEffect(() => {
+    if (!test && selectedTextbookId > 0) {
+      const currentChapterId = form.getValues('chapter_id');
+      // Only reset if current chapter doesn't belong to this textbook
+      if (currentChapterId) {
+        const chapterBelongsToTextbook = chapters.some(c => c.id === currentChapterId);
+        if (!chapterBelongsToTextbook && chapters.length > 0) {
+          form.setValue('chapter_id', undefined);
+          form.setValue('paragraph_id', undefined);
+        }
+      }
+    }
+  }, [selectedTextbookId, chapters, form, test]);
+
+  // Reset paragraph when chapter changes (only on create)
+  useEffect(() => {
+    if (!test && selectedChapterId) {
+      const currentParagraphId = form.getValues('paragraph_id');
+      // Only reset if current paragraph doesn't belong to this chapter
+      if (currentParagraphId) {
+        const paragraphBelongsToChapter = paragraphs.some(p => p.id === currentParagraphId);
+        if (!paragraphBelongsToChapter && paragraphs.length > 0) {
+          form.setValue('paragraph_id', undefined);
+        }
+      }
+    }
+  }, [selectedChapterId, paragraphs, form, test]);
 
   return (
     <Form {...form}>
@@ -105,6 +159,120 @@ export function TestForm({ test, onSubmit, isLoading }: TestFormProps) {
             </FormItem>
           )}
         />
+
+        {/* Cascading Textbook/Chapter/Paragraph Selects */}
+        <div className="space-y-4 rounded-lg border p-4">
+          <h3 className="font-medium">Привязка к контенту</h3>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {/* Textbook Select - Required */}
+            <FormField
+              control={form.control}
+              name="textbook_id"
+              render={({ field }) => (
+                <FormItem className="min-w-0">
+                  <FormLabel>Учебник *</FormLabel>
+                  <Select
+                    onValueChange={(value) => field.onChange(parseInt(value))}
+                    value={field.value ? String(field.value) : undefined}
+                    disabled={textbooksLoading}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full h-auto min-h-9 whitespace-normal text-left [&>span]:line-clamp-2">
+                        <SelectValue placeholder={textbooksLoading ? 'Загрузка...' : 'Выберите учебник'} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {textbooks.map((textbook) => (
+                        <SelectItem key={textbook.id} value={String(textbook.id)}>
+                          {textbook.title} ({textbook.grade_level} класс)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>Обязательное поле</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Chapter Select - Optional */}
+            <FormField
+              control={form.control}
+              name="chapter_id"
+              render={({ field }) => (
+                <FormItem className="min-w-0">
+                  <FormLabel>Глава</FormLabel>
+                  <Select
+                    onValueChange={(value) => field.onChange(value === 'none' ? undefined : parseInt(value))}
+                    value={field.value ? String(field.value) : 'none'}
+                    disabled={!selectedTextbookId || selectedTextbookId === 0 || chaptersLoading}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full h-auto min-h-9 whitespace-normal text-left [&>span]:line-clamp-2">
+                        <SelectValue placeholder={
+                          !selectedTextbookId || selectedTextbookId === 0
+                            ? 'Сначала выберите учебник'
+                            : chaptersLoading
+                              ? 'Загрузка...'
+                              : 'Выберите главу'
+                        } />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Без привязки к главе</SelectItem>
+                      {chapters.map((chapter) => (
+                        <SelectItem key={chapter.id} value={String(chapter.id)}>
+                          {chapter.number}. {chapter.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>Опционально</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Paragraph Select - Optional */}
+            <FormField
+              control={form.control}
+              name="paragraph_id"
+              render={({ field }) => (
+                <FormItem className="min-w-0">
+                  <FormLabel>Параграф</FormLabel>
+                  <Select
+                    onValueChange={(value) => field.onChange(value === 'none' ? undefined : parseInt(value))}
+                    value={field.value ? String(field.value) : 'none'}
+                    disabled={!selectedChapterId || paragraphsLoading}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full h-auto min-h-9 whitespace-normal text-left [&>span]:line-clamp-2">
+                        <SelectValue placeholder={
+                          !selectedChapterId
+                            ? 'Сначала выберите главу'
+                            : paragraphsLoading
+                              ? 'Загрузка...'
+                              : 'Выберите параграф'
+                        } />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Без привязки к параграфу</SelectItem>
+                      {paragraphs.map((paragraph) => (
+                        <SelectItem key={paragraph.id} value={String(paragraph.id)}>
+                          {paragraph.number}. {paragraph.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>Опционально</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
 
         <div className="grid gap-6 md:grid-cols-2">
           <FormField

@@ -8,8 +8,9 @@ export const testCreateSchema = z.object({
     .min(1, 'Название обязательно')
     .max(255, 'Максимум 255 символов'),
   description: z.string().optional().or(z.literal('')),
-  chapter_id: z.number().int().positive().optional(),
-  paragraph_id: z.number().int().positive().optional(),
+  textbook_id: z.number().int().positive('Выберите учебник'),
+  chapter_id: z.number().int().positive().optional().nullable(),
+  paragraph_id: z.number().int().positive().optional().nullable(),
   test_purpose: z.enum(['diagnostic', 'formative', 'summative', 'practice'], {
     required_error: 'Выберите назначение теста',
   }),
@@ -33,6 +34,9 @@ export type TestUpdateInput = z.infer<typeof testUpdateSchema>;
 export const testCreateDefaults: TestCreateInput = {
   title: '',
   description: '',
+  textbook_id: 0,
+  chapter_id: undefined,
+  paragraph_id: undefined,
   test_purpose: 'practice',
   difficulty: 'medium',
   time_limit: 30,
@@ -43,13 +47,13 @@ export const testCreateDefaults: TestCreateInput = {
 // ==================== Question ====================
 
 export const questionOptionSchema = z.object({
-  sort_order: z.number().int().min(0),
+  sort_order: z.number().int().min(1),
   option_text: z.string().min(1, 'Текст варианта обязателен'),
   is_correct: z.boolean(),
 });
 
 export const questionCreateSchema = z.object({
-  sort_order: z.number().int().min(0),
+  sort_order: z.number().int().min(1),
   question_type: z.enum(['single_choice', 'multiple_choice', 'true_false', 'short_answer'], {
     required_error: 'Выберите тип вопроса',
   }),
@@ -69,15 +73,15 @@ export type QuestionCreateInput = z.infer<typeof questionCreateSchema>;
 export type QuestionUpdateInput = z.infer<typeof questionUpdateSchema>;
 
 export const questionCreateDefaults = (nextOrder: number): QuestionCreateInput => ({
-  sort_order: nextOrder,
+  sort_order: nextOrder + 1, // Backend expects sort_order >= 1
   question_type: 'single_choice',
   question_text: '',
   explanation: '',
   points: 1,
   options: [
-    { sort_order: 0, option_text: '', is_correct: true },
-    { sort_order: 1, option_text: '', is_correct: false },
+    { sort_order: 1, option_text: '', is_correct: true },
     { sort_order: 2, option_text: '', is_correct: false },
     { sort_order: 3, option_text: '', is_correct: false },
+    { sort_order: 4, option_text: '', is_correct: false },
   ],
 });

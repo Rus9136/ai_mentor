@@ -235,7 +235,6 @@ export default function FrameworkShowPage() {
                                   <div className="ml-4 mt-2 space-y-1">
                                     {subsection.outcomes
                                       .sort((a, b) => a.display_order - b.display_order)
-                                      .slice(0, 5)
                                       .map((outcome) => (
                                         <div
                                           key={outcome.id}
@@ -252,20 +251,6 @@ export default function FrameworkShowPage() {
                                           </span>
                                         </div>
                                       ))}
-                                    {(subsection.outcomes?.length || 0) > 5 && (
-                                      <Button
-                                        variant="link"
-                                        size="sm"
-                                        className="text-xs p-0 h-auto"
-                                        onClick={() =>
-                                          router.push(
-                                            `/${locale}/goso/outcomes?subsection_id=${subsection.id}`
-                                          )
-                                        }
-                                      >
-                                        ... еще {(subsection.outcomes?.length || 0) - 5} целей
-                                      </Button>
-                                    )}
                                   </div>
                                 )}
                               </div>

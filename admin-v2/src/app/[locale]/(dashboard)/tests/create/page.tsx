@@ -50,7 +50,7 @@ export default function CreateTestPage() {
             <CardTitle>Информация о тесте</CardTitle>
           </CardHeader>
           <CardContent>
-            <TestForm onSubmit={handleSubmit} isLoading={createTest.isPending} />
+            <TestForm onSubmit={handleSubmit} isLoading={createTest.isPending} isSchool={false} />
           </CardContent>
         </Card>
       </div>

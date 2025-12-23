@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Plus } from 'lucide-react';
@@ -19,6 +19,14 @@ import {
 import { DataTable } from '@/components/data-table';
 import { RoleGuard } from '@/components/auth';
 import { useTests, useDeleteTest } from '@/lib/hooks/use-tests';
+import { useTextbooks, useChapters } from '@/lib/hooks/use-textbooks';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { Test } from '@/types';
 import { getColumns } from './columns';
 
@@ -32,6 +40,36 @@ export default function TestsPage() {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [testToDelete, setTestToDelete] = useState<Test | null>(null);
+
+  // Состояние фильтров по учебнику/главе
+  const [selectedTextbookId, setSelectedTextbookId] = useState<number | null>(null);
+  const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
+
+  // Загрузка данных для фильтров
+  const { data: textbooks = [] } = useTextbooks(false);
+  const { data: chapters = [] } = useChapters(
+    selectedTextbookId || 0,
+    false,
+    !!selectedTextbookId
+  );
+
+  // Каскадный сброс главы при смене учебника
+  useEffect(() => {
+    setSelectedChapterId(null);
+  }, [selectedTextbookId]);
+
+  // Фильтруем тесты по учебнику и главе
+  const filteredTests = useMemo(() => {
+    return tests.filter((test) => {
+      if (selectedTextbookId !== null && test.textbook_id !== selectedTextbookId) {
+        return false;
+      }
+      if (selectedChapterId !== null && test.chapter_id !== selectedChapterId) {
+        return false;
+      }
+      return true;
+    });
+  }, [tests, selectedTextbookId, selectedChapterId]);
 
   const handleView = (test: Test) => {
     router.push(`/${locale}/tests/${test.id}`);
@@ -100,6 +138,49 @@ export default function TestsPage() {
     },
   ];
 
+  const textbookChapterToolbar = (
+    <div className="flex items-center gap-2">
+      <Select
+        value={selectedTextbookId ? String(selectedTextbookId) : 'all'}
+        onValueChange={(value) => {
+          setSelectedTextbookId(value === 'all' ? null : parseInt(value));
+        }}
+      >
+        <SelectTrigger className="h-8 w-[200px]">
+          <SelectValue placeholder="Все учебники" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Все учебники</SelectItem>
+          {textbooks.map((textbook) => (
+            <SelectItem key={textbook.id} value={String(textbook.id)}>
+              {textbook.title}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={selectedChapterId ? String(selectedChapterId) : 'all'}
+        onValueChange={(value) => {
+          setSelectedChapterId(value === 'all' ? null : parseInt(value));
+        }}
+        disabled={!selectedTextbookId}
+      >
+        <SelectTrigger className="h-8 w-[200px]">
+          <SelectValue placeholder={!selectedTextbookId ? 'Выберите учебник' : 'Все главы'} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Все главы</SelectItem>
+          {chapters.map((chapter) => (
+            <SelectItem key={chapter.id} value={String(chapter.id)}>
+              {chapter.number}. {chapter.title}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
   return (
     <RoleGuard allowedRoles={['super_admin']}>
       <div className="space-y-6">
@@ -118,11 +199,13 @@ export default function TestsPage() {
 
         <DataTable
           columns={columns}
-          data={tests}
+          data={filteredTests}
           isLoading={isLoading}
           searchKey="title"
           searchPlaceholder="Поиск по названию..."
           filterableColumns={filterableColumns}
+          toolbar={textbookChapterToolbar}
+          onRowClick={handleView}
         />
 
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

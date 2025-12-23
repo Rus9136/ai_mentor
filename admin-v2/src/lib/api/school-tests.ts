@@ -1,25 +1,37 @@
 import { apiClient } from './client';
 import type { Test, TestCreate, TestUpdate, Question, QuestionCreate, QuestionUpdate, QuestionOption, QuestionOptionCreate, QuestionOptionUpdate } from '@/types';
 
+// Transform passing_score: frontend uses 0-100, backend uses 0.0-1.0
+const transformTestForApi = <T extends { passing_score?: number }>(data: T): T => {
+  if (data.passing_score !== undefined) {
+    return { ...data, passing_score: data.passing_score / 100 };
+  }
+  return data;
+};
+
+const transformTestFromApi = <T extends { passing_score: number }>(test: T): T => {
+  return { ...test, passing_score: Math.round(test.passing_score * 100) };
+};
+
 export const schoolTestsApi = {
   getList: async (): Promise<Test[]> => {
     const { data } = await apiClient.get<Test[]>('/admin/school/tests');
-    return data;
+    return data.map(transformTestFromApi);
   },
 
   getOne: async (id: number): Promise<Test> => {
     const { data } = await apiClient.get<Test>(`/admin/school/tests/${id}`);
-    return data;
+    return transformTestFromApi(data);
   },
 
   create: async (payload: TestCreate): Promise<Test> => {
-    const { data } = await apiClient.post<Test>('/admin/school/tests', payload);
-    return data;
+    const { data } = await apiClient.post<Test>('/admin/school/tests', transformTestForApi(payload));
+    return transformTestFromApi(data);
   },
 
   update: async (id: number, payload: TestUpdate): Promise<Test> => {
-    const { data } = await apiClient.put<Test>(`/admin/school/tests/${id}`, payload);
-    return data;
+    const { data } = await apiClient.put<Test>(`/admin/school/tests/${id}`, transformTestForApi(payload));
+    return transformTestFromApi(data);
   },
 
   delete: async (id: number): Promise<void> => {

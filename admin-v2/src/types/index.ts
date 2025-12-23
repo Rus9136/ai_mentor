@@ -156,6 +156,7 @@ export type TestPurpose = 'diagnostic' | 'formative' | 'summative' | 'practice';
 export interface Test {
   id: number;
   school_id: number | null;
+  textbook_id?: number | null;
   chapter_id?: number | null;
   paragraph_id?: number | null;
   title: string;
@@ -174,8 +175,9 @@ export interface Test {
 export interface TestCreate {
   title: string;
   description?: string;
-  chapter_id?: number;
-  paragraph_id?: number;
+  textbook_id: number;
+  chapter_id?: number | null;
+  paragraph_id?: number | null;
   test_purpose: TestPurpose;
   difficulty: DifficultyLevel;
   time_limit?: number;

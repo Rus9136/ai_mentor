@@ -88,6 +88,7 @@ export default function EditTestPage() {
               test={test}
               onSubmit={handleSubmit}
               isLoading={updateTest.isPending}
+              isSchool={false}
             />
           </CardContent>
         </Card>
