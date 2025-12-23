@@ -320,6 +320,7 @@ ai_mentor/
 ├── backend/              # FastAPI API
 ├── admin-v2/             # Admin Panel (Next.js) — ACTIVE
 ├── student-app/          # Student App (Next.js) — ACTIVE
+├── teacher-app/          # Teacher Dashboard (Next.js) — ACTIVE
 └── frontend/             # Старый React Admin — DEPRECATED
 ```
 
@@ -329,6 +330,7 @@ ai_mentor/
 |------------|-----|------|------|
 | **Admin Panel** | admin.ai-mentor.kz | SUPER_ADMIN, School ADMIN | Next.js 15, shadcn/ui |
 | **Student App** | ai-mentor.kz | STUDENT | Next.js 15, shadcn/ui |
+| **Teacher App** | teacher.ai-mentor.kz | TEACHER | Next.js 15, Tailwind, TanStack Query |
 | **Backend API** | api.ai-mentor.kz | Все роли | FastAPI, PostgreSQL |
 
 ### 11.3 Admin Panel (`admin-v2/`)
@@ -415,6 +417,43 @@ backend/app/
 └── middleware/            # RLS, tenancy
 ```
 
+### 11.6 Teacher App (`teacher-app/`)
+
+**Назначение:** Dashboard для учителей — мониторинг успеваемости и аналитика
+
+**Функции:**
+- Обзор классов и учеников
+- Mastery распределение (A/B/C)
+- Детальный прогресс учеников
+- Аналитика: сложные темы, тренды
+- История изменений mastery
+
+**Mastery Levels:**
+| Уровень | Диапазон | Описание |
+|---------|----------|----------|
+| **A** | ≥85% | Отличное владение |
+| **B** | 60-84% | Хорошее владение |
+| **C** | <60% | Требуется помощь |
+
+**API Endpoints:** `/api/v1/teachers/*` (15 endpoints)
+
+**Структура:**
+```
+teacher-app/src/
+├── app/[locale]/
+│   ├── (auth)/login/         # Email/Password авторизация
+│   └── (dashboard)/
+│       ├── page.tsx          # Dashboard
+│       ├── classes/          # Классы и ученики
+│       └── analytics/        # Аналитика
+├── lib/
+│   ├── api/                  # API clients
+│   └── hooks/                # TanStack Query hooks
+└── components/dashboard/     # StatCard, MasteryBadge
+```
+
+**Подробнее:** см. `docs/TEACHER_APP.md`
+
 ---
 
 ## 12. Ссылки на документацию
@@ -423,6 +462,7 @@ backend/app/
 |----------|----------|
 | `CLAUDE.md` | Инструкции для AI, команды, credentials |
 | `IMPLEMENTATION_STATUS.md` | Прогресс итераций |
+| `TEACHER_APP.md` | Teacher Dashboard (API, Frontend, Deploy) |
 | `database_schema.md` | Детальная схема БД |
 | `GOSO_INTEGRATION_PLAN.md` | План интеграции ГОСО |
 | `PARAGRAPH_RICH_CONTENT_PLAN.md` | План Rich Content параграфов |

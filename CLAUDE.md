@@ -11,6 +11,7 @@
 |------------|-------|------|-----|
 | Admin Panel | `admin-v2/` | SUPER_ADMIN, School ADMIN | admin.ai-mentor.kz |
 | Student App | `student-app/` | STUDENT | ai-mentor.kz |
+| Teacher App | `teacher-app/` | TEACHER | teacher.ai-mentor.kz |
 | Backend API | `backend/` | Все | api.ai-mentor.kz |
 
 **SUPER_ADMIN:** глобальный контент, школы, ГОСО
@@ -21,6 +22,7 @@
 |----------|------------|
 | `docs/ARCHITECTURE.md` | Техническая архитектура, RBAC, алгоритмы |
 | `docs/IMPLEMENTATION_STATUS.md` | Прогресс итераций, статистика |
+| `docs/TEACHER_APP.md` | Teacher Dashboard (API, Frontend, Deploy) |
 | `docs/REFACTORING_SERVICES.md` | План рефакторинга Services |
 | `docs/RAG_SERVICE.md` | RAG сервис (Jina + Cerebras) |
 | `docs/CHAT_SERVICE.md` | Chat API |
