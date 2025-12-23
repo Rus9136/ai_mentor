@@ -128,8 +128,13 @@ export function useSubmitTest(paragraphId?: number) {
  * Hook to answer a single question in test attempt.
  * Returns immediate feedback with is_correct, correct_option_ids, and explanation.
  * Used for chat-like quiz interface.
+ *
+ * When is_test_complete=true in response, the test was auto-completed.
+ * This hook will automatically invalidate relevant queries in that case.
  */
-export function useAnswerTestQuestion() {
+export function useAnswerTestQuestion(paragraphId?: number) {
+  const queryClient = useQueryClient();
+
   return useMutation<
     TestAnswerResponse,
     Error,
@@ -137,13 +142,31 @@ export function useAnswerTestQuestion() {
   >({
     mutationFn: ({ attemptId, questionId, selectedOptionIds }) =>
       answerTestQuestion(attemptId, questionId, selectedOptionIds),
+    onSuccess: (data, variables) => {
+      // If test was auto-completed, invalidate queries
+      if (data.is_test_complete) {
+        // Invalidate attempt to refresh with final scores
+        queryClient.invalidateQueries({ queryKey: testKeys.attempt(variables.attemptId) });
+
+        // Invalidate paragraph test query to update best_score, attempts_count
+        if (paragraphId) {
+          queryClient.invalidateQueries({ queryKey: testKeys.forParagraph(paragraphId) });
+          // Invalidate paragraph progress as mastery may have changed
+          queryClient.invalidateQueries({ queryKey: textbookKeys.paragraphProgress(paragraphId) });
+        }
+
+        // Invalidate attempts list
+        queryClient.invalidateQueries({ queryKey: testKeys.attempts() });
+      }
+    },
   });
 }
 
 /**
- * Hook to complete a test attempt after all questions answered via /answer.
- * Triggers grading and mastery update on the backend.
- * Used for chat-like quiz interface.
+ * @deprecated This hook is no longer needed. The /answer endpoint now
+ * auto-completes the test when the last question is answered.
+ * useAnswerTestQuestion now handles cache invalidation automatically.
+ * Kept for backwards compatibility.
  */
 export function useCompleteTest(paragraphId?: number) {
   const queryClient = useQueryClient();

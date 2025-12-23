@@ -226,6 +226,11 @@ class GradingService:
         attempt.completed_at = datetime.now(timezone.utc)
         attempt.time_spent = int((attempt.completed_at - attempt.started_at).total_seconds())
 
+        # Save test info before commit (relations expire after commit)
+        test_purpose = attempt.test.test_purpose
+        paragraph_id = attempt.test.paragraph_id
+        chapter_id = attempt.test.chapter_id
+
         # 7. Save to database
         await self.db.commit()
         await self.db.refresh(attempt)
@@ -236,22 +241,22 @@ class GradingService:
         )
 
         # 8. Trigger mastery update (CRITICAL: Only for FORMATIVE and SUMMATIVE tests!)
-        if attempt.test.test_purpose in (TestPurpose.FORMATIVE, TestPurpose.SUMMATIVE):
+        if test_purpose in (TestPurpose.FORMATIVE, TestPurpose.SUMMATIVE):
             from app.services.mastery_service import MasteryService
             mastery_service = MasteryService(self.db)
 
             # 8a. Update paragraph mastery (if test has paragraph_id)
-            if attempt.test.paragraph_id:
+            if paragraph_id:
                 await mastery_service.update_paragraph_mastery(
                     student_id=attempt.student_id,
-                    paragraph_id=attempt.test.paragraph_id,
+                    paragraph_id=paragraph_id,
                     test_score=attempt.score,
                     test_attempt_id=attempt.id,
                     school_id=attempt.school_id
                 )
                 logger.info(
                     f"Updated paragraph mastery for student {student_id}, "
-                    f"paragraph {attempt.test.paragraph_id}"
+                    f"paragraph {paragraph_id}"
                 )
             else:
                 logger.info(
@@ -261,16 +266,19 @@ class GradingService:
 
             # 8b. Trigger chapter mastery recalculation (ALWAYS if chapter_id exists)
             # This is called for BOTH paragraph-level and chapter-level tests
-            if attempt.test.chapter_id:
+            if chapter_id:
+                # Only pass test_attempt for SUMMATIVE tests (to update summative_score)
+                # For FORMATIVE tests, pass None to avoid lazy loading issues
+                summative_attempt = attempt if test_purpose == TestPurpose.SUMMATIVE else None
                 await mastery_service.trigger_chapter_recalculation(
                     student_id=attempt.student_id,
-                    chapter_id=attempt.test.chapter_id,
+                    chapter_id=chapter_id,
                     school_id=attempt.school_id,
-                    test_attempt=attempt
+                    test_attempt=summative_attempt
                 )
                 logger.info(
                     f"Triggered chapter mastery recalculation for student {student_id}, "
-                    f"chapter {attempt.test.chapter_id}"
+                    f"chapter {chapter_id}"
                 )
             else:
                 logger.info(

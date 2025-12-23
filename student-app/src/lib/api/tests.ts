@@ -109,12 +109,22 @@ export interface TestAttemptSubmit {
 }
 
 // Single question answer response (for chat-like quiz)
+// When is_test_complete=true, the test was auto-completed after this answer
 export interface TestAnswerResponse {
   question_id: number;
   is_correct: boolean;
   correct_option_ids: number[];
   explanation: string | null;
   points_earned: number;
+
+  // Progress tracking
+  answered_count: number;
+  total_questions: number;
+
+  // Auto-completion (when last question is answered)
+  is_test_complete: boolean;
+  test_score: number | null;
+  test_passed: boolean | null;
 }
 
 // =============================================================================
@@ -215,9 +225,9 @@ export async function answerTestQuestion(
 }
 
 /**
- * Complete a test attempt after all questions have been answered via /answer endpoint.
- * Triggers automatic grading and mastery update.
- * Used for chat-like quiz interface.
+ * @deprecated This function is no longer needed. The /answer endpoint now
+ * auto-completes the test when the last question is answered.
+ * Kept for backwards compatibility.
  */
 export async function completeTest(attemptId: number): Promise<TestAttemptDetail> {
   const response = await apiClient.post<TestAttemptDetail>(

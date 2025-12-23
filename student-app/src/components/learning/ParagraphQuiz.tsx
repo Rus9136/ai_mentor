@@ -9,7 +9,7 @@ import {
   TestQuestion,
   QuestionOption,
 } from '@/lib/api/tests';
-import { useStartTest, useAnswerTestQuestion, useCompleteTest } from '@/lib/hooks/use-tests';
+import { useStartTest, useAnswerTestQuestion } from '@/lib/hooks/use-tests';
 import { Loader2, Brain, CheckCircle2, XCircle, SkipForward } from 'lucide-react';
 
 interface ParagraphQuizProps {
@@ -51,8 +51,7 @@ export function ParagraphQuiz({
 
   // Mutations
   const startTestMutation = useStartTest();
-  const answerMutation = useAnswerTestQuestion();
-  const completeTestMutation = useCompleteTest(paragraphId);
+  const answerMutation = useAnswerTestQuestion(paragraphId);
 
   // Start test on mount - use ref to prevent multiple calls
   const hasStartedRef = useRef(false);
@@ -113,33 +112,17 @@ export function ParagraphQuiz({
 
         setAnsweredQuestions((prev) => [...prev, answered]);
 
-        // Move to next question or complete
-        if (currentIndex < attempt.test.questions.length - 1) {
-          setCurrentIndex((prev) => prev + 1);
-        } else {
-          // All questions answered - calculate score
-          const allAnswered = [...answeredQuestions, answered];
-          const totalPoints = allAnswered.reduce((sum, a) => sum + a.pointsEarned, 0);
-          const maxPoints = attempt.test.questions.reduce(
-            (sum, q) => sum + q.points,
-            0
+        // Check if test was auto-completed by the backend
+        if (result.is_test_complete) {
+          // Test is complete - backend already graded and updated mastery
+          setQuizState('completed');
+          onComplete?.(
+            result.test_passed ?? false,
+            result.test_score ?? 0
           );
-          const score = maxPoints > 0 ? totalPoints / maxPoints : 0;
-          const passed = score >= test.passing_score;
-
-          // Complete the test to trigger grading and mastery update
-          completeTestMutation.mutate(attempt.id, {
-            onSuccess: () => {
-              setQuizState('completed');
-              onComplete?.(passed, score);
-            },
-            onError: (error) => {
-              console.error('Failed to complete test:', error);
-              // Still show completed state to user
-              setQuizState('completed');
-              onComplete?.(passed, score);
-            },
-          });
+        } else if (currentIndex < attempt.test.questions.length - 1) {
+          // Move to next question
+          setCurrentIndex((prev) => prev + 1);
         }
       } catch (error) {
         console.error('Failed to answer question:', error);
@@ -153,9 +136,6 @@ export function ParagraphQuiz({
       isAnswering,
       quizState,
       answerMutation,
-      completeTestMutation,
-      answeredQuestions,
-      test.passing_score,
       onComplete,
     ]
   );

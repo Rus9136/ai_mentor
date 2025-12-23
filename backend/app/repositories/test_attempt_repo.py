@@ -148,21 +148,22 @@ class TestAttemptRepository:
         attempt_id: int
     ) -> Optional[TestAttempt]:
         """
-        Get test attempt with eager-loaded answers and questions.
+        Get test attempt with eager-loaded answers, questions, and test.
 
-        This is useful for displaying attempt results with all answer details.
+        This is useful for displaying attempt results and for grading.
 
         Args:
             attempt_id: Test attempt ID
 
         Returns:
-            TestAttempt with answers and questions, or None if not found
+            TestAttempt with answers, questions, test and test.questions, or None if not found
         """
         result = await self.db.execute(
             select(TestAttempt).where(
                 TestAttempt.id == attempt_id
             ).options(
-                selectinload(TestAttempt.answers).selectinload(TestAttemptAnswer.question)
+                selectinload(TestAttempt.answers).selectinload(TestAttemptAnswer.question),
+                selectinload(TestAttempt.test).selectinload(Test.questions).selectinload(Question.options)
             )
         )
         return result.scalar_one_or_none()

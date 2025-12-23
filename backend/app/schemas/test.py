@@ -91,10 +91,23 @@ class TestQuestionAnswerRequest(BaseModel):
 
 
 class TestAnswerResponse(BaseModel):
-    """Response schema for single question answer with immediate feedback."""
+    """Response schema for single question answer with immediate feedback.
+
+    When is_test_complete=True, the test has been auto-completed and
+    test_score/test_passed contain the final results.
+    """
 
     question_id: int = Field(..., description="Question ID that was answered")
     is_correct: bool = Field(..., description="Whether the answer is correct")
     correct_option_ids: list[int] = Field(..., description="IDs of correct options")
     explanation: Optional[str] = Field(None, description="Explanation for the correct answer")
     points_earned: float = Field(..., description="Points earned for this answer")
+
+    # Progress tracking
+    answered_count: int = Field(..., description="Number of questions answered so far")
+    total_questions: int = Field(..., description="Total number of questions in test")
+
+    # Auto-completion (when last question is answered)
+    is_test_complete: bool = Field(False, description="True when all questions answered and test graded")
+    test_score: Optional[float] = Field(None, description="Final test score (0.0-1.0) when complete")
+    test_passed: Optional[bool] = Field(None, description="Whether test passed when complete")

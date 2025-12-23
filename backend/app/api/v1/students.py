@@ -746,21 +746,67 @@ async def answer_test_question(
     db.add(answer)
     await db.commit()
 
+    # Count total questions and answered questions
+    total_questions_result = await db.execute(
+        select(func.count(Question.id)).where(
+            Question.test_id == attempt.test_id,
+            Question.is_deleted == False
+        )
+    )
+    total_questions = total_questions_result.scalar() or 0
+
+    answered_count_result = await db.execute(
+        select(func.count(TestAttemptAnswer.id)).where(
+            TestAttemptAnswer.attempt_id == attempt_id
+        )
+    )
+    answered_count = answered_count_result.scalar() or 0
+
     logger.info(
         f"Student {student_id} answered question {answer_request.question_id} "
-        f"in attempt {attempt_id}: correct={is_correct}, points={points_earned}"
+        f"in attempt {attempt_id}: correct={is_correct}, points={points_earned}, "
+        f"progress={answered_count}/{total_questions}"
     )
+
+    # Auto-complete when all questions answered
+    is_test_complete = False
+    test_score = None
+    test_passed = None
+
+    if answered_count >= total_questions and total_questions > 0:
+        logger.info(f"All questions answered, auto-completing attempt {attempt_id}")
+
+        grading_service = GradingService(db)
+        graded_attempt = await grading_service.grade_attempt(
+            attempt_id=attempt_id,
+            student_id=student_id,
+            school_id=school_id
+        )
+
+        is_test_complete = True
+        test_score = graded_attempt.score
+        test_passed = graded_attempt.passed
+
+        logger.info(
+            f"Attempt {attempt_id} auto-completed: "
+            f"score={test_score:.2f}, passed={test_passed}"
+        )
 
     return TestAnswerResponse(
         question_id=answer_request.question_id,
         is_correct=is_correct,
         correct_option_ids=correct_option_ids,
         explanation=question.explanation,
-        points_earned=points_earned
+        points_earned=points_earned,
+        answered_count=answered_count,
+        total_questions=total_questions,
+        is_test_complete=is_test_complete,
+        test_score=test_score,
+        test_passed=test_passed
     )
 
 
-@router.post("/attempts/{attempt_id}/complete")
+@router.post("/attempts/{attempt_id}/complete", deprecated=True)
 async def complete_test_attempt(
     attempt_id: int,
     current_user: User = Depends(require_student),
@@ -768,10 +814,12 @@ async def complete_test_attempt(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Complete a test attempt after all questions have been answered via /answer endpoint.
+    [DEPRECATED] Complete a test attempt after all questions have been answered.
 
-    This endpoint is used when questions were answered one-by-one (chat-like quiz).
-    It verifies all questions are answered, triggers grading, and updates mastery.
+    This endpoint is deprecated. The /answer endpoint now auto-completes the test
+    when the last question is answered. Use /answer and check is_test_complete in response.
+
+    Kept for backwards compatibility.
 
     Args:
         attempt_id: Test attempt ID
@@ -788,6 +836,10 @@ async def complete_test_attempt(
         HTTPException 400: Attempt not in IN_PROGRESS status
         HTTPException 400: Not all questions answered
     """
+    logger.warning(
+        f"Deprecated endpoint /complete called for attempt {attempt_id}. "
+        "Use /answer with is_test_complete response field instead."
+    )
     student = await get_student_from_user(db, current_user)
     student_id = student.id
 
@@ -852,33 +904,43 @@ async def complete_test_attempt(
     # Get updated attempt with all data
     attempt_with_data = await attempt_repo.get_with_answers(attempt_id)
 
-    # Get test for response
+    # Get test for response (with questions loaded)
     test_repo = TestRepository(db)
-    test = await test_repo.get_by_id(attempt.test_id, load_questions=False)
+    test = await test_repo.get_by_id(attempt.test_id, load_questions=True)
 
     # Build response with correct answers
     test_data = TestResponse.model_validate(test).model_dump()
 
     questions_data = []
-    for question in sorted(test.questions, key=lambda q: q.order):
+    for question in sorted(test.questions, key=lambda q: q.sort_order):
         q_dict = QuestionResponse.model_validate(question).model_dump()
         questions_data.append(q_dict)
     test_data["questions"] = questions_data
 
+    # Build answers data - use attempt answers which already have question loaded
     answers_data = []
-    for answer in sorted(attempt_with_data.answers, key=lambda a: a.question.order):
-        question_data = QuestionResponse.model_validate(answer.question).model_dump()
-        answers_data.append(TestAttemptAnswerDetailResponse(
-            id=answer.id,
-            attempt_id=answer.attempt_id,
-            question_id=answer.question_id,
-            selected_option_ids=answer.selected_option_ids,
-            answer_text=answer.answer_text,
-            is_correct=answer.is_correct,
-            points_earned=answer.points_earned,
-            answered_at=answer.answered_at,
-            question=question_data
-        ))
+    for answer in attempt_with_data.answers:
+        # Get question from test.questions by ID (already loaded)
+        question = next((q for q in test.questions if q.id == answer.question_id), None)
+        if question:
+            question_data = QuestionResponse.model_validate(question).model_dump()
+            answer_dict = TestAttemptAnswerResponse(
+                id=answer.id,
+                attempt_id=answer.attempt_id,
+                question_id=answer.question_id,
+                selected_option_ids=answer.selected_option_ids,
+                answer_text=answer.answer_text,
+                is_correct=answer.is_correct,
+                points_earned=answer.points_earned,
+                answered_at=answer.answered_at,
+                created_at=answer.created_at,
+                updated_at=answer.updated_at,
+                question=question_data
+            )
+            answers_data.append(answer_dict)
+
+    # Sort by question sort_order
+    answers_data.sort(key=lambda a: next((q.sort_order for q in test.questions if q.id == a.question_id), 0))
 
     return TestAttemptDetailResponse(
         id=attempt_with_data.id,
@@ -894,6 +956,8 @@ async def complete_test_attempt(
         total_points=attempt_with_data.total_points,
         passed=attempt_with_data.passed,
         time_spent=attempt_with_data.time_spent,
+        created_at=attempt_with_data.created_at,
+        updated_at=attempt_with_data.updated_at,
         test=test_data,
         answers=answers_data
     )
