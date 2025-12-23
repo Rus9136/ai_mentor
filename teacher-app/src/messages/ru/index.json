@@ -1,0 +1,91 @@
+{
+  "common": {
+    "loading": "Загрузка...",
+    "error": "Произошла ошибка",
+    "retry": "Попробовать снова",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "view": "Просмотр",
+    "search": "Поиск...",
+    "noData": "Нет данных",
+    "back": "Назад"
+  },
+  "navigation": {
+    "dashboard": "Главная",
+    "classes": "Классы",
+    "analytics": "Аналитика",
+    "assignments": "Задания",
+    "settings": "Настройки",
+    "logout": "Выйти"
+  },
+  "auth": {
+    "login": "Вход для учителей",
+    "loginWithGoogle": "Войти через Google",
+    "loginDescription": "Используйте рабочий аккаунт Google для входа",
+    "loggingIn": "Выполняется вход...",
+    "loginError": "Ошибка входа. Попробуйте снова.",
+    "accessDenied": "Доступ разрешён только для учителей"
+  },
+  "dashboard": {
+    "welcome": "Добро пожаловать",
+    "overview": "Обзор",
+    "classesCount": "Классов",
+    "studentsCount": "Учеников",
+    "averageScore": "Средний балл",
+    "needingHelp": "Нуждаются в помощи",
+    "recentActivity": "Последняя активность",
+    "noActivity": "Нет активности",
+    "masteryDistribution": "Распределение по уровням",
+    "levelA": "Уровень A (≥85%)",
+    "levelB": "Уровень B (60-84%)",
+    "levelC": "Уровень C (<60%)",
+    "notStarted": "Не начали"
+  },
+  "classes": {
+    "title": "Мои классы",
+    "noClasses": "У вас пока нет классов",
+    "students": "учеников",
+    "averageProgress": "Средний прогресс",
+    "viewClass": "Открыть класс",
+    "classDetail": "Детали класса",
+    "studentsList": "Список учеников",
+    "masteryLevel": "Уровень",
+    "progress": "Прогресс",
+    "lastActivity": "Последняя активность",
+    "neverActive": "Не активен",
+    "daysAgo": "дней назад",
+    "today": "сегодня"
+  },
+  "student": {
+    "progress": "Прогресс ученика",
+    "overallMastery": "Общий уровень",
+    "chaptersProgress": "Прогресс по главам",
+    "recentTests": "Последние тесты",
+    "masteryHistory": "История изменений уровня",
+    "noTests": "Тестов пока нет",
+    "timeSpent": "Время обучения",
+    "minutes": "мин"
+  },
+  "analytics": {
+    "title": "Аналитика",
+    "strugglingTopics": "Сложные темы",
+    "strugglingDescription": "Темы, где более 30% учеников в уровне C",
+    "masteryTrends": "Тренды мастерства",
+    "weekly": "За неделю",
+    "monthly": "За месяц",
+    "improving": "Улучшается",
+    "stable": "Стабильно",
+    "declining": "Ухудшается",
+    "studentsStruggling": "учеников испытывают трудности"
+  },
+  "mastery": {
+    "levelA": "A",
+    "levelB": "B",
+    "levelC": "C",
+    "levelADescription": "Отличное владение (≥85%)",
+    "levelBDescription": "Хорошее владение (60-84%)",
+    "levelCDescription": "Требуется помощь (<60%)"
+  }
+}

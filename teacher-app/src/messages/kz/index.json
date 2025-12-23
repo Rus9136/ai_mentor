@@ -1,0 +1,91 @@
+{
+  "common": {
+    "loading": "Жүктелуде...",
+    "error": "Қате орын алды",
+    "retry": "Қайта көру",
+    "save": "Сақтау",
+    "cancel": "Болдырмау",
+    "delete": "Жою",
+    "edit": "Өңдеу",
+    "view": "Қарау",
+    "search": "Іздеу...",
+    "noData": "Деректер жоқ",
+    "back": "Артқа"
+  },
+  "navigation": {
+    "dashboard": "Басты бет",
+    "classes": "Сыныптар",
+    "analytics": "Талдау",
+    "assignments": "Тапсырмалар",
+    "settings": "Параметрлер",
+    "logout": "Шығу"
+  },
+  "auth": {
+    "login": "Мұғалімдерге кіру",
+    "loginWithGoogle": "Google арқылы кіру",
+    "loginDescription": "Жұмыс Google аккаунтын пайдаланыңыз",
+    "loggingIn": "Кіру орындалуда...",
+    "loginError": "Кіру қатесі. Қайта көріңіз.",
+    "accessDenied": "Тек мұғалімдерге рұқсат"
+  },
+  "dashboard": {
+    "welcome": "Қош келдіңіз",
+    "overview": "Шолу",
+    "classesCount": "Сыныптар",
+    "studentsCount": "Оқушылар",
+    "averageScore": "Орташа балл",
+    "needingHelp": "Көмек қажет",
+    "recentActivity": "Соңғы белсенділік",
+    "noActivity": "Белсенділік жоқ",
+    "masteryDistribution": "Деңгей бойынша бөлу",
+    "levelA": "A деңгейі (≥85%)",
+    "levelB": "B деңгейі (60-84%)",
+    "levelC": "C деңгейі (<60%)",
+    "notStarted": "Бастамаған"
+  },
+  "classes": {
+    "title": "Менің сыныптарым",
+    "noClasses": "Сізде әлі сыныптар жоқ",
+    "students": "оқушы",
+    "averageProgress": "Орташа прогресс",
+    "viewClass": "Сыныпты ашу",
+    "classDetail": "Сынып мәліметтері",
+    "studentsList": "Оқушылар тізімі",
+    "masteryLevel": "Деңгей",
+    "progress": "Прогресс",
+    "lastActivity": "Соңғы белсенділік",
+    "neverActive": "Белсенді емес",
+    "daysAgo": "күн бұрын",
+    "today": "бүгін"
+  },
+  "student": {
+    "progress": "Оқушы прогресі",
+    "overallMastery": "Жалпы деңгей",
+    "chaptersProgress": "Тарау бойынша прогресс",
+    "recentTests": "Соңғы тесттер",
+    "masteryHistory": "Деңгей өзгерісі тарихы",
+    "noTests": "Тесттер әлі жоқ",
+    "timeSpent": "Оқу уақыты",
+    "minutes": "мин"
+  },
+  "analytics": {
+    "title": "Талдау",
+    "strugglingTopics": "Қиын тақырыптар",
+    "strugglingDescription": "30%-дан астам оқушы C деңгейінде",
+    "masteryTrends": "Меңгеру трендтері",
+    "weekly": "Апта бойынша",
+    "monthly": "Ай бойынша",
+    "improving": "Жақсаруда",
+    "stable": "Тұрақты",
+    "declining": "Нашарлауда",
+    "studentsStruggling": "оқушы қиындық көруде"
+  },
+  "mastery": {
+    "levelA": "A",
+    "levelB": "B",
+    "levelC": "C",
+    "levelADescription": "Керемет меңгеру (≥85%)",
+    "levelBDescription": "Жақсы меңгеру (60-84%)",
+    "levelCDescription": "Көмек қажет (<60%)"
+  }
+}
