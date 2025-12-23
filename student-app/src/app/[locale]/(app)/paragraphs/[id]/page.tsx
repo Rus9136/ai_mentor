@@ -12,9 +12,20 @@ import {
   useSubmitSelfAssessment,
   useEmbeddedQuestions,
   useAnswerEmbeddedQuestion,
+  useChapterParagraphs,
 } from '@/lib/hooks/use-textbooks';
+import { useParagraphTest } from '@/lib/hooks/use-tests';
+import { getMediaUrl } from '@/lib/api/client';
 import { ParagraphStep, SelfAssessmentRating, AnswerResult } from '@/lib/api/textbooks';
-import { StepIndicator, EmbeddedQuestion, SelfAssessment, CompletionScreen } from '@/components/learning';
+import {
+  EmbeddedQuestion,
+  SelfAssessment,
+  CompletionScreen,
+  ParagraphQuiz,
+  ChapterSidebar,
+  MobileSidebarTrigger,
+  MobileSidebarSheet,
+} from '@/components/learning';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -52,6 +63,7 @@ export default function ParagraphPage({ params }: PageProps) {
   const [activeTab, setActiveTab] = useState<ContentTab>('text');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showCompletion, setShowCompletion] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   // Fetch paragraph data
   const { data: paragraph, isLoading, error } = useParagraphDetail(paragraphId);
@@ -59,6 +71,10 @@ export default function ParagraphPage({ params }: PageProps) {
   const { data: navigation } = useParagraphNavigation(paragraphId);
   const { data: progress, refetch: refetchProgress } = useParagraphProgress(paragraphId);
   const { data: embeddedQuestions } = useEmbeddedQuestions(paragraphId);
+  const { data: paragraphTest } = useParagraphTest(paragraph?.id);
+
+  // Fetch all paragraphs in chapter for sidebar
+  const { data: chapterParagraphs } = useChapterParagraphs(navigation?.chapter_id);
 
   // Mutations
   const updateStepMutation = useUpdateParagraphStep(paragraphId);
@@ -119,6 +135,11 @@ export default function ParagraphPage({ params }: PageProps) {
     return null;
   }, [richContent, paragraph]);
 
+  // Calculate completed count for mobile trigger (must be before conditional returns!)
+  const completedCount = useMemo(() => {
+    return chapterParagraphs?.filter((p) => p.status === 'completed').length || 0;
+  }, [chapterParagraphs]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -147,84 +168,111 @@ export default function ParagraphPage({ params }: PageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 pb-24 md:pb-8">
-      {/* Header */}
-      <header className="mb-6">
-        {/* Back Button */}
-        <button
-          onClick={() => router.back()}
-          className="mb-4 flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {tCommon('back')}
-        </button>
+    <div className="flex min-h-[calc(100vh-4rem)]">
+      {/* Desktop Sidebar */}
+      {chapterParagraphs && navigation && (
+        <ChapterSidebar
+          paragraphs={chapterParagraphs}
+          currentParagraphId={paragraphId}
+          chapterTitle={navigation.chapter_title}
+          chapterNumber={navigation.chapter_number}
+          chapterId={navigation.chapter_id}
+        />
+      )}
 
-        {/* Breadcrumb */}
-        {navigation && (
-          <nav className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
-            <Link
-              href={`/subjects/${navigation.textbook_id}`}
-              className="hover:text-primary truncate max-w-[120px] md:max-w-none"
-            >
-              {navigation.textbook_title}
-            </Link>
-            <ChevronRight className="h-3 w-3 flex-shrink-0" />
-            <Link
-              href={`/chapters/${navigation.chapter_id}`}
-              className="hover:text-primary truncate max-w-[100px] md:max-w-none"
-            >
-              {t('chapterShort', { number: navigation.chapter_number })}
-            </Link>
-            <ChevronRight className="h-3 w-3 flex-shrink-0" />
-            <span className="text-foreground font-medium">
-              §{navigation.current_paragraph_number}
-            </span>
-          </nav>
-        )}
+      {/* Mobile Sidebar Sheet */}
+      {chapterParagraphs && navigation && (
+        <MobileSidebarSheet
+          isOpen={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          paragraphs={chapterParagraphs}
+          currentParagraphId={paragraphId}
+          chapterTitle={navigation.chapter_title}
+          chapterNumber={navigation.chapter_number}
+          chapterId={navigation.chapter_id}
+        />
+      )}
 
-        {/* Title */}
-        <h1 className="text-2xl font-bold text-foreground md:text-3xl">
-          §{paragraph.number}. {paragraph.title || t('untitled')}
-        </h1>
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-4xl px-4 py-6 pb-24 md:pb-8">
+          {/* Header */}
+          <header className="mb-6">
+            {/* Top row: Back button + Mobile sidebar trigger */}
+            <div className="mb-4 flex items-center justify-between">
+              <Link
+                href={navigation ? `/chapters/${navigation.chapter_id}` : '/subjects'}
+                className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {tCommon('back')}
+              </Link>
 
-        {/* Progress indicator */}
-        {navigation && (
-          <div className="mt-4 card-flat p-3">
-            <div className="flex items-center justify-between text-sm mb-2">
-              <span className="text-muted-foreground">{t('progressInChapter')}</span>
-              <span className="font-medium">
-                {navigation.current_position_in_chapter} {t('of')}{' '}
-                {navigation.total_paragraphs_in_chapter}
-              </span>
-            </div>
-            <div className="flex gap-1">
-              {Array.from({ length: navigation.total_paragraphs_in_chapter }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`h-2 flex-1 rounded-full transition-all ${
-                    i + 1 < navigation.current_position_in_chapter
-                      ? 'bg-success'
-                      : i + 1 === navigation.current_position_in_chapter
-                      ? 'bg-primary'
-                      : 'bg-muted'
-                  }`}
+              {/* Mobile sidebar trigger */}
+              {chapterParagraphs && (
+                <MobileSidebarTrigger
+                  onClick={() => setShowMobileSidebar(true)}
+                  paragraphsCount={chapterParagraphs.length}
+                  completedCount={completedCount}
                 />
-              ))}
+              )}
             </div>
-          </div>
-        )}
 
-        {/* Step Indicator */}
-        {progress && (
-          <div className="mt-6 card-elevated p-4">
-            <StepIndicator
-              currentStep={progress.current_step}
-              availableSteps={progress.available_steps}
-              onStepChange={handleStepChange}
-              isCompleted={progress.is_completed}
-            />
-          </div>
-        )}
+            {/* Breadcrumb */}
+            {navigation && (
+              <nav className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+                <Link
+                  href={`/subjects/${navigation.textbook_id}`}
+                  className="hover:text-primary truncate max-w-[120px] md:max-w-none"
+                >
+                  {navigation.textbook_title}
+                </Link>
+                <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                <Link
+                  href={`/chapters/${navigation.chapter_id}`}
+                  className="hover:text-primary truncate max-w-[100px] md:max-w-none"
+                >
+                  {t('chapterShort', { number: navigation.chapter_number })}
+                </Link>
+                <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                <span className="text-foreground font-medium">
+                  §{navigation.current_paragraph_number}
+                </span>
+              </nav>
+            )}
+
+            {/* Title */}
+            <h1 className="text-2xl font-bold text-foreground md:text-3xl">
+              §{paragraph.number}. {paragraph.title || t('untitled')}
+            </h1>
+
+            {/* Progress indicator - hide on desktop when sidebar is visible */}
+            {navigation && (
+              <div className="mt-4 card-flat p-3 lg:hidden">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-muted-foreground">{t('progressInChapter')}</span>
+                  <span className="font-medium">
+                    {navigation.current_position_in_chapter} {t('of')}{' '}
+                    {navigation.total_paragraphs_in_chapter}
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  {Array.from({ length: navigation.total_paragraphs_in_chapter }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`h-2 flex-1 rounded-full transition-all ${
+                        i + 1 < navigation.current_position_in_chapter
+                          ? 'bg-success'
+                          : i + 1 === navigation.current_position_in_chapter
+                          ? 'bg-primary'
+                          : 'bg-muted'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
       </header>
 
       {/* Learning Objective */}
@@ -317,7 +365,7 @@ export default function ParagraphPage({ params }: PageProps) {
 
         {/* Audio Content */}
         {activeTab === 'audio' && (
-          <AudioPlayer audioUrl={richContent?.audio_url} t={t} />
+          <AudioPlayer audioUrl={getMediaUrl(richContent?.audio_url)} t={t} />
         )}
 
         {/* Cards Content */}
@@ -375,6 +423,20 @@ export default function ParagraphPage({ params }: PageProps) {
         )}
       </main>
 
+      {/* Paragraph Quiz - Chat-like quiz under content */}
+      {paragraphTest && paragraph && !showCompletion && (
+        <section className="mb-8">
+          <ParagraphQuiz
+            test={paragraphTest}
+            paragraphId={paragraph.id}
+            onComplete={(passed, score) => {
+              refetchProgress();
+              console.log(`Quiz completed: passed=${passed}, score=${score}`);
+            }}
+          />
+        </section>
+      )}
+
       {/* Self Assessment - Show after completing content or practice (before completion) */}
       {progress && (progress.current_step === 'summary' || progress.current_step === 'completed') && !showCompletion && !progress.self_assessment && (
         <section className="mb-8">
@@ -426,7 +488,7 @@ export default function ParagraphPage({ params }: PageProps) {
               <div />
             )}
 
-            {/* Chapter link (center) */}
+            {/* Center section: Chapter link */}
             {navigation && (
               <Link
                 href={`/chapters/${navigation.chapter_id}`}
@@ -456,6 +518,9 @@ export default function ParagraphPage({ params }: PageProps) {
           </div>
         </nav>
       )}
+
+        </div>
+      </div>
     </div>
   );
 }

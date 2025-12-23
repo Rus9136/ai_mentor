@@ -199,6 +199,50 @@
       "nextParagraph": "Следующий параграф",
       "toChapter": "К главе",
       "chapterComplete": "Глава завершена!"
+    },
+    "sidebar": {
+      "expand": "Развернуть",
+      "collapse": "Свернуть",
+      "backToChapter": "← К главе",
+      "progress": "Прогресс",
+      "paragraph": "Параграф",
+      "currentlyViewing": "Сейчас читаете",
+      "contents": "Содержание"
+    },
+    "quiz": {
+      "start": "Проверить знания",
+      "title": "Пройдите тест, чтобы проверить свои знания",
+      "loading": "Загрузка теста...",
+      "submitting": "Отправка ответов...",
+      "progress": "{current}/{total}",
+      "question": "Вопрос {current} из {total}",
+      "questionNumber": "Вопрос {number}",
+      "previous": "Назад",
+      "next": "Далее",
+      "submit": "Завершить тест",
+      "retake": "Пройти снова",
+      "close": "Продолжить изучение",
+      "skip": "Пропустить викторину",
+      "finish": "Завершить викторину",
+      "correct": "Верно!",
+      "incorrect": "Это неверно.",
+      "correctAnswer": "Правильный ответ",
+      "result": {
+        "title": "Результат",
+        "passed": "Тест пройден!",
+        "failed": "Попробуйте ещё раз",
+        "score": "Вы ответили правильно на {correct} из {total} вопросов",
+        "points": "{earned} из {total} баллов",
+        "correctAnswers": "правильных ответов",
+        "timeSpent": "затрачено времени",
+        "passingScore": "проходной балл",
+        "questionReview": "Обзор ответов",
+        "needHelp": "Нужна помощь?",
+        "aiChatHint": "AI-ассистент поможет разобраться с ошибками",
+        "aiChatComingSoon": "Скоро будет доступно"
+      },
+      "previousScore": "Лучший результат: {score}%",
+      "alreadyPassed": "Вы уже прошли этот тест"
     }
   },
   "profile": {

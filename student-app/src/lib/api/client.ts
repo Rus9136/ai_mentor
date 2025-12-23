@@ -1,6 +1,21 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.ai-mentor.kz/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.ai-mentor.kz';
+
+/**
+ * Convert relative media URL to absolute URL.
+ * Backend returns paths like "/uploads/..." which need the API base URL.
+ */
+export const getMediaUrl = (path: string | null | undefined): string | null => {
+  if (!path) return null;
+  // Already absolute URL
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  // Relative path - add API base URL
+  return `${API_BASE_URL}${path}`;
+};
 
 export const apiClient = axios.create({
   baseURL: API_URL,

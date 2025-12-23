@@ -199,6 +199,50 @@
       "nextParagraph": "Келесі параграф",
       "toChapter": "Тарауға",
       "chapterComplete": "Тарау аяқталды!"
+    },
+    "sidebar": {
+      "expand": "Жаю",
+      "collapse": "Жию",
+      "backToChapter": "← Тарауға",
+      "progress": "Прогресс",
+      "paragraph": "Параграф",
+      "currentlyViewing": "Қазір оқып жатырсыз",
+      "contents": "Мазмұны"
+    },
+    "quiz": {
+      "start": "Білімді тексеру",
+      "title": "Білімді тексеру үшін тестті орындаңыз",
+      "loading": "Тест жүктелуде...",
+      "submitting": "Жауаптар жіберілуде...",
+      "progress": "{current}/{total}",
+      "question": "Сұрақ {current} ішінен {total}",
+      "questionNumber": "Сұрақ {number}",
+      "previous": "Артқа",
+      "next": "Келесі",
+      "submit": "Тестті аяқтау",
+      "retake": "Қайта тапсыру",
+      "close": "Оқуды жалғастыру",
+      "skip": "Викторинаны өткізіп жіберу",
+      "finish": "Викторинаны аяқтау",
+      "correct": "Дұрыс!",
+      "incorrect": "Бұл дұрыс емес.",
+      "correctAnswer": "Дұрыс жауап",
+      "result": {
+        "title": "Нәтиже",
+        "passed": "Тест өтті!",
+        "failed": "Қайталап көріңіз",
+        "score": "Сіз {total} сұрақтың {correct} дұрыс жауап бердіңіз",
+        "points": "{earned} ішінен {total} ұпай",
+        "correctAnswers": "дұрыс жауап",
+        "timeSpent": "жұмсалған уақыт",
+        "passingScore": "өту балы",
+        "questionReview": "Жауаптар шолуы",
+        "needHelp": "Көмек керек пе?",
+        "aiChatHint": "AI-көмекші қателерді түсінуге көмектеседі",
+        "aiChatComingSoon": "Жақында қол жетімді болады"
+      },
+      "previousScore": "Үздік нәтиже: {score}%",
+      "alreadyPassed": "Сіз бұл тестті өттіңіз"
     }
   },
   "profile": {

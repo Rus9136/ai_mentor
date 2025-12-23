@@ -198,3 +198,80 @@
     @apply inline-flex items-center gap-1.5 text-sm font-semibold text-primary;
   }
 }
+
+/* Rich Content Styles (from Tiptap WYSIWYG editor) */
+@layer components {
+  /* Tables */
+  .prose table {
+    @apply w-full border-collapse my-4;
+  }
+
+  .prose table th,
+  .prose table td {
+    @apply border border-border p-3 text-left;
+  }
+
+  .prose table th {
+    @apply bg-muted font-semibold;
+  }
+
+  .prose table tr:nth-child(even) {
+    @apply bg-muted/30;
+  }
+
+  /* Highlight marks (from Tiptap) */
+  .prose mark {
+    @apply rounded px-0.5;
+    background-color: inherit;
+  }
+
+  /* Text alignment */
+  .prose [style*="text-align: center"] {
+    text-align: center;
+  }
+
+  .prose [style*="text-align: right"] {
+    text-align: right;
+  }
+
+  /* Colored text - ensure colors are visible */
+  .prose [style*="color:"] {
+    /* Inherit color from inline style */
+  }
+
+  /* Underline */
+  .prose u {
+    @apply underline underline-offset-2;
+  }
+
+  /* Better list spacing */
+  .prose ul,
+  .prose ol {
+    @apply pl-6 my-2;
+  }
+
+  .prose li {
+    @apply my-1;
+  }
+
+  .prose ul {
+    @apply list-disc;
+  }
+
+  .prose ol {
+    @apply list-decimal;
+  }
+
+  /* Headings in content */
+  .prose h1 {
+    @apply text-2xl font-bold mt-6 mb-3;
+  }
+
+  .prose h2 {
+    @apply text-xl font-semibold mt-5 mb-2;
+  }
+
+  .prose h3 {
+    @apply text-lg font-semibold mt-4 mb-2;
+  }
+}
