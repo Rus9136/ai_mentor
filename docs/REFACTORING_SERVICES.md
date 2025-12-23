@@ -1439,11 +1439,11 @@ backend/app/
 - [x] Обновить endpoint в `stats.py` (43 строки, было 156)
 - [x] Написать unit tests (`test_student_stats_service.py`)
 
-### Phase 4: Content Service
-- [ ] Создать `student_content_service.py`
-- [ ] Добавить DI factory
-- [ ] Обновить endpoints в `content.py`
-- [ ] Написать unit tests
+### Phase 4: Content Service ✅ DONE (2025-12-23)
+- [x] Создать `student_content_service.py` (426 строк, batch queries)
+- [x] Добавить DI factory `get_student_content_service` в `dependencies.py`
+- [x] Обновить endpoints в `content.py` (456 строк, было 741)
+- [x] Написать unit tests (`test_student_content_service.py`)
 
 ### Phase 5: Test Taking Service
 - [ ] Создать `test_taking_service.py`

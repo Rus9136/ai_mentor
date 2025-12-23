@@ -6,6 +6,8 @@ This module provides endpoints for students to:
 - View chapters with mastery levels
 - Read paragraphs with rich content
 - Navigate between paragraphs
+
+Refactored in Phase 4 to use StudentContentService with batch queries.
 """
 
 import logging
@@ -14,7 +16,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
@@ -22,16 +24,19 @@ from app.api.dependencies import (
     require_student,
     get_current_user_school_id,
     get_student_from_user,
+    get_student_content_service,
+    get_textbook_with_access,
+    get_chapter_with_access,
+    get_paragraph_with_access,
 )
 from app.models.user import User
 from app.models.textbook import Textbook
 from app.models.chapter import Chapter
 from app.models.paragraph import Paragraph
 from app.models.paragraph_content import ParagraphContent
-from app.models.test import Test, TestPurpose
-from app.models.mastery import ParagraphMastery, ChapterMastery
+from app.models.mastery import ParagraphMastery
 from app.models.learning import StudentParagraph as StudentParagraphModel
-from app.repositories.textbook_repo import TextbookRepository
+from app.services.student_content_service import StudentContentService
 from app.schemas.student_content import (
     StudentTextbookResponse,
     StudentTextbookProgress,
@@ -53,153 +58,49 @@ logger = logging.getLogger(__name__)
 async def get_student_textbooks(
     current_user: User = Depends(require_student),
     school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    service: StudentContentService = Depends(get_student_content_service),
 ):
     """
     Get available textbooks for student with progress.
 
     Returns global textbooks (school_id = NULL) and school-specific textbooks.
     Each textbook includes progress stats calculated from student's mastery data.
+
+    Uses batch queries for performance (no N+1 problem).
     """
     student = await get_student_from_user(current_user, db)
     student_id = student.id
 
-    # Get textbooks: global (school_id = NULL) OR school-specific
-    textbook_repo = TextbookRepository(db)
-    textbooks = await textbook_repo.get_by_school(school_id=school_id, include_global=True)
-
-    # Filter active textbooks only
-    textbooks = [t for t in textbooks if t.is_active and not t.is_deleted]
+    # Get textbooks with progress using batch queries
+    textbooks_data = await service.get_textbooks_with_progress(student_id, school_id)
 
     result = []
-
-    for textbook in textbooks:
-        # Get chapters count
-        chapters_result = await db.execute(
-            select(func.count(Chapter.id)).where(
-                Chapter.textbook_id == textbook.id,
-                Chapter.is_deleted == False
-            )
-        )
-        chapters_count = chapters_result.scalar() or 0
-
-        # Get total paragraphs count
-        paragraphs_result = await db.execute(
-            select(func.count(Paragraph.id))
-            .join(Chapter, Paragraph.chapter_id == Chapter.id)
-            .where(
-                Chapter.textbook_id == textbook.id,
-                Chapter.is_deleted == False,
-                Paragraph.is_deleted == False
-            )
-        )
-        paragraphs_total = paragraphs_result.scalar() or 0
-
-        # Get student's completed paragraphs for this textbook
-        completed_result = await db.execute(
-            select(func.count(ParagraphMastery.id))
-            .join(Paragraph, ParagraphMastery.paragraph_id == Paragraph.id)
-            .join(Chapter, Paragraph.chapter_id == Chapter.id)
-            .where(
-                Chapter.textbook_id == textbook.id,
-                ParagraphMastery.student_id == student_id,
-                ParagraphMastery.is_completed == True
-            )
-        )
-        paragraphs_completed = completed_result.scalar() or 0
-
-        # Get completed chapters
-        chapters_completed = 0
-        chapter_ids_result = await db.execute(
-            select(Chapter.id).where(
-                Chapter.textbook_id == textbook.id,
-                Chapter.is_deleted == False
-            )
-        )
-        chapter_ids = chapter_ids_result.scalars().all()
-
-        for chapter_id in chapter_ids:
-            ch_para_total = await db.execute(
-                select(func.count(Paragraph.id)).where(
-                    Paragraph.chapter_id == chapter_id,
-                    Paragraph.is_deleted == False
-                )
-            )
-            ch_para_total_count = ch_para_total.scalar() or 0
-
-            if ch_para_total_count == 0:
-                continue
-
-            ch_para_completed = await db.execute(
-                select(func.count(ParagraphMastery.id))
-                .join(Paragraph, ParagraphMastery.paragraph_id == Paragraph.id)
-                .where(
-                    Paragraph.chapter_id == chapter_id,
-                    ParagraphMastery.student_id == student_id,
-                    ParagraphMastery.is_completed == True
-                )
-            )
-            ch_para_completed_count = ch_para_completed.scalar() or 0
-
-            if ch_para_completed_count >= ch_para_total_count:
-                chapters_completed += 1
-
-        # Calculate percentage
-        percentage = 0
-        if paragraphs_total > 0:
-            percentage = int((paragraphs_completed / paragraphs_total) * 100)
-
-        # Get overall mastery level
-        mastery_result = await db.execute(
-            select(func.avg(ChapterMastery.mastery_score))
-            .join(Chapter, ChapterMastery.chapter_id == Chapter.id)
-            .where(
-                Chapter.textbook_id == textbook.id,
-                ChapterMastery.student_id == student_id
-            )
-        )
-        avg_mastery_score = mastery_result.scalar()
-
-        mastery_level = None
-        if avg_mastery_score is not None:
-            if avg_mastery_score >= 85:
-                mastery_level = "A"
-            elif avg_mastery_score >= 60:
-                mastery_level = "B"
-            else:
-                mastery_level = "C"
-
-        # Get last activity
-        last_activity_result = await db.execute(
-            select(func.max(ParagraphMastery.last_updated_at))
-            .join(Paragraph, ParagraphMastery.paragraph_id == Paragraph.id)
-            .join(Chapter, Paragraph.chapter_id == Chapter.id)
-            .where(
-                Chapter.textbook_id == textbook.id,
-                ParagraphMastery.student_id == student_id
-            )
-        )
-        last_activity = last_activity_result.scalar()
+    for item in textbooks_data:
+        textbook = item["textbook"]
+        progress = item["progress"]
 
         result.append(
             StudentTextbookResponse(
                 id=textbook.id,
                 title=textbook.title,
+                subject_id=textbook.subject_id,
                 subject=textbook.subject,
+                subject_rel=textbook.subject_rel,
                 grade_level=textbook.grade_level,
                 description=textbook.description,
                 is_global=textbook.school_id is None,
                 progress=StudentTextbookProgress(
-                    chapters_total=chapters_count,
-                    chapters_completed=chapters_completed,
-                    paragraphs_total=paragraphs_total,
-                    paragraphs_completed=paragraphs_completed,
-                    percentage=percentage
+                    chapters_total=progress["chapters_total"],
+                    chapters_completed=progress["chapters_completed"],
+                    paragraphs_total=progress["paragraphs_total"],
+                    paragraphs_completed=progress["paragraphs_completed"],
+                    percentage=progress["percentage"],
                 ),
-                mastery_level=mastery_level,
-                last_activity=last_activity,
+                mastery_level=item["mastery_level"],
+                last_activity=item["last_activity"],
                 author=textbook.author,
-                chapters_count=chapters_count
+                chapters_count=progress["chapters_total"],
             )
         )
 
@@ -209,132 +110,29 @@ async def get_student_textbooks(
 
 @router.get("/textbooks/{textbook_id}/chapters", response_model=List[StudentChapterResponse])
 async def get_textbook_chapters(
-    textbook_id: int,
+    textbook: Textbook = Depends(get_textbook_with_access),
     current_user: User = Depends(require_student),
     school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    service: StudentContentService = Depends(get_student_content_service),
 ):
     """
     Get chapters for a textbook with student's progress.
+
+    Uses batch queries for performance (no N+1 problem).
     """
     student = await get_student_from_user(current_user, db)
     student_id = student.id
 
-    # Verify textbook access
-    textbook_repo = TextbookRepository(db)
-    textbook = await textbook_repo.get_by_id(textbook_id)
-
-    if not textbook:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Textbook {textbook_id} not found"
-        )
-
-    if textbook.school_id is not None and textbook.school_id != school_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied to this textbook"
-        )
-
-    # Get chapters ordered by order field
-    chapters_result = await db.execute(
-        select(Chapter).where(
-            Chapter.textbook_id == textbook_id,
-            Chapter.is_deleted == False
-        ).order_by(Chapter.order)
+    # Get chapters with progress using batch queries
+    chapters_data = await service.get_chapters_with_progress(
+        textbook.id, student_id, school_id
     )
-    chapters = chapters_result.scalars().all()
 
     result = []
-
-    for idx, chapter in enumerate(chapters):
-        # Get paragraphs count
-        para_total_result = await db.execute(
-            select(func.count(Paragraph.id)).where(
-                Paragraph.chapter_id == chapter.id,
-                Paragraph.is_deleted == False
-            )
-        )
-        para_total = para_total_result.scalar() or 0
-
-        # Get completed paragraphs
-        para_completed_result = await db.execute(
-            select(func.count(ParagraphMastery.id))
-            .join(Paragraph, ParagraphMastery.paragraph_id == Paragraph.id)
-            .where(
-                Paragraph.chapter_id == chapter.id,
-                ParagraphMastery.student_id == student_id,
-                ParagraphMastery.is_completed == True
-            )
-        )
-        para_completed = para_completed_result.scalar() or 0
-
-        percentage = 0
-        if para_total > 0:
-            percentage = int((para_completed / para_total) * 100)
-
-        # Get chapter mastery
-        mastery_result = await db.execute(
-            select(ChapterMastery).where(
-                ChapterMastery.chapter_id == chapter.id,
-                ChapterMastery.student_id == student_id
-            )
-        )
-        chapter_mastery = mastery_result.scalar_one_or_none()
-
-        mastery_level = None
-        mastery_score = None
-        summative_passed = None
-
-        if chapter_mastery:
-            mastery_level = chapter_mastery.mastery_level
-            mastery_score = chapter_mastery.mastery_score
-            summative_passed = chapter_mastery.summative_passed
-
-        # Determine chapter status
-        if para_completed >= para_total and para_total > 0:
-            chapter_status = "completed"
-        elif para_completed > 0:
-            chapter_status = "in_progress"
-        else:
-            if idx == 0:
-                chapter_status = "not_started"
-            else:
-                prev_chapter = chapters[idx - 1]
-                prev_para_total_result = await db.execute(
-                    select(func.count(Paragraph.id)).where(
-                        Paragraph.chapter_id == prev_chapter.id,
-                        Paragraph.is_deleted == False
-                    )
-                )
-                prev_para_total = prev_para_total_result.scalar() or 0
-
-                prev_para_completed_result = await db.execute(
-                    select(func.count(ParagraphMastery.id))
-                    .join(Paragraph, ParagraphMastery.paragraph_id == Paragraph.id)
-                    .where(
-                        Paragraph.chapter_id == prev_chapter.id,
-                        ParagraphMastery.student_id == student_id,
-                        ParagraphMastery.is_completed == True
-                    )
-                )
-                prev_para_completed = prev_para_completed_result.scalar() or 0
-
-                if prev_para_completed >= prev_para_total and prev_para_total > 0:
-                    chapter_status = "not_started"
-                else:
-                    chapter_status = "locked"
-
-        # Check for summative test
-        test_result = await db.execute(
-            select(func.count(Test.id)).where(
-                Test.chapter_id == chapter.id,
-                Test.test_purpose == TestPurpose.SUMMATIVE,
-                Test.is_active == True,
-                Test.is_deleted == False
-            )
-        )
-        has_summative_test = (test_result.scalar() or 0) > 0
+    for item in chapters_data:
+        chapter = item["chapter"]
+        progress = item["progress"]
 
         result.append(
             StudentChapterResponse(
@@ -345,103 +143,50 @@ async def get_textbook_chapters(
                 order=chapter.order,
                 description=chapter.description,
                 learning_objective=chapter.learning_objective,
-                status=chapter_status,
+                status=item["status"],
                 progress=StudentChapterProgress(
-                    paragraphs_total=para_total,
-                    paragraphs_completed=para_completed,
-                    percentage=percentage
+                    paragraphs_total=progress["paragraphs_total"],
+                    paragraphs_completed=progress["paragraphs_completed"],
+                    percentage=progress["percentage"],
                 ),
-                mastery_level=mastery_level,
-                mastery_score=mastery_score,
-                has_summative_test=has_summative_test,
-                summative_passed=summative_passed
+                mastery_level=item["mastery_level"],
+                mastery_score=item["mastery_score"],
+                has_summative_test=item["has_summative_test"],
+                summative_passed=item["summative_passed"],
             )
         )
 
-    logger.info(f"Student {student_id} retrieved {len(result)} chapters for textbook {textbook_id}")
+    logger.info(
+        f"Student {student_id} retrieved {len(result)} chapters "
+        f"for textbook {textbook.id}"
+    )
     return result
 
 
 @router.get("/chapters/{chapter_id}/paragraphs", response_model=List[StudentParagraphResponse])
 async def get_chapter_paragraphs(
-    chapter_id: int,
+    chapter: Chapter = Depends(get_chapter_with_access),
     current_user: User = Depends(require_student),
     school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    service: StudentContentService = Depends(get_student_content_service),
 ):
     """
     Get paragraphs for a chapter with student's progress.
+
+    Uses batch queries for performance (no N+1 problem).
     """
     student = await get_student_from_user(current_user, db)
     student_id = student.id
 
-    # Get chapter with textbook info
-    chapter_result = await db.execute(
-        select(Chapter)
-        .options(selectinload(Chapter.textbook))
-        .where(Chapter.id == chapter_id, Chapter.is_deleted == False)
+    # Get paragraphs with progress using batch queries
+    paragraphs_data = await service.get_paragraphs_with_progress(
+        chapter.id, student_id, school_id
     )
-    chapter = chapter_result.scalar_one_or_none()
-
-    if not chapter:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Chapter {chapter_id} not found"
-        )
-
-    textbook = chapter.textbook
-    if textbook.school_id is not None and textbook.school_id != school_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied to this chapter"
-        )
-
-    # Get paragraphs ordered
-    paragraphs_result = await db.execute(
-        select(Paragraph).where(
-            Paragraph.chapter_id == chapter_id,
-            Paragraph.is_deleted == False
-        ).order_by(Paragraph.order)
-    )
-    paragraphs = paragraphs_result.scalars().all()
 
     result = []
-
-    for para in paragraphs:
-        # Get mastery info
-        mastery_result = await db.execute(
-            select(ParagraphMastery).where(
-                ParagraphMastery.paragraph_id == para.id,
-                ParagraphMastery.student_id == student_id
-            )
-        )
-        mastery = mastery_result.scalar_one_or_none()
-
-        if mastery and mastery.is_completed:
-            para_status = "completed"
-        elif mastery:
-            para_status = "in_progress"
-        else:
-            para_status = "not_started"
-
-        practice_score = None
-        if mastery and mastery.best_score is not None:
-            practice_score = mastery.best_score
-
-        # Estimate time
-        word_count = len(para.content.split()) if para.content else 0
-        estimated_time = max(3, min(15, word_count // 200 + 3))
-
-        # Check for practice test
-        test_result = await db.execute(
-            select(func.count(Test.id)).where(
-                Test.paragraph_id == para.id,
-                Test.test_purpose.in_([TestPurpose.FORMATIVE, TestPurpose.PRACTICE]),
-                Test.is_active == True,
-                Test.is_deleted == False
-            )
-        )
-        has_practice = (test_result.scalar() or 0) > 0
+    for item in paragraphs_data:
+        para = item["paragraph"]
 
         result.append(
             StudentParagraphResponse(
@@ -451,25 +196,28 @@ async def get_chapter_paragraphs(
                 number=para.number,
                 order=para.order,
                 summary=para.summary,
-                status=para_status,
-                estimated_time=estimated_time,
-                has_practice=has_practice,
-                practice_score=practice_score,
+                status=item["status"],
+                estimated_time=item["estimated_time"],
+                has_practice=item["has_practice"],
+                practice_score=item["practice_score"],
                 learning_objective=para.learning_objective,
-                key_terms=para.key_terms
+                key_terms=para.key_terms,
             )
         )
 
-    logger.info(f"Student {student_id} retrieved {len(result)} paragraphs for chapter {chapter_id}")
+    logger.info(
+        f"Student {student_id} retrieved {len(result)} paragraphs "
+        f"for chapter {chapter.id}"
+    )
     return result
 
 
 @router.get("/paragraphs/{paragraph_id}", response_model=StudentParagraphDetailResponse)
 async def get_paragraph_detail(
-    paragraph_id: int,
+    paragraph: Paragraph = Depends(get_paragraph_with_access),
     current_user: User = Depends(require_student),
     school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get full paragraph content for learning.
@@ -477,34 +225,18 @@ async def get_paragraph_detail(
     student = await get_student_from_user(current_user, db)
     student_id = student.id
 
-    # Get paragraph with chapter and textbook
-    para_result = await db.execute(
-        select(Paragraph)
-        .options(
-            selectinload(Paragraph.chapter).selectinload(Chapter.textbook),
-            selectinload(Paragraph.contents)
+    # Load contents for paragraph
+    contents_result = await db.execute(
+        select(ParagraphContent).where(
+            ParagraphContent.paragraph_id == paragraph.id
         )
-        .where(Paragraph.id == paragraph_id, Paragraph.is_deleted == False)
     )
-    paragraph = para_result.scalar_one_or_none()
-
-    if not paragraph:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Paragraph {paragraph_id} not found"
-        )
-
-    textbook = paragraph.chapter.textbook
-    if textbook.school_id is not None and textbook.school_id != school_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied to this paragraph"
-        )
+    contents = contents_result.scalars().all()
 
     # Get mastery info
     mastery_result = await db.execute(
         select(ParagraphMastery).where(
-            ParagraphMastery.paragraph_id == paragraph_id,
+            ParagraphMastery.paragraph_id == paragraph.id,
             ParagraphMastery.student_id == student_id
         )
     )
@@ -523,7 +255,7 @@ async def get_paragraph_detail(
     has_slides = False
     has_cards = False
 
-    for content in paragraph.contents:
+    for content in contents:
         if content.audio_url:
             has_audio = True
         if content.video_url:
@@ -536,7 +268,7 @@ async def get_paragraph_detail(
     # Update last accessed
     student_para_result = await db.execute(
         select(StudentParagraphModel).where(
-            StudentParagraphModel.paragraph_id == paragraph_id,
+            StudentParagraphModel.paragraph_id == paragraph.id,
             StudentParagraphModel.student_id == student_id
         )
     )
@@ -545,7 +277,7 @@ async def get_paragraph_detail(
     if not student_para:
         student_para = StudentParagraphModel(
             student_id=student_id,
-            paragraph_id=paragraph_id,
+            paragraph_id=paragraph.id,
             school_id=school_id,
             last_accessed_at=datetime.now(timezone.utc)
         )
@@ -555,7 +287,11 @@ async def get_paragraph_detail(
 
     await db.commit()
 
-    logger.info(f"Student {student_id} accessed paragraph {paragraph_id}")
+    # Get chapter and textbook titles from eager-loaded relationship
+    chapter = paragraph.chapter
+    textbook = chapter.textbook
+
+    logger.info(f"Student {student_id} accessed paragraph {paragraph.id}")
 
     return StudentParagraphDetailResponse(
         id=paragraph.id,
@@ -575,8 +311,8 @@ async def get_paragraph_detail(
         has_video=has_video,
         has_slides=has_slides,
         has_cards=has_cards,
-        chapter_title=paragraph.chapter.title,
-        textbook_title=textbook.title
+        chapter_title=chapter.title,
+        textbook_title=textbook.title,
     )
 
 
@@ -586,12 +322,12 @@ async def get_paragraph_rich_content(
     language: str = Query("ru", description="Content language: ru or kk"),
     current_user: User = Depends(require_student),
     school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get rich content for a paragraph (audio, video, slides, cards).
     """
-    student = await get_student_from_user(current_user, db)
+    _ = await get_student_from_user(current_user, db)
 
     if language not in ("ru", "kk"):
         raise HTTPException(
@@ -599,7 +335,7 @@ async def get_paragraph_rich_content(
             detail="Language must be 'ru' or 'kk'"
         )
 
-    # Get paragraph with chapter
+    # Get paragraph with access check
     para_result = await db.execute(
         select(Paragraph)
         .options(selectinload(Paragraph.chapter).selectinload(Chapter.textbook))
@@ -646,7 +382,7 @@ async def get_paragraph_rich_content(
             has_audio=content.audio_url is not None,
             has_video=content.video_url is not None,
             has_slides=content.slides_url is not None,
-            has_cards=content.cards is not None and len(content.cards) > 0
+            has_cards=content.cards is not None and len(content.cards) > 0,
         )
     else:
         return ParagraphRichContent(
@@ -661,44 +397,23 @@ async def get_paragraph_rich_content(
             has_audio=False,
             has_video=False,
             has_slides=False,
-            has_cards=False
+            has_cards=False,
         )
 
 
 @router.get("/paragraphs/{paragraph_id}/navigation", response_model=ParagraphNavigationContext)
 async def get_paragraph_navigation(
-    paragraph_id: int,
+    paragraph: Paragraph = Depends(get_paragraph_with_access),
     current_user: User = Depends(require_student),
-    school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get navigation context for paragraph learning view.
 
     Includes previous/next paragraph IDs, chapter info, and position.
     """
-    # Get paragraph with chapter and textbook
-    para_result = await db.execute(
-        select(Paragraph)
-        .options(selectinload(Paragraph.chapter).selectinload(Chapter.textbook))
-        .where(Paragraph.id == paragraph_id, Paragraph.is_deleted == False)
-    )
-    paragraph = para_result.scalar_one_or_none()
-
-    if not paragraph:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Paragraph {paragraph_id} not found"
-        )
-
-    textbook = paragraph.chapter.textbook
-    if textbook.school_id is not None and textbook.school_id != school_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied to this paragraph"
-        )
-
     chapter = paragraph.chapter
+    textbook = chapter.textbook
 
     # Get all paragraphs in chapter ordered
     all_paras_result = await db.execute(
@@ -712,7 +427,7 @@ async def get_paragraph_navigation(
     # Find current position and neighbors
     current_idx = None
     for idx, p in enumerate(all_paragraphs):
-        if p.id == paragraph_id:
+        if p.id == paragraph.id:
             current_idx = idx
             break
 
@@ -726,7 +441,7 @@ async def get_paragraph_navigation(
             next_id = all_paragraphs[current_idx + 1].id
 
     return ParagraphNavigationContext(
-        current_paragraph_id=paragraph_id,
+        current_paragraph_id=paragraph.id,
         current_paragraph_number=paragraph.number,
         current_paragraph_title=paragraph.title,
         chapter_id=chapter.id,
@@ -737,5 +452,5 @@ async def get_paragraph_navigation(
         previous_paragraph_id=previous_id,
         next_paragraph_id=next_id,
         total_paragraphs_in_chapter=len(all_paragraphs),
-        current_position_in_chapter=(current_idx or 0) + 1
+        current_position_in_chapter=(current_idx or 0) + 1,
     )

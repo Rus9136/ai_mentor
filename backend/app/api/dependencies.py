@@ -27,6 +27,7 @@ from app.repositories.user_repo import UserRepository
 from app.repositories.textbook_repo import TextbookRepository
 from app.schemas.auth import TokenPayload
 from app.services.student_stats_service import StudentStatsService
+from app.services.student_content_service import StudentContentService
 
 logger = logging.getLogger(__name__)
 
@@ -502,3 +503,22 @@ async def get_student_stats_service(
         StudentStatsService instance
     """
     return StudentStatsService(db)
+
+
+async def get_student_content_service(
+    db: AsyncSession = Depends(get_db)
+) -> StudentContentService:
+    """
+    Dependency injection factory for StudentContentService.
+
+    Creates a new instance of StudentContentService with the current
+    database session. Use this in endpoints instead of instantiating
+    the service directly.
+
+    Args:
+        db: Database session (injected)
+
+    Returns:
+        StudentContentService instance
+    """
+    return StudentContentService(db)
