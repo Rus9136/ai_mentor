@@ -1,17 +1,30 @@
 """
 FastAPI dependencies for authentication and authorization.
+
+This module provides reusable dependencies for:
+- Authentication (JWT token validation)
+- Authorization (role-based access control)
+- Data access with school isolation (textbook, chapter, paragraph)
+- Student context resolution
 """
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 import logging
 
 from app.core.database import get_db
 from app.core.security import decode_token, verify_token_type
 from app.core.tenancy import set_current_tenant, reset_tenant, set_super_admin_flag, set_current_user_id
 from app.models.user import User, UserRole
+from app.models.student import Student
+from app.models.textbook import Textbook
+from app.models.chapter import Chapter
+from app.models.paragraph import Paragraph
 from app.repositories.user_repo import UserRepository
+from app.repositories.textbook_repo import TextbookRepository
 from app.schemas.auth import TokenPayload
 
 logger = logging.getLogger(__name__)
@@ -273,3 +286,194 @@ async def get_db_and_admin_user(
     else:
         await reset_tenant(db)
     return db, current_user
+
+
+# =============================================================================
+# Content Access Dependencies (Phase 1 Refactoring)
+# =============================================================================
+
+
+async def get_student_from_user(
+    current_user: User = Depends(require_student),
+    db: AsyncSession = Depends(get_db)
+) -> Student:
+    """
+    Get Student record from authenticated User.
+
+    This dependency resolves the Student entity for the current user.
+    Use this instead of lazy loading current_user.student, which
+    doesn't work in async context.
+
+    Args:
+        current_user: Authenticated user with STUDENT role
+        db: Database session
+
+    Returns:
+        Student record
+
+    Raises:
+        HTTPException 400: If Student record not found for this user
+    """
+    result = await db.execute(
+        select(Student).where(Student.user_id == current_user.id)
+    )
+    student = result.scalar_one_or_none()
+
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Student record not found for this user"
+        )
+
+    return student
+
+
+async def get_paragraph_with_access(
+    paragraph_id: int,
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> Paragraph:
+    """
+    Get paragraph with school access verification.
+
+    Loads paragraph with chapter and textbook (eager loading) and verifies
+    that the textbook is accessible to the user's school.
+
+    Access rules:
+    - Global textbooks (school_id = NULL) are accessible to all
+    - School textbooks (school_id = N) are only accessible to that school
+
+    Args:
+        paragraph_id: Paragraph ID from path
+        school_id: Current user's school ID (from token)
+        db: Database session
+
+    Returns:
+        Paragraph with chapter and textbook loaded
+
+    Raises:
+        HTTPException 404: Paragraph not found
+        HTTPException 403: Access denied (wrong school)
+    """
+    result = await db.execute(
+        select(Paragraph)
+        .options(
+            selectinload(Paragraph.chapter)
+            .selectinload(Chapter.textbook)
+        )
+        .where(
+            Paragraph.id == paragraph_id,
+            Paragraph.is_deleted == False
+        )
+    )
+    paragraph = result.scalar_one_or_none()
+
+    if not paragraph:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Paragraph {paragraph_id} not found"
+        )
+
+    textbook = paragraph.chapter.textbook
+    if textbook.school_id is not None and textbook.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this paragraph"
+        )
+
+    return paragraph
+
+
+async def get_chapter_with_access(
+    chapter_id: int,
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> Chapter:
+    """
+    Get chapter with school access verification.
+
+    Loads chapter with textbook (eager loading) and verifies
+    that the textbook is accessible to the user's school.
+
+    Access rules:
+    - Global textbooks (school_id = NULL) are accessible to all
+    - School textbooks (school_id = N) are only accessible to that school
+
+    Args:
+        chapter_id: Chapter ID from path
+        school_id: Current user's school ID (from token)
+        db: Database session
+
+    Returns:
+        Chapter with textbook loaded
+
+    Raises:
+        HTTPException 404: Chapter not found
+        HTTPException 403: Access denied (wrong school)
+    """
+    result = await db.execute(
+        select(Chapter)
+        .options(selectinload(Chapter.textbook))
+        .where(
+            Chapter.id == chapter_id,
+            Chapter.is_deleted == False
+        )
+    )
+    chapter = result.scalar_one_or_none()
+
+    if not chapter:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Chapter {chapter_id} not found"
+        )
+
+    textbook = chapter.textbook
+    if textbook.school_id is not None and textbook.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this chapter"
+        )
+
+    return chapter
+
+
+async def get_textbook_with_access(
+    textbook_id: int,
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> Textbook:
+    """
+    Get textbook with school access verification.
+
+    Access rules:
+    - Global textbooks (school_id = NULL) are accessible to all
+    - School textbooks (school_id = N) are only accessible to that school
+
+    Args:
+        textbook_id: Textbook ID from path
+        school_id: Current user's school ID (from token)
+        db: Database session
+
+    Returns:
+        Textbook
+
+    Raises:
+        HTTPException 404: Textbook not found
+        HTTPException 403: Access denied (wrong school)
+    """
+    repo = TextbookRepository(db)
+    textbook = await repo.get_by_id(textbook_id)
+
+    if not textbook:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Textbook {textbook_id} not found"
+        )
+
+    if textbook.school_id is not None and textbook.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this textbook"
+        )
+
+    return textbook

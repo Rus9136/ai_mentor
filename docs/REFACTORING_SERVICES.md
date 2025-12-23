@@ -8,6 +8,84 @@
 
 **Статус:** Планирование | **Приоритет:** Средний | **Effort:** 3-4 дня
 
+---
+
+## Архитектурные принципы
+
+### 1. Transaction Boundary (Unit of Work)
+
+**Правило:** Services НЕ делают `commit()`. Транзакции контролирует вызывающий код.
+
+```python
+# ❌ НЕПРАВИЛЬНО — commit внутри service
+class MyService:
+    async def create_something(self):
+        self.db.add(entity)
+        await self.db.commit()  # НЕТ!
+
+# ✅ ПРАВИЛЬНО — commit в endpoint или UoW
+@router.post("/something")
+async def create(service: MyService = Depends(get_service), db: AsyncSession = Depends(get_db)):
+    result = await service.create_something()
+    await db.commit()
+    return result
+```
+
+**Исключения:** Только для изолированных операций (логирование, аудит).
+
+### 2. Dependency Injection для Services
+
+**Правило:** Services создаются через FastAPI Depends, не внутри endpoints.
+
+```python
+# ❌ НЕПРАВИЛЬНО
+@router.get("/stats")
+async def get_stats(db: AsyncSession = Depends(get_db)):
+    service = StudentStatsService(db)  # Каждый раз новый инстанс
+    return await service.get_stats()
+
+# ✅ ПРАВИЛЬНО
+async def get_stats_service(
+    db: AsyncSession = Depends(get_db)
+) -> StudentStatsService:
+    return StudentStatsService(db)
+
+@router.get("/stats")
+async def get_stats(
+    service: StudentStatsService = Depends(get_stats_service)
+):
+    return await service.get_stats()
+```
+
+**Преимущества:**
+- Легко мокать в тестах
+- Единая точка создания
+- Возможность добавить caching/pooling
+
+### 3. Protocols для тестирования
+
+```python
+# backend/app/services/protocols.py
+
+from typing import Protocol
+
+class IStudentStatsService(Protocol):
+    async def calculate_streak(self, student_id: int, school_id: int) -> int: ...
+    async def get_dashboard_stats(self, student_id: int, school_id: int) -> StudentDashboardStats: ...
+```
+
+### 4. Конфигурируемые значения
+
+```python
+# backend/app/core/config.py
+
+class Settings(BaseSettings):
+    # Learning settings
+    MIN_DAILY_ACTIVITY_SECONDS: int = 600  # 10 minutes for streak
+    MASTERY_LEVEL_A_THRESHOLD: int = 85
+    MASTERY_LEVEL_B_THRESHOLD: int = 60
+```
+
 ## Текущее состояние
 
 ### Проблемный файл: `backend/app/api/v1/students.py`
@@ -57,7 +135,9 @@ backend/app/
 
 ---
 
-## Phase 1: Reusable Dependencies (Day 1)
+## Phase 1: Reusable Dependencies (2h)
+
+> **Риск:** Низкий | **Можно деплоить:** Отдельно
 
 ### Задача
 
@@ -213,11 +293,102 @@ async def get_textbook_with_access(
 
 ---
 
-## Phase 2: Student Stats Service (Day 1-2)
+## Phase 2: Split Students Router (3h)
+
+> **Риск:** Средний | **Можно деплоить:** Отдельно
+>
+> ⚠️ **ВАЖНО:** Выполнять ДО создания services, чтобы не переносить endpoints дважды.
+
+### Задача
+
+Разбить `students.py` на субмодули по доменам. Это упростит последующий рефакторинг.
+
+### Новая структура
+
+```
+backend/app/api/v1/students/
+├── __init__.py       # Router aggregation
+├── tests.py          # 6 endpoints (~400 строк)
+├── content.py        # 6 endpoints (~350 строк)
+├── learning.py       # 4 endpoints (~300 строк)
+├── mastery.py        # 2 endpoints (~150 строк)
+├── embedded.py       # 2 endpoints (~150 строк)
+└── stats.py          # 1 endpoint (~50 строк)
+```
+
+### Router aggregation
+
+```python
+# backend/app/api/v1/students/__init__.py
+
+from fastapi import APIRouter
+
+from .tests import router as tests_router
+from .content import router as content_router
+from .learning import router as learning_router
+from .mastery import router as mastery_router
+from .embedded import router as embedded_router
+from .stats import router as stats_router
+
+router = APIRouter()
+
+# Test-taking workflow
+router.include_router(tests_router, tags=["Student Tests"])
+
+# Content browsing
+router.include_router(content_router, tags=["Student Content"])
+
+# Learning progress
+router.include_router(learning_router, tags=["Student Learning"])
+
+# Mastery
+router.include_router(mastery_router, tags=["Student Mastery"])
+
+# Embedded questions
+router.include_router(embedded_router, tags=["Embedded Questions"])
+
+# Stats
+router.include_router(stats_router, tags=["Student Stats"])
+```
+
+### Стратегия миграции (zero-downtime)
+
+1. Создать `students/` package с пустыми файлами
+2. Переносить endpoints по одному домену
+3. После каждого переноса — тест на staging
+4. Удалить старый `students.py` только после полного переноса
+
+### Обновление main.py
+
+```python
+# Импорт не меняется благодаря __init__.py:
+from app.api.v1.students import router as students_router
+```
+
+### Результат Phase 2
+
+- Каждый файл < 400 строк
+- Чёткое разделение ответственности
+- Готово для внедрения services
+
+---
+
+## Phase 3: Student Stats Service (3h)
+
+> **Риск:** Низкий | **Можно деплоить:** Отдельно
 
 ### Задача
 
 Вынести расчёт streak и dashboard stats в отдельный service.
+
+### Требуемый индекс для производительности
+
+```sql
+-- Добавить в миграцию!
+CREATE INDEX CONCURRENTLY idx_student_paragraph_streak
+ON student_paragraphs (student_id, school_id, last_accessed_at DESC)
+WHERE last_accessed_at IS NOT NULL;
+```
 
 ### Новый service
 
@@ -234,6 +405,7 @@ from sqlalchemy import select, func, cast, Date
 from app.models.learning import StudentParagraph
 from app.models.embedded_question import StudentEmbeddedAnswer
 from app.schemas.student_content import StudentDashboardStats
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +418,8 @@ class StudentStatsService:
     - Расчёт streak (consecutive active days)
     - Агрегация time spent
     - Подсчёт completed paragraphs и tasks
+
+    Note: Этот service только читает данные, commit не требуется.
     """
 
     def __init__(self, db: AsyncSession):
@@ -254,24 +428,21 @@ class StudentStatsService:
     async def calculate_streak(
         self,
         student_id: int,
-        school_id: int,
-        min_daily_seconds: int = 600  # 10 minutes
+        school_id: int
     ) -> int:
         """
         Рассчитать streak — количество последовательных активных дней.
 
-        Активный день = день с >= min_daily_seconds секунд активности.
+        Активный день = день с >= MIN_DAILY_ACTIVITY_SECONDS секунд активности.
         Streak считается от сегодня/вчера назад.
-
-        Args:
-            student_id: ID студента
-            school_id: ID школы (для изоляции)
-            min_daily_seconds: Минимум секунд для "активного" дня
 
         Returns:
             Количество последовательных активных дней
         """
+        min_seconds = settings.MIN_DAILY_ACTIVITY_SECONDS
+
         # Получить дни с достаточной активностью
+        # Использует индекс idx_student_paragraph_streak
         daily_time_query = (
             select(
                 cast(StudentParagraph.last_accessed_at, Date).label('activity_date'),
@@ -283,7 +454,7 @@ class StudentStatsService:
                 StudentParagraph.last_accessed_at.isnot(None)
             )
             .group_by(cast(StudentParagraph.last_accessed_at, Date))
-            .having(func.sum(StudentParagraph.time_spent) >= min_daily_seconds)
+            .having(func.sum(StudentParagraph.time_spent) >= min_seconds)
             .order_by(cast(StudentParagraph.last_accessed_at, Date).desc())
         )
 
@@ -370,16 +541,32 @@ class StudentStatsService:
         )
 ```
 
+### Dependency Injection для service
+
+```python
+# backend/app/api/dependencies.py (добавить)
+
+from app.services.student_stats_service import StudentStatsService
+
+async def get_student_stats_service(
+    db: AsyncSession = Depends(get_db)
+) -> StudentStatsService:
+    """DI factory для StudentStatsService."""
+    return StudentStatsService(db)
+```
+
 ### Использование в endpoint
 
 ```python
 # backend/app/api/v1/students/stats.py
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.api.dependencies import get_student_from_user, get_current_user_school_id
+from app.api.dependencies import (
+    get_student_from_user,
+    get_current_user_school_id,
+    get_student_stats_service
+)
 from app.services.student_stats_service import StudentStatsService
 from app.schemas.student_content import StudentDashboardStats
 
@@ -390,22 +577,24 @@ router = APIRouter()
 async def get_student_stats(
     student = Depends(get_student_from_user),
     school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
+    service: StudentStatsService = Depends(get_student_stats_service)  # DI!
 ):
     """Get student's dashboard statistics including streak."""
-    service = StudentStatsService(db)
     return await service.get_dashboard_stats(student.id, school_id)
 ```
 
-### Результат Phase 2
+### Результат Phase 3
 
 - Streak логика вынесена и тестируема отдельно
 - Endpoint сократился с 60 до 5 строк
-- Можно переиспользовать в других местах
+- DI позволяет легко мокать service в тестах
+- Индекс обеспечивает производительность
 
 ---
 
-## Phase 3: Student Content Service (Day 2)
+## Phase 4: Student Content Service (4h)
+
+> **Риск:** Средний | **Можно деплоить:** Отдельно
 
 ### Задача
 
@@ -520,9 +709,10 @@ class StudentContentService:
             avg_score = mastery_scores.get(tid)
             mastery_level = None
             if avg_score is not None:
-                if avg_score >= 85:
+                # Используем настройки из config
+                if avg_score >= settings.MASTERY_LEVEL_A_THRESHOLD:
                     mastery_level = "A"
-                elif avg_score >= 60:
+                elif avg_score >= settings.MASTERY_LEVEL_B_THRESHOLD:
                     mastery_level = "B"
                 else:
                     mastery_level = "C"
@@ -623,89 +813,18 @@ class StudentContentService:
         return {row.textbook_id: row.avg_score for row in result.fetchall()}
 ```
 
-### Результат Phase 3
+### Результат Phase 4
 
 - N+1 проблема решена через batch queries
 - Запросы к БД: O(1) вместо O(N)
 - Код изолирован и тестируем
+- Thresholds вынесены в config
 
 ---
 
-## Phase 4: Split Students Router (Day 3)
+## Phase 5: Test Taking Service (4h)
 
-### Задача
-
-Разбить `students.py` на субмодули по доменам.
-
-### Новая структура
-
-```
-backend/app/api/v1/students/
-├── __init__.py
-├── tests.py          # 6 endpoints (~400 строк)
-├── content.py        # 6 endpoints (~350 строк)
-├── learning.py       # 4 endpoints (~300 строк)
-├── mastery.py        # 2 endpoints (~150 строк)
-├── embedded.py       # 2 endpoints (~150 строк)
-└── stats.py          # 1 endpoint (~50 строк)
-```
-
-### Router aggregation
-
-```python
-# backend/app/api/v1/students/__init__.py
-
-from fastapi import APIRouter
-
-from .tests import router as tests_router
-from .content import router as content_router
-from .learning import router as learning_router
-from .mastery import router as mastery_router
-from .embedded import router as embedded_router
-from .stats import router as stats_router
-
-router = APIRouter()
-
-# Test-taking workflow
-router.include_router(tests_router, tags=["Student Tests"])
-
-# Content browsing
-router.include_router(content_router, tags=["Student Content"])
-
-# Learning progress
-router.include_router(learning_router, tags=["Student Learning"])
-
-# Mastery
-router.include_router(mastery_router, tags=["Student Mastery"])
-
-# Embedded questions
-router.include_router(embedded_router, tags=["Embedded Questions"])
-
-# Stats
-router.include_router(stats_router, tags=["Student Stats"])
-```
-
-### Обновление main.py
-
-```python
-# backend/app/main.py
-
-# BEFORE:
-from app.api.v1.students import router as students_router
-
-# AFTER (без изменений - путь импорта тот же):
-from app.api.v1.students import router as students_router
-```
-
-### Результат Phase 4
-
-- Каждый файл < 400 строк
-- Чёткое разделение ответственности
-- Легче навигация и code review
-
----
-
-## Phase 5: Test Taking Service (Day 3-4)
+> **Риск:** Средний | **Можно деплоить:** Отдельно
 
 ### Задача
 
@@ -742,6 +861,11 @@ class TestTakingService:
     - Сохранение ответов
     - Проверка ответа (is_correct)
     - Завершение теста
+
+    Transaction Policy:
+    - Service добавляет объекты в session (db.add)
+    - НЕ вызывает commit() — это делает endpoint
+    - Позволяет откатить всю операцию при ошибке
     """
 
     def __init__(self, db: AsyncSession):
@@ -864,7 +988,7 @@ class TestTakingService:
         is_correct = set(selected_option_ids) == set(correct_option_ids)
         points_earned = question.points if is_correct else 0.0
 
-        # Save answer
+        # Save answer (commit делает endpoint!)
         answer = TestAttemptAnswer(
             attempt_id=attempt_id,
             question_id=question_id,
@@ -874,7 +998,7 @@ class TestTakingService:
             answered_at=datetime.now(timezone.utc)
         )
         self.db.add(answer)
-        await self.db.commit()
+        # НЕ делаем commit — это ответственность endpoint
 
         logger.info(
             f"Student {student_id} answered Q{question_id}: "
@@ -945,15 +1069,35 @@ class TestTakingService:
         return graded
 ```
 
+### Пример использования в endpoint
+
+```python
+# backend/app/api/v1/students/tests.py
+
+@router.post("/tests/{test_id}/answer")
+async def answer_question(
+    test_id: int,
+    answer_data: AnswerRequest,
+    service: TestTakingService = Depends(get_test_taking_service),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await service.answer_question(...)
+    await db.commit()  # Commit здесь!
+    return result
+```
+
 ### Результат Phase 5
 
 - Test-taking логика изолирована
-- Легко тестировать без HTTP
+- Легко тестировать без HTTP (mock db, без commit)
 - Готово для расширения (таймеры, retries)
+- Transaction boundary в endpoint
 
 ---
 
-## Phase 6: Learning Progress Service (Day 4)
+## Phase 6: Learning Progress Service (3h)
+
+> **Риск:** Низкий | **Можно деплоить:** Отдельно
 
 ### Задача
 
@@ -987,6 +1131,10 @@ class StudentProgressService:
     - Сохранение self-assessment
     - Расчёт доступных шагов
     - Трекинг времени
+
+    Transaction Policy:
+    - Добавляет/изменяет объекты в session
+    - НЕ вызывает commit() — это делает endpoint
     """
 
     def __init__(self, db: AsyncSession):
@@ -1070,8 +1218,8 @@ class StudentProgressService:
             student_para.is_completed = True
             student_para.completed_at = now
 
-        await self.db.commit()
-        await self.db.refresh(student_para)
+        # НЕ делаем commit — это ответственность endpoint
+        await self.db.flush()  # Получаем ID для нового объекта
 
         logger.info(
             f"Student {student_id} updated paragraph {paragraph_id} "
@@ -1118,7 +1266,7 @@ class StudentProgressService:
             student_para.self_assessment_at = now
             student_para.last_accessed_at = now
 
-        await self.db.commit()
+        await self.db.flush()  # НЕ commit!
 
         messages = {
             "understood": "Отлично! Продолжай в том же духе!",
@@ -1186,20 +1334,36 @@ class StudentProgressService:
 
 ## Summary
 
-### Итоговая структура Services
+### Итоговая структура
 
 ```
-backend/app/services/
-├── grading_service.py          # EXISTS - grading logic
-├── mastery_service.py          # EXISTS - A/B/C grouping
-├── upload_service.py           # EXISTS - file uploads
-├── chat_service.py             # EXISTS - LLM chat
-├── rag_service.py              # EXISTS - RAG retrieval
-├── embedding_service.py        # EXISTS - embeddings
-├── student_stats_service.py    # NEW - streak, dashboard stats
-├── student_content_service.py  # NEW - textbooks progress
-├── student_progress_service.py # NEW - learning steps
-└── test_taking_service.py      # NEW - test workflow
+backend/app/
+├── api/
+│   ├── dependencies.py              # + get_*_service factories
+│   └── v1/students/
+│       ├── __init__.py              # Router aggregation
+│       ├── tests.py                 # Test-taking
+│       ├── content.py               # Textbooks, chapters
+│       ├── learning.py              # Progress, steps
+│       ├── mastery.py               # Mastery endpoints
+│       ├── embedded.py              # Embedded questions
+│       └── stats.py                 # Dashboard stats
+│
+├── services/
+│   ├── protocols.py                 # NEW - interfaces для тестирования
+│   ├── grading_service.py           # EXISTS
+│   ├── mastery_service.py           # EXISTS
+│   ├── upload_service.py            # EXISTS
+│   ├── chat_service.py              # EXISTS
+│   ├── rag_service.py               # EXISTS
+│   ├── embedding_service.py         # EXISTS
+│   ├── student_stats_service.py     # NEW - streak, dashboard
+│   ├── student_content_service.py   # NEW - textbooks progress
+│   ├── student_progress_service.py  # NEW - learning steps
+│   └── test_taking_service.py       # NEW - test workflow
+│
+└── core/
+    └── config.py                    # + learning settings
 ```
 
 ### Метрики после рефакторинга
@@ -1212,32 +1376,81 @@ backend/app/services/
 | Дублирование | ~200 строк | 0 |
 | N+1 запросов | 3 места | 0 |
 | Покрытие тестами | Сложно | Легко |
+| Hardcoded values | 5+ мест | 0 (в config) |
 
-### Порядок выполнения
+### Порядок выполнения (ОБНОВЛЁННЫЙ)
 
-| Phase | Задача | Effort | Риск |
-|-------|--------|--------|------|
-| 1 | Reusable Dependencies | 2h | Низкий |
-| 2 | Student Stats Service | 3h | Низкий |
-| 3 | Student Content Service | 4h | Средний |
-| 4 | Split Router | 4h | Средний |
-| 5 | Test Taking Service | 4h | Средний |
-| 6 | Learning Progress Service | 3h | Низкий |
+| Phase | Задача | Effort | Риск | Зависимости |
+|-------|--------|--------|------|-------------|
+| 1 | Reusable Dependencies | 2h | Низкий | — |
+| 2 | **Split Router** | 3h | Средний | — |
+| 3 | Student Stats Service | 3h | Низкий | Phase 1, 2 |
+| 4 | Student Content Service | 4h | Средний | Phase 1, 2 |
+| 5 | Test Taking Service | 4h | Средний | Phase 1, 2 |
+| 6 | Learning Progress Service | 3h | Низкий | Phase 1, 2 |
 
-**Total:** ~20 часов (3-4 рабочих дня)
+**Total:** ~19 часов (3 рабочих дня)
+
+> **Изменение:** Split Router перенесён на Phase 2, чтобы упростить внедрение services в уже разделённые файлы.
+
+---
+
+## Ключевые правила (напоминание)
+
+1. **Transaction Boundary** — services НЕ делают commit()
+2. **Dependency Injection** — services создаются через Depends()
+3. **Configurable Values** — все thresholds в settings
+4. **Protocols** — для unit-тестов используем интерфейсы
 
 ---
 
 ## Checklist для выполнения
 
-- [ ] Phase 1: Добавить dependencies в `dependencies.py`
-- [ ] Phase 2: Создать `student_stats_service.py`
-- [ ] Phase 3: Создать `student_content_service.py`
-- [ ] Phase 4: Создать `api/v1/students/` package
-- [ ] Phase 4: Перенести endpoints в субмодули
-- [ ] Phase 4: Обновить импорты в `main.py`
-- [ ] Phase 5: Создать `test_taking_service.py`
-- [ ] Phase 6: Создать `student_progress_service.py`
+### Phase 1: Dependencies ✅ DONE (2025-12-23)
+- [x] Добавить `get_student_from_user` в `dependencies.py`
+- [x] Добавить `get_paragraph_with_access`
+- [x] Добавить `get_chapter_with_access`
+- [x] Добавить `get_textbook_with_access`
+
+### Phase 2: Split Router
+- [ ] Создать `api/v1/students/` package
+- [ ] Перенести test endpoints в `tests.py`
+- [ ] Перенести content endpoints в `content.py`
+- [ ] Перенести learning endpoints в `learning.py`
+- [ ] Перенести mastery endpoints в `mastery.py`
+- [ ] Перенести embedded endpoints в `embedded.py`
+- [ ] Перенести stats endpoints в `stats.py`
+- [ ] Создать `__init__.py` с router aggregation
 - [ ] Удалить старый `students.py`
-- [ ] Добавить unit tests для services
-- [ ] Обновить OpenAPI tags
+- [ ] Проверить OpenAPI docs
+
+### Phase 3: Stats Service
+- [ ] Добавить индекс `idx_student_paragraph_streak`
+- [ ] Добавить settings в `config.py`
+- [ ] Создать `student_stats_service.py`
+- [ ] Добавить DI factory в `dependencies.py`
+- [ ] Обновить endpoint в `stats.py`
+- [ ] Написать unit tests
+
+### Phase 4: Content Service
+- [ ] Создать `student_content_service.py`
+- [ ] Добавить DI factory
+- [ ] Обновить endpoints в `content.py`
+- [ ] Написать unit tests
+
+### Phase 5: Test Taking Service
+- [ ] Создать `test_taking_service.py`
+- [ ] Добавить DI factory
+- [ ] Обновить endpoints в `tests.py`
+- [ ] Написать unit tests
+
+### Phase 6: Progress Service
+- [ ] Создать `student_progress_service.py`
+- [ ] Добавить DI factory
+- [ ] Обновить endpoints в `learning.py`
+- [ ] Написать unit tests
+
+### Финализация
+- [ ] Создать `services/protocols.py` с интерфейсами
+- [ ] Проверить все endpoints на staging
+- [ ] Обновить документацию
