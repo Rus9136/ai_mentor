@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.teacher import Teacher
 from app.models.user import User
+from app.models.subject import Subject
 
 
 class TeacherRepository:
@@ -21,7 +22,8 @@ class TeacherRepository:
         teacher_id: int,
         school_id: int,
         load_user: bool = True,
-        load_classes: bool = False
+        load_classes: bool = False,
+        load_subject: bool = True
     ) -> Optional[Teacher]:
         """
         Get teacher by ID with school isolation.
@@ -31,6 +33,7 @@ class TeacherRepository:
             school_id: School ID for data isolation
             load_user: Whether to eager load user data
             load_classes: Whether to eager load classes
+            load_subject: Whether to eager load subject (default True)
 
         Returns:
             Teacher or None if not found
@@ -45,6 +48,8 @@ class TeacherRepository:
             query = query.options(selectinload(Teacher.user))
         if load_classes:
             query = query.options(selectinload(Teacher.classes))
+        if load_subject:
+            query = query.options(selectinload(Teacher.subject_rel))
 
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
@@ -53,7 +58,8 @@ class TeacherRepository:
         self,
         school_id: int,
         load_user: bool = True,
-        load_classes: bool = False
+        load_classes: bool = False,
+        load_subject: bool = True
     ) -> List[Teacher]:
         """
         Get all teachers for a specific school.
@@ -62,6 +68,7 @@ class TeacherRepository:
             school_id: School ID for data isolation
             load_user: Whether to eager load user data
             load_classes: Whether to eager load classes
+            load_subject: Whether to eager load subject (default True)
 
         Returns:
             List of teachers
@@ -75,6 +82,8 @@ class TeacherRepository:
             query = query.options(selectinload(Teacher.user))
         if load_classes:
             query = query.options(selectinload(Teacher.classes))
+        if load_subject:
+            query = query.options(selectinload(Teacher.subject_rel))
 
         result = await self.db.execute(query)
         return result.scalars().all()
@@ -82,20 +91,22 @@ class TeacherRepository:
     async def get_by_filters(
         self,
         school_id: int,
-        subject: Optional[str] = None,
+        subject_id: Optional[int] = None,
         class_id: Optional[int] = None,
         is_active: Optional[bool] = None,
-        load_user: bool = True
+        load_user: bool = True,
+        load_subject: bool = True
     ) -> List[Teacher]:
         """
         Get teachers with filters.
 
         Args:
             school_id: School ID for data isolation
-            subject: Filter by subject
+            subject_id: Filter by subject ID
             class_id: Filter by class ID
             is_active: Filter by active status
             load_user: Whether to eager load user data
+            load_subject: Whether to eager load subject (default True)
 
         Returns:
             List of teachers matching filters
@@ -105,8 +116,8 @@ class TeacherRepository:
             Teacher.is_deleted == False  # noqa: E712
         ]
 
-        if subject is not None:
-            filters.append(Teacher.subject == subject)
+        if subject_id is not None:
+            filters.append(Teacher.subject_id == subject_id)
 
         if is_active is not None:
             filters.append(User.is_active == is_active)
@@ -115,13 +126,15 @@ class TeacherRepository:
 
         # For class_id filter, need to check the association table
         if class_id is not None:
-            from app.models.school_class import class_teachers
-            query = query.join(class_teachers).where(class_teachers.c.class_id == class_id)
+            from app.models.class_teacher import ClassTeacher
+            query = query.join(ClassTeacher).where(ClassTeacher.class_id == class_id)
 
         query = query.order_by(User.last_name, User.first_name)
 
         if load_user:
             query = query.options(selectinload(Teacher.user))
+        if load_subject:
+            query = query.options(selectinload(Teacher.subject_rel))
 
         result = await self.db.execute(query)
         return result.scalars().all()

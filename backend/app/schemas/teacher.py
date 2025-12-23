@@ -7,6 +7,7 @@ from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 from app.schemas.user import UserResponseSchema
+from app.schemas.goso import SubjectBrief
 
 
 class TeacherCreate(BaseModel):
@@ -26,7 +27,7 @@ class TeacherCreate(BaseModel):
         max_length=50,
         description="Teacher code (auto-generated if not provided)",
     )
-    subject: Optional[str] = Field(None, max_length=100, description="Main subject")
+    subject_id: Optional[int] = Field(None, description="Subject ID from subjects table")
     bio: Optional[str] = Field(None, description="Teacher biography")
 
 
@@ -36,7 +37,7 @@ class TeacherUpdate(BaseModel):
     # Only teacher-specific fields can be updated
     # User fields are updated via UserUpdate schema
     teacher_code: Optional[str] = Field(None, max_length=50, description="Teacher code")
-    subject: Optional[str] = Field(None, max_length=100, description="Main subject")
+    subject_id: Optional[int] = Field(None, description="Subject ID from subjects table")
     bio: Optional[str] = Field(None, description="Teacher biography")
 
 
@@ -49,7 +50,9 @@ class TeacherResponse(BaseModel):
     school_id: int
     user_id: int
     teacher_code: str
-    subject: Optional[str]
+    subject_id: Optional[int] = Field(None, description="Subject ID (normalized)")
+    subject: Optional[str] = Field(None, description="Subject name (for backward compatibility)")
+    subject_rel: Optional[SubjectBrief] = Field(None, description="Subject details")
     bio: Optional[str]
     created_at: datetime
     updated_at: datetime
@@ -68,7 +71,9 @@ class TeacherListResponse(BaseModel):
 
     id: int
     teacher_code: str
-    subject: Optional[str]
+    subject_id: Optional[int] = Field(None, description="Subject ID (normalized)")
+    subject: Optional[str] = Field(None, description="Subject name (for backward compatibility)")
+    subject_rel: Optional[SubjectBrief] = Field(None, description="Subject details")
     created_at: datetime
 
     # Nested user data (brief)

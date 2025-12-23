@@ -47,6 +47,14 @@ export interface SchoolCreate {
 
 export interface SchoolUpdate extends Partial<SchoolCreate> {}
 
+// Subject brief (for FK references)
+export interface SubjectBrief {
+  id: number;
+  code: string;
+  name_ru: string;
+  name_kz: string;
+}
+
 // Textbook types
 export interface Textbook {
   id: number;
@@ -56,7 +64,9 @@ export interface Textbook {
   version: number;
   source_version?: number | null;
   title: string;
-  subject: string;
+  subject_id: number | null;
+  subject: string; // backward compatibility
+  subject_rel: SubjectBrief | null;
   grade_level: number;
   author?: string;
   publisher?: string;
@@ -72,7 +82,7 @@ export interface Textbook {
 
 export interface TextbookCreate {
   title: string;
-  subject: string;
+  subject_id: number;
   grade_level: number;
   author?: string;
   publisher?: string;
@@ -274,7 +284,9 @@ export interface Teacher {
   school_id: number;
   user_id: number;
   teacher_code: string;
-  subject?: string | null;
+  subject_id?: number | null;
+  subject?: string | null; // backward compatibility
+  subject_rel?: SubjectBrief | null;
   bio?: string | null;
   user?: User;
   classes?: SchoolClassBrief[];
@@ -292,11 +304,19 @@ export interface TeacherCreate {
   middle_name?: string;
   phone?: string;
   teacher_code?: string;
-  subject?: string;
+  subject_id?: number | null;
   bio?: string;
 }
 
-export interface TeacherUpdate extends Partial<Omit<TeacherCreate, 'email' | 'password'>> {}
+export interface TeacherUpdate {
+  first_name?: string;
+  last_name?: string;
+  middle_name?: string;
+  phone?: string;
+  teacher_code?: string;
+  subject_id?: number | null;
+  bio?: string;
+}
 
 // Parent types
 export interface Parent {

@@ -6,7 +6,9 @@ from sqlalchemy import select, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.school_class import SchoolClass, class_students, class_teachers
+from app.models.school_class import SchoolClass
+from app.models.class_student import ClassStudent
+from app.models.class_teacher import ClassTeacher
 from app.models.student import Student
 from app.models.teacher import Teacher
 
@@ -268,10 +270,10 @@ class SchoolClassRepository:
         """
         # Delete rows from class_students association table
         await self.db.execute(
-            delete(class_students).where(
+            delete(ClassStudent).where(
                 and_(
-                    class_students.c.class_id == class_id,
-                    class_students.c.student_id.in_(student_ids)
+                    ClassStudent.class_id == class_id,
+                    ClassStudent.student_id.in_(student_ids)
                 )
             )
         )
@@ -377,10 +379,10 @@ class SchoolClassRepository:
         """
         # Delete rows from class_teachers association table
         await self.db.execute(
-            delete(class_teachers).where(
+            delete(ClassTeacher).where(
                 and_(
-                    class_teachers.c.class_id == class_id,
-                    class_teachers.c.teacher_id.in_(teacher_ids)
+                    ClassTeacher.class_id == class_id,
+                    ClassTeacher.teacher_id.in_(teacher_ids)
                 )
             )
         )

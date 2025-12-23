@@ -7,10 +7,10 @@ export const textbookCreateSchema = z.object({
     .string()
     .min(1, 'Название обязательно')
     .max(255, 'Максимум 255 символов'),
-  subject: z
-    .string()
-    .min(1, 'Предмет обязателен')
-    .max(100, 'Максимум 100 символов'),
+  subject_id: z
+    .number()
+    .int()
+    .positive('Предмет обязателен'),
   grade_level: z
     .number()
     .int()
@@ -36,7 +36,7 @@ export type TextbookUpdateInput = z.infer<typeof textbookUpdateSchema>;
 
 export const textbookCreateDefaults: TextbookCreateInput = {
   title: '',
-  subject: '',
+  subject_id: 0, // Will be selected from dropdown
   grade_level: 7,
   author: '',
   publisher: '',

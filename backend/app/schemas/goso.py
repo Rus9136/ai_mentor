@@ -9,6 +9,17 @@ from pydantic import BaseModel, Field, ConfigDict
 
 # ==================== Subject ====================
 
+class SubjectBrief(BaseModel):
+    """Brief subject info for embedding in other responses."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    code: str
+    name_ru: str
+    name_kz: str
+
+
 class SubjectCreate(BaseModel):
     """Schema for creating a new subject."""
 

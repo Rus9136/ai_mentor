@@ -12,7 +12,9 @@ from app.models.student import Student
 from app.models.invitation_code import InvitationCode, InvitationCodeUse
 from app.models.teacher import Teacher
 from app.models.parent import Parent, parent_students
-from app.models.school_class import SchoolClass, class_students, class_teachers
+from app.models.school_class import SchoolClass
+from app.models.class_student import ClassStudent
+from app.models.class_teacher import ClassTeacher
 
 # Content models
 from app.models.textbook import Textbook
@@ -65,8 +67,8 @@ __all__ = [
     "Parent",
     "parent_students",
     "SchoolClass",
-    "class_students",
-    "class_teachers",
+    "ClassStudent",
+    "ClassTeacher",
     "InvitationCode",
     "InvitationCodeUse",
     # Content

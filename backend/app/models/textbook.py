@@ -23,9 +23,12 @@ class Textbook(SoftDeleteModel):
     version = Column(Integer, default=1, nullable=False)
     source_version = Column(Integer, nullable=True)  # Version of global textbook at fork time
 
+    # Subject reference (normalized)
+    subject_id = Column(Integer, ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True)
+
     # Textbook info
     title = Column(String(255), nullable=False, index=True)
-    subject = Column(String(100), nullable=False, index=True)
+    subject = Column(String(100), nullable=False, index=True)  # Kept for backward compatibility
     grade_level = Column(Integer, nullable=False, index=True)  # 1-11
     author = Column(String(255), nullable=True)
     publisher = Column(String(255), nullable=True)
@@ -36,6 +39,7 @@ class Textbook(SoftDeleteModel):
 
     # Relationships
     school = relationship("School", back_populates="textbooks")
+    subject_rel = relationship("Subject", back_populates="textbooks", lazy="joined")
     chapters = relationship("Chapter", back_populates="textbook", cascade="all, delete-orphan", order_by="Chapter.order")
     tests = relationship("Test", back_populates="textbook", cascade="all, delete-orphan")
 

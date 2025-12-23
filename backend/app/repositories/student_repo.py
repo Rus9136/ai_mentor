@@ -119,8 +119,8 @@ class StudentRepository:
 
         # For class_id filter, need to check the association table
         if class_id is not None:
-            from app.models.school_class import class_students
-            query = query.join(class_students).where(class_students.c.class_id == class_id)
+            from app.models.class_student import ClassStudent
+            query = query.join(ClassStudent).where(ClassStudent.class_id == class_id)
 
         query = query.order_by(Student.grade_level, User.last_name, User.first_name)
 

@@ -23,6 +23,8 @@ class Subject(BaseModel):
 
     # Relationships
     frameworks = relationship("Framework", back_populates="subject", cascade="all, delete-orphan")
+    textbooks = relationship("Textbook", back_populates="subject_rel")
+    teachers = relationship("Teacher", back_populates="subject_rel")
 
     def __repr__(self) -> str:
         return f"<Subject(id={self.id}, code='{self.code}', name='{self.name_ru}')>"

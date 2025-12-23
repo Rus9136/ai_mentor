@@ -5,12 +5,14 @@ from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
+from app.schemas.goso import SubjectBrief
+
 
 class TextbookCreate(BaseModel):
     """Schema for creating a new textbook."""
 
     title: str = Field(..., min_length=1, max_length=255, description="Textbook title")
-    subject: str = Field(..., min_length=1, max_length=100, description="Subject name")
+    subject_id: int = Field(..., description="Subject ID from subjects table")
     grade_level: int = Field(..., ge=1, le=11, description="Grade level (1-11)")
     author: Optional[str] = Field(None, max_length=255, description="Author name")
     publisher: Optional[str] = Field(None, max_length=255, description="Publisher name")
@@ -24,7 +26,7 @@ class TextbookUpdate(BaseModel):
     """Schema for updating an existing textbook."""
 
     title: Optional[str] = Field(None, min_length=1, max_length=255, description="Textbook title")
-    subject: Optional[str] = Field(None, min_length=1, max_length=100, description="Subject name")
+    subject_id: Optional[int] = Field(None, description="Subject ID from subjects table")
     grade_level: Optional[int] = Field(None, ge=1, le=11, description="Grade level (1-11)")
     author: Optional[str] = Field(None, max_length=255, description="Author name")
     publisher: Optional[str] = Field(None, max_length=255, description="Publisher name")
@@ -47,7 +49,9 @@ class TextbookResponse(BaseModel):
     source_version: Optional[int] = Field(None, description="Version of source textbook at fork time")
 
     title: str
-    subject: str
+    subject_id: Optional[int] = Field(None, description="Subject ID (normalized)")
+    subject: str = Field(description="Subject name (for backward compatibility)")
+    subject_rel: Optional[SubjectBrief] = Field(None, description="Subject details")
     grade_level: int
     author: Optional[str]
     publisher: Optional[str]
@@ -70,7 +74,9 @@ class TextbookListResponse(BaseModel):
     id: int
     school_id: Optional[int]
     title: str
-    subject: str
+    subject_id: Optional[int] = Field(None, description="Subject ID (normalized)")
+    subject: str = Field(description="Subject name (for backward compatibility)")
+    subject_rel: Optional[SubjectBrief] = Field(None, description="Subject details")
     grade_level: int
     is_customized: bool
     is_active: bool

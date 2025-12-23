@@ -17,12 +17,20 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   teacherCreateSchema,
   teacherUpdateSchema,
   teacherCreateDefaults,
   type TeacherCreateInput,
   type TeacherUpdateInput,
 } from '@/lib/validations/teacher';
+import { useSubjects } from '@/lib/hooks/use-goso';
 import type { Teacher } from '@/types';
 
 type TeacherFormProps =
@@ -45,6 +53,7 @@ export function TeacherForm(props: TeacherFormProps) {
 
   const t = useTranslations('teachers');
   const tCommon = useTranslations('common');
+  const { data: subjects, isLoading: subjectsLoading } = useSubjects();
 
   const isEdit = mode === 'edit';
   const schema = isEdit ? teacherUpdateSchema : teacherCreateSchema;
@@ -58,7 +67,7 @@ export function TeacherForm(props: TeacherFormProps) {
           middle_name: teacher.user?.middle_name || '',
           phone: teacher.user?.phone || '',
           teacher_code: teacher.teacher_code || '',
-          subject: teacher.subject || '',
+          subject_id: teacher.subject_id || null,
           bio: teacher.bio || '',
         }
       : teacherCreateDefaults,
@@ -150,13 +159,28 @@ export function TeacherForm(props: TeacherFormProps) {
         <div className="grid gap-6 md:grid-cols-3">
           <FormField
             control={form.control}
-            name="subject"
+            name="subject_id"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>{t('subject')}</FormLabel>
-                <FormControl>
-                  <Input placeholder="Математика" {...field} />
-                </FormControl>
+                <Select
+                  onValueChange={(v) => field.onChange(v ? parseInt(v) : null)}
+                  defaultValue={field.value ? String(field.value) : undefined}
+                  disabled={subjectsLoading}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder={subjectsLoading ? 'Загрузка...' : 'Выберите предмет'} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {subjects?.map((subject) => (
+                      <SelectItem key={subject.id} value={String(subject.id)}>
+                        {subject.name_ru}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

@@ -84,9 +84,11 @@ export function getColumns({
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Предмет" />
       ),
-      cell: ({ row }) => (
-        <Badge variant="outline">{row.getValue('subject')}</Badge>
-      ),
+      cell: ({ row }) => {
+        const textbook = row.original;
+        const subjectName = textbook.subject_rel?.name_ru || textbook.subject;
+        return <Badge variant="outline">{subjectName}</Badge>;
+      },
     },
     {
       accessorKey: 'grade_level',

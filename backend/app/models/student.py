@@ -24,10 +24,16 @@ class Student(SoftDeleteModel):
     # Relationships
     school = relationship("School", back_populates="students")
     user = relationship("User", back_populates="student")
+
+    # Many-to-many via association object
+    class_students = relationship("ClassStudent", back_populates="student", cascade="all, delete-orphan")
+
+    # Convenience relationship via secondary (for backward compatibility)
     classes = relationship(
         "SchoolClass",
         secondary="class_students",
         back_populates="students",
+        viewonly=True,
     )
     parents = relationship(
         "Parent",

@@ -29,6 +29,7 @@ import {
   textbookCreateDefaults,
   type TextbookCreateInput,
 } from '@/lib/validations/textbook';
+import { useSubjects } from '@/lib/hooks/use-goso';
 import type { Textbook } from '@/types';
 
 interface TextbookFormProps {
@@ -37,35 +38,19 @@ interface TextbookFormProps {
   isLoading?: boolean;
 }
 
-const SUBJECTS = [
-  'Математика',
-  'Алгебра',
-  'Геометрия',
-  'Физика',
-  'Химия',
-  'Биология',
-  'История Казахстана',
-  'Всемирная история',
-  'География',
-  'Информатика',
-  'Русский язык',
-  'Казахский язык',
-  'Английский язык',
-  'Литература',
-];
-
 const GRADES = [7, 8, 9, 10, 11];
 
 export function TextbookForm({ textbook, onSubmit, isLoading }: TextbookFormProps) {
   const t = useTranslations('textbooks');
   const tCommon = useTranslations('common');
+  const { data: subjects, isLoading: subjectsLoading } = useSubjects();
 
   const form = useForm<TextbookCreateInput>({
     resolver: zodResolver(textbookCreateSchema),
     defaultValues: textbook
       ? {
           title: textbook.title,
-          subject: textbook.subject,
+          subject_id: textbook.subject_id || 0,
           grade_level: textbook.grade_level,
           author: textbook.author || '',
           publisher: textbook.publisher || '',
@@ -97,20 +82,24 @@ export function TextbookForm({ textbook, onSubmit, isLoading }: TextbookFormProp
 
           <FormField
             control={form.control}
-            name="subject"
+            name="subject_id"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>{t('subject')} *</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select
+                  onValueChange={(v) => field.onChange(parseInt(v))}
+                  defaultValue={field.value ? String(field.value) : undefined}
+                  disabled={subjectsLoading}
+                >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Выберите предмет" />
+                      <SelectValue placeholder={subjectsLoading ? 'Загрузка...' : 'Выберите предмет'} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {SUBJECTS.map((subject) => (
-                      <SelectItem key={subject} value={subject}>
-                        {subject}
+                    {subjects?.map((subject) => (
+                      <SelectItem key={subject.id} value={String(subject.id)}>
+                        {subject.name_ru}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -4,6 +4,17 @@ import { apiClient } from './client';
 // Types - matching backend schemas
 // =============================================================================
 
+/**
+ * Brief subject info for embedding in responses.
+ * Matches backend SubjectBrief schema.
+ */
+export interface SubjectBrief {
+  id: number;
+  code: string;
+  name_ru: string;
+  name_kz: string;
+}
+
 export interface TextbookProgress {
   chapters_total: number;
   chapters_completed: number;
@@ -15,7 +26,9 @@ export interface TextbookProgress {
 export interface StudentTextbook {
   id: number;
   title: string;
-  subject: string;
+  subject_id: number | null;  // Normalized subject ID (FK)
+  subject: string;            // Subject name (backward compatibility)
+  subject_rel: SubjectBrief | null;  // Full subject details
   grade_level: number;
   description: string | null;
   is_global: boolean;

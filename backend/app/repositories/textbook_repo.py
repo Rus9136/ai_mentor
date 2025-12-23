@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.models.textbook import Textbook
 from app.models.chapter import Chapter
 from app.models.paragraph import Paragraph
+from app.models.subject import Subject
 
 
 class TextbookRepository:
@@ -20,7 +21,8 @@ class TextbookRepository:
     async def get_by_id(
         self,
         textbook_id: int,
-        load_chapters: bool = False
+        load_chapters: bool = False,
+        load_subject: bool = True
     ) -> Optional[Textbook]:
         """
         Get textbook by ID.
@@ -28,6 +30,7 @@ class TextbookRepository:
         Args:
             textbook_id: Textbook ID
             load_chapters: Whether to eager load chapters
+            load_subject: Whether to eager load subject (default True)
 
         Returns:
             Textbook or None if not found
@@ -36,6 +39,9 @@ class TextbookRepository:
             Textbook.id == textbook_id,
             Textbook.is_deleted == False
         )
+
+        if load_subject:
+            query = query.options(selectinload(Textbook.subject_rel))
 
         if load_chapters:
             query = query.options(selectinload(Textbook.chapters))
@@ -51,7 +57,9 @@ class TextbookRepository:
             List of global textbooks
         """
         result = await self.db.execute(
-            select(Textbook).where(
+            select(Textbook)
+            .options(selectinload(Textbook.subject_rel))
+            .where(
                 Textbook.school_id.is_(None),
                 Textbook.is_deleted == False
             ).order_by(Textbook.grade_level, Textbook.subject, Textbook.title)
@@ -76,7 +84,9 @@ class TextbookRepository:
         if include_global:
             # Get both school-specific and global textbooks
             result = await self.db.execute(
-                select(Textbook).where(
+                select(Textbook)
+                .options(selectinload(Textbook.subject_rel))
+                .where(
                     (Textbook.school_id == school_id) | (Textbook.school_id.is_(None)),
                     Textbook.is_deleted == False
                 ).order_by(Textbook.grade_level, Textbook.subject, Textbook.title)
@@ -84,7 +94,9 @@ class TextbookRepository:
         else:
             # Only school-specific textbooks
             result = await self.db.execute(
-                select(Textbook).where(
+                select(Textbook)
+                .options(selectinload(Textbook.subject_rel))
+                .where(
                     Textbook.school_id == school_id,
                     Textbook.is_deleted == False
                 ).order_by(Textbook.grade_level, Textbook.subject, Textbook.title)
@@ -172,7 +184,8 @@ class TextbookRepository:
             version=1,  # New fork starts at version 1
             source_version=source_textbook.version,  # Track source version
             title=f"{source_textbook.title} (Customized)",
-            subject=source_textbook.subject,
+            subject_id=source_textbook.subject_id,  # Copy subject FK
+            subject=source_textbook.subject,  # Copy text for backward compat
             grade_level=source_textbook.grade_level,
             author=source_textbook.author,
             publisher=source_textbook.publisher,

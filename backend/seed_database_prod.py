@@ -29,6 +29,7 @@ from app.models.teacher import Teacher
 from app.models.student import Student
 from app.models.school_class import SchoolClass
 from app.models.invitation_code import InvitationCode
+from app.models.goso import Subject
 from app.core.security import get_password_hash
 
 # Production DATABASE_URL с ai_mentor_user (superuser) для обхода RLS
@@ -173,6 +174,18 @@ async def seed_database():
         print()
 
         # ========================================
+        # Загружаем справочник предметов
+        # ========================================
+        result = await session.execute(select(Subject))
+        subjects = result.scalars().all()
+        subject_lookup = {}
+        for subj in subjects:
+            subject_lookup[subj.name_ru.lower()] = subj.id
+            subject_lookup[subj.name_kz.lower()] = subj.id
+        print(f"📋 Загружено {len(subjects)} предметов в справочнике")
+        print()
+
+        # ========================================
         # 3. Создаем глобальные учебники
         # ========================================
         print("📚 Создание глобальных учебников...")
@@ -287,9 +300,14 @@ async def seed_database():
             textbook = result.scalar_one_or_none()
 
             if not textbook:
+                # Lookup subject_id by name
+                subject_name = tb_data["subject"]
+                subject_id = subject_lookup.get(subject_name.lower())
+
                 textbook = Textbook(
                     title=tb_data["title"],
-                    subject=tb_data["subject"],
+                    subject_id=subject_id,  # FK to subjects table
+                    subject=subject_name,   # Text for backward compatibility
                     grade_level=tb_data["grade_level"],
                     description=tb_data["description"],
                     school_id=None,  # Глобальный контент
@@ -503,16 +521,20 @@ async def seed_database():
                 await session.flush()
 
                 # Создаем Teacher
+                subject_name = teacher_data["subject"]
+                subject_id = subject_lookup.get(subject_name.lower())
+
                 teacher = Teacher(
                     school_id=school.id,
                     user_id=user.id,
                     teacher_code=f"T{school.id:03d}{len(created_teachers)+1:03d}",
-                    subject=teacher_data["subject"],
+                    subject_id=subject_id,  # FK to subjects table
+                    subject=subject_name,   # Text for backward compatibility
                 )
                 session.add(teacher)
                 await session.flush()
 
-                print(f"  ✅ {user.first_name} {user.last_name} ({teacher_data['subject']})")
+                print(f"  ✅ {user.first_name} {user.last_name} ({subject_name})")
             else:
                 print(f"  ⏭️  {user.email} (уже существует)")
                 # Получаем teacher

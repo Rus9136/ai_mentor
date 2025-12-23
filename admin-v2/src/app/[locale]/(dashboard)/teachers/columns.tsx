@@ -86,9 +86,10 @@ export function getColumns({
         <DataTableColumnHeader column={column} title="Предмет" />
       ),
       cell: ({ row }) => {
-        const subject = row.getValue('subject') as string | null;
-        return subject ? (
-          <Badge variant="outline">{subject}</Badge>
+        const teacher = row.original;
+        const subjectName = teacher.subject_rel?.name_ru || teacher.subject;
+        return subjectName ? (
+          <Badge variant="outline">{subjectName}</Badge>
         ) : (
           <span className="text-muted-foreground">—</span>
         );
