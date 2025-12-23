@@ -436,7 +436,6 @@ class TeacherAnalyticsService:
             code=cls.code,
             grade_level=cls.grade_level,
             academic_year=cls.academic_year,
-            description=cls.description,
             students_count=len(students),
             mastery_distribution=distribution,
             average_score=round(avg_score, 1),
