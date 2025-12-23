@@ -1,5 +1,12 @@
 # Архитектура AI Mentor
 
+> **Назначение документа:** Техническая архитектура системы — RBAC, структура данных, алгоритмы.
+>
+> **Связанные документы:**
+> - `CLAUDE.md` — инструкции для AI-агентов, команды, credentials
+> - `docs/IMPLEMENTATION_STATUS.md` — прогресс итераций, статистика
+> - `docs/REFACTORING_SERVICES.md` — план рефакторинга Services Layer
+
 ## 1. Обзор
 
 **AI Mentor** — адаптивная образовательная платформа для школьников 7-11 классов с автоматической группировкой по уровню мастерства (A/B/C).
@@ -13,8 +20,8 @@
 **Технологический стек:**
 - Backend: Python 3.11+, FastAPI, SQLAlchemy 2.0+, Alembic
 - Database: PostgreSQL 16+ с pgvector, RLS
-- Frontend (Admin): React Admin v5, Material-UI v5
-- AI: OpenAI (embeddings, RAG)
+- Frontend: Next.js 15 (Admin + Student App)
+- AI: Jina (embeddings), Cerebras (LLM)
 
 ---
 
@@ -304,39 +311,108 @@ Mobile App → Local DB → sync_queue → POST /sync/process → Server DB
 
 ---
 
-## 11. Файловая структура
+## 11. Приложения проекта
+
+### 11.1 Структура репозитория
 
 ```
-backend/
-├── app/
-│   ├── main.py              # FastAPI app
-│   ├── core/
-│   │   ├── config.py        # Settings
-│   │   ├── security.py      # JWT
-│   │   ├── database.py      # SQLAlchemy
-│   │   └── tenancy.py       # RLS context
-│   ├── models/              # SQLAlchemy models
-│   ├── schemas/             # Pydantic schemas
-│   ├── repositories/        # Data access
-│   ├── services/            # Business logic
-│   │   ├── grading_service.py
-│   │   └── mastery_service.py
-│   ├── api/v1/              # Endpoints
-│   │   ├── auth.py
-│   │   ├── admin_global.py
-│   │   ├── admin_school.py
-│   │   ├── students.py
-│   │   └── goso.py
-│   └── middleware/
-│       └── tenancy.py       # TenancyMiddleware
-├── alembic/                 # Migrations
-└── tests/
+ai_mentor/
+├── backend/              # FastAPI API
+├── admin-v2/             # Admin Panel (Next.js) — ACTIVE
+├── student-app/          # Student App (Next.js) — ACTIVE
+└── frontend/             # Старый React Admin — DEPRECATED
+```
 
-frontend/                    # React Admin
-├── src/
-│   ├── providers/           # authProvider, dataProvider
-│   ├── pages/               # CRUD components
-│   └── layout/              # Menu, AppBar
+### 11.2 Приложения и роли
+
+| Приложение | URL | Роли | Стек |
+|------------|-----|------|------|
+| **Admin Panel** | admin.ai-mentor.kz | SUPER_ADMIN, School ADMIN | Next.js 15, shadcn/ui |
+| **Student App** | ai-mentor.kz | STUDENT | Next.js 15, shadcn/ui |
+| **Backend API** | api.ai-mentor.kz | Все роли | FastAPI, PostgreSQL |
+
+### 11.3 Admin Panel (`admin-v2/`)
+
+**Назначение:** Управление контентом и пользователями
+
+**Функции по ролям:**
+
+| SUPER_ADMIN | School ADMIN |
+|-------------|--------------|
+| Управление школами | Ученики, учителя, классы |
+| Глобальные учебники | Школьная библиотека |
+| Глобальные тесты | Школьные тесты |
+| ГОСО справочники | Кастомизация контента |
+| Rich Content параграфов | Rich Content параграфов |
+
+**Структура:**
+```
+admin-v2/src/
+├── app/[locale]/(dashboard)/
+│   ├── schools/           # SUPER_ADMIN
+│   ├── textbooks/         # SUPER_ADMIN
+│   ├── tests/             # SUPER_ADMIN
+│   ├── goso/              # SUPER_ADMIN
+│   ├── students/          # School ADMIN
+│   ├── teachers/          # School ADMIN
+│   └── classes/           # School ADMIN
+├── lib/api/               # API clients
+└── components/            # UI компоненты
+```
+
+### 11.4 Student App (`student-app/`)
+
+**Назначение:** Обучение и прохождение тестов для учеников
+
+**Функции:**
+- Google OAuth авторизация
+- Онбординг (код школы + профиль)
+- Навигация: Предметы → Главы → Параграфы
+- Изучение параграфов (текст, аудио, карточки)
+- Встроенные вопросы (embedded questions)
+- Самооценка (self-assessment)
+- Прохождение тестов
+
+**Learning Flow:**
+```
+intro → content → practice → summary → completed
+```
+
+**Структура:**
+```
+student-app/src/
+├── app/[locale]/
+│   ├── (auth)/login/      # Google OAuth
+│   ├── onboarding/        # Регистрация
+│   └── (app)/
+│       ├── subjects/      # Предметы
+│       ├── chapters/      # Главы
+│       └── paragraphs/    # Параграфы
+├── lib/api/               # API clients
+└── components/learning/   # Learning компоненты
+```
+
+### 11.5 Backend (`backend/`)
+
+**Структура:**
+```
+backend/app/
+├── main.py                # FastAPI app
+├── core/                  # Config, security, database
+├── models/                # SQLAlchemy models
+├── schemas/               # Pydantic schemas
+├── repositories/          # Data access layer
+├── services/              # Business logic
+├── api/v1/                # Endpoints
+│   ├── auth.py            # Все роли
+│   ├── admin_global.py    # SUPER_ADMIN
+│   ├── admin_school.py    # School ADMIN
+│   ├── students.py        # STUDENT
+│   ├── teachers.py        # TEACHER
+│   ├── goso.py            # Read-only
+│   ├── rag.py             # RAG endpoints
+│   └── chat.py            # Chat endpoints
+└── middleware/            # RLS, tenancy
 ```
 
 ---

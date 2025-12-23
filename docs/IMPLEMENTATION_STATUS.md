@@ -1,15 +1,17 @@
 # Статус реализации AI Mentor
 
+> **Назначение документа:** Прогресс итераций, что завершено, что в работе.
+>
+> **Связанные документы:**
+> - `CLAUDE.md` — инструкции для AI-агентов, команды, credentials
+> - `docs/ARCHITECTURE.md` — техническая архитектура, RBAC, алгоритмы
+
 **Прогресс:** 77% (10/13 итераций) | **Последнее обновление:** 2025-12-19
 
-## Обзор проекта
-
-AI Mentor — адаптивная образовательная платформа для школьников 7-11 классов с автоматической группировкой по уровню мастерства (A/B/C). Multi-tenant SaaS с гибридной моделью контента.
-
 **Production URLs:**
-- Frontend: https://ai-mentor.kz
+- Student App: https://ai-mentor.kz
 - Admin Panel: https://admin.ai-mentor.kz
-- API: https://api.ai-mentor.kz/docs
+- API Docs: https://api.ai-mentor.kz/docs
 
 ---
 

@@ -1,863 +1,224 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Инструкции для Claude Code при работе с этим репозиторием.
 
 ## Project Overview
 
-AI Mentor - адаптивная образовательная платформа для школьников (7-11 классы) с автоматической группировкой учеников по уровню мастерства (A/B/C). Multi-tenant SaaS решение с гибридной моделью контента.
+**AI Mentor** — адаптивная образовательная платформа для школьников 7-11 классов.
 
-**Текущий статус:** Backend API + Admin Panel v2 в production. ГОСО интеграция завершена. Rich Content параграфов реализован. RAG Service (Jina + Cerebras) запущен. Chat Service с A/B/C персонализацией реализован.
+**Приложения:**
+| Приложение | Папка | Роли | URL |
+|------------|-------|------|-----|
+| Admin Panel | `admin-v2/` | SUPER_ADMIN, School ADMIN | admin.ai-mentor.kz |
+| Student App | `student-app/` | STUDENT | ai-mentor.kz |
+| Backend API | `backend/` | Все | api.ai-mentor.kz |
 
-**Важные документы:**
-- `docs/IMPLEMENTATION_STATUS.md` - план из 13 итераций с текущим прогрессом
-- `docs/ARCHITECTURE.md` - полное техническое задание
-- `docs/RAG_SERVICE.md` - документация RAG сервиса (Jina + Cerebras + pgvector)
-- `docs/CHAT_SERVICE.md` - документация Chat API (multi-turn чат с RAG)
-- `admin-v2/ARCHITECTURE.md` - документация новой админ панели (Next.js)
-- `docs/database_schema.md` - документация схемы БД
-- `docs/migrations_quick_guide.md` - инструкции по работе с миграциями
+**SUPER_ADMIN:** глобальный контент, школы, ГОСО
+**School ADMIN:** ученики, учителя, классы, школьный контент
 
-## Common Commands
+**Документация:**
+| Документ | Назначение |
+|----------|------------|
+| `docs/ARCHITECTURE.md` | Техническая архитектура, RBAC, алгоритмы |
+| `docs/IMPLEMENTATION_STATUS.md` | Прогресс итераций, статистика |
+| `docs/REFACTORING_SERVICES.md` | План рефакторинга Services |
+| `docs/RAG_SERVICE.md` | RAG сервис (Jina + Cerebras) |
+| `docs/CHAT_SERVICE.md` | Chat API |
+| `docs/database_schema.md` | Схема БД |
 
-### Database Operations
+---
+
+## Commands
+
+### Database
 ```bash
-# Запустить PostgreSQL
-docker compose up -d postgres
-
-# Применить миграции
-cd backend && alembic upgrade head
-
-# Создать новую миграцию
-cd backend && alembic revision --autogenerate -m "описание"
-
-# Откатить последнюю миграцию
-cd backend && alembic downgrade -1
-
-# Посмотреть текущую версию БД
-cd backend && alembic current
-
-# Подключиться к БД напрямую
+docker compose up -d postgres                    # Запуск PostgreSQL
+cd backend && alembic upgrade head               # Миграции
+cd backend && alembic revision --autogenerate -m "desc"  # Новая миграция
 docker exec -it ai_mentor_postgres psql -U ai_mentor_user -d ai_mentor_db
 ```
 
-**Database Credentials:**
-
-Проект использует **две роли** PostgreSQL для разных целей:
-
-1. **ai_mentor_user** (SUPERUSER) - для миграций
-   - User: `ai_mentor_user`
-   - Права: SUPERUSER (bypass RLS policies)
-   - Почему нужен: RLS политики применяются даже к владельцу таблицы, но SUPERUSER может их обойти для создания/изменения схемы
-
-2. **ai_mentor_app** (обычный пользователь) - для runtime
-   - User: `ai_mentor_app`
-   - Права: Обычный пользователь, RLS политики активны
-   - Почему нужен: Обеспечивает multi-tenant изоляцию на уровне БД через RLS
-
-**Где хранятся пароли (НЕ хардкодить в коде!):**
-
-| Окружение | Файл | Переменная | Описание |
-|-----------|------|------------|----------|
-| Production & Local | `backend/.env` | `POSTGRES_PASSWORD` | Единый пароль для обеих ролей |
-| Docker default | `docker-compose.infra.yml` | `${POSTGRES_PASSWORD:-ai_mentor_pass}` | Fallback если .env не задан |
-
-**Файл `backend/.env` содержит все секреты и НЕ коммитится в git (в .gitignore).**
-
-**Как работает подключение к БД:**
-
-1. **Runtime (FastAPI приложение):**
-   - Читает `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_DB` из environment
-   - Использует роль `ai_mentor_app` (задаётся в `docker-compose.infra.yml`)
-
-2. **Миграции (Alembic):**
-   - `alembic/env.py` автоматически собирает URL из environment variables
-   - Использует `quote_plus()` для URL-кодирования спецсимволов в пароле (`@`, `!`, и т.д.)
-   - Всегда использует роль `ai_mentor_user` (SUPERUSER)
-   - Fallback на `alembic.ini` если env vars не заданы (для локальной разработки)
-
-**Важно для AI-агентов:**
-- НИКОГДА не хардкодить пароли в коде, конфигах или документации
-- Production пароль хранится ТОЛЬКО в `backend/.env` (файл не в git)
-- `alembic.ini` содержит только fallback URL для локальной разработки (`ai_mentor_pass`)
-- `alembic/env.py` автоматически собирает URL из env vars с URL-кодированием спецсимволов
-- При деплое docker-compose читает `backend/.env` через `env_file` директиву
-
-### Production Deployment
-
-**Быстрый деплой (автоматический):**
+### Deploy
 ```bash
-# Умный деплой - автоматически определяет изменения и деплоит только нужное
-./deploy.sh
-
-# Принудительный деплой конкретного компонента
+./deploy.sh              # Умный деплой (анализ изменений)
 ./deploy.sh backend      # Только backend
-./deploy.sh frontend     # Только frontend (старый)
-./deploy.sh full         # Полный деплой всего
-
-# Admin Panel v2 (отдельно через docker-compose)
-docker compose -f docker-compose.infra.yml up -d --build admin-v2
-```
-
-**Что происходит автоматически:**
-- Анализ git diff для определения изменений
-- Сборка Docker образов только для измененных компонентов
-- Применение миграций (если обнаружены новые)
-- Healthcheck после деплоя
-- Детальный вывод с прогрессом и ошибками
-
-**Ручное управление инфраструктурой:**
-```bash
-# Запуск сервисов
-./deploy-infra.sh start
-
-# Остановка
-./deploy-infra.sh stop
-
-# Перезапуск
-./deploy-infra.sh restart
-
-# Статус
-./deploy-infra.sh status
-
-# Логи
+./deploy-infra.sh status # Статус сервисов
 ./deploy-infra.sh logs backend
-./deploy-infra.sh logs postgres
-
-# Миграции
-./deploy-infra.sh migrate
-
-# Заполнить БД тестовыми данными (SUPER_ADMIN, School, Teachers, Students)
-./deploy-infra.sh seed
-
-# Backup БД
-./deploy-infra.sh backup
-```
-
-**Production URLs:**
-- Frontend: https://ai-mentor.kz
-- Admin Panel: https://admin.ai-mentor.kz
-- API: https://api.ai-mentor.kz
-- API Docs: https://api.ai-mentor.kz/docs
-
-### Testing
-```bash
-# Все тесты с покрытием
-pytest
-
-# Конкретный тест
-pytest backend/tests/test_auth.py::test_login
-
-# Запустить тестовую БД
-docker compose --profile test up postgres_test
 ```
 
 ### Code Quality
 ```bash
-# Форматирование (Black)
-black backend/
-
-# Линтинг (Ruff)
-ruff check backend/
-
-# Проверка типов (MyPy) - когда будет настроено
-mypy backend/
+black backend/           # Форматирование
+ruff check backend/      # Линтинг
 ```
 
-### Test Credentials
+---
 
-**Administrators:**
-- **SUPER_ADMIN:** superadmin@aimentor.com / admin123
-- **School ADMIN:** school.admin@test.com / admin123
+## Database Credentials
 
-**Teachers (School 7 - "Тестовая школа №1"):**
-- teacher.math@school001.com / teacher123 (Айгерим Нурсултанова - Математика)
-- teacher.physics@school001.com / teacher123 (Асхат Жумабаев - Физика)
-- teacher.chemistry@school001.com / teacher123 (Динара Сатыбалдиева - Химия)
-- teacher.biology@school001.com / teacher123 (Нургуль Абишева - Биология)
-- teacher.history@school001.com / teacher123 (Ержан Кенжебаев - История)
+**Две роли PostgreSQL:**
+- `ai_mentor_user` (SUPERUSER) — миграции
+- `ai_mentor_app` — runtime с RLS
 
-**Students (School 7 - "Тестовая школа №1"):**
-- student1@school001.com / student123 (Алихан Султанов - 7-А класс)
-- student2@school001.com / student123 (Аружан Есимова - 7-А класс)
-- student3@school001.com / student123 (Нурислам Бекжанов - 8-Б класс)
-- student4@school001.com / student123 (Жанель Кабдулова - 8-Б класс)
-- student5@school001.com / student123 (Данияр Мухамедов - 9-В класс)
-- student6@school001.com / student123 (Айым Сейдахметова - 9-В класс)
-- student7@school001.com / student123 (Ернар Токаев - 10-А класс)
-- student8@school001.com / student123 (Камила Нурланова - 10-А класс)
+**Пароли:** только в `backend/.env` (не в git!)
 
-**Local Dev:** http://localhost:3000 (admin-v2)
+**ВАЖНО для AI-агентов:**
+- НИКОГДА не хардкодить пароли
+- `alembic/env.py` читает credentials из env vars
 
-## Architecture & Key Concepts
+---
 
-### Двухуровневая система администрирования (Гибридная модель контента)
+## Test Credentials
 
-**Критически важная концепция:** Платформа имеет ДВА уровня контента:
+**Admin:**
+- SUPER_ADMIN: `superadmin@aimentor.com` / `admin123`
+- School ADMIN: `school.admin@test.com` / `admin123`
 
-1. **Глобальный контент** (`school_id = NULL`)
-   - Создается SUPER_ADMIN
-   - Доступен всем школам в режиме read-only
-   - Учебники, тесты, главы, параграфы
-   - Примеры: стандартные учебники "Алгебра 7 класс", "Физика 8 класс"
+**Students (School 7):**
+- `student1@school001.com` / `student123`
 
-2. **Школьный контент** (`school_id = конкретная школа`)
-   - Создается школьным ADMIN
-   - Доступен только одной школе
-   - Два типа:
-     - **Собственный контент** - уникальные материалы школы
-     - **Кастомизированный контент** - форк глобального учебника с флагом `is_customized=true` и ссылкой `global_textbook_id`
+**Teachers (School 7):**
+- `teacher.math@school001.com` / `teacher123`
 
-**Процесс кастомизации (fork):**
-```python
-# Школа хочет адаптировать глобальный учебник
-POST /api/v1/admin/school/textbooks/{global_id}/customize
+---
 
-# Backend создает копию:
-Textbook(
-    school_id=current_school_id,      # привязка к школе
-    global_textbook_id=global_id,     # ссылка на оригинал
-    is_customized=True,                # флаг кастомизации
-    title="Алгебра 7 класс (Школа №1)"
-)
-# + копируются все главы и параграфы
+## Code Architecture Standards (ОБЯЗАТЕЛЬНО)
+
+### Лимиты размера файлов
+
+| Тип файла | Максимум | Действие при превышении |
+|-----------|----------|-------------------------|
+| API endpoint | **400 строк** | Разбить на субмодули |
+| Service | **300 строк** | Выделить отдельные services |
+| Repository | **250 строк** | Следить за SRP |
+
+### Layered Architecture
+
+```
+API Layer (thin)     → Валидация, авторизация, вызов Service
+       ↓
+Service Layer        → Бизнес-логика, транзакции, алгоритмы
+       ↓
+Repository Layer     → CRUD, SQL запросы
 ```
 
-### Multi-tenancy & Data Isolation
+### Когда создавать Service
 
-**Изоляция на уровне БД через `school_id`:**
-- Каждая модель прогресса имеет denormalized `school_id` (добавлено в миграции 008)
-- Модели: `test_attempts`, `mastery_history`, `adaptive_groups`, `student_paragraphs`, `learning_sessions`, `learning_activities`, `sync_queue`
-- Это позволяет:
-  - Фильтровать без JOIN через students
-  - Партицировать по школам в будущем
-  - Применять Row Level Security (RLS) - планируется в Итерации 6
+**Создавай если:**
+- Логика в 2+ endpoints
+- Алгоритм > 20 строк
+- Операция с 2+ repositories
+- Интеграция с внешним сервисом
 
-**Гибридная модель для контента:**
-- `textbooks.school_id` - nullable (NULL = глобальный)
-- `tests.school_id` - nullable (NULL = глобальный)
-- `chapters`, `paragraphs`, `questions` - наследуют school_id от родителя
-
-### User Roles (RBAC)
-
-**5 ролей в системе:**
-1. **SUPER_ADMIN** - управление глобальным контентом и школами (НЕ привязан к school_id)
-2. **ADMIN** - управление школой, пользователями, классами, школьным контентом
-3. **TEACHER** - просмотр своих классов, создание заданий, аналитика учеников
-4. **STUDENT** - прохождение тестов, просмотр прогресса
-5. **PARENT** - просмотр прогресса детей (read-only)
-
-**Важно:** SUPER_ADMIN и ADMIN - это разные роли с разными правами. SUPER_ADMIN НЕ управляет конкретными школами, а ADMIN НЕ создает глобальный контент.
-
-### Admin Panel v2 (Frontend)
-
-**Стек:** Next.js 15 + shadcn/ui + TanStack Query + Tailwind CSS + next-intl (ru/kk)
-
-**URL:** https://admin.ai-mentor.kz | **Container:** `ai_mentor_admin_v2_prod:3003`
-
-**Структура `admin-v2/src/`:**
-```
-app/[locale]/
-├── (auth)/login/           # Логин (без sidebar)
-└── (dashboard)/            # Dashboard layout (с sidebar)
-    ├── schools/            # SUPER_ADMIN: CRUD школ
-    ├── textbooks/          # SUPER_ADMIN: глобальные учебники
-    │   └── [id]/paragraphs/[paragraphId]/content/  # Rich Content
-    ├── tests/              # SUPER_ADMIN: глобальные тесты
-    ├── goso/               # SUPER_ADMIN: ГОСО (read-only)
-    ├── students/           # School ADMIN: ученики
-    ├── teachers/           # School ADMIN: учителя
-    ├── classes/            # School ADMIN: классы
-    └── school-textbooks/   # School ADMIN: библиотека
-
-lib/
-├── api/                    # Axios clients (auth.ts, students.ts, etc.)
-├── hooks/                  # TanStack Query hooks (use-students.ts, etc.)
-└── validations/            # Zod schemas
-
-components/
-├── ui/                     # shadcn/ui компоненты
-├── data-table/             # DataTable + pagination + toolbar
-├── forms/                  # Entity forms (student-form.tsx, etc.)
-└── auth/                   # AuthGuard, RoleGuard
-```
-
-**Ключевые паттерны:**
-- **API Client:** `src/lib/api/*.ts` → axios instance с JWT interceptors
-- **Hooks:** `src/lib/hooks/use-*.ts` → Query Keys Factory pattern
-- **RoleGuard:** `<RoleGuard allowedRoles={['super_admin']}>` для защиты страниц
-- **Forms:** Discriminated union `mode: 'create' | 'edit'` для переиспользования
-
-**Команды:**
-```bash
-cd admin-v2 && npm run dev                                      # Dev server :3000
-docker compose -f docker-compose.infra.yml up -d --build admin-v2  # Production deploy
-docker logs ai_mentor_admin_v2_prod                             # Логи
-```
-
-### Database Models Patterns
-
-**Все модели наследуются от базовых классов:**
+### Reusable Dependencies
 
 ```python
-# backend/app/models/base.py
-class TimestampMixin:
-    created_at  # автоматически при создании
-    updated_at  # автоматически при обновлении
-
-class SoftDeleteMixin:
-    deleted_at  # дата удаления (NULL если не удалено)
-    is_deleted  # булевый флаг
-
-class BaseModel(Base, TimestampMixin):
-    id  # Integer primary key, autoincrement
-
-class SoftDeleteModel(Base, TimestampMixin, SoftDeleteMixin):
-    id
+# Используй готовые dependencies вместо дублирования:
+async def get_student_from_user(...) -> Student
+async def get_paragraph_with_access(...) -> Paragraph
+async def get_current_user_school_id(...) -> int
 ```
 
-**Используй:**
-- `BaseModel` для сущностей без soft delete (School, User, SystemSetting)
-- `SoftDeleteModel` для остального (Textbook, Test, Student, и т.д.)
+### Anti-patterns (ЗАПРЕЩЕНО)
 
-**Важные модели:**
-- `Textbook` - имеет `school_id` (nullable), `global_textbook_id`, `is_customized`
-- `Test` - имеет `school_id` (nullable) для глобальных тестов
-- `ParagraphContent` - обогащённый контент параграфа (explain_text, audio, video, slides, cards)
-- `ParagraphEmbedding` - векторные embeddings (vector(1536)) для RAG с pgvector
-- `TestAttempt` - имеет denormalized `school_id` для быстрой фильтрации
-- `MasteryHistory` - история изменений уровня мастерства ученика
+1. **God Files** — файлы > 500 строк с разными доменами
+2. **Дублирование проверок** — копипаста access check в каждом endpoint
+3. **Бизнес-логика в endpoints** — расчёты должны быть в Services
+4. **N+1 запросы** — использовать batch queries
 
-### Naming Conventions
+### Checklist перед PR
 
-**Database:**
-- Таблицы: lowercase, snake_case, множественное число (`users`, `test_attempts`)
-- Колонки: snake_case (`first_name`, `created_at`)
-- Индексы: `ix_{table}_{column}` или `ix_{table}_{col1}_{col2}` для составных
-- Foreign keys: автоматически с CASCADE DELETE
+- [ ] Файл < 400 строк
+- [ ] Нет дублирования (вынесено в dependency/service)
+- [ ] Бизнес-логика в Service
+- [ ] Нет N+1 запросов
+- [ ] school_id изоляция проверена
+- [ ] Response schemas указаны
 
-**Python:**
-- Models: PascalCase (`User`, `TestAttempt`)
-- Enums: PascalCase для класса, UPPER_CASE для значений (`UserRole.SUPER_ADMIN`)
-- Services: snake_case файлы, PascalCase классы (`auth_service.py` -> `AuthService`)
-- Repositories: то же (`user_repo.py` -> `UserRepository`)
+---
 
-**API Endpoints:**
-- SUPER_ADMIN: `/api/v1/admin/global/*` и `/api/v1/admin/schools`
-- School ADMIN: `/api/v1/admin/school/*`
-- Rich Content: `/api/v1/admin/*/paragraphs/{id}/content` (медиа, карточки)
-- Teacher: `/api/v1/teachers/*`
-- Student: `/api/v1/students/*`
-- Parent: `/api/v1/parents/*`
+## Development Rules
 
-## Development Principles
-
-**Философия:** Пиши качественный код, избегай преждевременной оптимизации.
-
-### КРИТИЧНО - Всегда обязательно
-
-**1. Изоляция данных по school_id - НЕ ПРОПУСКАЙ НИКОГДА**
+### КРИТИЧНО — Изоляция данных
 
 ```python
-# backend/app/api/dependencies.py
-async def get_current_user_school_id(
-    current_user: User = Depends(get_current_user)
-) -> int:
-    """Извлекает school_id из текущего пользователя"""
-    if current_user.role == UserRole.SUPER_ADMIN:
-        raise HTTPException(400, "SUPER_ADMIN has no school_id")
-    return current_user.school_id
-
-# ВСЕГДА используй в endpoint'ах для фильтрации:
+# ВСЕГДА используй school_id из токена:
 @router.get("/students")
 async def get_students(
-    school_id: int = Depends(get_current_user_school_id),
+    school_id: int = Depends(get_current_user_school_id),  # ИЗ ТОКЕНА!
     db: AsyncSession = Depends(get_db)
 ):
-    # Фильтр school_id обязателен!
     result = await db.execute(
         select(Student).where(Student.school_id == school_id)
     )
-    return result.scalars().all()
 ```
 
-**Правила изоляции:**
-- ВСЕГДА добавляй `school_id = Depends(get_current_user_school_id)` в endpoints
-- НИКОГДА не принимай `school_id` от клиента - только из `current_user`
-- Для SUPER_ADMIN endpoints (глобальный контент) фильтруй `.where(Model.school_id.is_(None))`
+**Правила:**
+- НИКОГДА не принимай `school_id` от клиента
+- Для глобального контента: `.where(Model.school_id.is_(None))`
 
-**2. Pydantic схемы для Request/Response - обязательно**
+### Pydantic Schemas
 
 ```python
-# Минимум: Request и Response схемы
 class StudentCreate(BaseModel):
     first_name: str
-    last_name: str
 
 class StudentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     first_name: str
-    last_name: str
 ```
 
-**3. Обработка ошибок - базовая**
+### Async/Await
 
-```python
-# Используй стандартные HTTPException
-from fastapi import HTTPException
+Весь проект async — все запросы к БД через `await`.
 
-# Не найдено
-if not student:
-    raise HTTPException(404, f"Student {student_id} not found")
+---
 
-# Нет прав
-if student.school_id != current_user.school_id:
-    raise HTTPException(403, "Access denied")
-```
-
-### Backend архитектура
-
-**Структура `backend/app/`:**
-```
-├── main.py                    # FastAPI app, CORS, routers
-├── core/
-│   ├── config.py              # Settings (Pydantic Settings)
-│   ├── database.py            # AsyncSession, engine
-│   ├── security.py            # JWT create/verify
-│   └── tenancy.py             # Multi-tenant context
-├── api/
-│   ├── dependencies.py        # get_db, get_current_user, require_role
-│   └── v1/
-│       ├── auth.py            # Login, refresh, me
-│       ├── admin_global.py    # SUPER_ADMIN: textbooks, tests, questions
-│       ├── admin_school.py    # School ADMIN: students, teachers, classes
-│       ├── goso.py            # ГОСО endpoints (read-only + admin)
-│       ├── schools.py         # CRUD школ
-│       └── upload.py          # File uploads
-├── models/                    # SQLAlchemy models (20+ файлов)
-├── schemas/                   # Pydantic Request/Response (15+ файлов)
-├── repositories/              # Data access layer
-│   ├── textbook_repo.py, test_repo.py, question_repo.py
-│   ├── student_repo.py, teacher_repo.py, parent_repo.py
-│   ├── school_class_repo.py, goso_repo.py
-│   └── *_mastery_repo.py      # Chapter/Paragraph mastery
-├── services/                  # Business logic
-│   ├── mastery_service.py     # A/B/C группировка
-│   ├── grading_service.py     # Проверка ответов
-│   └── upload_service.py      # Обработка файлов
-└── middleware/
-    ├── database.py            # DB session middleware
-    └── tenancy.py             # school_id injection
-```
-
-**Архитектура:** `API → Repository → Database` (Services для сложной логики)
-
-**Пример простого endpoint (достаточно для MVP):**
-
-```python
-@router.post("/students")
-async def create_student(
-    data: StudentCreate,
-    school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
-):
-    student = Student(**data.dict(), school_id=school_id)
-    db.add(student)
-    await db.commit()
-    await db.refresh(student)
-    return student
-```
-
-### Code Quality минимум
+## Git Conventions
 
 ```bash
-# Перед коммитом:
-black backend/                    # Форматирование (обязательно)
-ruff check backend/ --fix         # Линтинг (желательно)
-```
+feat: новая функциональность
+fix: исправление бага
+docs: документация
+refactor: рефакторинг
 
-### Тестирование - фокус на критичное
-
-**Тестируй в первую очередь:**
-1. Изоляцию данных (админ школы 1 не видит данные школы 2)
-2. Аутентификацию (login, JWT токены)
-3. RBAC permissions (роли и доступы)
-
-**Остальное - по необходимости.**
-
-### Конфигурация - только нужное
-
-```python
-# backend/app/core/config.py
-from pydantic_settings import BaseSettings
-
-class Settings(BaseSettings):
-    DATABASE_URL: str
-    SECRET_KEY: str
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-
-    model_config = ConfigDict(env_file=".env")
-
-settings = Settings()
-```
-
-Добавляй настройки по мере необходимости.
-
-### Когда рефакторить
-
-Добавляй сложность **только когда почувствуешь боль**:
-- Код дублируется в 3+ местах → создай функцию/класс
-- Endpoint > 100 строк → вынеси логику в Service
-- Тесты дублируют setup → создай fixtures в conftest.py
-
-**Принцип:** Start simple, refactor when needed.
-
-## Code Architecture Standards (ОБЯЗАТЕЛЬНО для AI-агентов)
-
-### Лимиты размера файлов
-
-| Тип файла | Максимум строк | Действие при превышении |
-|-----------|----------------|-------------------------|
-| API endpoint файл | **400 строк** | Разбить на субмодули по доменам |
-| Service класс | **300 строк** | Выделить отдельные services |
-| Repository | **250 строк** | OK, но следи за SRP |
-| Pydantic schemas | **200 строк** | Разбить по сущностям |
-
-**КРИТИЧНО:** Если файл превышает лимит — ОБЯЗАТЕЛЬНО разбей его перед добавлением нового кода.
-
-### Структура API модулей
-
-**Плохо — всё в одном файле:**
-```
-api/v1/students.py  # 2500+ строк, 20+ endpoints
-```
-
-**Хорошо — разбивка по доменам:**
-```
-api/v1/students/
-├── __init__.py           # router = APIRouter(); router.include_router(...)
-├── tests.py              # Test-taking: start, submit, answer (~400 строк)
-├── content.py            # Textbooks, chapters, paragraphs (~400 строк)
-├── learning.py           # Progress, steps, self-assessment (~300 строк)
-├── mastery.py            # Mastery endpoints (~200 строк)
-└── stats.py              # Dashboard stats (~100 строк)
-```
-
-**Правило:** Если в файле > 5-6 endpoints разных доменов → разбивай.
-
-### Layered Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    API Layer (Thin)                      │
-│  - Валидация входных данных (Pydantic)                  │
-│  - Авторизация (dependencies)                           │
-│  - Вызов Service/Repository                             │
-│  - Формирование response                                │
-│  - НЕ содержит бизнес-логику                            │
-└─────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│                   Service Layer                          │
-│  - Бизнес-логика (расчёты, валидации, orchestration)    │
-│  - Транзакции spanning multiple repositories            │
-│  - Сложные алгоритмы (streak, mastery, grading)         │
-│  - Интеграции с внешними сервисами                      │
-└─────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│                  Repository Layer                        │
-│  - CRUD операции                                         │
-│  - Сложные SQL запросы                                  │
-│  - Кэширование (если нужно)                             │
-│  - НЕ содержит бизнес-логику                            │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Когда создавать Service
-
-**Создавай Service если:**
-1. Логика используется в 2+ endpoints
-2. Алгоритм > 20 строк (streak, mastery calculation, grading)
-3. Операция затрагивает 2+ repositories
-4. Нужна транзакция с rollback при ошибке
-5. Интеграция с внешним сервисом (email, LLM, storage)
-
-**НЕ создавай Service для:**
-- Простой CRUD (достаточно Repository)
-- Одноразовой логики < 10 строк
-
-**Пример — когда нужен Service:**
-```python
-# BAD: бизнес-логика в endpoint (60+ строк)
-@router.get("/stats")
-async def get_stats(db: AsyncSession = Depends(get_db)):
-    # ... 50 строк расчёта streak, time_spent, etc.
-    return stats
-
-# GOOD: endpoint вызывает service
-@router.get("/stats")
-async def get_stats(
-    student_id: int = Depends(get_student_id),
-    stats_service: StudentStatsService = Depends()
-):
-    return await stats_service.get_dashboard_stats(student_id)
-```
-
-### Reusable Dependencies
-
-**Создавай dependency для повторяющихся проверок:**
-
-```python
-# backend/app/api/dependencies.py
-
-async def get_student_from_user(
-    current_user: User = Depends(require_student),
-    db: AsyncSession = Depends(get_db)
-) -> Student:
-    """Получить Student из User (избегает lazy loading)"""
-    result = await db.execute(
-        select(Student).where(Student.user_id == current_user.id)
-    )
-    student = result.scalar_one_or_none()
-    if not student:
-        raise HTTPException(400, "Student record not found")
-    return student
-
-async def get_paragraph_with_access(
-    paragraph_id: int,
-    school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
-) -> Paragraph:
-    """Получить параграф с проверкой доступа к учебнику"""
-    para = await db.execute(
-        select(Paragraph)
-        .options(selectinload(Paragraph.chapter).selectinload(Chapter.textbook))
-        .where(Paragraph.id == paragraph_id, Paragraph.is_deleted == False)
-    )
-    paragraph = para.scalar_one_or_none()
-    if not paragraph:
-        raise HTTPException(404, f"Paragraph {paragraph_id} not found")
-    if paragraph.chapter.textbook.school_id not in (None, school_id):
-        raise HTTPException(403, "Access denied")
-    return paragraph
-```
-
-**Использование в endpoint:**
-```python
-@router.get("/paragraphs/{paragraph_id}/content")
-async def get_content(
-    paragraph: Paragraph = Depends(get_paragraph_with_access),  # Проверка уже сделана!
-    student: Student = Depends(get_student_from_user)
-):
-    # Код endpoint'а чистый и короткий
-    ...
-```
-
-### Anti-patterns (ЗАПРЕЩЕНО)
-
-**1. God Files — файлы > 500 строк с разными доменами**
-```python
-# ЗАПРЕЩЕНО: students.py с 2600 строк
-# tests + content + progress + mastery + embedded questions + stats
-```
-
-**2. Дублирование проверок доступа**
-```python
-# ЗАПРЕЩЕНО: копипаста в каждом endpoint
-para_result = await db.execute(select(Paragraph).options(...).where(...))
-paragraph = para_result.scalar_one_or_none()
-if not paragraph:
-    raise HTTPException(404, ...)
-textbook = paragraph.chapter.textbook
-if textbook.school_id is not None and textbook.school_id != school_id:
-    raise HTTPException(403, ...)
-# Эти 10 строк повторяются 15 раз!
-```
-
-**3. Бизнес-логика в endpoints**
-```python
-# ЗАПРЕЩЕНО: расчёт streak прямо в endpoint
-@router.get("/stats")
-async def get_stats(...):
-    # 50 строк SQL запросов и циклов для расчёта streak
-    daily_time_query = select(...)
-    result = await db.execute(daily_time_query)
-    for row in result:
-        if row.activity_date == expected_date:
-            streak += 1
-    # ... ещё 30 строк
-```
-
-**4. N+1 запросы в циклах**
-```python
-# ЗАПРЕЩЕНО: запрос в каждой итерации цикла
-for textbook in textbooks:
-    chapters_result = await db.execute(
-        select(func.count(Chapter.id)).where(Chapter.textbook_id == textbook.id)
-    )
-    # Это N+1 problem!
-```
-
-### Checklist перед PR (для AI-агентов)
-
-Перед созданием PR проверь:
-
-- [ ] **Файл < 400 строк** — если больше, разбей на модули
-- [ ] **Нет дублирования** — повторяющийся код вынесен в dependency/service
-- [ ] **Бизнес-логика в Service** — endpoints только orchestration
-- [ ] **Нет N+1 запросов** — используй JOIN или batch queries
-- [ ] **school_id изоляция** — все endpoints проверяют доступ
-- [ ] **Response schemas** — все endpoints имеют response_model
-
-### Документация по рефакторингу
-
-Подробный план рефакторинга существующего кода:
-- `docs/REFACTORING_SERVICES.md` — вынесение бизнес-логики в Services
-
-## Migration Strategy
-
-**Текущие миграции (20+):**
-- 001-008: Initial schema, school_id isolation, hybrid model
-- 009-013: GOSO tables, paragraph_outcomes, RLS policies
-- 014+: Parent model, mastery tables, test_purpose enum
-
-**При создании новых миграций:**
-1. Всегда проверяй, что модель обновлена ПЕРЕД созданием миграции
-2. Используй `--autogenerate`, но всегда проверяй результат вручную
-3. Для complex миграций создавай `.sql` файл рядом с `.py` файлом
-4. Указывай `server_default` для NOT NULL колонок при добавлении в существующие таблицы
-5. Тестируй и upgrade, и downgrade
-
-**Пример создания миграции:**
-```bash
-cd backend
-alembic revision --autogenerate -m "add super_admin role"
-# Отредактируй файл миграции, проверь downgrade()
-alembic upgrade head
-# Проверь БД
-alembic downgrade -1  # тестируй откат
-alembic upgrade head  # вернись обратно
-```
-
-## Development Workflow
-
-### Текущий этап: Rich Content + RAG (2025-12)
-
-**Завершено:**
-- ✅ Backend API: Auth, RBAC, Content Management, GOSO endpoints
-- ✅ Admin Panel v2: Next.js панель заменила React-Admin
-- ✅ Production: api.ai-mentor.kz, admin.ai-mentor.kz
-- ✅ ГОСО данные: 164 learning outcomes (История КЗ 5-9 классы)
-- ✅ Rich Content: аудио, видео, слайды, карточки для параграфов
-
-### Git Commit Conventions
-
-**Следуй conventional commits:**
-- `feat:` - новая функциональность
-- `fix:` - исправление бага
-- `docs:` - обновление документации
-- `refactor:` - рефакторинг без изменения функциональности
-- `test:` - добавление тестов
-- `chore:` - обновление зависимостей, настроек
-
-**Всегда добавляй в конец коммита:**
-```
+# Всегда добавляй в конец:
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
 Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
-## Important Technical Details
-
-### pgvector для RAG
-
-**Embeddings модель:**
-- Используется OpenAI `text-embedding-3-small`
-- Размерность: 1536
-- Тип в PostgreSQL: `vector(1536)`
-- Индекс: `USING ivfflat (embedding vector_cosine_ops)`
-
-**Модель ParagraphEmbedding:**
-```python
-class ParagraphEmbedding:
-    id
-    school_id          # для изоляции
-    paragraph_id       # FK к paragraphs
-    embedding          # vector(1536)
-    chunk_text         # текст чанка
-    chunk_index        # номер чанка (один параграф = N чанков)
-    token_count
-```
-
-### Алгоритм группировки A/B/C (Mastery Service)
-
-**Критерии (из ARCHITECTURE.md):**
-- **Группа A**: ≥ 85% правильных ответов, стабильные результаты
-- **Группа B**: 60-84% правильных ответов
-- **Группа C**: < 60% правильных ответов или нестабильные результаты
-
-**Алгоритм:**
-- Берет последние 5 попыток по главе
-- Считает взвешенный средний (новые попытки важнее: weights = [0.35, 0.25, 0.20, 0.12, 0.08])
-- Анализирует тренд (улучшение/стабильно/ухудшение)
-- Считает консистентность (стандартное отклонение)
-- Сохраняет в `mastery_history` при изменении уровня
-
-**Модели:**
-- `MasteryHistory` - история изменений уровня
-- `AdaptiveGroup` - текущая группа ученика по главе (расчет каждый раз при новой попытке)
-
-### Async/Await Pattern
-
-**Весь проект использует async:**
-```python
-# Database connection
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-
-# Dependencies
-async def get_db() -> AsyncSession:
-    async with AsyncSessionLocal() as session:
-        yield session
-
-# Endpoints
-@router.post("/tests")
-async def create_test(
-    data: TestCreate,
-    db: AsyncSession = Depends(get_db)
-):
-    ...
-```
-
-**Важно:** Все запросы к БД должны быть через `await`.
+---
 
 ## Quick Reference
 
-**Check implementation status:**
 ```bash
-cat docs/IMPLEMENTATION_STATUS.md | grep "ИТЕРАЦИЯ" | head -15
-```
+# Статус миграций
+cd backend && alembic current -v
 
-**Find where a model is used:**
-```bash
+# Поиск использования модели
 grep -r "from app.models.textbook import" backend/
-```
 
-**Check database schema:**
-```bash
-docker exec -it ai_mentor_postgres psql -U ai_mentor_user -d ai_mentor_db -c "\dt"
+# Схема таблицы
 docker exec -it ai_mentor_postgres psql -U ai_mentor_user -d ai_mentor_db -c "\d textbooks"
 ```
 
-**View current migration:**
-```bash
-cd backend && alembic current -v
-```
+---
 
-**Count migrations:**
-```bash
-ls backend/alembic/versions/*.py | wc -l
-```
+## Key Concepts (краткий справочник)
+
+**Подробности см. в `docs/ARCHITECTURE.md`**
+
+### Гибридная модель контента
+- `school_id = NULL` → глобальный контент (SUPER_ADMIN)
+- `school_id = N` → школьный контент (School ADMIN)
+
+### 5 ролей RBAC
+SUPER_ADMIN → ADMIN → TEACHER → STUDENT → PARENT
+
+### API префиксы
+- `/api/v1/admin/global/*` — SUPER_ADMIN
+- `/api/v1/admin/school/*` — School ADMIN
+- `/api/v1/students/*` — STUDENT
+- `/api/v1/teachers/*` — TEACHER
