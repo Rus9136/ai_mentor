@@ -1,5 +1,17 @@
 import { apiClient, setTokens, clearTokens } from './client';
 
+// Email/Password login types
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+}
+
 export interface GoogleAuthRequest {
   id_token: string;
 }
@@ -121,6 +133,13 @@ export async function completeOnboarding(
 // Get current user
 export async function getCurrentUser(): Promise<UserResponse> {
   const response = await apiClient.get<UserResponse>('/auth/me');
+  return response.data;
+}
+
+// Email/Password login
+export async function loginWithPassword(credentials: LoginCredentials): Promise<LoginResponse> {
+  const response = await apiClient.post<LoginResponse>('/auth/login', credentials);
+  setTokens(response.data.access_token, response.data.refresh_token);
   return response.data;
 }
 

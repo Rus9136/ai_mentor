@@ -13,11 +13,17 @@
   "auth": {
     "login": {
       "title": "Қош келдіңіз",
-      "subtitle": "Оқуды бастау үшін Google арқылы кіріңіз",
+      "subtitle": "Оқуды бастау үшін кіріңіз",
       "tagline": "Өз жолыңмен оқы",
+      "email": "Email",
+      "password": "Құпия сөз",
+      "signIn": "Кіру",
+      "or": "немесе",
       "googleButton": "Google арқылы кіру",
       "loading": "Кіру орындалуда...",
       "error": "Кіру қатесі. Қайта көріңіз.",
+      "invalidCredentials": "Email немесе құпия сөз қате",
+      "accessDenied": "Кіруге рұқсат жоқ. Оқушы аккаунтын пайдаланыңыз.",
       "features": {
         "adaptive": "Бейімделген оқыту",
         "interactive": "Интерактивті сабақтар"

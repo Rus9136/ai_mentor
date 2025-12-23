@@ -12,6 +12,7 @@ import {
   googleAuth,
   getCurrentUser,
   logout as logoutApi,
+  loginWithPassword as loginWithPasswordApi,
   UserResponse,
 } from '@/lib/api/auth';
 import { getAccessToken } from '@/lib/api/client';
@@ -22,6 +23,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   requiresOnboarding: boolean;
   login: (idToken: string) => Promise<boolean>;
+  loginWithPassword: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   setRequiresOnboarding: (value: boolean) => void;
@@ -104,6 +106,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginWithPassword = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      await loginWithPasswordApi({ email, password });
+      const userData = await getCurrentUser();
+
+      // Only allow students
+      if (userData.role !== 'student') {
+        logoutApi();
+        return { success: false, error: 'ACCESS_DENIED' };
+      }
+
+      setUser(userData);
+
+      // Check if onboarding is required
+      if (!userData.school_id) {
+        const skippedOnboarding = typeof window !== 'undefined'
+          ? localStorage.getItem('ai_mentor_skipped_onboarding') === 'true'
+          : false;
+
+        if (!skippedOnboarding) {
+          setRequiresOnboarding(true);
+        }
+      }
+
+      return { success: true };
+    } catch (error) {
+      // Extract error message from API response
+      const axiosError = error as { response?: { data?: { detail?: string } } };
+      const errorMessage = axiosError.response?.data?.detail || 'INVALID_CREDENTIALS';
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const logout = () => {
     logoutApi();
     // Clear skipped onboarding flag
@@ -136,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated,
         requiresOnboarding,
         login,
+        loginWithPassword,
         logout,
         refreshUser,
         setRequiresOnboarding,

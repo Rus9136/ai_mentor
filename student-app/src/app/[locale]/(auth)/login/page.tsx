@@ -6,13 +6,20 @@ import { useAuth } from '@/providers/auth-provider';
 import { GoogleSignInButton } from '@/components/auth/google-signin-button';
 import { useRouter } from '@/i18n/routing';
 import { Loader2, BookOpen, Sparkles, GraduationCap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function LoginPage() {
   const t = useTranslations('auth.login');
-  const { login, isLoading: authLoading } = useAuth();
+  const { login, loginWithPassword, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Email/Password form state
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleGoogleSuccess = async (idToken: string) => {
     setIsLoading(true);
@@ -34,6 +41,30 @@ export default function LoginPage() {
 
   const handleGoogleError = (errorMessage: string) => {
     setError(errorMessage);
+  };
+
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await loginWithPassword(email, password);
+      if (result.success) {
+        router.push('/');
+      } else {
+        // Map error codes to user-friendly messages
+        if (result.error === 'ACCESS_DENIED') {
+          setError(t('accessDenied'));
+        } else {
+          setError(t('invalidCredentials'));
+        }
+      }
+    } catch {
+      setError(t('error'));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (authLoading) {
@@ -77,19 +108,81 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <div className="flex flex-col items-center space-y-4">
-              {isLoading ? (
-                <div className="flex items-center space-x-2 text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>{t('loading')}</span>
+            <div className="flex flex-col space-y-4">
+              {/* Email/Password Form */}
+              <form onSubmit={handlePasswordLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">{t('email')}</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="student@school.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    autoComplete="email"
+                  />
                 </div>
-              ) : (
-                <GoogleSignInButton
-                  onSuccess={handleGoogleSuccess}
-                  onError={handleGoogleError}
-                />
-              )}
 
+                <div className="space-y-2">
+                  <Label htmlFor="password">{t('password')}</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    autoComplete="current-password"
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {t('loading')}
+                    </>
+                  ) : (
+                    t('signIn')
+                  )}
+                </Button>
+              </form>
+
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">
+                    {t('or')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Google Sign-In */}
+              <div className="flex flex-col items-center">
+                {isLoading ? (
+                  <div className="flex items-center space-x-2 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>{t('loading')}</span>
+                  </div>
+                ) : (
+                  <GoogleSignInButton
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleError}
+                  />
+                )}
+              </div>
+
+              {/* Error message */}
               {error && (
                 <p className="text-center text-sm text-destructive">{error}</p>
               )}
