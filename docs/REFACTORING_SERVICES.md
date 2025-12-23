@@ -88,14 +88,18 @@ class Settings(BaseSettings):
 
 ## Текущее состояние
 
-### Проблемный файл: `backend/app/api/v1/students.py`
+### Проблемный файл: `backend/app/api/v1/students.py` → ✅ REFACTORED
 
-| Метрика | Значение | Норма |
-|---------|----------|-------|
-| Строк кода | 2661 | < 400 |
-| Endpoints | 21 | 5-6 на файл |
-| Доменов | 6 | 1 на файл |
-| Дублирование | ~200 строк | 0 |
+| Метрика | До | После | Норма |
+|---------|-----|-------|-------|
+| Строк кода | 2661 | 0 (deleted) | < 400 |
+| Файлов | 1 | 7 | - |
+| Max строк/файл | 2661 | 891 | < 400 |
+| Endpoints | 21 | 20 (across 6 files) | 5-6 на файл |
+| Доменов | 6 | 1 per file | 1 на файл |
+| Дублирование | ~200 строк | ~200 | 0 |
+
+**Статус:** Phase 2 завершён. tests.py и content.py требуют дополнительной оптимизации.
 
 ### Выявленные проблемы
 
@@ -1412,17 +1416,20 @@ backend/app/
 - [x] Добавить `get_chapter_with_access`
 - [x] Добавить `get_textbook_with_access`
 
-### Phase 2: Split Router
-- [ ] Создать `api/v1/students/` package
-- [ ] Перенести test endpoints в `tests.py`
-- [ ] Перенести content endpoints в `content.py`
-- [ ] Перенести learning endpoints в `learning.py`
-- [ ] Перенести mastery endpoints в `mastery.py`
-- [ ] Перенести embedded endpoints в `embedded.py`
-- [ ] Перенести stats endpoints в `stats.py`
-- [ ] Создать `__init__.py` с router aggregation
-- [ ] Удалить старый `students.py`
-- [ ] Проверить OpenAPI docs
+### Phase 2: Split Router ✅ DONE (2025-12-23)
+- [x] Создать `api/v1/students/` package
+- [x] Перенести test endpoints в `tests.py` (891 строк)
+- [x] Перенести content endpoints в `content.py` (741 строк)
+- [x] Перенести learning endpoints в `learning.py` (340 строк)
+- [x] Перенести mastery endpoints в `mastery.py` (161 строк)
+- [x] Перенести embedded endpoints в `embedded.py` (215 строк)
+- [x] Перенести stats endpoints в `stats.py` (156 строк)
+- [x] Создать `__init__.py` с router aggregation (46 строк)
+- [x] Удалить старый `students.py`
+- [x] Проверить OpenAPI docs (20 endpoints working)
+
+**Примечание:** tests.py и content.py превышают лимит 400 строк.
+Требуется дальнейшая оптимизация через reusable dependencies (Phase 1).
 
 ### Phase 3: Stats Service
 - [ ] Добавить индекс `idx_student_paragraph_streak`
