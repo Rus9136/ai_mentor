@@ -8,6 +8,7 @@ This package contains all student-facing API endpoints organized by domain:
 - mastery.py: Mastery levels (A/B/C grading per chapter)
 - embedded.py: Embedded questions (check yourself questions)
 - stats.py: Dashboard statistics (streak, progress)
+- homework.py: Homework assignments (view, submit, feedback)
 
 The router is exported as a single aggregated router that can be included
 in the main app with the same import path as before:
@@ -23,6 +24,7 @@ from .learning import router as learning_router
 from .mastery import router as mastery_router
 from .embedded import router as embedded_router
 from .stats import router as stats_router
+from .homework import router as homework_router
 
 
 router = APIRouter()
@@ -44,3 +46,6 @@ router.include_router(embedded_router, tags=["Embedded Questions"])
 
 # Dashboard stats
 router.include_router(stats_router, tags=["Student Stats"])
+
+# Homework assignments
+router.include_router(homework_router, tags=["Student Homework"])

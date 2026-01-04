@@ -5,12 +5,14 @@ This module provides endpoints for students to:
 - Track paragraph learning progress (steps)
 - Submit self-assessments
 - View current learning step
+- View overall learning progress summary
 """
 
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -26,6 +28,9 @@ from app.models.paragraph import Paragraph
 from app.models.chapter import Chapter
 from app.models.learning import StudentParagraph as StudentParagraphModel
 from app.models.embedded_question import EmbeddedQuestion, StudentEmbeddedAnswer
+from app.models.mastery import ParagraphMastery
+from app.models.test_attempt import TestAttempt, AttemptStatus
+from app.repositories.paragraph_mastery_repo import ParagraphMasteryRepository
 from app.schemas.embedded_question import (
     SelfAssessmentRequest,
     SelfAssessmentResponse,
@@ -33,6 +38,7 @@ from app.schemas.embedded_question import (
     StepProgressResponse,
     ParagraphProgressResponse,
 )
+from app.schemas.test_attempt import StudentProgressResponse
 
 
 router = APIRouter()
@@ -337,4 +343,106 @@ async def submit_self_assessment(
         rating=request.rating,
         recorded_at=now,
         message=messages.get(request.rating, "Оценка сохранена")
+    )
+
+
+@router.get("/progress", response_model=StudentProgressResponse)
+async def get_student_progress(
+    current_user: User = Depends(require_student),
+    school_id: int = Depends(get_current_user_school_id),
+    chapter_id: Optional[int] = Query(None, description="Filter by chapter ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get student learning progress summary.
+
+    Returns paragraph-level mastery statistics:
+    - Total paragraphs
+    - Completed paragraphs
+    - Mastered paragraphs (status = 'mastered')
+    - Struggling paragraphs (status = 'struggling')
+    - Average and best scores
+    """
+    student = await get_student_from_user(current_user, db)
+    student_id = student.id
+
+    mastery_repo = ParagraphMasteryRepository(db)
+    mastery_records = await mastery_repo.get_by_student(
+        student_id=student_id,
+        school_id=school_id
+    )
+
+    chapter_name = None
+    if chapter_id:
+        result = await db.execute(
+            select(Paragraph.id).where(
+                Paragraph.chapter_id == chapter_id,
+                Paragraph.is_deleted == False
+            )
+        )
+        paragraph_ids = set(result.scalars().all())
+        mastery_records = [m for m in mastery_records if m.paragraph_id in paragraph_ids]
+
+        chapter_result = await db.execute(
+            select(Chapter).where(Chapter.id == chapter_id)
+        )
+        chapter = chapter_result.scalar_one_or_none()
+        chapter_name = chapter.title if chapter else None
+
+    total_paragraphs = len(mastery_records)
+    completed_paragraphs = sum(1 for m in mastery_records if m.is_completed)
+    mastered_paragraphs = sum(1 for m in mastery_records if m.status == 'mastered')
+    struggling_paragraphs = sum(1 for m in mastery_records if m.status == 'struggling')
+
+    if mastery_records:
+        average_score = sum(m.average_score or 0.0 for m in mastery_records) / len(mastery_records)
+        best_score = max((m.best_score for m in mastery_records if m.best_score is not None), default=None)
+    else:
+        average_score = 0.0
+        best_score = None
+
+    result = await db.execute(
+        select(func.count(TestAttempt.id)).where(
+            TestAttempt.student_id == student_id,
+            TestAttempt.school_id == school_id,
+            TestAttempt.status == AttemptStatus.COMPLETED
+        )
+    )
+    total_attempts = result.scalar() or 0
+
+    paragraphs_data = []
+    for mastery in mastery_records:
+        paragraph_result = await db.execute(
+            select(Paragraph).where(Paragraph.id == mastery.paragraph_id)
+        )
+        paragraph = paragraph_result.scalar_one_or_none()
+
+        paragraphs_data.append({
+            "paragraph_id": mastery.paragraph_id,
+            "paragraph_title": paragraph.title if paragraph else None,
+            "paragraph_number": paragraph.number if paragraph else None,
+            "status": mastery.status,
+            "average_score": mastery.average_score,
+            "best_score": mastery.best_score,
+            "is_completed": mastery.is_completed,
+            "attempts_count": mastery.attempts_count,
+            "time_spent": mastery.time_spent
+        })
+
+    logger.info(
+        f"Student {student_id} progress: {mastered_paragraphs}/{total_paragraphs} mastered, "
+        f"avg_score={average_score:.2f}"
+    )
+
+    return StudentProgressResponse(
+        chapter_id=chapter_id,
+        chapter_name=chapter_name,
+        total_paragraphs=total_paragraphs,
+        completed_paragraphs=completed_paragraphs,
+        mastered_paragraphs=mastered_paragraphs,
+        struggling_paragraphs=struggling_paragraphs,
+        average_score=average_score,
+        best_score=best_score,
+        total_attempts=total_attempts,
+        paragraphs=paragraphs_data
     )
