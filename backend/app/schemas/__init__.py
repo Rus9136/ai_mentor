@@ -125,6 +125,47 @@ from app.schemas.embedded_question import (
     StepProgressResponse,
     ParagraphProgressResponse,
 )
+from app.schemas.homework import (
+    # Enums
+    HomeworkStatus,
+    TaskType,
+    QuestionType as HomeworkQuestionType,
+    BloomLevel,
+    StudentHomeworkStatus,
+    SubmissionStatus,
+    # Nested
+    QuestionOption as HomeworkQuestionOption,
+    GradingRubric,
+    GenerationParams,
+    # Create/Update
+    HomeworkCreate,
+    HomeworkUpdate,
+    HomeworkTaskCreate,
+    HomeworkTaskUpdate,
+    QuestionCreate as HomeworkQuestionCreate,
+    QuestionUpdate as HomeworkQuestionUpdate,
+    # Response
+    HomeworkResponse,
+    HomeworkListResponse,
+    HomeworkTaskResponse,
+    QuestionResponse as HomeworkQuestionResponse,
+    # Student
+    StudentHomeworkResponse,
+    StudentTaskResponse,
+    StudentQuestionResponse,
+    StudentQuestionWithFeedback,
+    # Submission
+    AnswerSubmit as HomeworkAnswerSubmit,
+    TaskSubmitRequest,
+    SubmissionResult,
+    TaskSubmissionResult,
+    # Review
+    AnswerForReview,
+    TeacherReviewRequest,
+    TeacherReviewResponse,
+    # Analytics
+    HomeworkAnalytics,
+)
 from app.schemas.goso import (
     # Subject
     SubjectCreate,
@@ -307,4 +348,36 @@ __all__ = [
     "UpdateStepRequest",
     "StepProgressResponse",
     "ParagraphProgressResponse",
+    # Homework
+    "HomeworkStatus",
+    "TaskType",
+    "HomeworkQuestionType",
+    "BloomLevel",
+    "StudentHomeworkStatus",
+    "SubmissionStatus",
+    "HomeworkQuestionOption",
+    "GradingRubric",
+    "GenerationParams",
+    "HomeworkCreate",
+    "HomeworkUpdate",
+    "HomeworkTaskCreate",
+    "HomeworkTaskUpdate",
+    "HomeworkQuestionCreate",
+    "HomeworkQuestionUpdate",
+    "HomeworkResponse",
+    "HomeworkListResponse",
+    "HomeworkTaskResponse",
+    "HomeworkQuestionResponse",
+    "StudentHomeworkResponse",
+    "StudentTaskResponse",
+    "StudentQuestionResponse",
+    "StudentQuestionWithFeedback",
+    "HomeworkAnswerSubmit",
+    "TaskSubmitRequest",
+    "SubmissionResult",
+    "TaskSubmissionResult",
+    "AnswerForReview",
+    "TeacherReviewRequest",
+    "TeacherReviewResponse",
+    "HomeworkAnalytics",
 ]

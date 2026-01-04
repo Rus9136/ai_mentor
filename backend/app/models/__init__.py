@@ -31,8 +31,26 @@ from app.models.goso import Framework, GosoSection, GosoSubsection, LearningOutc
 from app.models.test_attempt import TestAttempt, TestAttemptAnswer, AttemptStatus
 from app.models.mastery import MasteryHistory, AdaptiveGroup, ParagraphMastery, ChapterMastery
 
-# Assignment models
+# Assignment models (legacy)
 from app.models.assignment import Assignment, AssignmentTest, StudentAssignment, AssignmentStatus
+
+# Homework models (AI-enabled)
+from app.models.homework import (
+    Homework,
+    HomeworkTask,
+    HomeworkTaskQuestion,
+    HomeworkStudent,
+    StudentTaskSubmission,
+    StudentTaskAnswer,
+    AIGenerationLog,
+    HomeworkStatus,
+    HomeworkTaskType,
+    HomeworkQuestionType,
+    HomeworkStudentStatus,
+    TaskSubmissionStatus,
+    BloomLevel,
+    AIOperationType,
+)
 
 # Learning models
 from app.models.learning import StudentParagraph, LearningSession, LearningActivity, ActivityType, SelfAssessmentRating, ParagraphStep
@@ -99,11 +117,26 @@ __all__ = [
     "AdaptiveGroup",
     "ParagraphMastery",
     "ChapterMastery",
-    # Assignment
+    # Assignment (legacy)
     "Assignment",
     "AssignmentTest",
     "StudentAssignment",
     "AssignmentStatus",
+    # Homework (AI-enabled)
+    "Homework",
+    "HomeworkTask",
+    "HomeworkTaskQuestion",
+    "HomeworkStudent",
+    "StudentTaskSubmission",
+    "StudentTaskAnswer",
+    "AIGenerationLog",
+    "HomeworkStatus",
+    "HomeworkTaskType",
+    "HomeworkQuestionType",
+    "HomeworkStudentStatus",
+    "TaskSubmissionStatus",
+    "BloomLevel",
+    "AIOperationType",
     # Learning
     "StudentParagraph",
     "LearningSession",
