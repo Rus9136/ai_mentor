@@ -371,7 +371,7 @@ class HomeworkAIService:
             "options": q.get("options"),
             "correct_answer": q.get("correct_answer"),
             "bloom_level": bloom,
-            "points": max(1, min(10, q.get("points", 1))),
+            "points": max(1, min(10, q.get("points") or 1)),
             "grading_rubric": q.get("grading_rubric"),
         }
 
