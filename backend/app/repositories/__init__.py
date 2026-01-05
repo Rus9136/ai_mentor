@@ -13,7 +13,7 @@ from app.repositories.test_attempt_repo import TestAttemptRepository
 from app.repositories.paragraph_mastery_repo import ParagraphMasteryRepository
 from app.repositories.chapter_mastery_repo import ChapterMasteryRepository
 from app.repositories.goso_repo import GosoRepository, ParagraphOutcomeRepository
-from app.repositories.homework_repo import HomeworkRepository
+from app.repositories.homework import HomeworkRepository
 
 __all__ = [
     "UserRepository",

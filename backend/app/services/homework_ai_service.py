@@ -21,7 +21,7 @@ from app.models.homework import (
 )
 from app.services.llm_service import LLMService, LLMServiceError
 from app.repositories.paragraph_repo import ParagraphRepository
-from app.repositories.homework_repo import HomeworkRepository
+from app.repositories.homework import HomeworkRepository
 from app.schemas.homework import GenerationParams, BloomLevel
 
 logger = logging.getLogger(__name__)
@@ -137,7 +137,7 @@ class HomeworkAIService:
                     "params": params.model_dump()
                 },
                 prompt_used=prompt,
-                output={"error": str(e), "raw_response": response.content},
+                parsed_output={"error": str(e), "raw_response": response.content},
                 model_used=response.model,
                 tokens_used=response.tokens_used or 0,
                 latency_ms=latency_ms,
@@ -154,7 +154,7 @@ class HomeworkAIService:
                 "params": params.model_dump()
             },
             prompt_used=prompt,
-            output={"questions_count": len(questions)},
+            parsed_output={"questions_count": len(questions)},
             model_used=response.model,
             tokens_used=response.tokens_used or 0,
             latency_ms=latency_ms,
@@ -177,16 +177,12 @@ class HomeworkAIService:
         from app.repositories.paragraph_content_repo import ParagraphContentRepository
         content_repo = ParagraphContentRepository(self.db)
 
-        contents = await content_repo.list_by_paragraph(
-            paragraph_id=paragraph_id,
-            skip=0,
-            limit=100
-        )
+        contents = await content_repo.get_all_by_paragraph(paragraph_id)
 
         texts = []
-        for content in contents[0]:  # (items, total)
-            if content.content_text:
-                texts.append(content.content_text)
+        for content in contents:
+            if content.explain_text:
+                texts.append(content.explain_text)
 
         return "\n\n".join(texts)
 
@@ -441,7 +437,7 @@ class HomeworkAIService:
                 "answer_length": len(answer_text)
             },
             prompt_used=prompt,
-            output={"score": result.score, "confidence": result.confidence},
+            parsed_output={"score": result.score, "confidence": result.confidence},
             model_used=response.model,
             tokens_used=response.tokens_used or 0,
             latency_ms=latency_ms,
@@ -622,7 +618,7 @@ class HomeworkAIService:
         operation_type: str,
         input_context: Dict[str, Any],
         prompt_used: str,
-        output: Dict[str, Any],
+        parsed_output: Dict[str, Any],
         model_used: str,
         tokens_used: int,
         latency_ms: float,
@@ -635,14 +631,13 @@ class HomeworkAIService:
             operation_type=operation_type,
             input_context=input_context,
             prompt_used=prompt_used[:10000],  # Truncate if too long
-            output=output,
+            parsed_output=parsed_output,
             model_used=model_used,
             tokens_input=tokens_used // 2,  # Approximate split
             tokens_output=tokens_used // 2,
-            latency_ms=latency_ms,
+            latency_ms=int(latency_ms),
             success=success,
-            task_id=task_id,
-            answer_id=answer_id
+            homework_task_id=task_id
         )
         self.db.add(log)
         await self.db.flush()
