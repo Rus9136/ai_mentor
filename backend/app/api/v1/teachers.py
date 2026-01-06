@@ -21,7 +21,13 @@ from app.api.dependencies import (
     require_teacher,
     get_current_user_school_id,
 )
-from app.services.teacher_analytics_service import TeacherAnalyticsService
+from app.services.teacher_analytics import TeacherAnalyticsService
+from app.repositories.textbook_repo import TextbookRepository
+from app.repositories.chapter_repo import ChapterRepository
+from app.repositories.paragraph_repo import ParagraphRepository
+from app.schemas.textbook import TextbookListResponse
+from app.schemas.chapter import ChapterListResponse
+from app.schemas.paragraph import ParagraphListResponse
 from app.schemas.teacher_dashboard import (
     TeacherDashboardResponse,
     TeacherClassResponse,
@@ -357,6 +363,112 @@ async def get_mastery_trends(
     """
     service = TeacherAnalyticsService(db)
     return await service.get_mastery_trends(current_user.id, school_id, period)
+
+
+# ============================================================================
+# CONTENT BROWSE (for ContentSelector in homework creation)
+# ============================================================================
+
+@router.get(
+    "/textbooks",
+    response_model=List[TextbookListResponse],
+    summary="Get textbooks for teacher",
+    description="Get list of textbooks available to the teacher (global + school-specific)."
+)
+async def list_textbooks_for_teacher(
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> List[TextbookListResponse]:
+    """
+    Get textbooks for content selection.
+
+    Returns both global textbooks (school_id = NULL) and school-specific textbooks.
+    Used by ContentSelector in homework creation.
+    """
+    repo = TextbookRepository(db)
+    textbooks = await repo.get_by_school(school_id, include_global=True)
+    return textbooks
+
+
+@router.get(
+    "/textbooks/{textbook_id}/chapters",
+    response_model=List[ChapterListResponse],
+    summary="Get chapters for textbook",
+    description="Get list of chapters in a textbook."
+)
+async def list_chapters_for_teacher(
+    textbook_id: int,
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> List[ChapterListResponse]:
+    """
+    Get chapters for a textbook.
+
+    Validates that teacher has access to the textbook (global or their school).
+    """
+    textbook_repo = TextbookRepository(db)
+    textbook = await textbook_repo.get_by_id(textbook_id)
+
+    if not textbook:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Textbook not found"
+        )
+
+    # Check access: global textbooks (school_id=None) are accessible to all,
+    # school-specific textbooks only to teachers from that school
+    if textbook.school_id is not None and textbook.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this textbook"
+        )
+
+    chapter_repo = ChapterRepository(db)
+    chapters = await chapter_repo.get_by_textbook(textbook_id)
+    return chapters
+
+
+@router.get(
+    "/chapters/{chapter_id}/paragraphs",
+    response_model=List[ParagraphListResponse],
+    summary="Get paragraphs for chapter",
+    description="Get list of paragraphs in a chapter."
+)
+async def list_paragraphs_for_teacher(
+    chapter_id: int,
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> List[ParagraphListResponse]:
+    """
+    Get paragraphs for a chapter.
+
+    Validates access through parent textbook.
+    """
+    chapter_repo = ChapterRepository(db)
+    chapter = await chapter_repo.get_by_id(chapter_id)
+
+    if not chapter:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chapter not found"
+        )
+
+    # Check access via parent textbook
+    textbook_repo = TextbookRepository(db)
+    textbook = await textbook_repo.get_by_id(chapter.textbook_id)
+
+    if textbook.school_id is not None and textbook.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this chapter"
+        )
+
+    paragraph_repo = ParagraphRepository(db)
+    paragraphs = await paragraph_repo.get_by_chapter(chapter_id)
+    return paragraphs
 
 
 # ============================================================================

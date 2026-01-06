@@ -49,7 +49,7 @@ from app.services.homework.ai_orchestration_service import (
 )
 
 if TYPE_CHECKING:
-    from app.services.homework_ai_service import HomeworkAIService
+    from app.services.homework.ai import HomeworkAIService
 
 
 class HomeworkService:

@@ -9,7 +9,7 @@ Handles:
 """
 import logging
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +24,7 @@ from app.models.homework import (
     TaskSubmissionStatus,
 )
 from app.repositories.homework import HomeworkRepository
-from app.schemas.homework import SubmissionResult, TaskSubmissionResult
+from app.schemas.homework import SubmissionResult, TaskSubmissionResult, SubmissionStatus
 from app.services.homework.grading_service import GradingService, GradingServiceError
 
 logger = logging.getLogger(__name__)
@@ -133,7 +133,7 @@ class SubmissionService:
         # Calculate late status
         is_late = False
         late_penalty = 0.0
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         if now > homework.due_date:
             try:
@@ -203,11 +203,13 @@ class SubmissionService:
         )
 
         # Get homework for AI check setting
-        hw_student = await self.repo.get_student_homework(
-            homework_id=submission.homework_student.homework_id,
-            student_id=student_id
-        )
-        ai_enabled = hw_student.homework.ai_check_enabled if hw_student else False
+        # Use homework_student_id to avoid lazy loading on submission.homework_student
+        hw_student = await self.db.get(HomeworkStudent, submission.homework_student_id)
+        ai_enabled = False
+        if hw_student:
+            # Get homework to check ai_check_enabled
+            homework = await self.db.get(Homework, hw_student.homework_id)
+            ai_enabled = homework.ai_check_enabled if homework else False
 
         result = await self.grading.grade_answer(
             answer=answer,
@@ -241,8 +243,8 @@ class SubmissionService:
         if not submission:
             raise SubmissionServiceError("Submission not found")
 
-        hw_student = submission.homework_student
-        if hw_student.student_id != student_id:
+        # Use submission.student_id directly instead of lazy loading homework_student
+        if submission.student_id != student_id:
             raise SubmissionServiceError("Not authorized")
 
         if submission.status != TaskSubmissionStatus.IN_PROGRESS:
@@ -253,8 +255,11 @@ class SubmissionService:
         needs_review = False
 
         for answer in submission.answers:
-            total_score += answer.score or 0.0
-            max_score += answer.max_score or 0.0
+            total_score += answer.partial_score or 0.0
+            # Get question to find max_score (question.points)
+            question = await self.db.get(HomeworkTaskQuestion, answer.question_id)
+            if question:
+                max_score += question.points
             if answer.flagged_for_review:
                 needs_review = True
 
@@ -270,17 +275,28 @@ class SubmissionService:
             TaskSubmissionStatus.NEEDS_REVIEW if needs_review
             else TaskSubmissionStatus.GRADED
         )
-        submission.completed_at = datetime.utcnow()
+        submission.completed_at = datetime.now(timezone.utc)
 
         await self.db.flush()
 
+        # Calculate percentage
+        percentage = (total_score / max_score * 100) if max_score > 0 else 0.0
+
+        # Count correct/incorrect
+        correct_count = sum(1 for a in submission.answers if a.is_correct)
+        incorrect_count = len(submission.answers) - correct_count
+
         return TaskSubmissionResult(
             submission_id=submission_id,
-            score=total_score,
+            task_id=submission.homework_task_id,
+            status=SubmissionStatus(submission.status.value),
+            attempt_number=submission.attempt_number,
+            total_score=total_score,
             max_score=max_score,
-            is_late=submission.is_late,
-            late_penalty=submission.late_penalty_applied,
+            percentage=percentage,
+            is_late=submission.is_late or False,
+            late_penalty_applied=submission.late_penalty_applied or 0,
             original_score=original_score if submission.is_late else None,
-            needs_review=needs_review,
-            attempt_number=submission.attempt_number
+            correct_count=correct_count,
+            incorrect_count=incorrect_count
         )

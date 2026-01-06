@@ -15,7 +15,7 @@ from app.repositories.homework import HomeworkRepository
 from app.schemas.homework import GenerationParams
 
 if TYPE_CHECKING:
-    from app.services.homework_ai_service import HomeworkAIService
+    from app.services.homework.ai import HomeworkAIService
 
 logger = logging.getLogger(__name__)
 

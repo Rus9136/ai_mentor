@@ -15,7 +15,7 @@ from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.homework_ai_service import (
+from app.services.homework.ai import (
     HomeworkAIService,
     HomeworkAIServiceError,
     AIGradingResult,

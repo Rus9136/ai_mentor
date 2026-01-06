@@ -6,7 +6,51 @@
 > - `CLAUDE.md` — стандарты кода, лимиты файлов
 > - `docs/ARCHITECTURE.md` — layered architecture
 
-**Статус:** Планирование | **Приоритет:** Средний | **Effort:** 3-4 дня
+**Статус:** В процессе | **Приоритет:** Средний | **Effort:** 3-4 дня
+
+---
+
+## ✅ Рефакторинг файлов > 400 строк (2026-01-06)
+
+4 файла, превышавших лимит 400 строк, были рефакторены:
+
+| # | Файл | Было | Стало | Сокращение |
+|---|------|------|-------|------------|
+| 1 | `teacher_analytics_service.py` | 883 | 5 модулей (макс 350) | ✅ |
+| 2 | `homework_ai_service.py` | 643 | 8 модулей (макс 219) | ✅ |
+| 3 | `teachers_homework.py` | 735 | 443 строки | 40% |
+| 4 | `admin_school/_dependencies.py` | 628 | 207 + 226 (factories) | 67% |
+
+### Созданные модули
+
+**teacher_analytics/** (5 модулей):
+- `teacher_analytics_service.py` — оркестратор
+- `class_analytics_service.py` — аналитика классов
+- `student_progress_service.py` — прогресс студентов
+- `mastery_analytics_service.py` — анализ владения материалом
+- `teacher_access_service.py` — контроль доступа
+
+**homework/ai/** (8 модулей):
+- `__init__.py` — facade HomeworkAIService
+- `generation_service.py` — генерация вопросов
+- `grading_ai_service.py` — AI оценка ответов
+- `personalization_service.py` — персонализация сложности
+- `utils/json_parser.py` — парсинг JSON
+- `utils/prompt_builder.py` — построение промптов
+- `utils/logging.py` — логирование AI операций
+
+**homework/** (1 модуль):
+- `response_builder.py` — построение API ответов
+
+**admin_school/** (1 модуль):
+- `_dependency_factories.py` — 3 фабрики dependencies
+
+### Новые dependencies в `app/api/dependencies.py`
+- `get_homework_service` — фабрика HomeworkService
+- `verify_homework_ownership` — проверка владения homework
+- `verify_task_ownership` — проверка владения task
+
+### Подробный план: `~/.claude/plans/lovely-questing-dijkstra.md`
 
 ---
 
@@ -1445,11 +1489,12 @@ backend/app/
 - [x] Обновить endpoints в `content.py` (456 строк, было 741)
 - [x] Написать unit tests (`test_student_content_service.py`)
 
-### Phase 5: Test Taking Service
-- [ ] Создать `test_taking_service.py`
-- [ ] Добавить DI factory
-- [ ] Обновить endpoints в `tests.py`
-- [ ] Написать unit tests
+### Phase 5: Test Taking Service ✅ DONE (2025-12-23)
+- [x] Создать `test_taking_service.py` (553 строк, workflow: start → answer → complete)
+- [x] Добавить DI factory `get_test_taking_service` в `dependencies.py`
+- [x] Перенести GET /progress в `learning.py` (это dashboard, не test-taking)
+- [x] Обновить endpoints в `tests.py` (443 строки, было 891)
+- [x] Написать unit tests (`test_test_taking_service.py`, 17 тестов)
 
 ### Phase 6: Progress Service
 - [ ] Создать `student_progress_service.py`

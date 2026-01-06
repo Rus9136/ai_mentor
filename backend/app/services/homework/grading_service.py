@@ -18,7 +18,7 @@ from app.models.homework import (
 from app.schemas.homework import SubmissionResult
 
 if TYPE_CHECKING:
-    from app.services.homework_ai_service import HomeworkAIService
+    from app.services.homework.ai import HomeworkAIService
 
 
 class GradingServiceError(Exception):
@@ -55,14 +55,16 @@ class GradingService:
         """
         q_type = question.question_type
 
+        # Store max_score locally (not in model, just for response)
+        max_score = question.points
+
         if q_type in ("single_choice", "multiple_choice", "true_false"):
             is_correct = self._check_choice_answer(
                 question=question,
                 selected=answer.selected_option_ids or []
             )
             answer.is_correct = is_correct
-            answer.score = question.points if is_correct else 0.0
-            answer.max_score = question.points
+            answer.partial_score = question.points if is_correct else 0.0
 
         elif q_type == "short_answer":
             is_correct = self._check_short_answer(
@@ -70,12 +72,9 @@ class GradingService:
                 answer_text=answer.answer_text
             )
             answer.is_correct = is_correct
-            answer.score = question.points if is_correct else 0.0
-            answer.max_score = question.points
+            answer.partial_score = question.points if is_correct else 0.0
 
         elif q_type == "open_ended":
-            answer.max_score = question.points
-
             if ai_check_enabled and self.ai_service:
                 ai_result = await self.ai_service.grade_answer(
                     question=question,
@@ -87,16 +86,17 @@ class GradingService:
                 answer.ai_feedback = ai_result.feedback
                 answer.ai_rubric_scores = ai_result.rubric_scores
                 answer.flagged_for_review = ai_result.confidence < 0.7
-                answer.score = ai_result.score * question.points
+                answer.partial_score = ai_result.score * question.points
             else:
                 answer.flagged_for_review = True
-                answer.score = 0.0
+                answer.partial_score = 0.0
 
         return SubmissionResult(
             submission_id=submission.id,
+            question_id=question.id,
             is_correct=answer.is_correct,
-            score=answer.score or 0.0,
-            max_score=answer.max_score or 0.0,
+            score=answer.partial_score or 0.0,
+            max_score=max_score,
             ai_feedback=answer.ai_feedback,
             ai_confidence=answer.ai_confidence,
             needs_review=answer.flagged_for_review or False
