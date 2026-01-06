@@ -46,10 +46,8 @@ class TenancyMiddleware(BaseHTTPMiddleware):
         # Extract user info from JWT token and set context
         try:
             token = self._extract_token(request)
-            logger.info(f"TenancyMiddleware: Extracted token: {token[:20] if token else 'None'}...")
             if token:
                 payload = decode_token(token)
-                logger.info(f"TenancyMiddleware: Decoded payload: {payload}")
                 if payload and payload.get("sub"):
                     user_id = int(payload["sub"])
                     user_role = payload.get("role")
@@ -60,14 +58,15 @@ class TenancyMiddleware(BaseHTTPMiddleware):
                     request.state.user_role = user_role
                     request.state.user_school_id = user_school_id
 
-                    logger.info(
-                        f"TenancyMiddleware: Stored in request.state - user_id={user_id}, "
-                        f"role={user_role}, school_id={user_school_id}"
+                    # Безопасное логирование - только идентификаторы, без sensitive data
+                    logger.debug(
+                        f"TenancyMiddleware: user_id={user_id}, role={user_role}, school_id={user_school_id}"
                     )
                 else:
-                    logger.warning(f"TenancyMiddleware: No payload or sub in token")
+                    logger.debug("TenancyMiddleware: Invalid token - no sub claim")
         except Exception as e:
-            logger.error(f"Error extracting user info in TenancyMiddleware: {e}", exc_info=True)
+            # Не логируем детали ошибки токена (может содержать sensitive data)
+            logger.warning(f"TenancyMiddleware: Token validation failed")
 
         # Process request - get_db() will read from request.state and set session variables
         response = await call_next(request)

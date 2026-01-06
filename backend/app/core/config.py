@@ -66,6 +66,33 @@ class Settings(BaseSettings):
     # JWT
     SECRET_KEY: str = "your-secret-key-here-change-in-production"
     ALGORITHM: str = "HS256"
+
+    @field_validator("SECRET_KEY", mode="after")
+    @classmethod
+    def validate_secret_key(cls, v):
+        """
+        Проверяет что SECRET_KEY не является небезопасным дефолтным значением.
+        В production обязательно должен быть задан уникальный ключ через env.
+        """
+        insecure_defaults = [
+            "your-secret-key-here-change-in-production",
+            "secret",
+            "changeme",
+            "your-secret-key",
+        ]
+        if v in insecure_defaults:
+            import warnings
+            warnings.warn(
+                "\n⚠️  SECURITY WARNING: SECRET_KEY is using an insecure default value!\n"
+                "   Generate a secure key with: openssl rand -hex 32\n"
+                "   Set it in backend/.env as: SECRET_KEY=your-generated-key\n",
+                UserWarning,
+                stacklevel=2
+            )
+            # В production-режиме можно сделать RuntimeError:
+            # if os.getenv("ENVIRONMENT") == "production":
+            #     raise RuntimeError("SECRET_KEY must be changed in production!")
+        return v
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 

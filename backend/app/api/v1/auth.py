@@ -1,7 +1,7 @@
 """
 Authentication endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -12,6 +12,7 @@ from app.core.security import (
     decode_token,
     verify_token_type,
 )
+from app.core.rate_limiter import limiter, AUTH_RATE_LIMIT, REFRESH_RATE_LIMIT
 from app.api.dependencies import get_current_user
 from app.models.user import User
 from app.repositories.user_repo import UserRepository
@@ -27,7 +28,9 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit(AUTH_RATE_LIMIT)
 async def login(
+    request: Request,
     credentials: LoginRequest,
     db: AsyncSession = Depends(get_db)
 ):
@@ -80,7 +83,9 @@ async def login(
 
 
 @router.post("/refresh", response_model=TokenResponse)
+@limiter.limit(REFRESH_RATE_LIMIT)
 async def refresh_token(
+    request: Request,
     refresh_request: RefreshTokenRequest,
     db: AsyncSession = Depends(get_db)
 ):

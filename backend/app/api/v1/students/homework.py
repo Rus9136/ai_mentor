@@ -23,7 +23,7 @@ from app.api.dependencies import (
     get_current_user_school_id,
     get_student_from_user,
 )
-from app.services.homework_service import HomeworkService, HomeworkServiceError
+from app.services.homework import HomeworkService, HomeworkServiceError
 from app.services.homework_ai_service import HomeworkAIService
 from app.schemas.homework import (
     StudentHomeworkResponse,
@@ -520,20 +520,34 @@ async def get_submission_results(
 async def _build_student_tasks(
     homework, hw_student, student_id: int, service: HomeworkService
 ) -> List[StudentTaskResponse]:
-    """Build task responses for student view."""
+    """
+    Build task responses for student view.
+
+    Uses batch queries to avoid N+1 problem:
+    - 1 query for all attempt counts
+    - 1 query for all latest submissions
+    Instead of 2N queries (2 per task).
+    """
+    tasks = homework.tasks or []
+    if not tasks:
+        return []
+
+    task_ids = [task.id for task in tasks]
+
+    # Batch fetch: 2 queries instead of 2N
+    attempts_map = await service.homework_repo.get_attempts_counts_batch(
+        homework_student_id=hw_student.id,
+        task_ids=task_ids
+    )
+    submissions_map = await service.homework_repo.get_latest_submissions_batch(
+        homework_student_id=hw_student.id,
+        task_ids=task_ids
+    )
+
     tasks_response = []
-
-    for task in (homework.tasks or []):
-        # Get submission info
-        attempts_used = await service.homework_repo.get_attempts_count(
-            homework_student_id=hw_student.id,
-            task_id=task.id
-        )
-
-        latest_submission = await service.homework_repo.get_latest_submission(
-            homework_student_id=hw_student.id,
-            task_id=task.id
-        )
+    for task in tasks:
+        attempts_used = attempts_map.get(task.id, 0)
+        latest_submission = submissions_map.get(task.id)
 
         status = SubmissionStatus.NOT_STARTED
         my_score = None

@@ -1,7 +1,7 @@
 """
 Repository for StudentTaskSubmission operations.
 """
-from typing import Optional
+from typing import Optional, List, Dict
 from datetime import datetime
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -112,3 +112,89 @@ class SubmissionRepository:
         await self.db.flush()
         await self.db.refresh(submission)
         return submission
+
+    # =========================================================================
+    # Batch methods to avoid N+1 queries
+    # =========================================================================
+
+    async def get_attempts_counts_batch(
+        self,
+        homework_student_id: int,
+        task_ids: List[int]
+    ) -> Dict[int, int]:
+        """
+        Get attempt counts for multiple tasks in a single query.
+
+        Returns dict: {task_id: attempts_count}
+        """
+        if not task_ids:
+            return {}
+
+        result = await self.db.execute(
+            select(
+                StudentTaskSubmission.homework_task_id,
+                func.count().label("count")
+            )
+            .where(
+                StudentTaskSubmission.homework_student_id == homework_student_id,
+                StudentTaskSubmission.homework_task_id.in_(task_ids),
+                StudentTaskSubmission.is_deleted == False
+            )
+            .group_by(StudentTaskSubmission.homework_task_id)
+        )
+
+        counts = {row.homework_task_id: row.count for row in result.all()}
+        # Return 0 for tasks without submissions
+        return {task_id: counts.get(task_id, 0) for task_id in task_ids}
+
+    async def get_latest_submissions_batch(
+        self,
+        homework_student_id: int,
+        task_ids: List[int]
+    ) -> Dict[int, StudentTaskSubmission]:
+        """
+        Get latest submissions for multiple tasks in a single query.
+
+        Uses window function to get the most recent submission per task.
+        Returns dict: {task_id: submission}
+        """
+        if not task_ids:
+            return {}
+
+        from sqlalchemy import and_
+        from sqlalchemy.orm import aliased
+
+        # Subquery to get max attempt number per task
+        subq = (
+            select(
+                StudentTaskSubmission.homework_task_id,
+                func.max(StudentTaskSubmission.attempt_number).label("max_attempt")
+            )
+            .where(
+                StudentTaskSubmission.homework_student_id == homework_student_id,
+                StudentTaskSubmission.homework_task_id.in_(task_ids),
+                StudentTaskSubmission.is_deleted == False
+            )
+            .group_by(StudentTaskSubmission.homework_task_id)
+            .subquery()
+        )
+
+        # Main query joining with subquery
+        result = await self.db.execute(
+            select(StudentTaskSubmission)
+            .options(selectinload(StudentTaskSubmission.answers))
+            .join(
+                subq,
+                and_(
+                    StudentTaskSubmission.homework_task_id == subq.c.homework_task_id,
+                    StudentTaskSubmission.attempt_number == subq.c.max_attempt
+                )
+            )
+            .where(
+                StudentTaskSubmission.homework_student_id == homework_student_id,
+                StudentTaskSubmission.is_deleted == False
+            )
+        )
+
+        submissions = result.unique().scalars().all()
+        return {sub.homework_task_id: sub for sub in submissions}

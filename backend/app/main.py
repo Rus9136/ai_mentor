@@ -2,14 +2,18 @@
 Main FastAPI application.
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from pathlib import Path
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
 from app.core.database import engine
+from app.core.rate_limiter import limiter
 from app.middleware.tenancy import TenancyMiddleware
 
 
@@ -48,13 +52,24 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS
+# Configure rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Configure CORS - явный список методов и заголовков для безопасности
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "X-CSRF-Token",
+    ],
 )
 
 # Configure Tenancy Middleware for RLS (Row Level Security)

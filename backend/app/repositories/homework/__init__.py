@@ -199,6 +199,25 @@ class HomeworkRepository:
     async def update_submission(self, submission_id: int, data: dict):
         return await self._submission.update_submission(submission_id, data)
 
+    # Batch methods to avoid N+1 queries
+    async def get_attempts_counts_batch(
+        self,
+        homework_student_id: int,
+        task_ids: List[int]
+    ) -> dict:
+        return await self._submission.get_attempts_counts_batch(
+            homework_student_id, task_ids
+        )
+
+    async def get_latest_submissions_batch(
+        self,
+        homework_student_id: int,
+        task_ids: List[int]
+    ) -> dict:
+        return await self._submission.get_latest_submissions_batch(
+            homework_student_id, task_ids
+        )
+
     # =========================================================================
     # Answers (delegates to AnswerRepository)
     # =========================================================================

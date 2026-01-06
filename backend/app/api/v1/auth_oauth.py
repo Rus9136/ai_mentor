@@ -3,7 +3,7 @@ OAuth authentication endpoints.
 
 Provides Google OAuth login and student onboarding flow.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -11,6 +11,7 @@ from typing import Optional
 from app.core.database import get_db
 from app.core.security import create_access_token, create_refresh_token
 from app.core.config import settings
+from app.core.rate_limiter import limiter, AUTH_RATE_LIMIT, ONBOARDING_RATE_LIMIT
 from app.api.dependencies import get_current_user
 from app.models.user import User, UserRole, AuthProvider
 from app.models.student import Student
@@ -57,7 +58,9 @@ class GoogleLoginResponse(BaseModel):
 # ==========================================
 
 @router.post("/google", response_model=GoogleLoginResponse)
+@limiter.limit(AUTH_RATE_LIMIT)
 async def google_login(
+    request: Request,
     data: GoogleLoginRequest,
     db: AsyncSession = Depends(get_db)
 ):
@@ -163,7 +166,9 @@ async def google_login(
 # ==========================================
 
 @router.post("/onboarding/validate-code", response_model=ValidateCodeResponse)
+@limiter.limit(ONBOARDING_RATE_LIMIT)
 async def validate_invitation_code(
+    request: Request,
     data: ValidateCodeRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -220,7 +225,9 @@ async def validate_invitation_code(
 
 
 @router.post("/onboarding/complete", response_model=OnboardingCompleteResponse)
+@limiter.limit(ONBOARDING_RATE_LIMIT)
 async def complete_onboarding(
+    request: Request,
     data: OnboardingCompleteRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
