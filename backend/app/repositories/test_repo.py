@@ -1,9 +1,9 @@
 """
 Repository for Test data access.
 """
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from datetime import datetime
-from sqlalchemy import select, and_, text
+from sqlalchemy import select, and_, text, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 
@@ -138,6 +138,58 @@ class TestRepository:
             )
 
         return result.scalars().all()
+
+    async def get_by_school_paginated(
+        self,
+        school_id: int,
+        page: int = 1,
+        page_size: int = 20,
+        include_global: bool = False,
+        chapter_id: Optional[int] = None,
+    ) -> Tuple[List[Test], int]:
+        """
+        Get tests for a school with pagination.
+
+        Args:
+            school_id: School ID
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+            include_global: Whether to include global tests
+            chapter_id: Optional filter by chapter
+
+        Returns:
+            Tuple of (list of tests, total count)
+        """
+        # Build filters
+        filters = [Test.is_deleted == False]  # noqa: E712
+
+        if include_global:
+            filters.append(or_(
+                Test.school_id == school_id,
+                Test.school_id.is_(None)
+            ))
+        else:
+            filters.append(Test.school_id == school_id)
+
+        if chapter_id is not None:
+            filters.append(Test.chapter_id == chapter_id)
+
+        # Base query
+        query = select(Test).where(and_(*filters))
+
+        # Count total before pagination
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Apply ordering and pagination
+        query = query.order_by(Test.difficulty, Test.title)
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        result = await self.db.execute(query)
+        tests = list(result.scalars().all())
+
+        return tests, total
 
     async def create(self, test: Test) -> Test:
         """

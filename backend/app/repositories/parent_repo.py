@@ -1,8 +1,8 @@
 """
 Repository for Parent data access.
 """
-from typing import Optional, List
-from sqlalchemy import select, and_, delete
+from typing import Optional, List, Tuple
+from sqlalchemy import select, and_, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -113,6 +113,73 @@ class ParentRepository:
 
         result = await self.db.execute(query)
         return result.scalars().all()
+
+    async def get_all_paginated(
+        self,
+        school_id: int,
+        page: int = 1,
+        page_size: int = 20,
+        is_active: Optional[bool] = None,
+        load_user: bool = True,
+        load_children: bool = False,
+    ) -> Tuple[List[Parent], int]:
+        """
+        Get parents with pagination and optional filters.
+
+        Args:
+            school_id: School ID for data isolation
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+            is_active: Filter by active status
+            load_user: Whether to eager load user data
+            load_children: Whether to eager load children
+
+        Returns:
+            Tuple of (list of parents, total count)
+        """
+        # Build base filters
+        filters = [
+            Parent.school_id == school_id,
+            Parent.is_deleted == False,  # noqa: E712
+        ]
+
+        # Base query
+        query = select(Parent)
+
+        # Join user if filtering by is_active
+        if is_active is not None:
+            query = query.join(Parent.user)
+            filters.append(User.is_active == is_active)
+
+        query = query.where(and_(*filters))
+
+        # Count total before pagination
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Apply ordering
+        if is_active is not None or load_user:
+            if is_active is None:
+                query = query.join(Parent.user)
+            query = query.order_by(User.last_name, User.first_name)
+        else:
+            query = query.order_by(Parent.created_at.desc())
+
+        # Apply eager loading
+        if load_user:
+            query = query.options(selectinload(Parent.user))
+        if load_children:
+            from app.models.student import Student
+            query = query.options(selectinload(Parent.children).selectinload(Student.user))
+
+        # Apply pagination
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        result = await self.db.execute(query)
+        parents = list(result.scalars().all())
+
+        return parents, total
 
     async def create(self, parent: Parent) -> Parent:
         """

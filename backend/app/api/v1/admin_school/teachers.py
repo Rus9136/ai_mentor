@@ -2,13 +2,13 @@
 School Teacher Management API for ADMIN.
 """
 
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import require_admin, get_current_user_school_id
+from app.api.dependencies import require_admin, get_current_user_school_id, get_pagination_params
 from app.models.user import User, UserRole
 from app.models.teacher import Teacher
 from app.repositories.user_repo import UserRepository
@@ -21,37 +21,50 @@ from app.schemas.teacher import (
     TeacherResponse,
     TeacherListResponse,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import get_teacher_for_school_admin
 
 
 router = APIRouter(prefix="/teachers", tags=["School Teachers"])
 
 
-@router.get("", response_model=List[TeacherListResponse])
+@router.get("", response_model=PaginatedResponse[TeacherListResponse])
 async def list_school_teachers(
-    subject_id: Optional[int] = None,
-    class_id: Optional[int] = None,
-    is_active: Optional[bool] = None,
+    subject_id: Optional[int] = Query(None, description="Filter by subject ID"),
+    class_id: Optional[int] = Query(None, description="Filter by class ID"),
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_admin),
     school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Get all teachers for the school (ADMIN only).
-    Optional filters: subject_id, class_id, is_active.
+    Get all teachers for the school with pagination (ADMIN only).
+
+    - **page**: Page number (1-indexed, default: 1)
+    - **page_size**: Items per page (default: 20, max: 100)
+    - **subject_id**: Filter by subject
+    - **class_id**: Filter by class
+    - **is_active**: Filter by active status
     """
     teacher_repo = TeacherRepository(db)
 
-    if subject_id is not None or class_id is not None or is_active is not None:
-        return await teacher_repo.get_by_filters(
-            school_id,
-            subject_id=subject_id,
-            class_id=class_id,
-            is_active=is_active,
-            load_user=True
-        )
-    else:
-        return await teacher_repo.get_all(school_id, load_user=True)
+    teachers, total = await teacher_repo.get_all_paginated(
+        school_id=school_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        subject_id=subject_id,
+        class_id=class_id,
+        is_active=is_active,
+        load_user=True,
+    )
+
+    return PaginatedResponse.create(
+        items=teachers,
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
 
 
 @router.post("", response_model=TeacherResponse, status_code=status.HTTP_201_CREATED)

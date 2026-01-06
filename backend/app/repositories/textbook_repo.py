@@ -1,8 +1,8 @@
 """
 Repository for Textbook data access.
 """
-from typing import Optional, List
-from sqlalchemy import select
+from typing import Optional, List, Tuple
+from sqlalchemy import select, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -103,6 +103,62 @@ class TextbookRepository:
             )
 
         return result.scalars().all()
+
+    async def get_by_school_paginated(
+        self,
+        school_id: int,
+        page: int = 1,
+        page_size: int = 20,
+        include_global: bool = False,
+        load_subject: bool = True,
+    ) -> Tuple[List[Textbook], int]:
+        """
+        Get textbooks for a school with pagination.
+
+        Args:
+            school_id: School ID
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+            include_global: Whether to include global textbooks
+            load_subject: Whether to eager load subject
+
+        Returns:
+            Tuple of (list of textbooks, total count)
+        """
+        # Build filters
+        if include_global:
+            filter_condition = or_(
+                Textbook.school_id == school_id,
+                Textbook.school_id.is_(None)
+            )
+        else:
+            filter_condition = Textbook.school_id == school_id
+
+        # Base query
+        query = select(Textbook).where(
+            filter_condition,
+            Textbook.is_deleted == False  # noqa: E712
+        )
+
+        # Count total before pagination
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Apply ordering
+        query = query.order_by(Textbook.grade_level, Textbook.subject, Textbook.title)
+
+        # Apply eager loading
+        if load_subject:
+            query = query.options(selectinload(Textbook.subject_rel))
+
+        # Apply pagination
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        result = await self.db.execute(query)
+        textbooks = list(result.scalars().all())
+
+        return textbooks, total
 
     async def create(self, textbook: Textbook) -> Textbook:
         """

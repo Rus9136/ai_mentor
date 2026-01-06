@@ -2,12 +2,12 @@
 School Test Management API for ADMIN.
 """
 
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import require_admin, get_current_user_school_id
+from app.api.dependencies import require_admin, get_current_user_school_id, get_pagination_params
 from app.models.user import User
 from app.models.test import Test
 from app.repositories.textbook_repo import TextbookRepository
@@ -20,35 +20,46 @@ from app.schemas.test import (
     TestResponse,
     TestListResponse,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import get_test_for_school_admin, require_school_test
 
 
 router = APIRouter(prefix="/tests", tags=["School Tests"])
 
 
-@router.get("", response_model=List[TestListResponse])
+@router.get("", response_model=PaginatedResponse[TestListResponse])
 async def list_school_tests(
-    include_global: bool = True,
-    chapter_id: Optional[int] = None,
+    include_global: bool = Query(True, description="Include global tests"),
+    chapter_id: Optional[int] = Query(None, description="Filter by chapter ID"),
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_admin),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get tests for the school (ADMIN only).
-    By default, includes both school-specific and global tests.
-    Optionally filter by chapter_id.
+    Get tests for the school with pagination (ADMIN only).
+
+    - **page**: Page number (1-indexed, default: 1)
+    - **page_size**: Items per page (default: 20, max: 100)
+    - **include_global**: Include global tests (default: true)
+    - **chapter_id**: Filter by chapter ID (optional)
     """
     test_repo = TestRepository(db)
 
-    if chapter_id:
-        if include_global:
-            return await test_repo.get_by_chapter(chapter_id, school_id=school_id)
-        else:
-            tests = await test_repo.get_by_chapter(chapter_id, school_id=school_id)
-            return [t for t in tests if t.school_id == school_id]
-    else:
-        return await test_repo.get_by_school(school_id, include_global=include_global)
+    tests, total = await test_repo.get_by_school_paginated(
+        school_id=school_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        include_global=include_global,
+        chapter_id=chapter_id,
+    )
+
+    return PaginatedResponse.create(
+        items=tests,
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
 
 
 @router.post("", response_model=TestResponse, status_code=status.HTTP_201_CREATED)

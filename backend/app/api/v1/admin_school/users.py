@@ -2,35 +2,55 @@
 School User Management API for ADMIN.
 """
 
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import require_admin, get_current_user_school_id
+from app.api.dependencies import require_admin, get_current_user_school_id, get_pagination_params
 from app.models.user import User
 from app.repositories.user_repo import UserRepository
 from app.schemas.user import UserResponseSchema, UserUpdate
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import get_user_for_school_admin
 
 
 router = APIRouter(prefix="/users", tags=["School Users"])
 
 
-@router.get("", response_model=List[UserResponseSchema])
+@router.get("", response_model=PaginatedResponse[UserResponseSchema])
 async def list_school_users(
-    role: Optional[str] = None,
-    is_active: Optional[bool] = None,
+    role: Optional[str] = Query(None, description="Filter by role (admin, teacher, student, parent)"),
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_admin),
     school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Get all users for the school (ADMIN only).
-    Optional filters: role, is_active.
+    Get all users for the school with pagination (ADMIN only).
+
+    - **page**: Page number (1-indexed, default: 1)
+    - **page_size**: Items per page (default: 20, max: 100)
+    - **role**: Filter by role
+    - **is_active**: Filter by active status
     """
     user_repo = UserRepository(db)
-    return await user_repo.get_by_school(school_id, role=role, is_active=is_active)
+
+    users, total = await user_repo.get_by_school_paginated(
+        school_id=school_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        role=role,
+        is_active=is_active,
+    )
+
+    return PaginatedResponse.create(
+        items=users,
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
 
 
 @router.get("/{user_id}", response_model=UserResponseSchema)

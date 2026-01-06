@@ -2,13 +2,13 @@
 School Student Management API for ADMIN.
 """
 
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import require_admin, get_current_user_school_id
+from app.api.dependencies import require_admin, get_current_user_school_id, get_pagination_params
 from app.models.user import User, UserRole
 from app.models.student import Student
 from app.repositories.user_repo import UserRepository
@@ -20,37 +20,50 @@ from app.schemas.student import (
     StudentResponse,
     StudentListResponse,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import get_student_for_school_admin
 
 
 router = APIRouter(prefix="/students", tags=["School Students"])
 
 
-@router.get("", response_model=List[StudentListResponse])
+@router.get("", response_model=PaginatedResponse[StudentListResponse])
 async def list_school_students(
-    grade_level: Optional[int] = None,
-    class_id: Optional[int] = None,
-    is_active: Optional[bool] = None,
+    grade_level: Optional[int] = Query(None, ge=1, le=11, description="Filter by grade level"),
+    class_id: Optional[int] = Query(None, description="Filter by class ID"),
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_admin),
     school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Get all students for the school (ADMIN only).
-    Optional filters: grade_level, class_id, is_active.
+    Get all students for the school with pagination (ADMIN only).
+
+    - **page**: Page number (1-indexed, default: 1)
+    - **page_size**: Items per page (default: 20, max: 100)
+    - **grade_level**: Filter by grade (1-11)
+    - **class_id**: Filter by class
+    - **is_active**: Filter by active status
     """
     student_repo = StudentRepository(db)
 
-    if grade_level is not None or class_id is not None or is_active is not None:
-        return await student_repo.get_by_filters(
-            school_id,
-            grade_level=grade_level,
-            class_id=class_id,
-            is_active=is_active,
-            load_user=True
-        )
-    else:
-        return await student_repo.get_all(school_id, load_user=True)
+    students, total = await student_repo.get_all_paginated(
+        school_id=school_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        grade_level=grade_level,
+        class_id=class_id,
+        is_active=is_active,
+        load_user=True,
+    )
+
+    return PaginatedResponse.create(
+        items=students,
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
 
 
 @router.post("", response_model=StudentResponse, status_code=status.HTTP_201_CREATED)

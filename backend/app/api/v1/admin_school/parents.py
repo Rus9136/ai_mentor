@@ -2,12 +2,12 @@
 School Parent Management API for ADMIN.
 """
 
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional, List
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import require_admin, get_current_user_school_id
+from app.api.dependencies import require_admin, get_current_user_school_id, get_pagination_params
 from app.models.user import User, UserRole
 from app.models.parent import Parent
 from app.repositories.user_repo import UserRepository
@@ -20,29 +20,44 @@ from app.schemas.parent import (
     AddChildrenRequest,
     StudentBriefResponse,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import get_parent_for_school_admin
 
 
 router = APIRouter(prefix="/parents", tags=["School Parents"])
 
 
-@router.get("", response_model=List[ParentListResponse])
+@router.get("", response_model=PaginatedResponse[ParentListResponse])
 async def list_school_parents(
-    is_active: Optional[bool] = None,
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_admin),
     school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Get all parents for the school (ADMIN only).
-    Optional filter: is_active.
+    Get all parents for the school with pagination (ADMIN only).
+
+    - **page**: Page number (1-indexed, default: 1)
+    - **page_size**: Items per page (default: 20, max: 100)
+    - **is_active**: Filter by active status
     """
     parent_repo = ParentRepository(db)
 
-    if is_active is not None:
-        return await parent_repo.get_by_filters(school_id, is_active=is_active, load_user=True)
-    else:
-        return await parent_repo.get_all(school_id, load_user=True)
+    parents, total = await parent_repo.get_all_paginated(
+        school_id=school_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        is_active=is_active,
+        load_user=True,
+    )
+
+    return PaginatedResponse.create(
+        items=parents,
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
 
 
 @router.post("", response_model=ParentResponse, status_code=status.HTTP_201_CREATED)

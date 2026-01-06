@@ -2,12 +2,11 @@
 School Textbook Management API for ADMIN.
 """
 
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import require_admin, get_current_user_school_id
+from app.api.dependencies import require_admin, get_current_user_school_id, get_pagination_params
 from app.models.user import User
 from app.models.textbook import Textbook
 from app.repositories.textbook_repo import TextbookRepository
@@ -18,25 +17,43 @@ from app.schemas.textbook import (
     TextbookResponse,
     TextbookListResponse,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import get_textbook_for_school_admin, require_school_textbook
 
 
 router = APIRouter(prefix="/textbooks", tags=["School Textbooks"])
 
 
-@router.get("", response_model=List[TextbookListResponse])
+@router.get("", response_model=PaginatedResponse[TextbookListResponse])
 async def list_school_textbooks(
-    include_global: bool = True,
+    include_global: bool = Query(True, description="Include global textbooks"),
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_admin),
     school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Get textbooks for the school (ADMIN only).
-    By default, includes both school-specific and global textbooks.
+    Get textbooks for the school with pagination (ADMIN only).
+
+    - **page**: Page number (1-indexed, default: 1)
+    - **page_size**: Items per page (default: 20, max: 100)
+    - **include_global**: Include global textbooks (default: true)
     """
     textbook_repo = TextbookRepository(db)
-    return await textbook_repo.get_by_school(school_id, include_global=include_global)
+
+    textbooks, total = await textbook_repo.get_by_school_paginated(
+        school_id=school_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        include_global=include_global,
+    )
+
+    return PaginatedResponse.create(
+        items=textbooks,
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
 
 
 @router.post("", response_model=TextbookResponse, status_code=status.HTTP_201_CREATED)

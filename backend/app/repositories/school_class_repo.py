@@ -1,8 +1,8 @@
 """
 Repository for SchoolClass data access.
 """
-from typing import Optional, List
-from sqlalchemy import select, and_, delete
+from typing import Optional, List, Tuple
+from sqlalchemy import select, and_, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -128,6 +128,72 @@ class SchoolClassRepository:
 
         result = await self.db.execute(query)
         return result.scalars().all()
+
+    async def get_all_paginated(
+        self,
+        school_id: int,
+        page: int = 1,
+        page_size: int = 20,
+        grade_level: Optional[int] = None,
+        academic_year: Optional[str] = None,
+        load_students: bool = False,
+        load_teachers: bool = False,
+    ) -> Tuple[List[SchoolClass], int]:
+        """
+        Get classes with pagination and optional filters.
+
+        Args:
+            school_id: School ID for data isolation
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+            grade_level: Filter by grade level (1-11)
+            academic_year: Filter by academic year
+            load_students: Whether to eager load students
+            load_teachers: Whether to eager load teachers
+
+        Returns:
+            Tuple of (list of classes, total count)
+        """
+        # Build base filters
+        filters = [
+            SchoolClass.school_id == school_id,
+            SchoolClass.is_deleted == False,  # noqa: E712
+        ]
+
+        if grade_level is not None:
+            filters.append(SchoolClass.grade_level == grade_level)
+
+        if academic_year is not None:
+            filters.append(SchoolClass.academic_year == academic_year)
+
+        # Base query
+        query = select(SchoolClass).where(and_(*filters))
+
+        # Count total before pagination
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Apply ordering
+        query = query.order_by(SchoolClass.grade_level, SchoolClass.name)
+
+        # Apply eager loading
+        if load_students:
+            query = query.options(
+                selectinload(SchoolClass.students).selectinload(Student.user)
+            )
+        if load_teachers:
+            query = query.options(
+                selectinload(SchoolClass.teachers).selectinload(Teacher.user)
+            )
+
+        # Apply pagination
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        result = await self.db.execute(query)
+        classes = list(result.scalars().all())
+
+        return classes, total
 
     async def get_by_code(
         self,
@@ -335,8 +401,15 @@ class SchoolClassRepository:
         if not school_class:
             raise ValueError(f"Class {class_id} not found")
 
+        # Get existing teacher IDs to avoid duplicates
+        existing_teacher_ids = {t.id for t in school_class.teachers}
+
         # Verify all teachers exist and belong to the same school
         for teacher_id in teacher_ids:
+            # Skip if already assigned
+            if teacher_id in existing_teacher_ids:
+                continue
+
             # Query with school_id and is_deleted filter
             result = await self.db.execute(
                 select(Teacher).where(
@@ -352,9 +425,10 @@ class SchoolClassRepository:
                     f"Teacher {teacher_id} not found or belongs to different school"
                 )
 
-            # Add relationship if not exists
-            if teacher not in school_class.teachers:
-                school_class.teachers.append(teacher)
+            # Create ClassTeacher association directly
+            # (teachers relationship is viewonly=True, so append won't work)
+            class_teacher = ClassTeacher(class_id=class_id, teacher_id=teacher_id)
+            self.db.add(class_teacher)
 
         await self.db.commit()
         await self.db.refresh(school_class)

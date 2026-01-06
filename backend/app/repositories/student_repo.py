@@ -1,8 +1,8 @@
 """
 Repository for Student data access.
 """
-from typing import Optional, List
-from sqlalchemy import select, and_
+from typing import Optional, List, Tuple
+from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -129,6 +129,85 @@ class StudentRepository:
 
         result = await self.db.execute(query)
         return result.scalars().all()
+
+    async def get_all_paginated(
+        self,
+        school_id: int,
+        page: int = 1,
+        page_size: int = 20,
+        grade_level: Optional[int] = None,
+        class_id: Optional[int] = None,
+        is_active: Optional[bool] = None,
+        load_user: bool = True,
+        load_classes: bool = False,
+    ) -> Tuple[List[Student], int]:
+        """
+        Get students with pagination and optional filters.
+
+        Args:
+            school_id: School ID for data isolation
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+            grade_level: Filter by grade level (1-11)
+            class_id: Filter by class ID
+            is_active: Filter by active status
+            load_user: Whether to eager load user data
+            load_classes: Whether to eager load classes
+
+        Returns:
+            Tuple of (list of students, total count)
+        """
+        # Build base filters
+        filters = [
+            Student.school_id == school_id,
+            Student.is_deleted == False,  # noqa: E712
+        ]
+
+        if grade_level is not None:
+            filters.append(Student.grade_level == grade_level)
+
+        # Base query for items
+        query = select(Student)
+
+        # Join user if filtering by is_active or loading user
+        if is_active is not None:
+            query = query.join(Student.user)
+            filters.append(User.is_active == is_active)
+
+        query = query.where(and_(*filters))
+
+        # Handle class_id filter
+        if class_id is not None:
+            from app.models.class_student import ClassStudent
+            query = query.join(ClassStudent).where(ClassStudent.class_id == class_id)
+
+        # Count total before pagination
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Apply ordering
+        if is_active is not None or load_user:
+            # If we joined User, order by user fields
+            if is_active is None and load_user:
+                query = query.join(Student.user)
+            query = query.order_by(Student.grade_level, User.last_name, User.first_name)
+        else:
+            query = query.order_by(Student.created_at.desc())
+
+        # Apply eager loading
+        if load_user:
+            query = query.options(selectinload(Student.user))
+        if load_classes:
+            query = query.options(selectinload(Student.classes))
+
+        # Apply pagination
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        result = await self.db.execute(query)
+        students = list(result.scalars().all())
+
+        return students, total
 
     async def get_by_student_code(
         self,

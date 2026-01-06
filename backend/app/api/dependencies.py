@@ -8,7 +8,7 @@ This module provides reusable dependencies for:
 - Student context resolution
 """
 from typing import Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -16,10 +16,12 @@ from sqlalchemy.orm import selectinload
 import logging
 
 from app.core.database import get_db
+from app.schemas.pagination import PaginationParams
 from app.core.security import decode_token, verify_token_type
 from app.core.tenancy import set_current_tenant, reset_tenant, set_super_admin_flag, set_current_user_id
 from app.models.user import User, UserRole
 from app.models.student import Student
+from app.models.teacher import Teacher
 from app.models.textbook import Textbook
 from app.models.chapter import Chapter
 from app.models.paragraph import Paragraph
@@ -198,6 +200,37 @@ require_super_admin_or_admin = require_role([UserRole.SUPER_ADMIN, UserRole.ADMI
 require_admin_or_teacher = require_role([UserRole.ADMIN, UserRole.TEACHER])
 
 
+# =============================================================================
+# Pagination Dependency
+# =============================================================================
+
+
+def get_pagination_params(
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+) -> PaginationParams:
+    """
+    Dependency for extracting pagination parameters from query string.
+
+    Usage in endpoint:
+        pagination: PaginationParams = Depends(get_pagination_params)
+
+    Then use:
+        pagination.page      # Current page (1-indexed)
+        pagination.page_size # Items per page
+        pagination.offset    # Calculated offset for DB query
+        pagination.limit     # Alias for page_size
+
+    Args:
+        page: Page number (default: 1, min: 1)
+        page_size: Items per page (default: 20, min: 1, max: 100)
+
+    Returns:
+        PaginationParams instance
+    """
+    return PaginationParams(page=page, page_size=page_size)
+
+
 async def get_db_with_rls_context(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -316,6 +349,16 @@ async def get_student_from_user(
     Raises:
         HTTPException 400: If Student record not found for this user
     """
+    # Re-set RLS context in THIS session (the one used for query)
+    # This is needed because get_current_user uses a different session
+    await set_current_user_id(db, current_user.id)
+    if current_user.school_id is not None:
+        await set_current_tenant(db, current_user.school_id)
+        await set_super_admin_flag(db, False)
+    else:
+        await set_super_admin_flag(db, False)
+        await reset_tenant(db)
+
     result = await db.execute(
         select(Student).where(Student.user_id == current_user.id)
     )
@@ -328,6 +371,51 @@ async def get_student_from_user(
         )
 
     return student
+
+
+async def get_teacher_from_user(
+    current_user: User = Depends(require_teacher),
+    db: AsyncSession = Depends(get_db)
+) -> Teacher:
+    """
+    Get Teacher record from authenticated User.
+
+    This dependency resolves the Teacher entity for the current user.
+    Use this instead of lazy loading current_user.teacher, which
+    doesn't work in async context.
+
+    Args:
+        current_user: Authenticated user with TEACHER role
+        db: Database session
+
+    Returns:
+        Teacher record
+
+    Raises:
+        HTTPException 400: If Teacher record not found for this user
+    """
+    # Re-set RLS context in THIS session (the one used for query)
+    # This is needed because get_current_user uses a different session
+    await set_current_user_id(db, current_user.id)
+    if current_user.school_id is not None:
+        await set_current_tenant(db, current_user.school_id)
+        await set_super_admin_flag(db, False)
+    else:
+        await set_super_admin_flag(db, False)
+        await reset_tenant(db)
+
+    result = await db.execute(
+        select(Teacher).where(Teacher.user_id == current_user.id)
+    )
+    teacher = result.scalar_one_or_none()
+
+    if not teacher:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Teacher record not found for this user"
+        )
+
+    return teacher
 
 
 async def get_paragraph_with_access(
@@ -522,3 +610,137 @@ async def get_student_content_service(
         StudentContentService instance
     """
     return StudentContentService(db)
+
+
+async def get_test_taking_service(
+    db: AsyncSession = Depends(get_db)
+) -> "TestTakingService":
+    """
+    Dependency injection factory for TestTakingService.
+
+    Creates a new instance of TestTakingService with the current
+    database session. Use this in endpoints instead of instantiating
+    the service directly.
+
+    Args:
+        db: Database session (injected)
+
+    Returns:
+        TestTakingService instance
+    """
+    from app.services.test_taking_service import TestTakingService
+    return TestTakingService(db)
+
+
+# =============================================================================
+# Homework Ownership Dependencies
+# =============================================================================
+
+
+async def get_homework_service(
+    db: AsyncSession = Depends(get_db)
+) -> "HomeworkService":
+    """
+    Dependency injection factory for HomeworkService.
+
+    Creates a HomeworkService with AI service for homework operations.
+    """
+    from app.services.homework import HomeworkService
+    from app.services.homework.ai import HomeworkAIService
+    ai_service = HomeworkAIService(db)
+    return HomeworkService(db, ai_service)
+
+
+async def verify_homework_ownership(
+    homework_id: int,
+    teacher: Teacher = Depends(get_teacher_from_user),
+    school_id: int = Depends(get_current_user_school_id),
+    service: "HomeworkService" = Depends(get_homework_service)
+) -> "Homework":
+    """
+    Verify teacher owns the homework and return it.
+
+    Combines homework lookup with ownership verification to eliminate
+    duplicate code across endpoints.
+
+    Args:
+        homework_id: Homework ID from path
+        teacher: Current teacher (authenticated)
+        school_id: Current school ID
+        service: HomeworkService instance
+
+    Returns:
+        Homework object with tasks loaded
+
+    Raises:
+        HTTPException 404: Homework not found
+        HTTPException 403: Teacher doesn't own this homework
+    """
+    from app.models.homework import Homework
+
+    homework = await service.get_homework(
+        homework_id=homework_id,
+        school_id=school_id,
+        load_tasks=True,
+        load_questions=True
+    )
+
+    if not homework:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Homework not found"
+        )
+
+    if homework.teacher_id != teacher.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only access your own homework"
+        )
+
+    return homework
+
+
+async def verify_task_ownership(
+    task_id: int,
+    teacher: Teacher = Depends(get_teacher_from_user),
+    school_id: int = Depends(get_current_user_school_id),
+    service: "HomeworkService" = Depends(get_homework_service)
+) -> "HomeworkTask":
+    """
+    Verify teacher owns the task's homework and return the task.
+
+    Combines task lookup, homework ownership verification to eliminate
+    duplicate code in question management endpoints.
+
+    Args:
+        task_id: Task ID from path
+        teacher: Current teacher (authenticated)
+        school_id: Current school ID
+        service: HomeworkService instance
+
+    Returns:
+        HomeworkTask object
+
+    Raises:
+        HTTPException 404: Task not found
+        HTTPException 403: Teacher doesn't own this task's homework
+    """
+    from app.models.homework import HomeworkTask
+
+    task = await service.get_task(task_id, school_id, load_questions=True)
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+
+    homework = await service.get_homework(
+        task.homework_id, school_id, load_tasks=False
+    )
+    if not homework or homework.teacher_id != teacher.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only modify your own homework"
+        )
+
+    return task

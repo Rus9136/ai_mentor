@@ -2,6 +2,10 @@
 Pydantic schemas package.
 """
 
+from app.schemas.pagination import (
+    PaginationParams,
+    PaginatedResponse,
+)
 from app.schemas.auth import (
     LoginRequest,
     RefreshTokenRequest,
@@ -206,6 +210,9 @@ from app.schemas.goso import (
 )
 
 __all__ = [
+    # Pagination
+    "PaginationParams",
+    "PaginatedResponse",
     # Auth
     "LoginRequest",
     "RefreshTokenRequest",

@@ -2,12 +2,12 @@
 School Class Management API for ADMIN.
 """
 
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import require_admin, get_current_user_school_id
+from app.api.dependencies import require_admin, get_current_user_school_id, get_pagination_params
 from app.models.user import User
 from app.models.school_class import SchoolClass
 from app.repositories.school_class_repo import SchoolClassRepository
@@ -17,36 +17,41 @@ from app.schemas.school_class import (
     SchoolClassResponse,
     SchoolClassListResponse,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import get_class_for_school_admin
 
 
 router = APIRouter(prefix="/classes", tags=["School Classes"])
 
 
-@router.get("", response_model=List[SchoolClassListResponse])
+@router.get("", response_model=PaginatedResponse[SchoolClassListResponse])
 async def list_school_classes(
-    grade_level: Optional[int] = None,
-    academic_year: Optional[str] = None,
+    grade_level: Optional[int] = Query(None, ge=1, le=11, description="Filter by grade level"),
+    academic_year: Optional[str] = Query(None, description="Filter by academic year"),
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_admin),
     school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Get all classes for the school (ADMIN only).
-    Optional filters: grade_level, academic_year.
+    Get all classes for the school with pagination (ADMIN only).
+
+    - **page**: Page number (1-indexed, default: 1)
+    - **page_size**: Items per page (default: 20, max: 100)
+    - **grade_level**: Filter by grade (1-11)
+    - **academic_year**: Filter by academic year
     """
     class_repo = SchoolClassRepository(db)
 
-    if grade_level is not None or academic_year is not None:
-        classes = await class_repo.get_by_filters(
-            school_id,
-            grade_level=grade_level,
-            academic_year=academic_year,
-            load_students=True,
-            load_teachers=True
-        )
-    else:
-        classes = await class_repo.get_all(school_id, load_students=True, load_teachers=True)
+    classes, total = await class_repo.get_all_paginated(
+        school_id=school_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        grade_level=grade_level,
+        academic_year=academic_year,
+        load_students=True,
+        load_teachers=True,
+    )
 
     # Add counts for response
     result = []
@@ -63,7 +68,12 @@ async def list_school_classes(
         }
         result.append(class_dict)
 
-    return result
+    return PaginatedResponse.create(
+        items=result,
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
 
 
 @router.post("", response_model=SchoolClassResponse, status_code=status.HTTP_201_CREATED)
