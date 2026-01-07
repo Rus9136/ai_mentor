@@ -28,7 +28,9 @@ from app.api.dependencies import (
     get_textbook_with_access,
     get_chapter_with_access,
     get_paragraph_with_access,
+    get_pagination_params,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.models.user import User
 from app.models.textbook import Textbook
 from app.models.chapter import Chapter
@@ -54,8 +56,11 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.get("/textbooks", response_model=List[StudentTextbookResponse])
+@router.get("/textbooks", response_model=PaginatedResponse[StudentTextbookResponse])
 async def get_student_textbooks(
+    pagination: PaginationParams = Depends(get_pagination_params),
+    subject_id: int = Query(None, description="Filter by subject ID"),
+    grade_level: int = Query(None, ge=1, le=11, description="Filter by grade level (1-11)"),
     current_user: User = Depends(require_student),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db),
@@ -68,12 +73,24 @@ async def get_student_textbooks(
     Each textbook includes progress stats calculated from student's mastery data.
 
     Uses batch queries for performance (no N+1 problem).
+    Supports pagination with `page` and `page_size` query parameters.
+
+    Filters:
+    - subject_id: Filter by subject
+    - grade_level: Filter by grade level (1-11)
     """
     student = await get_student_from_user(current_user, db)
     student_id = student.id
 
     # Get textbooks with progress using batch queries
-    textbooks_data = await service.get_textbooks_with_progress(student_id, school_id)
+    textbooks_data, total = await service.get_textbooks_with_progress(
+        student_id,
+        school_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        subject_id=subject_id,
+        grade_level=grade_level,
+    )
 
     result = []
     for item in textbooks_data:
@@ -105,12 +122,13 @@ async def get_student_textbooks(
         )
 
     logger.info(f"Student {student_id} retrieved {len(result)} textbooks")
-    return result
+    return PaginatedResponse.create(result, total, pagination.page, pagination.page_size)
 
 
-@router.get("/textbooks/{textbook_id}/chapters", response_model=List[StudentChapterResponse])
+@router.get("/textbooks/{textbook_id}/chapters", response_model=PaginatedResponse[StudentChapterResponse])
 async def get_textbook_chapters(
     textbook: Textbook = Depends(get_textbook_with_access),
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_student),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db),
@@ -120,13 +138,14 @@ async def get_textbook_chapters(
     Get chapters for a textbook with student's progress.
 
     Uses batch queries for performance (no N+1 problem).
+    Supports pagination with `page` and `page_size` query parameters.
     """
     student = await get_student_from_user(current_user, db)
     student_id = student.id
 
     # Get chapters with progress using batch queries
-    chapters_data = await service.get_chapters_with_progress(
-        textbook.id, student_id, school_id
+    chapters_data, total = await service.get_chapters_with_progress(
+        textbook.id, student_id, school_id, page=pagination.page, page_size=pagination.page_size
     )
 
     result = []
@@ -160,12 +179,13 @@ async def get_textbook_chapters(
         f"Student {student_id} retrieved {len(result)} chapters "
         f"for textbook {textbook.id}"
     )
-    return result
+    return PaginatedResponse.create(result, total, pagination.page, pagination.page_size)
 
 
-@router.get("/chapters/{chapter_id}/paragraphs", response_model=List[StudentParagraphResponse])
+@router.get("/chapters/{chapter_id}/paragraphs", response_model=PaginatedResponse[StudentParagraphResponse])
 async def get_chapter_paragraphs(
     chapter: Chapter = Depends(get_chapter_with_access),
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_student),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db),
@@ -175,13 +195,14 @@ async def get_chapter_paragraphs(
     Get paragraphs for a chapter with student's progress.
 
     Uses batch queries for performance (no N+1 problem).
+    Supports pagination with `page` and `page_size` query parameters.
     """
     student = await get_student_from_user(current_user, db)
     student_id = student.id
 
     # Get paragraphs with progress using batch queries
-    paragraphs_data = await service.get_paragraphs_with_progress(
-        chapter.id, student_id, school_id
+    paragraphs_data, total = await service.get_paragraphs_with_progress(
+        chapter.id, student_id, school_id, page=pagination.page, page_size=pagination.page_size
     )
 
     result = []
@@ -209,7 +230,7 @@ async def get_chapter_paragraphs(
         f"Student {student_id} retrieved {len(result)} paragraphs "
         f"for chapter {chapter.id}"
     )
-    return result
+    return PaginatedResponse.create(result, total, pagination.page, pagination.page_size)
 
 
 @router.get("/paragraphs/{paragraph_id}", response_model=StudentParagraphDetailResponse)

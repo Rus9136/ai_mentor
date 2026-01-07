@@ -2,7 +2,7 @@
 
 **Дата анализа:** 2026-01-05
 **Обновлено:** 2026-01-07
-**Версия:** 1.5
+**Версия:** 1.6
 **Статус проекта:** 77% (10/13 итераций завершено)
 
 ---
@@ -12,7 +12,7 @@
 | Критерий | Оценка | Статус |
 |----------|--------|--------|
 | **Готовность к Production** | **90%** | Готово ✅ |
-| **Готовность к Mobile разработке** | **60%** | Улучшено ✅ |
+| **Готовность к Mobile разработке** | **70%** | Улучшено ✅ |
 | **API Quality** | **8.5/10** | Хорошо |
 | **Code Quality** | **8/10** | Улучшено ✅ |
 | **Security** | **8/10** | RLS Complete ✅ |
@@ -48,6 +48,10 @@
   - Новая архитектура: `contextvars` + единая точка установки в `get_db()`
   - Удалено дублирование из 7 dependencies
   - 18 новых тестов в `test_tenant_context.py`
+- ✅ **P1 Фильтры для критичных endpoints** (см. секцию 1.2)
+  - `GET /students/textbooks` — `subject_id`, `grade_level`
+  - `GET /teachers/classes` — пагинация + `academic_year`, `grade_level`
+  - `GET /teachers/analytics/struggling-topics` — пагинация
 
 ---
 
@@ -63,7 +67,7 @@
 ### Проблемы
 
 - ~~**40% endpoints без пагинации**~~ — **95% исправлено** ✅ (Admin School + Admin Global + Students + Teachers)
-- **50% без фильтров** — неоптимально для мобильных
+- ~~**50% без фильтров**~~ — **P1 критичные фильтры добавлены** ✅ (см. секцию 1.2)
 - **Deprecated endpoint** в students/tests.py (нужно удалить)
 - **Несогласованность именования** path parameters
 
@@ -91,6 +95,32 @@
   "total_pages": 8
 }
 ```
+
+### ✅ P1 Фильтры для критичных endpoints (2026-01-07)
+
+| Endpoint | Фильтры | Описание |
+|----------|---------|----------|
+| `GET /students/textbooks` | `subject_id`, `grade_level` | Студент выбирает предмет/класс |
+| `GET /teachers/classes` | `academic_year`, `grade_level` + пагинация | Учитель фильтрует классы |
+| `GET /teachers/analytics/struggling-topics` | пагинация | Проблемные темы с пагинацией |
+
+**Примеры запросов:**
+```bash
+# Учебники 7 класса по математике
+GET /api/v1/students/textbooks?grade_level=7&subject_id=1
+
+# Классы текущего учебного года
+GET /api/v1/teachers/classes?academic_year=2024-2025&page=1&page_size=10
+
+# Проблемные темы (первые 20)
+GET /api/v1/teachers/analytics/struggling-topics?page=1&page_size=20
+```
+
+**Изменённые файлы:**
+- `backend/app/api/v1/students/content.py`
+- `backend/app/api/v1/teachers.py`
+- `backend/app/services/student_content_service.py`
+- `backend/app/services/teacher_analytics/*.py`
 
 ### Статистика по модулям
 
@@ -456,7 +486,7 @@ Request Flow:
 
 ## 7. ГОТОВНОСТЬ К MOBILE РАЗРАБОТКЕ
 
-### Статус: ЧАСТИЧНО ГОТОВО (60%)
+### Статус: ЧАСТИЧНО ГОТОВО (70%)
 
 | Требование | Статус |
 |-----------|--------|
@@ -464,6 +494,7 @@ Request Flow:
 | Offline Sync Guide | Только план (Итерация 12) |
 | Error Codes & Handling | **✅ 48 кодов** (AUTH, ACCESS, VAL, RES, SVC, RATE) |
 | Pagination в всех lists | **95% endpoints** ✅ (Admin School + Global + Students + Teachers) |
+| **Фильтры для Mobile** | **✅ P1 критичные** (subject_id, grade_level, academic_year) |
 | Rate Limiting docs | Отсутствует |
 | WebSocket/Real-time | Нет |
 | SDK/Client Library | Нет |

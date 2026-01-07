@@ -20,7 +20,9 @@ from app.models.user import User
 from app.api.dependencies import (
     require_teacher,
     get_current_user_school_id,
+    get_pagination_params,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.services.teacher_analytics import TeacherAnalyticsService
 from app.repositories.textbook_repo import TextbookRepository
 from app.repositories.chapter_repo import ChapterRepository
@@ -82,15 +84,18 @@ async def get_dashboard(
 
 @router.get(
     "/classes",
-    response_model=List[TeacherClassResponse],
+    response_model=PaginatedResponse[TeacherClassResponse],
     summary="Get teacher's classes",
-    description="Get list of all classes assigned to the current teacher."
+    description="Get list of all classes assigned to the current teacher. Supports pagination and filters."
 )
 async def get_classes(
+    pagination: PaginationParams = Depends(get_pagination_params),
+    academic_year: str = Query(None, description="Filter by academic year (e.g., '2025-2026')"),
+    grade_level: int = Query(None, ge=1, le=11, description="Filter by grade level (1-11)"),
     current_user: User = Depends(require_teacher),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db)
-) -> List[TeacherClassResponse]:
+) -> PaginatedResponse[TeacherClassResponse]:
     """
     Get list of classes for the current teacher.
 
@@ -99,9 +104,21 @@ async def get_classes(
     - Students count
     - Mastery distribution (A/B/C)
     - Average score and progress
+
+    Filters:
+    - academic_year: Filter by academic year (e.g., '2025-2026')
+    - grade_level: Filter by grade level (1-11)
     """
     service = TeacherAnalyticsService(db)
-    return await service.get_classes(current_user.id, school_id)
+    classes, total = await service.get_classes(
+        current_user.id,
+        school_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        academic_year=academic_year,
+        grade_level=grade_level,
+    )
+    return PaginatedResponse.create(classes, total, pagination.page, pagination.page_size)
 
 
 @router.get(
@@ -317,15 +334,16 @@ async def get_student_mastery_history(
 
 @router.get(
     "/analytics/struggling-topics",
-    response_model=List[StrugglingTopicResponse],
+    response_model=PaginatedResponse[StrugglingTopicResponse],
     summary="Get struggling topics",
-    description="Get topics where students are struggling (>30% in level C)."
+    description="Get topics where students are struggling (>30% in level C). Supports pagination."
 )
 async def get_struggling_topics(
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_teacher),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db)
-) -> List[StrugglingTopicResponse]:
+) -> PaginatedResponse[StrugglingTopicResponse]:
     """
     Get topics where many students are struggling.
 
@@ -334,9 +352,17 @@ async def get_struggling_topics(
     - Number of struggling students
     - Percentage of students struggling
     - Average score
+
+    Supports pagination with `page` and `page_size` query parameters.
     """
     service = TeacherAnalyticsService(db)
-    return await service.get_struggling_topics(current_user.id, school_id)
+    topics, total = await service.get_struggling_topics(
+        current_user.id,
+        school_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
+    return PaginatedResponse.create(topics, total, pagination.page, pagination.page_size)
 
 
 @router.get(
@@ -371,42 +397,48 @@ async def get_mastery_trends(
 
 @router.get(
     "/textbooks",
-    response_model=List[TextbookListResponse],
+    response_model=PaginatedResponse[TextbookListResponse],
     summary="Get textbooks for teacher",
-    description="Get list of textbooks available to the teacher (global + school-specific)."
+    description="Get list of textbooks available to the teacher (global + school-specific). Supports pagination."
 )
 async def list_textbooks_for_teacher(
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_teacher),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db)
-) -> List[TextbookListResponse]:
+) -> PaginatedResponse[TextbookListResponse]:
     """
     Get textbooks for content selection.
 
     Returns both global textbooks (school_id = NULL) and school-specific textbooks.
     Used by ContentSelector in homework creation.
+    Supports pagination with `page` and `page_size` query parameters.
     """
     repo = TextbookRepository(db)
-    textbooks = await repo.get_by_school(school_id, include_global=True)
-    return textbooks
+    textbooks, total = await repo.get_by_school_paginated(
+        school_id, page=pagination.page, page_size=pagination.page_size, include_global=True
+    )
+    return PaginatedResponse.create(textbooks, total, pagination.page, pagination.page_size)
 
 
 @router.get(
     "/textbooks/{textbook_id}/chapters",
-    response_model=List[ChapterListResponse],
+    response_model=PaginatedResponse[ChapterListResponse],
     summary="Get chapters for textbook",
-    description="Get list of chapters in a textbook."
+    description="Get list of chapters in a textbook. Supports pagination."
 )
 async def list_chapters_for_teacher(
     textbook_id: int,
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_teacher),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db)
-) -> List[ChapterListResponse]:
+) -> PaginatedResponse[ChapterListResponse]:
     """
     Get chapters for a textbook.
 
     Validates that teacher has access to the textbook (global or their school).
+    Supports pagination with `page` and `page_size` query parameters.
     """
     textbook_repo = TextbookRepository(db)
     textbook = await textbook_repo.get_by_id(textbook_id)
@@ -426,26 +458,30 @@ async def list_chapters_for_teacher(
         )
 
     chapter_repo = ChapterRepository(db)
-    chapters = await chapter_repo.get_by_textbook(textbook_id)
-    return chapters
+    chapters, total = await chapter_repo.get_by_textbook_paginated(
+        textbook_id, page=pagination.page, page_size=pagination.page_size
+    )
+    return PaginatedResponse.create(chapters, total, pagination.page, pagination.page_size)
 
 
 @router.get(
     "/chapters/{chapter_id}/paragraphs",
-    response_model=List[ParagraphListResponse],
+    response_model=PaginatedResponse[ParagraphListResponse],
     summary="Get paragraphs for chapter",
-    description="Get list of paragraphs in a chapter."
+    description="Get list of paragraphs in a chapter. Supports pagination."
 )
 async def list_paragraphs_for_teacher(
     chapter_id: int,
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_teacher),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db)
-) -> List[ParagraphListResponse]:
+) -> PaginatedResponse[ParagraphListResponse]:
     """
     Get paragraphs for a chapter.
 
     Validates access through parent textbook.
+    Supports pagination with `page` and `page_size` query parameters.
     """
     chapter_repo = ChapterRepository(db)
     chapter = await chapter_repo.get_by_id(chapter_id)
@@ -467,8 +503,10 @@ async def list_paragraphs_for_teacher(
         )
 
     paragraph_repo = ParagraphRepository(db)
-    paragraphs = await paragraph_repo.get_by_chapter(chapter_id)
-    return paragraphs
+    paragraphs, total = await paragraph_repo.get_by_chapter_paginated(
+        chapter_id, page=pagination.page, page_size=pagination.page_size
+    )
+    return PaginatedResponse.create(paragraphs, total, pagination.page, pagination.page_size)
 
 
 # ============================================================================

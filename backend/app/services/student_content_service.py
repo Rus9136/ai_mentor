@@ -9,7 +9,7 @@ The service is read-only for textbooks/chapters/paragraphs lists
 """
 
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,8 +53,12 @@ class StudentContentService:
     async def get_textbooks_with_progress(
         self,
         student_id: int,
-        school_id: int
-    ) -> List[Dict[str, Any]]:
+        school_id: int,
+        page: int = 1,
+        page_size: int = 20,
+        subject_id: Optional[int] = None,
+        grade_level: Optional[int] = None,
+    ) -> Tuple[List[Dict[str, Any]], int]:
         """
         Get available textbooks with student's progress.
 
@@ -63,28 +67,49 @@ class StudentContentService:
         Args:
             student_id: Student ID
             school_id: School ID for access control
+            page: Page number (1-based)
+            page_size: Number of items per page
+            subject_id: Optional filter by subject
+            grade_level: Optional filter by grade level (1-11)
 
         Returns:
-            List of dicts with textbook and progress data
+            Tuple of (list of dicts with textbook and progress data, total count)
         """
-        # 1. Get available textbooks (global + school-specific)
-        textbooks_result = await self.db.execute(
-            select(Textbook)
-            .options(selectinload(Textbook.subject_rel))
-            .where(
-                Textbook.is_deleted == False,
-                Textbook.is_active == True,
-                or_(
-                    Textbook.school_id.is_(None),
-                    Textbook.school_id == school_id
-                )
+        # Base query for textbooks
+        conditions = [
+            Textbook.is_deleted == False,
+            Textbook.is_active == True,
+            or_(
+                Textbook.school_id.is_(None),
+                Textbook.school_id == school_id
             )
+        ]
+
+        # Apply filters
+        if subject_id is not None:
+            conditions.append(Textbook.subject_id == subject_id)
+        if grade_level is not None:
+            conditions.append(Textbook.grade_level == grade_level)
+
+        base_query = select(Textbook).where(and_(*conditions))
+
+        # Get total count
+        count_query = select(func.count()).select_from(base_query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # 1. Get available textbooks (global + school-specific) with pagination
+        offset = (page - 1) * page_size
+        textbooks_result = await self.db.execute(
+            base_query
+            .options(selectinload(Textbook.subject_rel))
             .order_by(Textbook.grade_level, Textbook.title)
+            .offset(offset)
+            .limit(page_size)
         )
         textbooks = textbooks_result.scalars().all()
 
         if not textbooks:
-            return []
+            return [], total
 
         textbook_ids = [t.id for t in textbooks]
 
@@ -118,9 +143,9 @@ class StudentContentService:
         result = []
         for textbook in textbooks:
             tid = textbook.id
-            total = paragraphs_total.get(tid, 0)
-            completed = paragraphs_completed.get(tid, 0)
-            percentage = int((completed / total * 100)) if total > 0 else 0
+            para_total = paragraphs_total.get(tid, 0)
+            para_completed = paragraphs_completed.get(tid, 0)
+            percentage = int((para_completed / para_total * 100)) if para_total > 0 else 0
 
             # Calculate mastery level from average score
             avg_score = mastery_scores.get(tid)
@@ -131,8 +156,8 @@ class StudentContentService:
                 "progress": {
                     "chapters_total": chapters_count.get(tid, 0),
                     "chapters_completed": chapters_completed.get(tid, 0),
-                    "paragraphs_total": total,
-                    "paragraphs_completed": completed,
+                    "paragraphs_total": para_total,
+                    "paragraphs_completed": para_completed,
                     "percentage": percentage,
                 },
                 "mastery_level": mastery_level,
@@ -142,7 +167,7 @@ class StudentContentService:
         logger.info(
             f"Student {student_id} retrieved {len(result)} textbooks with progress"
         )
-        return result
+        return result, total
 
     async def _get_chapters_count_batch(
         self,
@@ -312,8 +337,10 @@ class StudentContentService:
         self,
         textbook_id: int,
         student_id: int,
-        school_id: int
-    ) -> List[Dict[str, Any]]:
+        school_id: int,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Tuple[List[Dict[str, Any]], int]:
         """
         Get chapters for a textbook with student's progress.
 
@@ -321,21 +348,31 @@ class StudentContentService:
             textbook_id: Textbook ID
             student_id: Student ID
             school_id: School ID for access control
+            page: Page number (1-based)
+            page_size: Number of items per page
 
         Returns:
-            List of dicts with chapter and progress data
+            Tuple of (list of dicts with chapter and progress data, total count)
         """
-        # Get chapters ordered by order field
+        # Base query for chapters
+        base_query = select(Chapter).where(
+            Chapter.textbook_id == textbook_id,
+            Chapter.is_deleted == False
+        )
+
+        # Get total count
+        count_query = select(func.count()).select_from(base_query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Get chapters ordered by order field with pagination
+        offset = (page - 1) * page_size
         chapters_result = await self.db.execute(
-            select(Chapter).where(
-                Chapter.textbook_id == textbook_id,
-                Chapter.is_deleted == False
-            ).order_by(Chapter.order)
+            base_query.order_by(Chapter.order).offset(offset).limit(page_size)
         )
         chapters = chapters_result.scalars().all()
 
         if not chapters:
-            return []
+            return [], total
 
         chapter_ids = [c.id for c in chapters]
 
@@ -361,9 +398,9 @@ class StudentContentService:
 
         for chapter in chapters:
             cid = chapter.id
-            total = para_total.get(cid, 0)
-            completed = para_completed.get(cid, 0)
-            percentage = int((completed / total * 100)) if total > 0 else 0
+            ch_para_total = para_total.get(cid, 0)
+            ch_para_completed = para_completed.get(cid, 0)
+            percentage = int((ch_para_completed / ch_para_total * 100)) if ch_para_total > 0 else 0
 
             mastery = chapter_mastery.get(cid, {})
             mastery_level = mastery.get("level")
@@ -371,26 +408,26 @@ class StudentContentService:
             summative_passed = mastery.get("summative_passed")
 
             # Determine status
-            if completed >= total and total > 0:
-                status = "completed"
-            elif completed > 0:
-                status = "in_progress"
+            if ch_para_completed >= ch_para_total and ch_para_total > 0:
+                ch_status = "completed"
+            elif ch_para_completed > 0:
+                ch_status = "in_progress"
             elif prev_completed:
-                status = "not_started"
+                ch_status = "not_started"
             else:
-                status = "locked"
+                ch_status = "locked"
 
             # Update for next iteration
-            prev_completed = (status == "completed")
+            prev_completed = (ch_status == "completed")
 
             result.append({
                 "chapter": chapter,
                 "progress": {
-                    "paragraphs_total": total,
-                    "paragraphs_completed": completed,
+                    "paragraphs_total": ch_para_total,
+                    "paragraphs_completed": ch_para_completed,
                     "percentage": percentage,
                 },
-                "status": status,
+                "status": ch_status,
                 "mastery_level": mastery_level,
                 "mastery_score": mastery_score,
                 "has_summative_test": has_summative.get(cid, False),
@@ -401,7 +438,7 @@ class StudentContentService:
             f"Student {student_id} retrieved {len(result)} chapters "
             f"for textbook {textbook_id}"
         )
-        return result
+        return result, total
 
     async def _get_paragraphs_per_chapter_batch(
         self,
@@ -492,8 +529,10 @@ class StudentContentService:
         self,
         chapter_id: int,
         student_id: int,
-        school_id: int
-    ) -> List[Dict[str, Any]]:
+        school_id: int,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Tuple[List[Dict[str, Any]], int]:
         """
         Get paragraphs for a chapter with student's progress.
 
@@ -501,21 +540,31 @@ class StudentContentService:
             chapter_id: Chapter ID
             student_id: Student ID
             school_id: School ID for access control
+            page: Page number (1-based)
+            page_size: Number of items per page
 
         Returns:
-            List of dicts with paragraph and progress data
+            Tuple of (list of dicts with paragraph and progress data, total count)
         """
-        # Get paragraphs ordered
+        # Base query for paragraphs
+        base_query = select(Paragraph).where(
+            Paragraph.chapter_id == chapter_id,
+            Paragraph.is_deleted == False
+        )
+
+        # Get total count
+        count_query = select(func.count()).select_from(base_query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Get paragraphs ordered with pagination
+        offset = (page - 1) * page_size
         paragraphs_result = await self.db.execute(
-            select(Paragraph).where(
-                Paragraph.chapter_id == chapter_id,
-                Paragraph.is_deleted == False
-            ).order_by(Paragraph.order)
+            base_query.order_by(Paragraph.order).offset(offset).limit(page_size)
         )
         paragraphs = paragraphs_result.scalars().all()
 
         if not paragraphs:
-            return []
+            return [], total
 
         paragraph_ids = [p.id for p in paragraphs]
 
@@ -535,11 +584,11 @@ class StudentContentService:
 
             # Determine status
             if mastery.get("is_completed"):
-                status = "completed"
+                para_status = "completed"
             elif mastery:
-                status = "in_progress"
+                para_status = "in_progress"
             else:
-                status = "not_started"
+                para_status = "not_started"
 
             # Estimate reading time
             word_count = len(para.content.split()) if para.content else 0
@@ -547,7 +596,7 @@ class StudentContentService:
 
             result.append({
                 "paragraph": para,
-                "status": status,
+                "status": para_status,
                 "practice_score": mastery.get("best_score"),
                 "estimated_time": estimated_time,
                 "has_practice": has_practice.get(pid, False),
@@ -557,7 +606,7 @@ class StudentContentService:
             f"Student {student_id} retrieved {len(result)} paragraphs "
             f"for chapter {chapter_id}"
         )
-        return result
+        return result, total
 
     async def _get_paragraph_mastery_batch(
         self,

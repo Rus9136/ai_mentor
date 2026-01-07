@@ -113,25 +113,39 @@ class TeacherAnalyticsService:
     async def get_classes(
         self,
         user_id: int,
-        school_id: int
-    ) -> List[TeacherClassResponse]:
+        school_id: int,
+        page: int = 1,
+        page_size: int = 20,
+        academic_year: Optional[str] = None,
+        grade_level: Optional[int] = None,
+    ) -> tuple[List[TeacherClassResponse], int]:
         """
         Get list of classes for teacher.
 
         Args:
             user_id: User ID of the teacher
             school_id: School ID
+            page: Page number (1-based)
+            page_size: Items per page
+            academic_year: Optional filter by academic year
+            grade_level: Optional filter by grade level (1-11)
 
         Returns:
-            List of TeacherClassResponse
+            Tuple of (list of TeacherClassResponse, total count)
         """
         logger.info(f"Getting classes for user {user_id}")
 
         teacher = await self._access.get_teacher_by_user_id(user_id, school_id)
         if not teacher:
-            return []
+            return [], 0
 
-        return await self._classes.get_classes(teacher.id)
+        return await self._classes.get_classes(
+            teacher.id,
+            page=page,
+            page_size=page_size,
+            academic_year=academic_year,
+            grade_level=grade_level,
+        )
 
     async def get_class_detail(
         self,
@@ -251,33 +265,41 @@ class TeacherAnalyticsService:
     async def get_struggling_topics(
         self,
         user_id: int,
-        school_id: int
-    ) -> List[StrugglingTopicResponse]:
+        school_id: int,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[List[StrugglingTopicResponse], int]:
         """
         Get topics where many students are struggling.
 
         Args:
             user_id: Teacher's user ID
             school_id: School ID
+            page: Page number (1-based)
+            page_size: Items per page
 
         Returns:
-            List of StrugglingTopicResponse
+            Tuple of (list of StrugglingTopicResponse, total count)
         """
         logger.info(f"Getting struggling topics for user {user_id}")
 
         teacher = await self._access.get_teacher_by_user_id(user_id, school_id)
         if not teacher:
-            return []
+            return [], 0
 
         class_ids = await self._access.get_teacher_class_ids(teacher.id)
         if not class_ids:
-            return []
+            return [], 0
 
         student_ids = await self._access.get_student_ids_for_classes(class_ids)
         if not student_ids:
-            return []
+            return [], 0
 
-        return await self._mastery.get_struggling_topics(student_ids)
+        return await self._mastery.get_struggling_topics(
+            student_ids,
+            page=page,
+            page_size=page_size,
+        )
 
     async def get_mastery_trends(
         self,

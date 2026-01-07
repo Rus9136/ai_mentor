@@ -6,7 +6,7 @@ Handles mastery calculations, distributions, and analytics.
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -144,65 +144,74 @@ class MasteryAnalyticsService:
     async def get_struggling_topics(
         self,
         student_ids: List[int],
-        limit: int = 20
-    ) -> List[StrugglingTopicResponse]:
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[StrugglingTopicResponse], int]:
         """
         Get topics where students are struggling.
 
         Args:
             student_ids: List of student IDs to analyze
-            limit: Max number of topics to return
+            page: Page number (1-based)
+            page_size: Items per page
 
         Returns:
-            List of StrugglingTopicResponse
+            Tuple of (list of StrugglingTopicResponse, total count)
         """
         if not student_ids:
-            return []
+            return [], 0
 
-        result = await self.db.execute(
+        # Base subquery for struggling topics
+        struggling_count_expr = func.count(ParagraphMastery.id).filter(
+            ParagraphMastery.status == "struggling"
+        )
+
+        base_query = (
             select(
                 Paragraph.id,
                 Paragraph.title,
                 Chapter.id,
                 Chapter.title,
-                func.count(ParagraphMastery.id).filter(
-                    ParagraphMastery.status == "struggling"
-                ),
-                func.count(ParagraphMastery.id),
-                func.avg(ParagraphMastery.average_score)
+                struggling_count_expr.label("struggling_count"),
+                func.count(ParagraphMastery.id).label("total_count"),
+                func.avg(ParagraphMastery.average_score).label("avg_score")
             )
             .join(ParagraphMastery, ParagraphMastery.paragraph_id == Paragraph.id)
             .join(Chapter, Chapter.id == Paragraph.chapter_id)
             .where(ParagraphMastery.student_id.in_(student_ids))
             .group_by(Paragraph.id, Paragraph.title, Chapter.id, Chapter.title)
-            .having(
-                func.count(ParagraphMastery.id).filter(
-                    ParagraphMastery.status == "struggling"
-                ) > 0
-            )
-            .order_by(
-                desc(func.count(ParagraphMastery.id).filter(
-                    ParagraphMastery.status == "struggling"
-                ))
-            )
-            .limit(limit)
+            .having(struggling_count_expr > 0)
+        )
+
+        # Get total count
+        count_subquery = base_query.subquery()
+        count_query = select(func.count()).select_from(count_subquery)
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Get paginated results
+        offset = (page - 1) * page_size
+        result = await self.db.execute(
+            base_query
+            .order_by(desc(struggling_count_expr))
+            .offset(offset)
+            .limit(page_size)
         )
 
         topics = []
         for row in result.fetchall():
-            para_id, para_title, ch_id, ch_title, struggling, total, avg_score = row
+            para_id, para_title, ch_id, ch_title, struggling, total_students, avg_score = row
             topics.append(StrugglingTopicResponse(
                 paragraph_id=para_id,
                 paragraph_title=para_title,
                 chapter_id=ch_id,
                 chapter_title=ch_title,
                 struggling_count=struggling,
-                total_students=total,
-                struggling_percentage=round(100 * struggling / total, 1) if total > 0 else 0.0,
+                total_students=total_students,
+                struggling_percentage=round(100 * struggling / total_students, 1) if total_students > 0 else 0.0,
                 average_score=round((avg_score or 0) * 100, 1)
             ))
 
-        return topics
+        return topics, total
 
     async def get_mastery_trends(
         self,

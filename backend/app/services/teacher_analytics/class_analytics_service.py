@@ -5,7 +5,7 @@ Handles class-level analytics for teacher dashboard.
 """
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,29 +46,55 @@ class ClassAnalyticsService:
 
     async def get_classes(
         self,
-        teacher_id: int
-    ) -> List[TeacherClassResponse]:
+        teacher_id: int,
+        page: int = 1,
+        page_size: int = 20,
+        academic_year: Optional[str] = None,
+        grade_level: Optional[int] = None,
+    ) -> Tuple[List[TeacherClassResponse], int]:
         """
         Get list of classes for teacher with analytics.
 
         Args:
             teacher_id: Teacher ID
+            page: Page number (1-based)
+            page_size: Items per page
+            academic_year: Optional filter by academic year
+            grade_level: Optional filter by grade level (1-11)
 
         Returns:
-            List of TeacherClassResponse
+            Tuple of (list of TeacherClassResponse, total count)
         """
-        # Get classes with students
+        # Build conditions
+        conditions = [
+            ClassTeacher.teacher_id == teacher_id,
+            SchoolClass.is_deleted == False  # noqa: E712
+        ]
+
+        if academic_year is not None:
+            conditions.append(SchoolClass.academic_year == academic_year)
+        if grade_level is not None:
+            conditions.append(SchoolClass.grade_level == grade_level)
+
+        # Get total count
+        count_query = (
+            select(func.count())
+            .select_from(SchoolClass)
+            .join(ClassTeacher, ClassTeacher.class_id == SchoolClass.id)
+            .where(and_(*conditions))
+        )
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Get classes with students (paginated)
+        offset = (page - 1) * page_size
         result = await self.db.execute(
             select(SchoolClass)
             .join(ClassTeacher, ClassTeacher.class_id == SchoolClass.id)
             .options(selectinload(SchoolClass.students))
-            .where(
-                and_(
-                    ClassTeacher.teacher_id == teacher_id,
-                    not SchoolClass.is_deleted
-                )
-            )
+            .where(and_(*conditions))
             .order_by(SchoolClass.grade_level, SchoolClass.name)
+            .offset(offset)
+            .limit(page_size)
         )
 
         classes = list(result.scalars().all())
@@ -104,7 +130,7 @@ class ClassAnalyticsService:
                 progress_percentage=progress
             ))
 
-        return response
+        return response, total
 
     async def get_class_detail(
         self,
@@ -137,7 +163,7 @@ class ClassAnalyticsService:
                 and_(
                     SchoolClass.id == class_id,
                     SchoolClass.school_id == school_id,
-                    not SchoolClass.is_deleted
+                    SchoolClass.is_deleted == False  # noqa: E712
                 )
             )
         )
