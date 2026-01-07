@@ -6,11 +6,12 @@
 > - `CLAUDE.md` — инструкции для AI-агентов, команды, credentials
 > - `docs/ARCHITECTURE.md` — техническая архитектура, RBAC, алгоритмы
 
-**Прогресс:** 77% (10/13 итераций) | **Последнее обновление:** 2025-12-19
+**Прогресс:** 85% (11/13 итераций) | **Последнее обновление:** 2025-12-23
 
 **Production URLs:**
 - Student App: https://ai-mentor.kz
 - Admin Panel: https://admin.ai-mentor.kz
+- Teacher App: https://teacher.ai-mentor.kz (pending deploy)
 - API Docs: https://api.ai-mentor.kz/docs
 
 ---
@@ -198,12 +199,45 @@ backend/app/
 
 ---
 
-### ⏳ Итерация 11: Teacher Dashboard API
-**Задачи:**
-- [ ] `GET /teacher/classes/{id}/overview` — обзор класса
-- [ ] `GET /teacher/students/{id}/progress` — прогресс студента
-- [ ] `GET /teacher/analytics/mastery-distribution` — распределение A/B/C
-- [ ] AnalyticsService с рекомендациями
+### ✅ Итерация 11: Teacher Dashboard (ВЫПОЛНЕНО — 2025-12-23)
+
+**Backend API — ВЫПОЛНЕНО:**
+- [x] `GET /teachers/dashboard` — обзор dashboard
+- [x] `GET /teachers/classes` — список классов учителя
+- [x] `GET /teachers/classes/{id}` — детали класса со студентами
+- [x] `GET /teachers/classes/{id}/overview` — аналитика класса
+- [x] `GET /teachers/classes/{id}/mastery-distribution` — распределение A/B/C
+- [x] `GET /teachers/classes/{id}/students/{sid}/progress` — прогресс студента
+- [x] `GET /teachers/students/{id}/mastery-history` — история mastery
+- [x] `GET /teachers/analytics/struggling-topics` — проблемные темы
+- [x] `GET /teachers/analytics/mastery-trends` — тренды
+- [x] CRUD `/teachers/assignments` — управление заданиями (stubs)
+- [x] `TeacherAnalyticsService` — бизнес-логика аналитики
+
+**Backend файлы:**
+- `backend/app/api/v1/teachers.py` (320 строк)
+- `backend/app/services/teacher_analytics_service.py` (480 строк)
+- `backend/app/schemas/teacher_dashboard.py` (280 строк)
+
+**Frontend — ВЫПОЛНЕНО:**
+- [x] Создать teacher-app (Next.js 15)
+- [x] Dashboard страница (stats, classes list, mastery distribution)
+- [x] Classes list и detail с таблицей учеников
+- [x] Student progress view (chapters, tests, mastery history tabs)
+- [x] Analytics pages (struggling topics, mastery trends)
+- [x] Google OAuth авторизация (teacher role only)
+- [x] RU/KZ локализация
+
+**Frontend файлы (38 файлов, 11660 строк):**
+- `teacher-app/src/app/[locale]/(dashboard)/page.tsx` — Dashboard
+- `teacher-app/src/app/[locale]/(dashboard)/classes/` — Classes pages
+- `teacher-app/src/app/[locale]/(dashboard)/analytics/page.tsx` — Analytics
+- `teacher-app/src/components/dashboard/` — StatCard, MasteryBadge, MasteryDistributionChart
+- `teacher-app/Dockerfile` — Production build
+
+**Build:** 102 KB first load JS, все страницы компилируются успешно
+
+**Pending:** Деплой на teacher.ai-mentor.kz
 
 ### ⏳ Итерация 12: Offline Sync Service
 **Задачи:**
@@ -227,13 +261,14 @@ backend/app/
 
 | Метрика | Значение |
 |---------|----------|
-| Завершено итераций | 10/13 (77%) |
+| Завершено итераций | 11/13 (85%) |
 | Таблиц в БД | 37+ |
 | Миграций | 19+ |
-| API endpoints | 115+ |
+| API endpoints | 145+ |
 | Backend тестов | 51+ |
 | Frontend тестов | 117 (42 unit + 75 E2E) |
 | Student App компонентов | 15+ |
+| Teacher App компонентов | 12+ |
 
 ---
 
