@@ -65,6 +65,7 @@ detect_changes() {
     BACKEND_CHANGED=false
     FRONTEND_CHANGED=false
     STUDENT_APP_CHANGED=false
+    TEACHER_APP_CHANGED=false
     MIGRATIONS_CHANGED=false
     NGINX_CHANGED=false
 
@@ -89,6 +90,11 @@ detect_changes() {
         STUDENT_APP_CHANGED=true
     fi
 
+    # Teacher App detection
+    if echo "$CHANGED_FILES" | grep -q "^teacher-app/"; then
+        TEACHER_APP_CHANGED=true
+    fi
+
     if echo "$CHANGED_FILES" | grep -q "^nginx/infra/"; then
         NGINX_CHANGED=true
     fi
@@ -105,6 +111,10 @@ detect_changes() {
         STUDENT_APP_CHANGED=true
     fi
 
+    if echo "$CHANGED_FILES" | grep -q "^teacher-app/Dockerfile.prod"; then
+        TEACHER_APP_CHANGED=true
+    fi
+
     if echo "$CHANGED_FILES" | grep -q "pyproject.toml"; then
         BACKEND_CHANGED=true
     fi
@@ -118,10 +128,15 @@ detect_changes() {
         STUDENT_APP_CHANGED=true
     fi
 
+    if echo "$CHANGED_FILES" | grep -q "^teacher-app/package.json"; then
+        TEACHER_APP_CHANGED=true
+    fi
+
     # Export variables
     export BACKEND_CHANGED
     export FRONTEND_CHANGED
     export STUDENT_APP_CHANGED
+    export TEACHER_APP_CHANGED
     export MIGRATIONS_CHANGED
     export NGINX_CHANGED
 }
@@ -137,6 +152,7 @@ show_deploy_plan() {
         echo -e "   ${EMOJI_BACKEND} Backend:     $([ "$BACKEND_CHANGED" = "true" ] && echo "${GREEN}DEPLOY${NC}" || echo "${GRAY}Skip${NC}")"
         echo -e "   ${EMOJI_FRONTEND} Frontend:    $([ "$FRONTEND_CHANGED" = "true" ] && echo "${GREEN}DEPLOY${NC}" || echo "${GRAY}Skip${NC}")"
         echo -e "   ${EMOJI_STUDENT} Student App: $([ "$STUDENT_APP_CHANGED" = "true" ] && echo "${GREEN}DEPLOY${NC}" || echo "${GRAY}Skip${NC}")"
+        echo -e "   ${EMOJI_TEACHER} Teacher App: $([ "$TEACHER_APP_CHANGED" = "true" ] && echo "${GREEN}DEPLOY${NC}" || echo "${GRAY}Skip${NC}")"
         echo -e "   ${EMOJI_DATABASE} Migrations:  $([ "$MIGRATIONS_CHANGED" = "true" ] && echo "${GREEN}DEPLOY${NC}" || echo "${GRAY}Skip${NC}")"
 
         if [ "$NGINX_CHANGED" = "true" ]; then
@@ -153,6 +169,9 @@ show_deploy_plan() {
     elif [ "$DEPLOY_MODE" = "student-app" ]; then
         echo -e "   ${EMOJI_STUDENT} Student App: ${GREEN}FORCE DEPLOY${NC}"
         STUDENT_APP_CHANGED=true
+    elif [ "$DEPLOY_MODE" = "teacher-app" ]; then
+        echo -e "   ${EMOJI_TEACHER} Teacher App: ${GREEN}FORCE DEPLOY${NC}"
+        TEACHER_APP_CHANGED=true
     elif [ "$DEPLOY_MODE" = "migrations" ]; then
         echo -e "   ${EMOJI_DATABASE} Migrations:  ${GREEN}FORCE APPLY${NC}"
         MIGRATIONS_CHANGED=true
@@ -160,10 +179,12 @@ show_deploy_plan() {
         echo -e "   ${EMOJI_BACKEND} Backend:     ${GREEN}DEPLOY${NC}"
         echo -e "   ${EMOJI_FRONTEND} Frontend:    ${GREEN}DEPLOY${NC}"
         echo -e "   ${EMOJI_STUDENT} Student App: ${GREEN}DEPLOY${NC}"
+        echo -e "   ${EMOJI_TEACHER} Teacher App: ${GREEN}DEPLOY${NC}"
         echo -e "   ${EMOJI_DATABASE} Migrations:  ${GREEN}APPLY${NC}"
         BACKEND_CHANGED=true
         FRONTEND_CHANGED=true
         STUDENT_APP_CHANGED=true
+        TEACHER_APP_CHANGED=true
         MIGRATIONS_CHANGED=true
     else
         log_error "Unknown deploy mode: $DEPLOY_MODE"
@@ -174,13 +195,14 @@ show_deploy_plan() {
     echo ""
 
     # Check if anything to deploy
-    if [ "$BACKEND_CHANGED" = "false" ] && [ "$FRONTEND_CHANGED" = "false" ] && [ "$STUDENT_APP_CHANGED" = "false" ] && [ "$MIGRATIONS_CHANGED" = "false" ]; then
+    if [ "$BACKEND_CHANGED" = "false" ] && [ "$FRONTEND_CHANGED" = "false" ] && [ "$STUDENT_APP_CHANGED" = "false" ] && [ "$TEACHER_APP_CHANGED" = "false" ] && [ "$MIGRATIONS_CHANGED" = "false" ]; then
         log_warning "Nothing to deploy!"
         echo ""
         log_info "Use one of these modes:"
         echo "   ./deploy.sh backend      # Force deploy backend"
         echo "   ./deploy.sh frontend     # Force deploy frontend"
         echo "   ./deploy.sh student-app  # Force deploy student app"
+        echo "   ./deploy.sh teacher-app  # Force deploy teacher app"
         echo "   ./deploy.sh full         # Deploy everything"
         echo ""
         exit 0
@@ -414,6 +436,61 @@ deploy_student_app() {
 }
 
 # ==========================================
+# Deploy Teacher App (Next.js)
+# ==========================================
+
+deploy_teacher_app() {
+    log_teacher_app "Starting teacher app deployment..."
+
+    # Build teacher-app image
+    log_step "Building teacher-app Docker image..."
+    if docker compose -f "$COMPOSE_FILE" build teacher-app; then
+        log_success "Teacher app image built"
+    else
+        log_error "Failed to build teacher app image"
+        show_error_details "Teacher App Build" "ai_mentor_teacher_app_prod"
+        show_troubleshooting "teacher-app"
+        return 1
+    fi
+
+    # Restart teacher-app container
+    log_step "Restarting teacher-app container..."
+    if docker compose -f "$COMPOSE_FILE" up -d teacher-app; then
+        log_success "Teacher app restarted"
+    else
+        log_error "Failed to restart teacher app"
+        return 1
+    fi
+
+    # Wait for teacher-app to start
+    log_step "Waiting for teacher app to start..."
+    sleep 5
+
+    # Check teacher-app health
+    log_step "Checking teacher app health..."
+    local retries=0
+    local max_retries=12  # 60 seconds total (12 * 5) - Next.js takes longer to start
+
+    while [ $retries -lt $max_retries ]; do
+        if check_http_endpoint "http://127.0.0.1:3007/ru" 5; then
+            log_success "Teacher app is healthy"
+            return 0
+        fi
+
+        retries=$((retries + 1))
+        if [ $retries -lt $max_retries ]; then
+            echo -e "   ${GRAY}Retry $retries/$max_retries...${NC}"
+            sleep 5
+        fi
+    done
+
+    log_error "Teacher app healthcheck failed!"
+    show_error_details "Teacher App" "ai_mentor_teacher_app_prod"
+    show_troubleshooting "teacher-app"
+    return 1
+}
+
+# ==========================================
 # Check Services Status
 # ==========================================
 
@@ -464,6 +541,23 @@ check_services() {
         show_service_status "Student App Health" "unhealthy"
     fi
 
+    # Check teacher-app
+    local teacher_app_status=$(get_container_status "ai_mentor_teacher_app_prod")
+    local teacher_app_health=$(get_container_health "ai_mentor_teacher_app_prod")
+
+    if [ "$teacher_app_health" != "unknown" ]; then
+        show_service_status "Teacher App" "$teacher_app_health"
+    else
+        show_service_status "Teacher App" "$teacher_app_status"
+    fi
+
+    # Check Teacher App endpoint
+    if check_http_endpoint "http://127.0.0.1:3007/ru" 5; then
+        show_service_status "Teacher App Health" "healthy"
+    else
+        show_service_status "Teacher App Health" "unhealthy"
+    fi
+
     # Check frontend files (legacy admin)
     if [ -f "$ADMIN_TARGET_DIR/index.html" ]; then
         show_service_status "Legacy Admin Files" "deployed"
@@ -490,13 +584,15 @@ Modes:
     backend      Force deploy backend only
     frontend     Force deploy legacy frontend only
     student-app  Force deploy student app (Next.js) only
+    teacher-app  Force deploy teacher app (Next.js) only
     migrations   Apply database migrations only
-    full         Deploy everything (backend + frontend + student-app + migrations)
+    full         Deploy everything (backend + frontend + student-app + teacher-app + migrations)
 
 Examples:
     ./deploy.sh              # Auto-detect and deploy
     ./deploy.sh backend      # Deploy only backend
     ./deploy.sh student-app  # Deploy only student app
+    ./deploy.sh teacher-app  # Deploy only teacher app
     ./deploy.sh full         # Full deployment
 
 EOF
@@ -533,6 +629,7 @@ main() {
     DEPLOYED_BACKEND=false
     DEPLOYED_FRONTEND=false
     DEPLOYED_STUDENT_APP=false
+    DEPLOYED_TEACHER_APP=false
     APPLIED_MIGRATIONS=false
     DEPLOY_SUCCESS=true
 
@@ -555,7 +652,7 @@ main() {
         else
             DEPLOY_SUCCESS=false
             # Stop deployment on backend failure
-            show_deploy_summary "$DEPLOYED_BACKEND" "$DEPLOYED_FRONTEND" "$DEPLOYED_STUDENT_APP" "$APPLIED_MIGRATIONS" "false"
+            show_deploy_summary "$DEPLOYED_BACKEND" "$DEPLOYED_FRONTEND" "$DEPLOYED_STUDENT_APP" "$DEPLOYED_TEACHER_APP" "$APPLIED_MIGRATIONS" "false"
             exit 1
         fi
         echo ""
@@ -583,11 +680,22 @@ main() {
         echo ""
     fi
 
+    # Deploy teacher-app (Next.js)
+    if [ "$TEACHER_APP_CHANGED" = "true" ]; then
+        if deploy_teacher_app; then
+            DEPLOYED_TEACHER_APP=true
+        else
+            DEPLOY_SUCCESS=false
+            # Teacher app failure is not critical - other services still work
+        fi
+        echo ""
+    fi
+
     # Check final status
     check_services
 
     # Show summary
-    show_deploy_summary "$DEPLOYED_BACKEND" "$DEPLOYED_FRONTEND" "$DEPLOYED_STUDENT_APP" "$APPLIED_MIGRATIONS" "$DEPLOY_SUCCESS"
+    show_deploy_summary "$DEPLOYED_BACKEND" "$DEPLOYED_FRONTEND" "$DEPLOYED_STUDENT_APP" "$DEPLOYED_TEACHER_APP" "$APPLIED_MIGRATIONS" "$DEPLOY_SUCCESS"
 
     # Exit with appropriate code
     if [ "$DEPLOY_SUCCESS" = "true" ]; then
@@ -602,7 +710,7 @@ main() {
 # ==========================================
 
 case "${DEPLOY_MODE}" in
-    auto|backend|frontend|student-app|migrations|full)
+    auto|backend|frontend|student-app|teacher-app|migrations|full)
         main
         ;;
     help|--help|-h)

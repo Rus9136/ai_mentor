@@ -107,7 +107,7 @@ services:
       REFRESH_TOKEN_EXPIRE_DAYS: 7
 
       # CORS (production domains) - CSV format для корректного парсинга Pydantic
-      BACKEND_CORS_ORIGINS: "https://ai-mentor.kz,https://admin.ai-mentor.kz,https://admin-v2.ai-mentor.kz,https://api.ai-mentor.kz"
+      BACKEND_CORS_ORIGINS: "https://ai-mentor.kz,https://admin.ai-mentor.kz,https://admin-v2.ai-mentor.kz,https://api.ai-mentor.kz,https://teacher.ai-mentor.kz"
 
       # OpenAI (опционально, можно добавить позже)
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -240,6 +240,43 @@ services:
 
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ------------------------------------------
+  # Teacher App (Next.js - teacher.ai-mentor.kz)
+  # Учительское приложение с Google OAuth
+  # ------------------------------------------
+  teacher-app:
+    build:
+      context: ./teacher-app
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: https://api.ai-mentor.kz/api/v1
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+
+    container_name: ai_mentor_teacher_app_prod
+    restart: unless-stopped
+
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://api.ai-mentor.kz/api/v1
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+
+    ports:
+      # Доступен ТОЛЬКО локально на хосте для Nginx (порт 3007)
+      - "127.0.0.1:3007:3007"
+
+    networks:
+      - infrastructure_network
+
+    depends_on:
+      - backend
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3007"]
       interval: 30s
       timeout: 10s
       retries: 3
