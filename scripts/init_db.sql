@@ -31,6 +31,7 @@ DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'ai_mentor_app') THEN
         -- Используем тот же пароль что и для ai_mentor_user (из POSTGRES_PASSWORD env)
+        -- ВАЖНО: Пароль должен совпадать с backend/.env POSTGRES_PASSWORD
         CREATE ROLE ai_mentor_app WITH LOGIN PASSWORD 'AiM3nt0r_Pr0d_S3cur3_P@ssw0rd_2025!';
         RAISE NOTICE 'Role ai_mentor_app created (normal user for runtime with RLS)';
     ELSE
