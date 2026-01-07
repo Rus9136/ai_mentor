@@ -47,6 +47,9 @@ COPY backend/app /app/app
 COPY backend/alembic.ini /app/alembic.ini
 COPY backend/alembic /app/alembic
 
+# Копируем скрипты (partition management, etc.)
+COPY backend/scripts /app/scripts
+
 # Создание директорий для uploads и logs
 RUN mkdir -p /app/uploads /app/logs
 

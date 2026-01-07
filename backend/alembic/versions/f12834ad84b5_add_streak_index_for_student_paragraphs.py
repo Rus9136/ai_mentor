@@ -28,20 +28,15 @@ def upgrade() -> None:
     - Orders by last_accessed_at DESC
     - Only considers rows where last_accessed_at IS NOT NULL
 
-    Note: CONCURRENTLY requires autocommit, so we use raw connection.
+    Note: Without CONCURRENTLY as it doesn't work well in Alembic transactions.
     """
-    # Get raw connection for autocommit mode (required for CONCURRENTLY)
-    connection = op.get_bind()
-    # Set autocommit for this operation
-    connection.execution_options(isolation_level="AUTOCOMMIT")
-    connection.execute(sa.text("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_student_paragraph_streak
+    # Create index without CONCURRENTLY for compatibility with Alembic transactions
+    op.execute(sa.text("""
+        CREATE INDEX IF NOT EXISTS idx_student_paragraph_streak
         ON student_paragraphs (student_id, school_id, last_accessed_at DESC)
         WHERE last_accessed_at IS NOT NULL
     """))
 
 
 def downgrade() -> None:
-    connection = op.get_bind()
-    connection.execution_options(isolation_level="AUTOCOMMIT")
-    connection.execute(sa.text("DROP INDEX CONCURRENTLY IF EXISTS idx_student_paragraph_streak"))
+    op.execute(sa.text("DROP INDEX IF EXISTS idx_student_paragraph_streak"))
