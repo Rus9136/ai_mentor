@@ -165,3 +165,19 @@ secrets/
 
 # Claude Code local settings
 .claude/
+
+# Session logs (временные логи сессий)
+SESSION_LOG*.md
+
+# Google OAuth secrets
+client_secret_*.json
+
+# Book parser input files (большие PDF)
+book_parser/books/input/
+book_parser/results/
+
+# Temporary parsed data
+docs/adilet_*.json
+
+# Screenshots
+scrin/
