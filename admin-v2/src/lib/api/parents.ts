@@ -1,10 +1,10 @@
 import { apiClient } from './client';
-import type { Parent, ParentCreate, Student } from '@/types';
+import type { Parent, ParentCreate, Student, PaginatedResponse } from '@/types';
 
 export const parentsApi = {
   getList: async (): Promise<Parent[]> => {
-    const { data } = await apiClient.get<Parent[]>('/admin/school/parents');
-    return data;
+    const { data } = await apiClient.get<PaginatedResponse<Parent>>('/admin/school/parents');
+    return data.items;
   },
 
   getOne: async (id: number): Promise<Parent> => {

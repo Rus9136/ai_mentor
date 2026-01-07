@@ -9,6 +9,7 @@ import type {
   Paragraph,
   ParagraphCreate,
   ParagraphUpdate,
+  PaginatedResponse,
 } from '@/types';
 
 // Helper to get correct endpoint based on context
@@ -16,10 +17,10 @@ const getEndpoint = (isSchool: boolean) =>
   isSchool ? '/admin/school' : '/admin/global';
 
 export const textbooksApi = {
-  // Textbooks
+  // Textbooks - both admin/global and admin/school use PaginatedResponse
   getList: async (isSchool = false): Promise<Textbook[]> => {
-    const { data } = await apiClient.get<Textbook[]>(`${getEndpoint(isSchool)}/textbooks`);
-    return data;
+    const { data } = await apiClient.get<PaginatedResponse<Textbook>>(`${getEndpoint(isSchool)}/textbooks`);
+    return data.items;
   },
 
   getOne: async (id: number, isSchool = false): Promise<Textbook> => {
@@ -49,12 +50,18 @@ export const textbooksApi = {
     return data;
   },
 
-  // Chapters
+  // Chapters - admin/global uses PaginatedResponse, admin/school uses List
   getChapters: async (textbookId: number, isSchool = false): Promise<Chapter[]> => {
-    const { data } = await apiClient.get<Chapter[]>(
+    if (isSchool) {
+      const { data } = await apiClient.get<Chapter[]>(
+        `${getEndpoint(isSchool)}/textbooks/${textbookId}/chapters`
+      );
+      return data;
+    }
+    const { data } = await apiClient.get<PaginatedResponse<Chapter>>(
       `${getEndpoint(isSchool)}/textbooks/${textbookId}/chapters`
     );
-    return data;
+    return data.items;
   },
 
   getChapter: async (chapterId: number, isSchool = false): Promise<Chapter> => {
@@ -85,12 +92,18 @@ export const textbooksApi = {
     await apiClient.delete(`${getEndpoint(isSchool)}/chapters/${chapterId}`);
   },
 
-  // Paragraphs
+  // Paragraphs - admin/global uses PaginatedResponse, admin/school uses List
   getParagraphs: async (chapterId: number, isSchool = false): Promise<Paragraph[]> => {
-    const { data } = await apiClient.get<Paragraph[]>(
+    if (isSchool) {
+      const { data } = await apiClient.get<Paragraph[]>(
+        `${getEndpoint(isSchool)}/chapters/${chapterId}/paragraphs`
+      );
+      return data;
+    }
+    const { data } = await apiClient.get<PaginatedResponse<Paragraph>>(
       `${getEndpoint(isSchool)}/chapters/${chapterId}/paragraphs`
     );
-    return data;
+    return data.items;
   },
 
   getParagraph: async (paragraphId: number, isSchool = false): Promise<Paragraph> => {

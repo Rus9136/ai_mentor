@@ -1,10 +1,10 @@
 import { apiClient } from './client';
-import type { SchoolClass, SchoolClassCreate, SchoolClassUpdate } from '@/types';
+import type { SchoolClass, SchoolClassCreate, SchoolClassUpdate, PaginatedResponse } from '@/types';
 
 export const classesApi = {
   getList: async (): Promise<SchoolClass[]> => {
-    const { data } = await apiClient.get<SchoolClass[]>('/admin/school/classes');
-    return data;
+    const { data } = await apiClient.get<PaginatedResponse<SchoolClass>>('/admin/school/classes');
+    return data.items;
   },
 
   getOne: async (id: number): Promise<SchoolClass> => {

@@ -1,10 +1,10 @@
 import { apiClient } from './client';
-import type { Student, StudentCreate, StudentUpdate } from '@/types';
+import type { Student, StudentCreate, StudentUpdate, PaginatedResponse } from '@/types';
 
 export const studentsApi = {
   getList: async (): Promise<Student[]> => {
-    const { data } = await apiClient.get<Student[]>('/admin/school/students');
-    return data;
+    const { data } = await apiClient.get<PaginatedResponse<Student>>('/admin/school/students');
+    return data.items;
   },
 
   getOne: async (id: number): Promise<Student> => {

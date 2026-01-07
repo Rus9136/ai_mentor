@@ -9,6 +9,7 @@ import type {
   QuestionOption,
   QuestionOptionCreate,
   QuestionOptionUpdate,
+  PaginatedResponse,
 } from '@/types';
 
 // Helper to get correct endpoint based on context
@@ -28,13 +29,13 @@ const transformTestFromApi = <T extends { passing_score: number }>(test: T): T =
 };
 
 export const testsApi = {
-  // Tests
+  // Tests - both admin/global and admin/school use PaginatedResponse
   getList: async (isSchool = false, chapterId?: number): Promise<Test[]> => {
     const params = chapterId ? `?chapter_id=${chapterId}` : '';
-    const { data } = await apiClient.get<Test[]>(
+    const { data } = await apiClient.get<PaginatedResponse<Test>>(
       `${getEndpoint(isSchool)}/tests${params}`
     );
-    return data.map(transformTestFromApi);
+    return data.items.map(transformTestFromApi);
   },
 
   getOne: async (id: number, isSchool = false): Promise<Test> => {
@@ -68,12 +69,18 @@ export const testsApi = {
     await apiClient.delete(`${getEndpoint(isSchool)}/tests/${id}`);
   },
 
-  // Questions
+  // Questions - admin/global uses PaginatedResponse, admin/school uses List
   getQuestions: async (testId: number, isSchool = false): Promise<Question[]> => {
-    const { data } = await apiClient.get<Question[]>(
+    if (isSchool) {
+      const { data } = await apiClient.get<Question[]>(
+        `${getEndpoint(isSchool)}/tests/${testId}/questions`
+      );
+      return data;
+    }
+    const { data } = await apiClient.get<PaginatedResponse<Question>>(
       `${getEndpoint(isSchool)}/tests/${testId}/questions`
     );
-    return data;
+    return data.items;
   },
 
   getQuestion: async (questionId: number, isSchool = false): Promise<Question> => {

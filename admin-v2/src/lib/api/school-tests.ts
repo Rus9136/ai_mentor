@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Test, TestCreate, TestUpdate, Question, QuestionCreate, QuestionUpdate, QuestionOption, QuestionOptionCreate, QuestionOptionUpdate } from '@/types';
+import type { Test, TestCreate, TestUpdate, Question, QuestionCreate, QuestionUpdate, QuestionOption, QuestionOptionCreate, QuestionOptionUpdate, PaginatedResponse } from '@/types';
 
 // Transform passing_score: frontend uses 0-100, backend uses 0.0-1.0
 const transformTestForApi = <T extends { passing_score?: number }>(data: T): T => {
@@ -15,8 +15,8 @@ const transformTestFromApi = <T extends { passing_score: number }>(test: T): T =
 
 export const schoolTestsApi = {
   getList: async (): Promise<Test[]> => {
-    const { data } = await apiClient.get<Test[]>('/admin/school/tests');
-    return data.map(transformTestFromApi);
+    const { data } = await apiClient.get<PaginatedResponse<Test>>('/admin/school/tests');
+    return data.items.map(transformTestFromApi);
   },
 
   getOne: async (id: number): Promise<Test> => {
