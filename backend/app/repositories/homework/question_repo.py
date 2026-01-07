@@ -17,9 +17,16 @@ class HomeworkQuestionRepository:
     async def add_question(
         self,
         task_id: int,
+        school_id: int,
         data: dict
     ) -> HomeworkTaskQuestion:
-        """Add a question to task."""
+        """Add a question to task.
+
+        Args:
+            task_id: Parent task ID
+            school_id: School ID for RLS (denormalized from task)
+            data: Question data dict
+        """
         result = await self.db.execute(
             select(func.max(HomeworkTaskQuestion.sort_order))
             .where(HomeworkTaskQuestion.homework_task_id == task_id)
@@ -29,6 +36,7 @@ class HomeworkQuestionRepository:
         question = HomeworkTaskQuestion(
             **data,
             homework_task_id=task_id,
+            school_id=school_id,
             sort_order=max_order + 1,
             version=1,
             is_active=True
@@ -41,9 +49,16 @@ class HomeworkQuestionRepository:
     async def add_questions_batch(
         self,
         task_id: int,
+        school_id: int,
         questions_data: List[dict]
     ) -> List[HomeworkTaskQuestion]:
-        """Add multiple questions to task (for AI generation)."""
+        """Add multiple questions to task (for AI generation).
+
+        Args:
+            task_id: Parent task ID
+            school_id: School ID for RLS (denormalized from task)
+            questions_data: List of question data dicts
+        """
         result = await self.db.execute(
             select(func.max(HomeworkTaskQuestion.sort_order))
             .where(HomeworkTaskQuestion.homework_task_id == task_id)
@@ -55,6 +70,7 @@ class HomeworkQuestionRepository:
             question = HomeworkTaskQuestion(
                 **data,
                 homework_task_id=task_id,
+                school_id=school_id,
                 sort_order=max_order + i + 1,
                 version=1,
                 is_active=True,
@@ -91,6 +107,7 @@ class HomeworkQuestionRepository:
 
         Old version is deactivated, new version created.
         This preserves student answers linked to old version.
+        school_id is automatically copied from old version.
         """
         old_question = await self.get_question_by_id(question_id)
         if not old_question:
@@ -101,6 +118,7 @@ class HomeworkQuestionRepository:
         new_question = HomeworkTaskQuestion(
             **new_data,
             homework_task_id=old_question.homework_task_id,
+            school_id=old_question.school_id,  # Copy school_id from old version
             sort_order=old_question.sort_order,
             version=old_question.version + 1,
             is_active=True

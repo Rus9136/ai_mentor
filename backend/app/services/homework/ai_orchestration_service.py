@@ -94,7 +94,7 @@ class AIOrchestrationService:
         # Save generated questions
         saved = []
         for q_data in questions:
-            question = await self.repo.add_question(task_id, q_data)
+            question = await self.repo.add_question(task_id, school_id, q_data)
             saved.append(question)
 
         # Mark task as AI-generated

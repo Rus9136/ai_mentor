@@ -3,7 +3,7 @@ Homework repositories package.
 
 Provides modular repository classes and a facade for backward compatibility.
 """
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.homework.homework_crud_repo import HomeworkCrudRepository
@@ -116,11 +116,11 @@ class HomeworkRepository:
     # Questions (delegates to HomeworkQuestionRepository)
     # =========================================================================
 
-    async def add_question(self, task_id: int, data: dict):
-        return await self._question.add_question(task_id, data)
+    async def add_question(self, task_id: int, school_id: int, data: dict):
+        return await self._question.add_question(task_id, school_id, data)
 
-    async def add_questions_batch(self, task_id: int, questions_data: List[dict]):
-        return await self._question.add_questions_batch(task_id, questions_data)
+    async def add_questions_batch(self, task_id: int, school_id: int, questions_data: List[dict]):
+        return await self._question.add_questions_batch(task_id, school_id, questions_data)
 
     async def get_question_by_id(self, question_id: int):
         return await self._question.get_question_by_id(question_id)
@@ -156,10 +156,11 @@ class HomeworkRepository:
         student_id: int,
         school_id: int,
         status=None,
-        limit: int = 50
-    ):
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[list, int]:
         return await self._assignment.list_student_homework(
-            student_id, school_id, status, limit
+            student_id, school_id, status, page, page_size
         )
 
     async def update_student_homework_status(self, homework_student_id: int, status):

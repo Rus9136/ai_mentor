@@ -144,7 +144,12 @@ class Homework(SoftDeleteModel):
 
     # ---- Status ----
     status = Column(
-        SQLEnum(HomeworkStatus, name="homework_status_enum", create_type=True),
+        SQLEnum(
+            HomeworkStatus,
+            name="homework_status_enum",
+            create_type=True,
+            values_callable=lambda obj: [e.value for e in obj]  # Use lowercase values
+        ),
         nullable=False,
         default=HomeworkStatus.DRAFT,
         index=True
@@ -200,7 +205,12 @@ class HomeworkTask(SoftDeleteModel):
 
     # ---- Task Configuration ----
     task_type = Column(
-        SQLEnum(HomeworkTaskType, name="homework_task_type_enum", create_type=True),
+        SQLEnum(
+            HomeworkTaskType,
+            name="homework_task_type_enum",
+            create_type=True,
+            values_callable=lambda obj: [e.value for e in obj]
+        ),
         nullable=False
     )
     sort_order = Column(Integer, default=0, nullable=False)
@@ -264,9 +274,22 @@ class HomeworkTaskQuestion(SoftDeleteModel):
         index=True
     )
 
+    # ---- Denormalized for RLS (v3) ----
+    school_id = Column(
+        Integer,
+        ForeignKey("schools.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
     # ---- Question Content ----
     question_type = Column(
-        SQLEnum(HomeworkQuestionType, name="homework_question_type_enum", create_type=True),
+        SQLEnum(
+            HomeworkQuestionType,
+            name="homework_question_type_enum",
+            create_type=True,
+            values_callable=lambda obj: [e.value for e in obj]
+        ),
         nullable=False
     )
     question_text = Column(Text, nullable=False)
@@ -296,7 +319,12 @@ class HomeworkTaskQuestion(SoftDeleteModel):
     sort_order = Column(Integer, default=0, nullable=False)
     difficulty = Column(String(20), nullable=True)  # easy/medium/hard
     bloom_level = Column(
-        SQLEnum(BloomLevel, name="bloom_level_enum", create_type=True),
+        SQLEnum(
+            BloomLevel,
+            name="bloom_level_enum",
+            create_type=True,
+            values_callable=lambda obj: [e.value for e in obj]
+        ),
         nullable=True
     )
     explanation = Column(Text, nullable=True)
@@ -313,12 +341,14 @@ class HomeworkTaskQuestion(SoftDeleteModel):
 
     # ---- Relationships ----
     task = relationship("HomeworkTask", back_populates="questions")
+    school = relationship("School", backref="homework_task_questions")
     answers = relationship("StudentTaskAnswer", back_populates="question", cascade="all, delete-orphan")
     replaced_by = relationship("HomeworkTaskQuestion", remote_side="HomeworkTaskQuestion.id", uselist=False)
 
     __table_args__ = (
         Index("idx_homework_question_task", "homework_task_id", "sort_order"),
         Index("idx_questions_active_version", "homework_task_id", "is_active", "version"),
+        Index("idx_homework_task_questions_school", "school_id"),
     )
 
     def __repr__(self) -> str:
@@ -359,7 +389,12 @@ class HomeworkStudent(SoftDeleteModel):
 
     # ---- Status ----
     status = Column(
-        SQLEnum(HomeworkStudentStatus, name="homework_student_status_enum", create_type=True),
+        SQLEnum(
+            HomeworkStudentStatus,
+            name="homework_student_status_enum",
+            create_type=True,
+            values_callable=lambda obj: [e.value for e in obj]
+        ),
         nullable=False,
         default=HomeworkStudentStatus.ASSIGNED,
         index=True
@@ -438,7 +473,12 @@ class StudentTaskSubmission(SoftDeleteModel):
 
     # ---- Status ----
     status = Column(
-        SQLEnum(TaskSubmissionStatus, name="task_submission_status_enum", create_type=True),
+        SQLEnum(
+            TaskSubmissionStatus,
+            name="task_submission_status_enum",
+            create_type=True,
+            values_callable=lambda obj: [e.value for e in obj]
+        ),
         nullable=False,
         default=TaskSubmissionStatus.NOT_STARTED
     )
@@ -580,7 +620,12 @@ class AIGenerationLog(BaseModel):
 
     # ---- Operation ----
     operation_type = Column(
-        SQLEnum(AIOperationType, name="ai_operation_type_enum", create_type=True),
+        SQLEnum(
+            AIOperationType,
+            name="ai_operation_type_enum",
+            create_type=True,
+            values_callable=lambda obj: [e.value for e in obj]
+        ),
         nullable=False,
         index=True
     )

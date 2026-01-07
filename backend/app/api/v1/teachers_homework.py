@@ -319,7 +319,7 @@ async def add_question(
     service: HomeworkService = Depends(get_homework_service)
 ) -> QuestionResponseWithAnswer:
     """Add a question to a task. Supports all question types."""
-    question = await service.add_question(task.id, data)
+    question = await service.add_question(task.id, task.school_id, data)
     return HomeworkResponseBuilder.build_question_with_answer(question)
 
 

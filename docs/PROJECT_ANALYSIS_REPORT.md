@@ -1,8 +1,8 @@
 # PROJECT ANALYSIS REPORT: AI MENTOR
 
 **Дата анализа:** 2026-01-05
-**Обновлено:** 2026-01-06
-**Версия:** 1.4
+**Обновлено:** 2026-01-07
+**Версия:** 1.5
 **Статус проекта:** 77% (10/13 итераций завершено)
 
 ---
@@ -11,14 +11,14 @@
 
 | Критерий | Оценка | Статус |
 |----------|--------|--------|
-| **Готовность к Production** | **85%** | Готово |
+| **Готовность к Production** | **90%** | Готово ✅ |
 | **Готовность к Mobile разработке** | **50%** | Улучшено ✅ |
 | **API Quality** | **8.5/10** | Хорошо |
 | **Code Quality** | **8/10** | Улучшено ✅ |
-| **Security** | **7/10** | Исправлено ✅ |
+| **Security** | **8/10** | RLS Complete ✅ |
 | **Test Coverage** | **60%** | Улучшено ✅ |
 | **Documentation** | **50%** | Частично |
-| **Database** | **75%** | Хорошо |
+| **Database** | **85%** | RLS Complete ✅ |
 
 ### Исправлено 2026-01-06:
 - ✅ SECRET_KEY валидация (предупреждение при небезопасном дефолте)
@@ -29,6 +29,16 @@
 - ✅ **Рефакторинг 4 файлов > 400 строк** (см. секцию 2)
 - ✅ **Тестовое покрытие увеличено с 35% до 60%** (+349 тестов, см. секцию 4)
 - ✅ **Пагинация для Admin School endpoints** (8 HIGH RISK endpoints, см. секцию 1)
+
+### Исправлено 2026-01-07:
+- ✅ **RLS политики для homework таблиц** (7 таблиц, миграция 023)
+  - `homework`, `homework_tasks`, `homework_task_questions`, `homework_students`
+  - `student_task_submissions`, `student_task_answers`, `ai_generation_logs`
+- ✅ **Денормализация school_id** в `homework_task_questions` для RLS без JOIN
+- ✅ **Триггер автозаполнения** school_id при создании вопросов
+- ✅ **Исправлена ошибка миграции 022** (неправильная session variable)
+- ✅ **Тесты RLS изоляции** (9 тестов в `test_homework_rls.py`)
+- ✅ **Пагинация для Admin Global, Students, Teachers endpoints** (14 endpoints)
 
 ---
 
@@ -43,7 +53,7 @@
 
 ### Проблемы
 
-- ~~**40% endpoints без пагинации**~~ — **80% исправлено** ✅ (Admin School endpoints)
+- ~~**40% endpoints без пагинации**~~ — **95% исправлено** ✅ (Admin School + Admin Global + Students + Teachers)
 - **50% без фильтров** — неоптимально для мобильных
 - **Deprecated endpoint** в students/tests.py (нужно удалить)
 - **Несогласованность именования** path parameters
@@ -333,8 +343,8 @@ allow_headers=["Accept", "Content-Type", "Authorization"],
 
 - **32 основные модели**
 - **154 индекса** (простые + composite + vector)
-- **31 миграция** Alembic
-- **RLS политики** на 30+ таблицах
+- **32 миграции** Alembic (+1 RLS homework)
+- **RLS политики** на 37+ таблицах (+7 homework)
 - **pgvector** для embeddings
 
 ### Архитектура multi-tenancy
@@ -354,11 +364,29 @@ School (tenant root)
 
 | Проблема | Severity | Решение |
 |----------|----------|---------|
-| RLS отсутствует для chat_sessions, homework | КРИТИЧНА | Добавить политики |
+| ~~RLS отсутствует для chat_sessions, homework~~ | ~~КРИТИЧНА~~ | ✅ **Исправлено 2026-01-07** |
 | Session переменные не гарантированы | КРИТИЧНА | Верифицировать в middleware |
 | Несогласованность типов в RLS | ВЫСОКАЯ | Унифицировать cast |
 | Нет партиционирования больших таблиц | ВЫСОКАЯ | Добавить для test_attempts, learning_activities |
 | Отсутствуют CHECK constraints | СРЕДНЯЯ | grade_level, passing_score |
+
+### ✅ RLS для Homework таблиц (2026-01-07)
+
+**Миграция:** `023_add_homework_rls_policies.py`
+
+| Таблица | RLS Policy | Особенности |
+|---------|------------|-------------|
+| `homework` | `tenant_isolation_policy` | school_id = current_tenant_id |
+| `homework_tasks` | `tenant_isolation_policy` | school_id денормализован |
+| `homework_task_questions` | `tenant_isolation_policy` | **school_id добавлен** (v3) |
+| `homework_students` | `tenant_isolation_policy` | school_id = current_tenant_id |
+| `student_task_submissions` | `tenant_isolation_policy` | school_id денормализован |
+| `student_task_answers` | `tenant_isolation_policy` | school_id денормализован |
+| `ai_generation_logs` | `tenant_isolation_policy` | **school_id IS NULL allowed** |
+
+**Session variables:**
+- `app.current_tenant_id` — school_id текущего пользователя
+- `app.is_super_admin` — флаг обхода RLS
 
 ### Индексы (хорошее покрытие)
 
@@ -438,8 +466,8 @@ School (tenant root)
 - [x] ~~Тесты для Upload API~~ ✅ 38 тестов
 - [x] ~~Тесты для Repositories~~ ✅ 65 тестов
 - [x] ~~Пагинация для Admin School endpoints~~ ✅ 8 endpoints (2026-01-06)
-- [ ] RLS политики для chat_sessions, homework
-- [ ] Пагинация для остальных list endpoints (Admin Global, Students, Teachers)
+- [x] ~~RLS политики для chat_sessions, homework~~ ✅ 7 homework таблиц + chat уже был (2026-01-07)
+- [x] ~~Пагинация для остальных list endpoints (Admin Global, Students, Teachers)~~ ✅ 14 endpoints (2026-01-07)
 - [ ] Документация: SECURITY.md, MOBILE_API_GUIDE.md
 
 ### Фаза 3: ДЛЯ MOBILE (4-6 недель)
@@ -468,7 +496,7 @@ School (tenant root)
 **НЕ ГОТОВО** — требуется:
 - MOBILE_API_GUIDE.md
 - Стандартизация error codes
-- ~~Пагинация на всех endpoints~~ — **80% готово** ✅
+- ~~Пагинация на всех endpoints~~ — **95% готово** ✅ (Admin School + Admin Global + Students + Teachers)
 - Offline sync API
 - SDK или примеры интеграции
 
@@ -593,8 +621,44 @@ backend/tests/test_repositories.py           (65 тестов) ✅
 backend/tests/test_upload.py                 (38 тестов) ✅
 ```
 
+### D. RLS для Homework ✅ (2026-01-07)
+
+**Создано:**
+```
+backend/alembic/versions/023_add_homework_rls_policies.py  — Миграция RLS
+backend/tests/test_homework_rls.py                         — 9 тестов изоляции
+```
+
+**Обновлено:**
+```
+backend/app/models/homework.py                             — school_id в HomeworkTaskQuestion
+backend/app/repositories/homework/question_repo.py         — school_id параметр
+backend/app/repositories/homework/__init__.py              — обновлены wrappers
+backend/app/services/homework/homework_service.py          — school_id параметр
+backend/app/services/homework/__init__.py                  — facade обновлен
+backend/app/services/homework/ai_orchestration_service.py  — school_id в add_question
+backend/app/api/v1/teachers_homework.py                    — pass task.school_id
+```
+
+**RLS политики в БД (14 policies):**
+```sql
+-- Стандартные таблицы (6):
+tenant_isolation_policy ON homework
+tenant_isolation_policy ON homework_tasks
+tenant_isolation_policy ON homework_task_questions
+tenant_isolation_policy ON homework_students
+tenant_isolation_policy ON student_task_submissions
+tenant_isolation_policy ON student_task_answers
+
+-- С NULL school_id (1):
+tenant_isolation_policy ON ai_generation_logs  -- school_id IS NULL OR matches tenant
+
+-- INSERT policies (7):
+tenant_insert_policy ON {all 7 tables}
+```
+
 ---
 
 **Отчет сгенерирован:** 2026-01-05
-**Обновлено:** 2026-01-06 (Security fixes + Code refactoring + Test coverage + Pagination)
+**Обновлено:** 2026-01-07 (Security fixes + Code refactoring + Test coverage + Pagination + RLS Homework)
 **Инструмент:** Claude Code Analysis

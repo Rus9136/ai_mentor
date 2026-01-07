@@ -223,22 +223,38 @@ class HomeworkService:
     async def add_question(
         self,
         task_id: int,
+        school_id: int,
         data: QuestionCreate
     ) -> HomeworkTaskQuestion:
-        """Add a question to task."""
+        """Add a question to task.
+
+        Args:
+            task_id: Parent task ID
+            school_id: School ID for RLS (denormalized from task)
+            data: Question data
+        """
         return await self.repo.add_question(
             task_id=task_id,
+            school_id=school_id,
             data=data.model_dump()
         )
 
     async def add_questions_batch(
         self,
         task_id: int,
+        school_id: int,
         questions: List[QuestionCreate]
     ) -> List[HomeworkTaskQuestion]:
-        """Add multiple questions to task."""
+        """Add multiple questions to task.
+
+        Args:
+            task_id: Parent task ID
+            school_id: School ID for RLS (denormalized from task)
+            questions: List of question data
+        """
         return await self.repo.add_questions_batch(
             task_id=task_id,
+            school_id=school_id,
             questions_data=[q.model_dump() for q in questions]
         )
 

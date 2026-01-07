@@ -3,7 +3,7 @@ Homework services package.
 
 Provides modular service classes and a facade for backward compatibility.
 """
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List, Tuple, TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -170,16 +170,18 @@ class HomeworkService:
     async def add_question(
         self,
         task_id: int,
+        school_id: int,
         data: QuestionCreate
     ) -> HomeworkTaskQuestion:
-        return await self._core.add_question(task_id, data)
+        return await self._core.add_question(task_id, school_id, data)
 
     async def add_questions_batch(
         self,
         task_id: int,
+        school_id: int,
         questions: List[QuestionCreate]
     ) -> List[HomeworkTaskQuestion]:
-        return await self._core.add_questions_batch(task_id, questions)
+        return await self._core.add_questions_batch(task_id, school_id, questions)
 
     async def replace_question(
         self,
@@ -225,10 +227,11 @@ class HomeworkService:
         student_id: int,
         school_id: int,
         status: Optional[HomeworkStudentStatus] = None,
-        limit: int = 50
-    ) -> List[HomeworkStudent]:
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[HomeworkStudent], int]:
         return await self._submission.list_student_homework(
-            student_id, school_id, status, limit
+            student_id, school_id, status, page, page_size
         )
 
     async def start_task(
