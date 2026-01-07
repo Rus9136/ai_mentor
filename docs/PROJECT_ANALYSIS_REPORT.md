@@ -56,6 +56,11 @@
   - Textbooks: `subject_id`, `grade_level` (3 endpoints)
   - Students/Teachers: `search` (2 endpoints)
   - Questions: `question_type` с пагинацией (2 endpoints)
+- ✅ **Исправлена несогласованность типов в RLS** (миграция 024)
+  - Исправлены 3 политики с небезопасным `::boolean` кастингом
+  - `invitation_codes_update_policy`, `invitation_codes_delete_policy`, `invitation_code_uses_select_policy`
+  - Изменено с `COALESCE(...)::boolean = true` на `COALESCE(...) = 'true'`
+  - Добавлены интеграционные тесты в `test_rls_type_safety.py`
 
 ---
 
@@ -479,7 +484,7 @@ School (tenant root)
 |----------|----------|---------|
 | ~~RLS отсутствует для chat_sessions, homework~~ | ~~КРИТИЧНА~~ | ✅ **Исправлено 2026-01-07** |
 | ~~Session переменные не гарантированы~~ | ~~КРИТИЧНА~~ | ✅ **Исправлено 2026-01-07** (contextvars + get_db) |
-| Несогласованность типов в RLS | ВЫСОКАЯ | Унифицировать cast |
+| ~~Несогласованность типов в RLS~~ | ~~ВЫСОКАЯ~~ | ✅ **Исправлено 2026-01-07** (миграция 024) |
 | Нет партиционирования больших таблиц | ВЫСОКАЯ | Добавить для test_attempts, learning_activities |
 | Отсутствуют CHECK constraints | СРЕДНЯЯ | grade_level, passing_score |
 
@@ -522,6 +527,31 @@ Request Flow:
 - `app/api/dependencies.py` — упрощено, без дублирования
 
 **Тесты:** 18 тестов в `test_tenant_context.py`
+
+### ✅ RLS Type Consistency Fix (2026-01-07)
+
+**Миграция:** `024_fix_rls_type_consistency.py`
+
+**Проблема была:** 3 политики использовали небезопасный `::boolean` каст:
+```sql
+-- ОПАСНО: empty string вызывает ошибку каста
+COALESCE(current_setting('app.is_super_admin', true), 'false')::boolean = true
+```
+
+**Решение:**
+```sql
+-- БЕЗОПАСНО: строковое сравнение
+COALESCE(current_setting('app.is_super_admin', true), 'false') = 'true'
+```
+
+**Исправленные политики:**
+| Таблица | Политика |
+|---------|----------|
+| `invitation_codes` | `invitation_codes_update_policy` |
+| `invitation_codes` | `invitation_codes_delete_policy` |
+| `invitation_code_uses` | `invitation_code_uses_select_policy` |
+
+**Тесты:** 12 интеграционных тестов в `test_rls_type_safety.py`
 
 ### Индексы (хорошее покрытие)
 
