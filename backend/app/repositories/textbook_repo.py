@@ -66,6 +66,61 @@ class TextbookRepository:
         )
         return result.scalars().all()
 
+    async def get_all_global_paginated(
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        load_subject: bool = True,
+        subject_id: Optional[int] = None,
+        grade_level: Optional[int] = None,
+    ) -> Tuple[List[Textbook], int]:
+        """
+        Get all global textbooks (school_id = NULL) with pagination.
+
+        Args:
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+            load_subject: Whether to eager load subject
+            subject_id: Filter by subject ID
+            grade_level: Filter by grade level (1-11)
+
+        Returns:
+            Tuple of (list of textbooks, total count)
+        """
+        # Build filters
+        filters = [
+            Textbook.school_id.is_(None),
+            Textbook.is_deleted == False,  # noqa: E712
+        ]
+
+        if subject_id is not None:
+            filters.append(Textbook.subject_id == subject_id)
+        if grade_level is not None:
+            filters.append(Textbook.grade_level == grade_level)
+
+        # Base query for global textbooks
+        query = select(Textbook).where(*filters)
+
+        # Count total before pagination
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Apply ordering
+        query = query.order_by(Textbook.grade_level, Textbook.subject, Textbook.title)
+
+        # Apply eager loading
+        if load_subject:
+            query = query.options(selectinload(Textbook.subject_rel))
+
+        # Apply pagination
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        result = await self.db.execute(query)
+        textbooks = list(result.scalars().all())
+
+        return textbooks, total
+
     async def get_by_school(
         self,
         school_id: int,
@@ -111,6 +166,8 @@ class TextbookRepository:
         page_size: int = 20,
         include_global: bool = False,
         load_subject: bool = True,
+        subject_id: Optional[int] = None,
+        grade_level: Optional[int] = None,
     ) -> Tuple[List[Textbook], int]:
         """
         Get textbooks for a school with pagination.
@@ -121,24 +178,34 @@ class TextbookRepository:
             page_size: Number of items per page
             include_global: Whether to include global textbooks
             load_subject: Whether to eager load subject
+            subject_id: Filter by subject ID
+            grade_level: Filter by grade level (1-11)
 
         Returns:
             Tuple of (list of textbooks, total count)
         """
-        # Build filters
+        # Build school filter
         if include_global:
-            filter_condition = or_(
+            school_filter = or_(
                 Textbook.school_id == school_id,
                 Textbook.school_id.is_(None)
             )
         else:
-            filter_condition = Textbook.school_id == school_id
+            school_filter = Textbook.school_id == school_id
+
+        # Build all filters
+        filters = [
+            school_filter,
+            Textbook.is_deleted == False,  # noqa: E712
+        ]
+
+        if subject_id is not None:
+            filters.append(Textbook.subject_id == subject_id)
+        if grade_level is not None:
+            filters.append(Textbook.grade_level == grade_level)
 
         # Base query
-        query = select(Textbook).where(
-            filter_condition,
-            Textbook.is_deleted == False  # noqa: E712
-        )
+        query = select(Textbook).where(*filters)
 
         # Count total before pagination
         count_query = select(func.count()).select_from(query.subquery())

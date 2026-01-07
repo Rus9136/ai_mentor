@@ -399,10 +399,12 @@ async def get_mastery_trends(
     "/textbooks",
     response_model=PaginatedResponse[TextbookListResponse],
     summary="Get textbooks for teacher",
-    description="Get list of textbooks available to the teacher (global + school-specific). Supports pagination."
+    description="Get list of textbooks available to the teacher (global + school-specific). Supports pagination and filters."
 )
 async def list_textbooks_for_teacher(
     pagination: PaginationParams = Depends(get_pagination_params),
+    subject_id: int = Query(None, description="Filter by subject ID"),
+    grade_level: int = Query(None, ge=1, le=11, description="Filter by grade level (1-11)"),
     current_user: User = Depends(require_teacher),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db)
@@ -413,10 +415,19 @@ async def list_textbooks_for_teacher(
     Returns both global textbooks (school_id = NULL) and school-specific textbooks.
     Used by ContentSelector in homework creation.
     Supports pagination with `page` and `page_size` query parameters.
+
+    Filters:
+    - subject_id: Filter by subject ID
+    - grade_level: Filter by grade level (1-11)
     """
     repo = TextbookRepository(db)
     textbooks, total = await repo.get_by_school_paginated(
-        school_id, page=pagination.page, page_size=pagination.page_size, include_global=True
+        school_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        include_global=True,
+        subject_id=subject_id,
+        grade_level=grade_level,
     )
     return PaginatedResponse.create(textbooks, total, pagination.page, pagination.page_size)
 

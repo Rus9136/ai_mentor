@@ -2,14 +2,14 @@
 School Question Management API for ADMIN.
 """
 
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import require_admin, get_current_user_school_id
+from app.api.dependencies import require_admin, get_current_user_school_id, get_pagination_params
 from app.models.user import User
-from app.models.test import Question, QuestionOption
+from app.models.test import Question, QuestionOption, QuestionType
 from app.repositories.test_repo import TestRepository
 from app.repositories.question_repo import QuestionRepository, QuestionOptionRepository
 from app.schemas.question import (
@@ -17,6 +17,7 @@ from app.schemas.question import (
     QuestionUpdate,
     QuestionResponse,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import (
     get_test_for_school_admin,
     require_school_test,
@@ -93,22 +94,36 @@ async def create_school_question(
     }
 
 
-@router.get("/tests/{test_id}/questions", response_model=List[QuestionResponse])
+@router.get("/tests/{test_id}/questions", response_model=PaginatedResponse[QuestionResponse])
 async def list_school_questions(
     test_id: int,
     test=Depends(get_test_for_school_admin),
+    pagination: PaginationParams = Depends(get_pagination_params),
+    question_type: Optional[QuestionType] = Query(
+        None,
+        description="Filter by question type (single_choice, multiple_choice, true_false, short_answer)"
+    ),
     current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get all questions for a test (ADMIN only).
     Can access questions from global and own school tests.
+    Supports pagination with `page` and `page_size` query parameters.
+
+    Filters:
+    - question_type: Filter by question type (single_choice, multiple_choice, true_false, short_answer)
     """
     question_repo = QuestionRepository(db)
     option_repo = QuestionOptionRepository(db)
 
-    # Get questions WITHOUT eager loading options (avoid RLS issues)
-    questions = await question_repo.get_by_test(test_id, load_options=False)
+    # Get questions WITH pagination (without eager loading options to avoid RLS issues)
+    questions, total = await question_repo.get_by_test_paginated(
+        test_id=test_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        question_type=question_type,
+    )
 
     # Manually load options and build response
     result = []
@@ -145,7 +160,7 @@ async def list_school_questions(
         q_response = QuestionResponse(**q_dict)
         result.append(q_response)
 
-    return result
+    return PaginatedResponse.create(result, total, pagination.page, pagination.page_size)
 
 
 @router.get("/questions/{question_id}", response_model=QuestionResponse)

@@ -27,6 +27,8 @@ router = APIRouter(prefix="/textbooks", tags=["School Textbooks"])
 @router.get("", response_model=PaginatedResponse[TextbookListResponse])
 async def list_school_textbooks(
     include_global: bool = Query(True, description="Include global textbooks"),
+    subject_id: int = Query(None, description="Filter by subject ID"),
+    grade_level: int = Query(None, ge=1, le=11, description="Filter by grade level (1-11)"),
     pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_admin),
     school_id: int = Depends(get_current_user_school_id),
@@ -38,6 +40,8 @@ async def list_school_textbooks(
     - **page**: Page number (1-indexed, default: 1)
     - **page_size**: Items per page (default: 20, max: 100)
     - **include_global**: Include global textbooks (default: true)
+    - **subject_id**: Filter by subject ID
+    - **grade_level**: Filter by grade level (1-11)
     """
     textbook_repo = TextbookRepository(db)
 
@@ -46,6 +50,8 @@ async def list_school_textbooks(
         page=pagination.page,
         page_size=pagination.page_size,
         include_global=include_global,
+        subject_id=subject_id,
+        grade_level=grade_level,
     )
 
     return PaginatedResponse.create(

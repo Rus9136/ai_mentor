@@ -2,7 +2,7 @@
 Repository for Teacher data access.
 """
 from typing import Optional, List, Tuple
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -147,6 +147,7 @@ class TeacherRepository:
         subject_id: Optional[int] = None,
         class_id: Optional[int] = None,
         is_active: Optional[bool] = None,
+        search: Optional[str] = None,
         load_user: bool = True,
         load_subject: bool = True,
         load_classes: bool = False,
@@ -161,6 +162,7 @@ class TeacherRepository:
             subject_id: Filter by subject ID
             class_id: Filter by class ID
             is_active: Filter by active status
+            search: Search by first_name, last_name, or email
             load_user: Whether to eager load user data
             load_subject: Whether to eager load subject
             load_classes: Whether to eager load classes
@@ -177,13 +179,23 @@ class TeacherRepository:
         if subject_id is not None:
             filters.append(Teacher.subject_id == subject_id)
 
-        # Base query for items
-        query = select(Teacher)
+        # Base query for items - always join User for search
+        query = select(Teacher).join(Teacher.user)
 
-        # Join user if filtering by is_active
+        # Handle is_active filter
         if is_active is not None:
-            query = query.join(Teacher.user)
             filters.append(User.is_active == is_active)
+
+        # Handle search filter
+        if search:
+            search_filter = f"%{search}%"
+            filters.append(
+                or_(
+                    User.first_name.ilike(search_filter),
+                    User.last_name.ilike(search_filter),
+                    User.email.ilike(search_filter),
+                )
+            )
 
         query = query.where(and_(*filters))
 
@@ -197,12 +209,7 @@ class TeacherRepository:
         total = (await self.db.execute(count_query)).scalar() or 0
 
         # Apply ordering
-        if is_active is not None or load_user:
-            if is_active is None and load_user:
-                query = query.join(Teacher.user)
-            query = query.order_by(User.last_name, User.first_name)
-        else:
-            query = query.order_by(Teacher.created_at.desc())
+        query = query.order_by(User.last_name, User.first_name)
 
         # Apply eager loading
         if load_user:

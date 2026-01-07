@@ -3,12 +3,11 @@ Global Textbook CRUD endpoints for SUPER_ADMIN.
 Manages global textbooks (school_id = NULL).
 """
 
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import require_super_admin
+from app.api.dependencies import require_super_admin, get_pagination_params
 from app.models.user import User
 from app.models.textbook import Textbook
 from app.repositories.textbook_repo import TextbookRepository
@@ -19,6 +18,7 @@ from app.schemas.textbook import (
     TextbookResponse,
     TextbookListResponse,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import require_global_textbook
 
 
@@ -60,16 +60,31 @@ async def create_global_textbook(
     return await textbook_repo.create(textbook)
 
 
-@router.get("/textbooks", response_model=List[TextbookListResponse])
+@router.get("/textbooks", response_model=PaginatedResponse[TextbookListResponse])
 async def list_global_textbooks(
+    pagination: PaginationParams = Depends(get_pagination_params),
+    subject_id: int = Query(None, description="Filter by subject ID"),
+    grade_level: int = Query(None, ge=1, le=11, description="Filter by grade level (1-11)"),
     current_user: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get all global textbooks (SUPER_ADMIN only).
+
+    Supports pagination with `page` and `page_size` query parameters.
+
+    Filters:
+    - subject_id: Filter by subject ID
+    - grade_level: Filter by grade level (1-11)
     """
     textbook_repo = TextbookRepository(db)
-    return await textbook_repo.get_all_global()
+    textbooks, total = await textbook_repo.get_all_global_paginated(
+        page=pagination.page,
+        page_size=pagination.page_size,
+        subject_id=subject_id,
+        grade_level=grade_level,
+    )
+    return PaginatedResponse.create(textbooks, total, pagination.page, pagination.page_size)
 
 
 @router.get("/textbooks/{textbook_id}", response_model=TextbookResponse)

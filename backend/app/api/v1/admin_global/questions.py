@@ -3,14 +3,14 @@ Global Question CRUD endpoints for SUPER_ADMIN.
 Manages questions in global tests (school_id = NULL).
 """
 
-from typing import List, Tuple
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Tuple, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import require_super_admin
+from app.api.dependencies import require_super_admin, get_pagination_params
 from app.models.user import User
-from app.models.test import Test, Question, QuestionOption
+from app.models.test import Test, Question, QuestionOption, QuestionType
 from app.repositories.test_repo import TestRepository
 from app.repositories.question_repo import QuestionRepository, QuestionOptionRepository
 from app.schemas.question import (
@@ -18,6 +18,7 @@ from app.schemas.question import (
     QuestionUpdate,
     QuestionResponse,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import require_global_test, require_global_question
 
 
@@ -87,9 +88,14 @@ async def create_global_question(
     }
 
 
-@router.get("/tests/{test_id}/questions", response_model=List[QuestionResponse])
+@router.get("/tests/{test_id}/questions", response_model=PaginatedResponse[QuestionResponse])
 async def list_global_questions(
     test: Test = Depends(require_global_test),
+    pagination: PaginationParams = Depends(get_pagination_params),
+    question_type: Optional[QuestionType] = Query(
+        None,
+        description="Filter by question type (single_choice, multiple_choice, true_false, short_answer)"
+    ),
     current_user: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ):
@@ -98,12 +104,21 @@ async def list_global_questions(
 
     Returns questions with options loaded manually in the same session
     to avoid RLS session variable issues with eager loading.
+    Supports pagination with `page` and `page_size` query parameters.
+
+    Filters:
+    - question_type: Filter by question type (single_choice, multiple_choice, true_false, short_answer)
     """
     question_repo = QuestionRepository(db)
     option_repo = QuestionOptionRepository(db)
 
-    # Get questions WITHOUT eager loading options (avoid RLS issues)
-    questions = await question_repo.get_by_test(test.id, load_options=False)
+    # Get questions WITH pagination (without eager loading options to avoid RLS issues)
+    questions, total = await question_repo.get_by_test_paginated(
+        test_id=test.id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        question_type=question_type,
+    )
 
     # Manually load options and build response (avoid SQLAlchemy lazy load issues)
     result = []
@@ -141,7 +156,7 @@ async def list_global_questions(
         q_response = QuestionResponse(**q_dict)
         result.append(q_response)
 
-    return result
+    return PaginatedResponse.create(result, total, pagination.page, pagination.page_size)
 
 
 @router.get("/questions/{question_id}", response_model=QuestionResponse)

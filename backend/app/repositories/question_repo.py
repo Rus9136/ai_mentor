@@ -1,13 +1,13 @@
 """
 Repository for Question and QuestionOption data access.
 """
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from datetime import datetime
-from sqlalchemy import select
+from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.test import Question, QuestionOption
+from app.models.test import Question, QuestionOption, QuestionType
 
 
 class QuestionRepository:
@@ -66,6 +66,51 @@ class QuestionRepository:
 
         result = await self.db.execute(query.order_by(Question.sort_order))
         return result.scalars().all()
+
+    async def get_by_test_paginated(
+        self,
+        test_id: int,
+        page: int = 1,
+        page_size: int = 20,
+        question_type: Optional[QuestionType] = None,
+    ) -> Tuple[List[Question], int]:
+        """
+        Get all questions for a specific test with pagination.
+
+        Args:
+            test_id: Test ID
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+            question_type: Filter by question type (SINGLE_CHOICE, MULTIPLE_CHOICE, etc.)
+
+        Returns:
+            Tuple of (list of questions, total count)
+        """
+        # Build filters
+        filters = [
+            Question.test_id == test_id,
+            Question.is_deleted == False,  # noqa: E712
+        ]
+
+        if question_type is not None:
+            filters.append(Question.question_type == question_type)
+
+        # Base query (without eager loading options to avoid RLS issues)
+        query = select(Question).where(and_(*filters))
+
+        # Count total before pagination
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Apply ordering and pagination
+        query = query.order_by(Question.sort_order)
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        result = await self.db.execute(query)
+        questions = list(result.scalars().all())
+
+        return questions, total
 
     async def create(self, question: Question) -> Question:
         """

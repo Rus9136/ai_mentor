@@ -52,6 +52,10 @@
   - `GET /students/textbooks` — `subject_id`, `grade_level`
   - `GET /teachers/classes` — пагинация + `academic_year`, `grade_level`
   - `GET /teachers/analytics/struggling-topics` — пагинация
+- ✅ **P2 Фильтры для админ панелей** (см. секцию 1.3)
+  - Textbooks: `subject_id`, `grade_level` (3 endpoints)
+  - Students/Teachers: `search` (2 endpoints)
+  - Questions: `question_type` с пагинацией (2 endpoints)
 
 ---
 
@@ -121,6 +125,76 @@ GET /api/v1/teachers/analytics/struggling-topics?page=1&page_size=20
 - `backend/app/api/v1/teachers.py`
 - `backend/app/services/student_content_service.py`
 - `backend/app/services/teacher_analytics/*.py`
+
+### ✅ P2 Фильтры для админ панелей (2026-01-07)
+
+#### P2.1: Textbooks — `subject_id`, `grade_level`
+
+| Endpoint | Фильтры | Описание |
+|----------|---------|----------|
+| `GET /admin/global/textbooks` | `subject_id`, `grade_level` | SUPER_ADMIN: фильтр глобальных учебников |
+| `GET /admin/school/textbooks` | `subject_id`, `grade_level` | School ADMIN: фильтр школьных учебников |
+| `GET /teachers/textbooks` | `subject_id`, `grade_level` | Учитель: выбор учебника для ДЗ |
+
+**Примеры запросов:**
+```bash
+# Учебники 7 класса по математике (subject_id=1)
+GET /api/v1/admin/global/textbooks?subject_id=1&grade_level=7
+
+# Школьные учебники 9 класса по физике (subject_id=3)
+GET /api/v1/admin/school/textbooks?subject_id=3&grade_level=9&include_global=true
+```
+
+#### P2.3: Students/Teachers — `search`
+
+| Endpoint | Фильтры | Поля поиска |
+|----------|---------|-------------|
+| `GET /admin/school/students` | `search` (min 2 chars) | first_name, last_name, student_code |
+| `GET /admin/school/teachers` | `search` (min 2 chars) | first_name, last_name, email |
+
+**Примеры запросов:**
+```bash
+# Поиск студентов по имени
+GET /api/v1/admin/school/students?search=Иван
+
+# Поиск учителей по email
+GET /api/v1/admin/school/teachers?search=math@
+```
+
+#### P2.2: Questions — `question_type` + pagination
+
+| Endpoint | Фильтры | Описание |
+|----------|---------|----------|
+| `GET /admin/global/tests/{id}/questions` | `question_type` + pagination | Фильтр вопросов теста |
+| `GET /admin/school/tests/{id}/questions` | `question_type` + pagination | Фильтр школьных вопросов |
+
+**Значения `question_type`:**
+- `single_choice` — один правильный ответ
+- `multiple_choice` — несколько правильных ответов
+- `true_false` — верно/неверно
+- `short_answer` — короткий текстовый ответ
+
+**Примеры запросов:**
+```bash
+# Только вопросы с выбором одного ответа
+GET /api/v1/admin/global/tests/1/questions?question_type=single_choice&page=1&page_size=10
+
+# Все вопросы теста с пагинацией
+GET /api/v1/admin/school/tests/5/questions?page=1&page_size=20
+```
+
+**Изменённые файлы:**
+- `backend/app/api/v1/admin_global/textbooks.py`
+- `backend/app/api/v1/admin_global/questions.py`
+- `backend/app/api/v1/admin_school/textbooks.py`
+- `backend/app/api/v1/admin_school/questions.py`
+- `backend/app/api/v1/admin_school/students.py`
+- `backend/app/api/v1/admin_school/teachers.py`
+- `backend/app/api/v1/teachers.py`
+- `backend/app/repositories/textbook_repo.py`
+- `backend/app/repositories/student_repo.py`
+- `backend/app/repositories/teacher_repo.py`
+- `backend/app/repositories/question_repo.py`
 
 ### Статистика по модулям
 

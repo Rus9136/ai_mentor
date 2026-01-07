@@ -33,6 +33,7 @@ async def list_school_teachers(
     subject_id: Optional[int] = Query(None, description="Filter by subject ID"),
     class_id: Optional[int] = Query(None, description="Filter by class ID"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    search: Optional[str] = Query(None, min_length=2, description="Search by name or email"),
     pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_admin),
     school_id: int = Depends(get_current_user_school_id),
@@ -46,6 +47,7 @@ async def list_school_teachers(
     - **subject_id**: Filter by subject
     - **class_id**: Filter by class
     - **is_active**: Filter by active status
+    - **search**: Search by first_name, last_name, or email (min 2 chars)
     """
     teacher_repo = TeacherRepository(db)
 
@@ -56,6 +58,7 @@ async def list_school_teachers(
         subject_id=subject_id,
         class_id=class_id,
         is_active=is_active,
+        search=search,
         load_user=True,
     )
 

@@ -32,6 +32,7 @@ async def list_school_students(
     grade_level: Optional[int] = Query(None, ge=1, le=11, description="Filter by grade level"),
     class_id: Optional[int] = Query(None, description="Filter by class ID"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    search: Optional[str] = Query(None, min_length=2, description="Search by name or student code"),
     pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_admin),
     school_id: int = Depends(get_current_user_school_id),
@@ -45,6 +46,7 @@ async def list_school_students(
     - **grade_level**: Filter by grade (1-11)
     - **class_id**: Filter by class
     - **is_active**: Filter by active status
+    - **search**: Search by first_name, last_name, or student_code (min 2 chars)
     """
     student_repo = StudentRepository(db)
 
@@ -55,6 +57,7 @@ async def list_school_students(
         grade_level=grade_level,
         class_id=class_id,
         is_active=is_active,
+        search=search,
         load_user=True,
     )
 
