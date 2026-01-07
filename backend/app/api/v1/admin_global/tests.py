@@ -3,12 +3,12 @@ Global Test CRUD endpoints for SUPER_ADMIN.
 Manages global tests (school_id = NULL).
 """
 
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import require_super_admin
+from app.api.dependencies import require_super_admin, get_pagination_params
 from app.models.user import User
 from app.models.test import Test
 from app.repositories.test_repo import TestRepository
@@ -21,6 +21,7 @@ from app.schemas.test import (
     TestResponse,
     TestListResponse,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import require_global_test
 
 
@@ -108,24 +109,26 @@ async def create_global_test(
     return await test_repo.create(test)
 
 
-@router.get("/tests", response_model=List[TestListResponse])
+@router.get("/tests", response_model=PaginatedResponse[TestListResponse])
 async def list_global_tests(
-    chapter_id: int = None,
+    chapter_id: Optional[int] = Query(None, description="Filter by chapter ID"),
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get all global tests (SUPER_ADMIN only).
-    Optionally filter by chapter_id.
+
+    Optionally filter by chapter_id. Supports pagination with `page` and `page_size` query parameters.
     """
     test_repo = TestRepository(db)
 
-    if chapter_id:
-        # Get tests for specific chapter (global only)
-        return await test_repo.get_by_chapter(chapter_id, school_id=None)
-    else:
-        # Get all global tests
-        return await test_repo.get_all_global()
+    tests, total = await test_repo.get_all_global_paginated(
+        page=pagination.page,
+        page_size=pagination.page_size,
+        chapter_id=chapter_id,
+    )
+    return PaginatedResponse.create(tests, total, pagination.page, pagination.page_size)
 
 
 @router.get("/tests/{test_id}", response_model=TestResponse)

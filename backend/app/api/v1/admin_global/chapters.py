@@ -3,12 +3,12 @@ Global Chapter CRUD endpoints for SUPER_ADMIN.
 Manages chapters in global textbooks (school_id = NULL).
 """
 
-from typing import List, Tuple
+from typing import Tuple
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import require_super_admin
+from app.api.dependencies import require_super_admin, get_pagination_params
 from app.models.user import User
 from app.models.textbook import Textbook
 from app.models.chapter import Chapter
@@ -19,6 +19,7 @@ from app.schemas.chapter import (
     ChapterResponse,
     ChapterListResponse,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import require_global_textbook, require_global_chapter
 
 
@@ -57,17 +58,25 @@ async def create_global_chapter(
     return await chapter_repo.create(chapter)
 
 
-@router.get("/textbooks/{textbook_id}/chapters", response_model=List[ChapterListResponse])
+@router.get("/textbooks/{textbook_id}/chapters", response_model=PaginatedResponse[ChapterListResponse])
 async def list_global_chapters(
     textbook: Textbook = Depends(require_global_textbook),
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get all chapters for a global textbook (SUPER_ADMIN only).
+
+    Supports pagination with `page` and `page_size` query parameters.
     """
     chapter_repo = ChapterRepository(db)
-    return await chapter_repo.get_by_textbook(textbook.id)
+    chapters, total = await chapter_repo.get_by_textbook_paginated(
+        textbook_id=textbook.id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
+    return PaginatedResponse.create(chapters, total, pagination.page, pagination.page_size)
 
 
 @router.get("/chapters/{chapter_id}", response_model=ChapterResponse)

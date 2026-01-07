@@ -22,9 +22,11 @@ from app.api.dependencies import (
     require_student,
     get_current_user_school_id,
     get_student_from_user,
+    get_pagination_params,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.services.homework import HomeworkService, HomeworkServiceError
-from app.services.homework_ai_service import HomeworkAIService
+from app.services.homework.ai import HomeworkAIService
 from app.schemas.homework import (
     StudentHomeworkResponse,
     StudentTaskResponse,
@@ -60,27 +62,31 @@ async def get_homework_service(
 
 @router.get(
     "/homework",
-    response_model=List[StudentHomeworkResponse],
+    response_model=PaginatedResponse[StudentHomeworkResponse],
     summary="Get my homework",
-    description="Get list of homework assigned to the current student."
+    description="Get list of homework assigned to the current student. Supports pagination."
 )
 async def list_my_homework(
-    status: Optional[StudentHomeworkStatus] = Query(None, description="Filter by status"),
+    pagination: PaginationParams = Depends(get_pagination_params),
+    hw_status: Optional[StudentHomeworkStatus] = Query(None, alias="status", description="Filter by status"),
     include_completed: bool = Query(True, description="Include completed homework"),
     current_user: User = Depends(require_student),
     school_id: int = Depends(get_current_user_school_id),
     student: Student = Depends(get_student_from_user),
     service: HomeworkService = Depends(get_homework_service)
-) -> List[StudentHomeworkResponse]:
+) -> PaginatedResponse[StudentHomeworkResponse]:
     """
     Get homework assigned to student.
 
     Returns homework with due dates, progress, and scores.
+    Supports pagination with `page` and `page_size` query parameters.
     """
-    homework_list = await service.list_student_homework(
+    homework_list, total = await service.list_student_homework(
         student_id=student.id,
         school_id=school_id,
-        status=status
+        status=hw_status,
+        page=pagination.page,
+        page_size=pagination.page_size,
     )
 
     now = datetime.now(timezone.utc)
@@ -128,12 +134,12 @@ async def list_my_homework(
             max_score=max_score,
             my_percentage=hw_student.percentage,
             is_late=is_late,
-            late_penalty=hw_student.late_penalty_applied or 0,
+            late_penalty=0,  # Penalty calculated per-task in submissions
             show_explanations=homework.show_explanations,
             tasks=tasks_response
         ))
 
-    return results
+    return PaginatedResponse.create(results, total, pagination.page, pagination.page_size)
 
 
 @router.get(
@@ -208,7 +214,7 @@ async def get_homework_detail(
         max_score=max_score,
         my_percentage=hw_student.percentage,
         is_late=is_late,
-        late_penalty=hw_student.late_penalty_applied or 0,
+        late_penalty=0,  # Penalty calculated per-task in submissions
         show_explanations=homework.show_explanations,
         tasks=tasks_response
     )
@@ -270,6 +276,7 @@ async def start_task(
         current_attempt=attempts_used,
         max_attempts=task.max_attempts,
         attempts_remaining=task.max_attempts - attempts_used,
+        submission_id=submission.id,  # Include submission ID for answer submission
         questions_count=len(task.questions) if task.questions else 0,
         answered_count=0
     )
@@ -571,6 +578,7 @@ async def _build_student_tasks(
             current_attempt=attempts_used,
             max_attempts=task.max_attempts,
             attempts_remaining=max(0, task.max_attempts - attempts_used),
+            submission_id=latest_submission.id if latest_submission else None,
             my_score=my_score,
             questions_count=len(task.questions) if task.questions else 0,
             answered_count=answered_count

@@ -1,7 +1,11 @@
 """
 Learning activity models.
+
+Note: learning_activities is a partitioned table (RANGE by activity_timestamp, monthly).
+PRIMARY KEY is (id, activity_timestamp) to support PostgreSQL partitioning.
+See migration: a6f786ce22f9_partition_learning_activities.py
 """
-from sqlalchemy import Column, String, Integer, ForeignKey, Text, DateTime, Float, Enum as SQLEnum, JSON, Boolean
+from sqlalchemy import Column, String, Integer, ForeignKey, Text, DateTime, Float, Enum as SQLEnum, JSON, Boolean, PrimaryKeyConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -95,9 +99,25 @@ class LearningSession(BaseModel):
 
 
 class LearningActivity(BaseModel):
-    """Learning activity model."""
+    """Learning activity model.
+
+    PARTITIONED TABLE: Uses composite PRIMARY KEY (id, activity_timestamp) for partition support.
+    Partitions: learning_activities_YYYY_MM (monthly from 2025-01 to 2027-12).
+    """
 
     __tablename__ = "learning_activities"
+
+    # Override BaseModel's id to be part of composite PK
+    id = Column(Integer, nullable=False)
+
+    # Partition key - must be part of PRIMARY KEY
+    activity_timestamp = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+
+    # Composite primary key for partitioning
+    __table_args__ = (
+        PrimaryKeyConstraint('id', 'activity_timestamp'),
+        {'postgresql_partition_by': 'RANGE (activity_timestamp)'},
+    )
 
     # Relationships
     session_id = Column(Integer, ForeignKey("learning_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -106,7 +126,6 @@ class LearningActivity(BaseModel):
 
     # Activity info
     activity_type = Column(SQLEnum(ActivityType), nullable=False, index=True)
-    activity_timestamp = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
     duration = Column(Integer, nullable=True)  # Duration in seconds
 
     # References

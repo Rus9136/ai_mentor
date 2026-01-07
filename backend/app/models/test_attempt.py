@@ -1,7 +1,11 @@
 """
 Test attempt models.
+
+Note: test_attempts is a partitioned table (RANGE by started_at, monthly).
+PRIMARY KEY is (id, started_at) to support PostgreSQL partitioning.
+See migration: 5d20a0c758f1_partition_test_attempts.py
 """
-from sqlalchemy import Column, Integer, ForeignKey, Float, DateTime, Boolean, Text, Enum as SQLEnum, JSON
+from sqlalchemy import Column, Integer, ForeignKey, Float, DateTime, Boolean, Text, Enum as SQLEnum, JSON, PrimaryKeyConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 import enum
@@ -18,9 +22,25 @@ class AttemptStatus(str, enum.Enum):
 
 
 class TestAttempt(BaseModel):
-    """Test attempt model."""
+    """Test attempt model.
+
+    PARTITIONED TABLE: Uses composite PRIMARY KEY (id, started_at) for partition support.
+    Partitions: test_attempts_YYYY_MM (monthly from 2025-01 to 2027-12).
+    """
 
     __tablename__ = "test_attempts"
+
+    # Override BaseModel's id to be part of composite PK
+    id = Column(Integer, nullable=False)
+
+    # Partition key - must be part of PRIMARY KEY
+    started_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    # Composite primary key for partitioning
+    __table_args__ = (
+        PrimaryKeyConstraint('id', 'started_at'),
+        {'postgresql_partition_by': 'RANGE (started_at)'},
+    )
 
     # Relationships
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -35,7 +55,6 @@ class TestAttempt(BaseModel):
         default=AttemptStatus.IN_PROGRESS,
         index=True
     )
-    started_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime(timezone=True), nullable=True)
 
     # Results

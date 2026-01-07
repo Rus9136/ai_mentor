@@ -293,7 +293,7 @@ async def delete_task(
         if not deleted:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task not found"
+                detail="Задание не найдено или уже удалено"
             )
     except HomeworkServiceError as e:
         raise HTTPException(
@@ -337,13 +337,15 @@ async def generate_questions(
     service: HomeworkService = Depends(get_homework_service)
 ) -> List[QuestionResponseWithAnswer]:
     """Generate questions using AI based on the paragraph content."""
-    # Update task with generation params if provided
-    if params:
-        await service.homework_repo.update_task(
-            task_id=task.id,
-            school_id=school_id,
-            data={"generation_params": params.model_dump()}
-        )
+    # Use default params if not provided
+    generation_params = params or GenerationParams()
+
+    # Update task with generation params
+    await service.homework_repo.update_task(
+        task_id=task.id,
+        school_id=school_id,
+        data={"generation_params": generation_params.model_dump()}
+    )
 
     try:
         questions = await service.generate_questions_for_task(

@@ -8,14 +8,45 @@ Provides reusable patterns for:
 """
 
 from typing import Any, Callable, Tuple, TypeVar
+import types
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user_school_id
 from app.core.database import get_db
 
 T = TypeVar('T')
+
+
+def _create_function_with_param_name(
+    param_name: str,
+    async_body: Callable,
+) -> Callable:
+    """
+    Create a new async function with a specific parameter name.
+    This is needed because FastAPI uses inspect.signature() which reads
+    actual parameter names, not just __annotations__.
+    """
+    # Create the function dynamically with correct parameter name
+    code = f'''
+async def dependency(
+    {param_name}: int = Path(..., description="Entity ID"),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    return await async_body({param_name}, school_id, db)
+'''
+    local_vars = {
+        'Path': Path,
+        'Depends': Depends,
+        'AsyncSession': AsyncSession,
+        'get_current_user_school_id': get_current_user_school_id,
+        'get_db': get_db,
+        'async_body': async_body,
+    }
+    exec(code, local_vars, local_vars)
+    return local_vars['dependency']
 
 
 def create_entity_dependency(
@@ -43,11 +74,7 @@ def create_entity_dependency(
     param_name = id_param_name or f"{entity_name.lower()}_id"
     kwargs = extra_kwargs or {}
 
-    async def dependency(
-        entity_id: int,
-        school_id: int = Depends(get_current_user_school_id),
-        db: AsyncSession = Depends(get_db)
-    ):
+    async def _async_body(entity_id: int, school_id: int, db: AsyncSession):
         # Dynamic import to avoid circular imports
         module_path, class_name = repo_class_path.rsplit('.', 1)
         module = __import__(module_path, fromlist=[class_name])
@@ -78,15 +105,7 @@ def create_entity_dependency(
 
         return entity
 
-    # Rename function parameters for FastAPI
-    dependency.__annotations__ = {
-        param_name: int,
-        "school_id": int,
-        "db": AsyncSession,
-        "return": Any
-    }
-
-    return dependency
+    return _create_function_with_param_name(param_name, _async_body)
 
 
 def create_content_dependency(
@@ -116,11 +135,7 @@ def create_content_dependency(
     param_name = id_param_name or f"{entity_name.lower()}_id"
     kwargs = extra_kwargs or {}
 
-    async def dependency(
-        entity_id: int,
-        school_id: int = Depends(get_current_user_school_id),
-        db: AsyncSession = Depends(get_db)
-    ):
+    async def _async_body(entity_id: int, school_id: int, db: AsyncSession):
         module_path, class_name = repo_class_path.rsplit('.', 1)
         module = __import__(module_path, fromlist=[class_name])
         repo_class = getattr(module, class_name)
@@ -155,14 +170,7 @@ def create_content_dependency(
 
         return entity
 
-    dependency.__annotations__ = {
-        param_name: int,
-        "school_id": int,
-        "db": AsyncSession,
-        "return": Any
-    }
-
-    return dependency
+    return _create_function_with_param_name(param_name, _async_body)
 
 
 def create_hierarchical_dependency(
@@ -193,11 +201,7 @@ def create_hierarchical_dependency(
     """
     param_name = id_param_name or f"{entity_name.lower()}_id"
 
-    async def dependency(
-        entity_id: int,
-        school_id: int = Depends(get_current_user_school_id),
-        db: AsyncSession = Depends(get_db)
-    ):
+    async def _async_body(entity_id: int, school_id: int, db: AsyncSession):
         # Get main entity
         module_path, class_name = entity_repo_path.rsplit('.', 1)
         module = __import__(module_path, fromlist=[class_name])
@@ -261,11 +265,4 @@ def create_hierarchical_dependency(
             return (entity, *parents)
         return entity
 
-    dependency.__annotations__ = {
-        param_name: int,
-        "school_id": int,
-        "db": AsyncSession,
-        "return": Any
-    }
-
-    return dependency
+    return _create_function_with_param_name(param_name, _async_body)

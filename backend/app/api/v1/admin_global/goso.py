@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import require_super_admin
+from app.api.dependencies import require_super_admin, get_pagination_params
 from app.models.user import User
 from app.models.textbook import Textbook
 from app.models.chapter import Chapter
@@ -22,6 +22,7 @@ from app.schemas.goso import (
     ParagraphOutcomeResponse,
     ParagraphOutcomeWithDetails,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import require_global_paragraph
 
 
@@ -118,9 +119,10 @@ async def create_global_paragraph_outcome(
     return created
 
 
-@router.get("/paragraphs/{paragraph_id}/outcomes", response_model=list[ParagraphOutcomeWithDetails])
+@router.get("/paragraphs/{paragraph_id}/outcomes", response_model=PaginatedResponse[ParagraphOutcomeWithDetails])
 async def get_global_paragraph_outcomes(
     paragraph_data: Tuple[Paragraph, Chapter, Textbook] = Depends(require_global_paragraph),
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ):
@@ -128,12 +130,18 @@ async def get_global_paragraph_outcomes(
     Get all outcomes linked to a global paragraph (SUPER_ADMIN only).
 
     Returns all learning outcomes mapped to the specified paragraph.
+    Supports pagination with `page` and `page_size` query parameters.
     """
     paragraph, _, _ = paragraph_data
     po_repo = ParagraphOutcomeRepository(db)
 
-    # Get links with outcome details
-    links = await po_repo.get_by_paragraph(paragraph.id, load_outcome=True)
+    # Get links with outcome details (with pagination)
+    links, total = await po_repo.get_by_paragraph_paginated(
+        paragraph_id=paragraph.id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        load_outcome=True
+    )
 
     # Build response
     result = []
@@ -159,7 +167,7 @@ async def get_global_paragraph_outcomes(
 
         result.append(ParagraphOutcomeWithDetails(**response_data))
 
-    return result
+    return PaginatedResponse.create(result, total, pagination.page, pagination.page_size)
 
 
 @router.put("/paragraph-outcomes/{outcome_link_id}", response_model=ParagraphOutcomeResponse)

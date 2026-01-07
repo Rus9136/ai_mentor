@@ -20,7 +20,9 @@ from app.api.dependencies import (
     get_current_user_school_id,
     get_student_from_user,
     get_test_taking_service,
+    get_pagination_params,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from app.models.student import Student
 from app.models.test import TestPurpose, DifficultyLevel
 from app.services.grading_service import GradingService
@@ -39,8 +41,9 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.get("/tests", response_model=List[AvailableTestResponse])
+@router.get("/tests", response_model=PaginatedResponse[AvailableTestResponse])
 async def get_available_tests(
+    pagination: PaginationParams = Depends(get_pagination_params),
     student: Student = Depends(get_student_from_user),
     school_id: int = Depends(get_current_user_school_id),
     chapter_id: Optional[int] = Query(None, description="Filter by chapter ID"),
@@ -54,10 +57,13 @@ async def get_available_tests(
 
     Returns both global tests (school_id = NULL) and school-specific tests.
     Includes metadata: question_count, attempts_count, best_score.
+    Supports pagination with `page` and `page_size` query parameters.
     """
-    tests_data = await service.get_available_tests(
+    tests_data, total = await service.get_available_tests(
         school_id=school_id,
         student_id=student.id,
+        page=pagination.page,
+        page_size=pagination.page_size,
         chapter_id=chapter_id,
         paragraph_id=paragraph_id,
         test_purpose=test_purpose,
@@ -88,7 +94,7 @@ async def get_available_tests(
             )
         )
 
-    return result
+    return PaginatedResponse.create(result, total, pagination.page, pagination.page_size)
 
 
 @router.post("/tests/{test_id}/start", response_model=TestAttemptDetailResponse)

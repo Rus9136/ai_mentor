@@ -3,12 +3,12 @@ Global Paragraph CRUD endpoints for SUPER_ADMIN.
 Manages paragraphs in global textbooks (school_id = NULL).
 """
 
-from typing import List, Tuple
+from typing import Tuple
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import require_super_admin
+from app.api.dependencies import require_super_admin, get_pagination_params
 from app.models.user import User
 from app.models.textbook import Textbook
 from app.models.chapter import Chapter
@@ -22,6 +22,7 @@ from app.schemas.paragraph import (
     ParagraphResponse,
     ParagraphListResponse,
 )
+from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import require_global_chapter, require_global_paragraph
 
 
@@ -61,18 +62,26 @@ async def create_global_paragraph(
     return await paragraph_repo.create(paragraph)
 
 
-@router.get("/chapters/{chapter_id}/paragraphs", response_model=List[ParagraphListResponse])
+@router.get("/chapters/{chapter_id}/paragraphs", response_model=PaginatedResponse[ParagraphListResponse])
 async def list_global_paragraphs(
     chapter_and_textbook: Tuple[Chapter, Textbook] = Depends(require_global_chapter),
+    pagination: PaginationParams = Depends(get_pagination_params),
     current_user: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get all paragraphs for a global chapter (SUPER_ADMIN only).
+
+    Supports pagination with `page` and `page_size` query parameters.
     """
     chapter, _ = chapter_and_textbook
     paragraph_repo = ParagraphRepository(db)
-    return await paragraph_repo.get_by_chapter(chapter.id)
+    paragraphs, total = await paragraph_repo.get_by_chapter_paginated(
+        chapter_id=chapter.id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
+    return PaginatedResponse.create(paragraphs, total, pagination.page, pagination.page_size)
 
 
 @router.get("/paragraphs/{paragraph_id}", response_model=ParagraphResponse)
