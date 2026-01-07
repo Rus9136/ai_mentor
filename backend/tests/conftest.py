@@ -3,7 +3,7 @@ Pytest configuration and fixtures.
 """
 import pytest
 import pytest_asyncio
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
@@ -12,11 +12,14 @@ from sqlalchemy import select as sa_select
 
 from app.core.database import Base, get_db
 from app.core.config import settings
-from app.core.security import get_password_hash, create_access_token
+from app.core.security import get_password_hash, create_access_token, create_refresh_token
 from app.main import app
 from app.models.user import User, UserRole
 from app.models.school import School
 from app.models.student import Student
+from app.models.teacher import Teacher
+from app.models.school_class import SchoolClass
+from app.models.invitation_code import InvitationCode
 from app.models.textbook import Textbook
 from app.models.chapter import Chapter
 from app.models.paragraph import Paragraph
@@ -501,3 +504,273 @@ async def inactive_test(
     await db_session.commit()
     await db_session.refresh(test)
     return test
+
+
+# ========== Auth Fixtures (Admin, Teacher, Inactive User) ==========
+
+@pytest_asyncio.fixture
+async def super_admin_user(db_session: AsyncSession) -> User:
+    """Create a SUPER_ADMIN user (no school_id)."""
+    user = User(
+        email="superadmin@test.com",
+        password_hash=get_password_hash("admin123"),
+        first_name="Super",
+        last_name="Admin",
+        role=UserRole.SUPER_ADMIN,
+        school_id=None,  # Super admin has no school
+        is_active=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def admin_user(db_session: AsyncSession, school1: School) -> User:
+    """Create an ADMIN user for school1."""
+    user = User(
+        email="admin@test.com",
+        password_hash=get_password_hash("admin123"),
+        first_name="School",
+        last_name="Admin",
+        role=UserRole.ADMIN,
+        school_id=school1.id,
+        is_active=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def teacher_user(db_session: AsyncSession, school1: School) -> tuple[User, Teacher]:
+    """
+    Create a TEACHER user with Teacher record.
+    Returns tuple of (User, Teacher).
+    """
+    user = User(
+        email="teacher@test.com",
+        password_hash=get_password_hash("teacher123"),
+        first_name="Test",
+        last_name="Teacher",
+        role=UserRole.TEACHER,
+        school_id=school1.id,
+        is_active=True,
+    )
+    db_session.add(user)
+    await db_session.flush()
+
+    teacher = Teacher(
+        user_id=user.id,
+        school_id=school1.id,
+        teacher_code="TCH0720250001",
+        subject="Математика",
+    )
+    db_session.add(teacher)
+    await db_session.commit()
+
+    # Eager load relationships
+    result = await db_session.execute(
+        sa_select(User)
+        .where(User.id == user.id)
+        .options(selectinload(User.teacher))
+    )
+    user = result.scalar_one()
+
+    result = await db_session.execute(
+        sa_select(Teacher)
+        .where(Teacher.id == teacher.id)
+        .options(selectinload(Teacher.user))
+    )
+    teacher = result.scalar_one()
+
+    return (user, teacher)
+
+
+@pytest_asyncio.fixture
+async def inactive_user(db_session: AsyncSession, school1: School) -> User:
+    """Create an inactive user (is_active=False)."""
+    user = User(
+        email="inactive@test.com",
+        password_hash=get_password_hash("inactive123"),
+        first_name="Inactive",
+        last_name="User",
+        role=UserRole.STUDENT,
+        school_id=school1.id,
+        is_active=False,  # INACTIVE
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def super_admin_token(super_admin_user: User) -> str:
+    """Create access token for super admin."""
+    return create_access_token(data={
+        "sub": str(super_admin_user.id),
+        "email": super_admin_user.email,
+        "role": super_admin_user.role.value,
+        "school_id": super_admin_user.school_id,
+    })
+
+
+@pytest_asyncio.fixture
+async def admin_token(admin_user: User) -> str:
+    """Create access token for admin."""
+    return create_access_token(data={
+        "sub": str(admin_user.id),
+        "email": admin_user.email,
+        "role": admin_user.role.value,
+        "school_id": admin_user.school_id,
+    })
+
+
+@pytest_asyncio.fixture
+async def teacher_token(teacher_user: tuple[User, Teacher]) -> str:
+    """Create access token for teacher."""
+    user, _ = teacher_user
+    return create_access_token(data={
+        "sub": str(user.id),
+        "email": user.email,
+        "role": user.role.value,
+        "school_id": user.school_id,
+    })
+
+
+# ========== School Class & Invitation Code Fixtures ==========
+
+@pytest_asyncio.fixture
+async def school_class(db_session: AsyncSession, school1: School) -> SchoolClass:
+    """Create a test class in school1."""
+    school_class = SchoolClass(
+        school_id=school1.id,
+        name="7А",
+        code="7A-2025",
+        grade_level=7,
+        academic_year="2024-2025",
+    )
+    db_session.add(school_class)
+    await db_session.commit()
+    await db_session.refresh(school_class)
+    return school_class
+
+
+@pytest_asyncio.fixture
+async def invitation_code(
+    db_session: AsyncSession,
+    school1: School,
+    school_class: SchoolClass,
+    admin_user: User
+) -> InvitationCode:
+    """Create a valid invitation code for school1."""
+    code = InvitationCode(
+        school_id=school1.id,
+        class_id=school_class.id,
+        code="TEST123",
+        grade_level=7,
+        max_uses=10,
+        uses_count=0,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        created_by=admin_user.id,
+        is_active=True,
+    )
+    db_session.add(code)
+    await db_session.commit()
+
+    # Eager load relationships
+    result = await db_session.execute(
+        sa_select(InvitationCode)
+        .where(InvitationCode.id == code.id)
+        .options(
+            selectinload(InvitationCode.school),
+            selectinload(InvitationCode.school_class)
+        )
+    )
+    code = result.scalar_one()
+    return code
+
+
+@pytest_asyncio.fixture
+async def expired_invitation_code(
+    db_session: AsyncSession,
+    school1: School,
+    admin_user: User
+) -> InvitationCode:
+    """Create an expired invitation code."""
+    code = InvitationCode(
+        school_id=school1.id,
+        class_id=None,
+        code="EXPIRED123",
+        grade_level=7,
+        max_uses=10,
+        uses_count=0,
+        expires_at=datetime.now(timezone.utc) - timedelta(days=1),  # Expired
+        created_by=admin_user.id,
+        is_active=True,
+    )
+    db_session.add(code)
+    await db_session.commit()
+    await db_session.refresh(code)
+    return code
+
+
+@pytest_asyncio.fixture
+async def exhausted_invitation_code(
+    db_session: AsyncSession,
+    school1: School,
+    admin_user: User
+) -> InvitationCode:
+    """Create an exhausted invitation code (max_uses reached)."""
+    code = InvitationCode(
+        school_id=school1.id,
+        class_id=None,
+        code="EXHAUSTED123",
+        grade_level=7,
+        max_uses=5,
+        uses_count=5,  # Exhausted
+        expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        created_by=admin_user.id,
+        is_active=True,
+    )
+    db_session.add(code)
+    await db_session.commit()
+    await db_session.refresh(code)
+    return code
+
+
+# ========== OAuth Fixtures ==========
+
+@pytest_asyncio.fixture
+async def google_user_without_school(db_session: AsyncSession) -> User:
+    """Create a Google OAuth user without school_id (requires onboarding)."""
+    from app.models.user import AuthProvider
+    user = User(
+        email="googleuser@gmail.com",
+        google_id="google_123456789",
+        auth_provider=AuthProvider.GOOGLE,
+        first_name="Google",
+        last_name="User",
+        role=UserRole.STUDENT,
+        school_id=None,  # Requires onboarding
+        is_active=True,
+        password_hash=None,  # No password for OAuth users
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def google_user_token(google_user_without_school: User) -> str:
+    """Create access token for Google user without school."""
+    return create_access_token(data={
+        "sub": str(google_user_without_school.id),
+        "email": google_user_without_school.email,
+        "role": google_user_without_school.role.value,
+        "school_id": google_user_without_school.school_id,
+    })

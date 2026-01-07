@@ -11,7 +11,7 @@ from app.models.user import User, UserRole
 from app.models.textbook import Textbook
 from app.models.chapter import Chapter
 from app.models.paragraph import Paragraph
-from app.core.security import hash_password
+from app.core.security import get_password_hash as hash_password
 from app.repositories.textbook_repo import TextbookRepository
 
 
