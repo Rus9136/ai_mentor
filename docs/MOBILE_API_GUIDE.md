@@ -1,8 +1,8 @@
 # Mobile API Guide for AI Mentor
 
-**Version:** 1.0
-**Last Updated:** 2026-01-05
-**Target Platforms:** iOS (Swift/SwiftUI), Android (Kotlin), React Native, Flutter
+**Version:** 2.0
+**Last Updated:** 2026-01-07
+**API Version:** v1
 
 ---
 
@@ -20,21 +20,13 @@
 10. [Mastery Tracking](#10-mastery-tracking)
 11. [AI Chat Assistant](#11-ai-chat-assistant)
 12. [Pagination](#12-pagination)
-13. [Offline Sync Strategy](#13-offline-sync-strategy)
-14. [Security Best Practices](#14-security-best-practices)
-15. [Rate Limiting](#15-rate-limiting)
-16. [SDK Examples](#16-sdk-examples)
+13. [Rate Limiting](#13-rate-limiting)
+14. [Security Requirements](#14-security-requirements)
+15. [Offline Sync Strategy](#15-offline-sync-strategy)
 
 ---
 
 ## 1. Quick Start
-
-### Minimum Requirements
-
-```
-iOS: 15.0+
-Android: API 26+ (Android 8.0)
-```
 
 ### Basic Flow
 
@@ -73,30 +65,17 @@ curl https://api.ai-mentor.kz/api/v1/students/textbooks \
 
 ### Environments
 
-| Environment | Base URL | Description |
-|-------------|----------|-------------|
-| **Production** | `https://api.ai-mentor.kz/api/v1` | Live environment |
-| **Staging** | `https://staging-api.ai-mentor.kz/api/v1` | Testing environment |
-| **Local** | `http://localhost:8000/api/v1` | Development |
+| Environment | Base URL |
+|-------------|----------|
+| **Production** | `https://api.ai-mentor.kz/api/v1` |
+| **Staging** | `https://staging-api.ai-mentor.kz/api/v1` |
 
-### API Version
+### Headers
 
-Current version: **v1**
-
-All endpoints are prefixed with `/api/v1/`. Version is included in the URL path.
-
-```
-https://api.ai-mentor.kz/api/v1/students/textbooks
-                          ^^^^^^
-                          Version prefix
-```
-
-### Content-Type
-
-All requests must use:
 ```
 Content-Type: application/json
 Accept: application/json
+Authorization: Bearer <access_token>
 ```
 
 ---
@@ -118,8 +97,8 @@ Accept: application/json
 **Response (200 OK):**
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6InN0dWRlbnQiLCJzY2hvb2xfaWQiOjcsImV4cCI6MTcwNjE4MDAwMH0.xxx",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwidHlwZSI6InJlZnJlc2giLCJleHAiOjE3MDY3ODQ4MDB9.yyy",
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "token_type": "bearer"
 }
 ```
@@ -196,81 +175,32 @@ Accept: application/json
 }
 ```
 
-### 3.5 Using Authorization Header
+### 3.5 Token Storage Requirements
 
-Add to all authenticated requests:
-
-```
-Authorization: Bearer <access_token>
-```
-
-### 3.6 Token Storage
-
-| Platform | Recommended Storage |
-|----------|-------------------|
+| Platform | Required Storage |
+|----------|------------------|
 | iOS | Keychain Services |
 | Android | EncryptedSharedPreferences |
 | React Native | react-native-keychain |
 | Flutter | flutter_secure_storage |
 
-**Example (iOS Swift):**
-```swift
-import Security
-
-func saveToken(_ token: String, forKey key: String) {
-    let data = token.data(using: .utf8)!
-    let query: [String: Any] = [
-        kSecClass as String: kSecClassGenericPassword,
-        kSecAttrAccount as String: key,
-        kSecValueData as String: data
-    ]
-    SecItemAdd(query as CFDictionary, nil)
-}
-```
-
-**Example (Android Kotlin):**
-```kotlin
-val masterKey = MasterKey.Builder(context)
-    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-    .build()
-
-val sharedPreferences = EncryptedSharedPreferences.create(
-    context,
-    "secret_prefs",
-    masterKey,
-    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-)
-
-sharedPreferences.edit().putString("access_token", token).apply()
-```
-
 ---
 
 ## 4. Common Response Format
 
-### Success Response
+### Success Response (Single Object)
 
 ```json
 {
-  "field1": "value1",
-  "field2": "value2",
-  ...
+  "id": 1,
+  "title": "Алгебра 9",
+  "field": "value"
 }
 ```
 
-All successful responses return the data directly (no wrapper).
-
-### List Response
-
-```json
-[
-  { "id": 1, "title": "Item 1" },
-  { "id": 2, "title": "Item 2" }
-]
-```
-
 ### Paginated List Response
+
+All list endpoints return paginated responses:
 
 ```json
 {
@@ -278,9 +208,10 @@ All successful responses return the data directly (no wrapper).
     { "id": 1, "title": "Item 1" },
     { "id": 2, "title": "Item 2" }
   ],
-  "total": 100,
+  "total": 150,
   "page": 1,
-  "page_size": 20
+  "page_size": 20,
+  "total_pages": 8
 }
 ```
 
@@ -301,13 +232,15 @@ All successful responses return the data directly (no wrapper).
 
 ### Error Response Format
 
+**Standard Error:**
 ```json
 {
-  "detail": "Error message description"
+  "detail": "Error message description",
+  "error_code": "AUTH_001"
 }
 ```
 
-Or with validation errors:
+**Validation Error (422):**
 ```json
 {
   "detail": [
@@ -320,6 +253,26 @@ Or with validation errors:
 }
 ```
 
+### Error Codes
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `AUTH_001` | 401 | Invalid credentials |
+| `AUTH_002` | 401 | Token expired |
+| `AUTH_003` | 401 | Invalid token |
+| `AUTH_004` | 401 | Token revoked |
+| `ACCESS_001` | 403 | Permission denied |
+| `ACCESS_002` | 403 | Role not allowed |
+| `ACCESS_003` | 403 | School access denied |
+| `VAL_001` | 400 | Invalid format |
+| `VAL_002` | 400 | Required field missing |
+| `VAL_003` | 422 | Validation failed |
+| `RES_001` | 404 | Resource not found |
+| `RES_002` | 409 | Resource already exists |
+| `SVC_001` | 500 | Internal server error |
+| `SVC_002` | 503 | AI service unavailable |
+| `RATE_001` | 429 | Rate limit exceeded |
+
 ### HTTP Status Codes
 
 | Code | Meaning | When |
@@ -331,56 +284,10 @@ Or with validation errors:
 | `401` | Unauthorized | Invalid/expired token |
 | `403` | Forbidden | Insufficient permissions |
 | `404` | Not Found | Resource doesn't exist |
-| `409` | Conflict | Duplicate entry (email, code) |
+| `409` | Conflict | Duplicate entry |
 | `422` | Unprocessable Entity | Validation failed |
 | `429` | Too Many Requests | Rate limit exceeded |
 | `500` | Internal Server Error | Server error |
-
-### Error Handling Strategy
-
-```swift
-// iOS Swift Example
-func handleResponse<T: Decodable>(_ response: HTTPURLResponse, data: Data) throws -> T {
-    switch response.statusCode {
-    case 200...299:
-        return try JSONDecoder().decode(T.self, from: data)
-    case 401:
-        // Token expired - refresh and retry
-        throw APIError.unauthorized
-    case 403:
-        throw APIError.forbidden
-    case 404:
-        throw APIError.notFound
-    case 422:
-        let error = try JSONDecoder().decode(ValidationError.self, from: data)
-        throw APIError.validation(error)
-    case 429:
-        throw APIError.rateLimited
-    default:
-        throw APIError.serverError(response.statusCode)
-    }
-}
-```
-
-```kotlin
-// Android Kotlin Example
-sealed class ApiResult<out T> {
-    data class Success<T>(val data: T) : ApiResult<T>()
-    data class Error(val code: Int, val message: String) : ApiResult<Nothing>()
-}
-
-suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
-    return when {
-        response.isSuccessful -> ApiResult.Success(response.body()!!)
-        response.code() == 401 -> {
-            // Refresh token and retry
-            ApiResult.Error(401, "Unauthorized")
-        }
-        response.code() == 429 -> ApiResult.Error(429, "Rate limited")
-        else -> ApiResult.Error(response.code(), response.message())
-    }
-}
-```
 
 ---
 
@@ -441,71 +348,129 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
 
 **Endpoint:** `GET /students/textbooks`
 
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | int | 1 | Page number |
+| `page_size` | int | 20 | Items per page (max: 100) |
+| `subject_id` | int | - | Filter by subject |
+| `grade_level` | int | - | Filter by grade (1-11) |
+
 **Response:**
 ```json
-[
-  {
-    "id": 1,
-    "school_id": null,
-    "title": "Алгебра 9",
-    "subject_id": 1,
-    "subject": "Математика",
-    "subject_rel": {
+{
+  "items": [
+    {
       "id": 1,
-      "name": "Математика",
-      "code": "MATH"
-    },
-    "grade_level": 9,
-    "author": "Алимов Ш.А.",
-    "publisher": "Просвещение",
-    "year": 2024,
-    "description": "Учебник по алгебре для 9 класса",
-    "is_active": true,
-    "is_customized": false,
-    "version": 1,
-    "created_at": "2024-01-10T08:00:00"
-  }
-]
+      "title": "Алгебра 9",
+      "subject_id": 1,
+      "subject": "Математика",
+      "subject_rel": {
+        "id": 1,
+        "name": "Математика",
+        "code": "MATH"
+      },
+      "grade_level": 9,
+      "description": "Учебник по алгебре для 9 класса",
+      "is_global": true,
+      "progress": {
+        "chapters_total": 5,
+        "chapters_completed": 3,
+        "paragraphs_total": 50,
+        "paragraphs_completed": 25,
+        "percentage": 50.0
+      },
+      "mastery_level": "B",
+      "last_activity": "2024-02-15T14:30:00",
+      "author": "Алимов Ш.А.",
+      "chapters_count": 5
+    }
+  ],
+  "total": 10,
+  "page": 1,
+  "page_size": 20,
+  "total_pages": 1
+}
 ```
 
 ### 7.2 Get Chapters
 
 **Endpoint:** `GET /students/textbooks/{textbook_id}/chapters`
 
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | int | 1 | Page number |
+| `page_size` | int | 20 | Items per page (max: 100) |
+
 **Response:**
 ```json
-[
-  {
-    "id": 1,
-    "textbook_id": 1,
-    "title": "Квадратные уравнения",
-    "number": 1,
-    "order": 1,
-    "description": "Основные типы квадратных уравнений",
-    "learning_objective": "Научиться решать квадратные уравнения",
-    "created_at": "2024-01-10T08:00:00"
-  }
-]
+{
+  "items": [
+    {
+      "id": 1,
+      "textbook_id": 1,
+      "title": "Квадратные уравнения",
+      "number": 1,
+      "order": 1,
+      "description": "Основные типы квадратных уравнений",
+      "learning_objective": "Научиться решать квадратные уравнения",
+      "status": "in_progress",
+      "progress": {
+        "paragraphs_total": 10,
+        "paragraphs_completed": 5,
+        "percentage": 50.0
+      },
+      "mastery_level": "B",
+      "mastery_score": 72.0,
+      "has_summative_test": true,
+      "summative_passed": false
+    }
+  ],
+  "total": 5,
+  "page": 1,
+  "page_size": 20,
+  "total_pages": 1
+}
 ```
 
 ### 7.3 Get Paragraphs
 
 **Endpoint:** `GET /students/chapters/{chapter_id}/paragraphs`
 
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | int | 1 | Page number |
+| `page_size` | int | 20 | Items per page (max: 100) |
+
 **Response:**
 ```json
-[
-  {
-    "id": 1,
-    "chapter_id": 1,
-    "title": "Определение квадратного уравнения",
-    "number": 1,
-    "order": 1,
-    "summary": "Основное определение и форма квадратного уравнения",
-    "key_terms": ["квадратное уравнение", "коэффициент", "дискриминант"],
-    "created_at": "2024-01-10T08:00:00"
-  }
-]
+{
+  "items": [
+    {
+      "id": 1,
+      "chapter_id": 1,
+      "title": "Определение квадратного уравнения",
+      "number": 1,
+      "order": 1,
+      "summary": "Основное определение и форма квадратного уравнения",
+      "status": "completed",
+      "estimated_time": 15,
+      "has_practice": true,
+      "practice_score": 85.0,
+      "learning_objective": "Понять определение",
+      "key_terms": ["квадратное уравнение", "коэффициент"]
+    }
+  ],
+  "total": 10,
+  "page": 1,
+  "page_size": 20,
+  "total_pages": 1
+}
 ```
 
 ### 7.4 Get Paragraph Content
@@ -520,19 +485,25 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
   "title": "Определение квадратного уравнения",
   "number": 1,
   "order": 1,
-  "content": "<p>Квадратным уравнением называется уравнение вида ax² + bx + c = 0...</p>",
-  "summary": "Основное определение и форма квадратного уравнения",
-  "learning_objective": "Понять определение квадратного уравнения",
-  "lesson_objective": "Научиться распознавать квадратные уравнения",
-  "key_terms": ["квадратное уравнение", "коэффициент", "дискриминант"],
+  "content": "<p>Квадратным уравнением называется...</p>",
+  "summary": "Основное определение",
+  "learning_objective": "Понять определение",
+  "lesson_objective": "Научиться распознавать",
+  "key_terms": ["квадратное уравнение", "коэффициент"],
   "questions": [
     {
       "order": 1,
       "text": "Что такое квадратное уравнение?"
     }
   ],
-  "created_at": "2024-01-10T08:00:00",
-  "updated_at": "2024-01-20T14:45:00"
+  "status": "completed",
+  "current_step": "summary",
+  "has_audio": true,
+  "has_video": true,
+  "has_slides": false,
+  "has_cards": true,
+  "chapter_title": "Квадратные уравнения",
+  "textbook_title": "Алгебра 9"
 }
 ```
 
@@ -540,42 +511,33 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
 
 **Endpoint:** `GET /students/paragraphs/{paragraph_id}/content`
 
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `language` | string | "ru" | Content language: "ru" or "kk" |
+
 **Response:**
 ```json
 {
   "paragraph_id": 1,
-  "title": "Определение квадратного уравнения",
   "language": "ru",
-  "content_cards": [
+  "explain_text": "Подробное объяснение темы...",
+  "audio_url": "/uploads/audio/paragraph-1.mp3",
+  "video_url": "https://youtube.com/watch?v=...",
+  "slides_url": "/uploads/slides/paragraph-1.pdf",
+  "cards": [
     {
       "id": "card-1",
-      "type": "text",
-      "order": 1,
-      "data": {
-        "text": "Квадратным уравнением называется уравнение вида ax² + bx + c = 0"
-      }
-    },
-    {
-      "id": "card-2",
-      "type": "image",
-      "order": 2,
-      "data": {
-        "url": "/uploads/images/quadratic-formula.png",
-        "caption": "Формула дискриминанта"
-      }
-    },
-    {
-      "id": "card-3",
-      "type": "video",
-      "order": 3,
-      "data": {
-        "url": "https://youtube.com/watch?v=...",
-        "title": "Решение квадратных уравнений"
-      }
+      "front": "Что такое дискриминант?",
+      "back": "D = b² - 4ac"
     }
   ],
-  "audio_url": "/uploads/audio/paragraph-1.mp3",
-  "slides_url": "/uploads/slides/paragraph-1.pdf"
+  "has_explain": true,
+  "has_audio": true,
+  "has_video": true,
+  "has_slides": true,
+  "has_cards": true
 }
 ```
 
@@ -618,28 +580,44 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
 **Endpoint:** `GET /students/tests`
 
 **Query Parameters:**
-- `chapter_id` (optional): Filter by chapter
-- `paragraph_id` (optional): Filter by paragraph
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | int | 1 | Page number |
+| `page_size` | int | 20 | Items per page (max: 100) |
+| `chapter_id` | int | - | Filter by chapter |
+| `paragraph_id` | int | - | Filter by paragraph |
+| `test_purpose` | string | - | Filter: formative, summative, practice |
+| `difficulty` | string | - | Filter: easy, medium, hard |
 
 **Response:**
 ```json
-[
-  {
-    "id": 1,
-    "textbook_id": 1,
-    "chapter_id": 1,
-    "paragraph_id": null,
-    "title": "Тест: Квадратные уравнения",
-    "description": "Формативный тест",
-    "test_purpose": "formative",
-    "difficulty": "medium",
-    "time_limit": 45,
-    "passing_score": 0.7,
-    "is_active": true,
-    "questions_count": 10,
-    "created_at": "2024-01-10T08:00:00"
-  }
-]
+{
+  "items": [
+    {
+      "id": 1,
+      "title": "Тест: Квадратные уравнения",
+      "description": "Формативный тест",
+      "test_purpose": "formative",
+      "difficulty": "medium",
+      "time_limit": 45,
+      "passing_score": 0.7,
+      "is_active": true,
+      "chapter_id": 1,
+      "paragraph_id": null,
+      "school_id": null,
+      "question_count": 10,
+      "attempts_count": 2,
+      "best_score": 0.85,
+      "created_at": "2024-01-10T08:00:00",
+      "updated_at": "2024-01-10T08:00:00"
+    }
+  ],
+  "total": 5,
+  "page": 1,
+  "page_size": 20,
+  "total_pages": 1
+}
 ```
 
 ### 8.2 Start Test Attempt
@@ -649,29 +627,42 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
 **Response (201 Created):**
 ```json
 {
-  "attempt_id": 123,
+  "id": 123,
+  "student_id": 10,
   "test_id": 1,
-  "test_title": "Тест: Квадратные уравнения",
-  "time_limit": 45,
+  "school_id": 7,
+  "attempt_number": 1,
+  "status": "in_progress",
   "started_at": "2024-02-15T10:00:00",
-  "expires_at": "2024-02-15T10:45:00",
-  "questions": [
-    {
-      "id": 1,
-      "question_text": "Какой коэффициент называется старшим?",
-      "question_type": "single_choice",
-      "points": 1.0,
-      "options": [
-        {"id": 1, "text": "Коэффициент a", "order": 1},
-        {"id": 2, "text": "Коэффициент b", "order": 2},
-        {"id": 3, "text": "Коэффициент c", "order": 3}
-      ]
-    }
-  ]
+  "completed_at": null,
+  "score": null,
+  "points_earned": null,
+  "total_points": null,
+  "passed": null,
+  "time_spent": null,
+  "test": {
+    "id": 1,
+    "title": "Тест: Квадратные уравнения",
+    "time_limit": 45,
+    "questions": [
+      {
+        "id": 1,
+        "question_text": "Какой коэффициент называется старшим?",
+        "question_type": "single_choice",
+        "points": 1.0,
+        "options": [
+          {"id": 1, "text": "Коэффициент a", "order": 1},
+          {"id": 2, "text": "Коэффициент b", "order": 2},
+          {"id": 3, "text": "Коэффициент c", "order": 3}
+        ]
+      }
+    ]
+  },
+  "answers": []
 }
 ```
 
-### 8.3 Submit Answer
+### 8.3 Submit Single Answer
 
 **Endpoint:** `POST /students/attempts/{attempt_id}/answer`
 
@@ -699,24 +690,37 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
 }
 ```
 
-### 8.4 Submit Test
+### 8.4 Submit All Answers
 
 **Endpoint:** `POST /students/attempts/{attempt_id}/submit`
+
+**Request:**
+```json
+{
+  "answers": [
+    {
+      "question_id": 1,
+      "selected_option_ids": [1]
+    },
+    {
+      "question_id": 2,
+      "selected_option_ids": [2, 3]
+    }
+  ]
+}
+```
 
 **Response:**
 ```json
 {
-  "attempt_id": 123,
-  "test_id": 1,
+  "id": 123,
+  "status": "completed",
   "score": 0.85,
   "passed": true,
-  "passing_score": 0.7,
-  "correct_answers": 8,
-  "total_questions": 10,
-  "time_spent_seconds": 1200,
-  "completed_at": "2024-02-15T10:20:00",
-  "mastery_level_before": "B",
-  "mastery_level_after": "A"
+  "points_earned": 8.5,
+  "total_points": 10.0,
+  "time_spent": 1200,
+  "completed_at": "2024-02-15T10:20:00"
 }
 ```
 
@@ -734,7 +738,7 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
   "passed": true,
   "started_at": "2024-02-15T10:00:00",
   "completed_at": "2024-02-15T10:20:00",
-  "time_spent_seconds": 1200,
+  "time_spent": 1200,
   "answers": [
     {
       "question_id": 1,
@@ -754,25 +758,41 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
 
 **Endpoint:** `GET /students/homework`
 
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | int | 1 | Page number |
+| `page_size` | int | 20 | Items per page (max: 100) |
+| `status` | string | - | Filter: assigned, in_progress, submitted, graded |
+| `include_completed` | bool | true | Include completed homework |
+
 **Response:**
 ```json
-[
-  {
-    "id": 1,
-    "title": "Домашнее задание: Квадратные уравнения",
-    "description": "Решить задачи по квадратным уравнениям",
-    "due_date": "2024-02-20T18:00:00",
-    "is_overdue": false,
-    "can_submit": true,
-    "my_status": "in_progress",
-    "my_score": 7.5,
-    "max_score": 10,
-    "my_percentage": 75.0,
-    "is_late": false,
-    "late_penalty": 0,
-    "tasks_count": 3
-  }
-]
+{
+  "items": [
+    {
+      "id": 1,
+      "title": "Домашнее задание: Квадратные уравнения",
+      "description": "Решить задачи по квадратным уравнениям",
+      "due_date": "2024-02-20T18:00:00",
+      "is_overdue": false,
+      "can_submit": true,
+      "my_status": "in_progress",
+      "my_score": 7.5,
+      "max_score": 10,
+      "my_percentage": 75.0,
+      "is_late": false,
+      "late_penalty": 0,
+      "show_explanations": true,
+      "tasks": [...]
+    }
+  ],
+  "total": 5,
+  "page": 1,
+  "page_size": 20,
+  "total_pages": 1
+}
 ```
 
 ### 9.2 Get Homework Details
@@ -784,7 +804,7 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
 {
   "id": 1,
   "title": "Домашнее задание: Квадратные уравнения",
-  "description": "Решить задачи по квадратным уравнениям",
+  "description": "Решить задачи",
   "due_date": "2024-02-20T18:00:00",
   "is_overdue": false,
   "can_submit": true,
@@ -801,14 +821,15 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
       "paragraph_id": 1,
       "paragraph_title": "Определение квадратного уравнения",
       "task_type": "quiz",
-      "sort_order": 0,
-      "is_required": true,
+      "instructions": "Ответьте на вопросы",
       "points": 10,
       "time_limit_minutes": 15,
+      "status": "completed",
+      "current_attempt": 1,
       "max_attempts": 3,
-      "my_attempts_used": 1,
-      "my_best_score": 8,
-      "status": "completed"
+      "attempts_remaining": 2,
+      "questions_count": 5,
+      "answered_count": 5
     }
   ]
 }
@@ -821,29 +842,51 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
 **Response (201 Created):**
 ```json
 {
-  "submission_id": 456,
-  "task_id": 1,
-  "attempt_number": 1,
+  "id": 1,
+  "paragraph_id": 1,
+  "paragraph_title": "Определение",
+  "task_type": "quiz",
+  "instructions": "Ответьте на вопросы",
+  "points": 10,
+  "time_limit_minutes": 15,
+  "status": "in_progress",
+  "current_attempt": 1,
   "max_attempts": 3,
-  "started_at": "2024-02-15T10:00:00",
-  "questions": [
-    {
-      "id": 1,
-      "question_text": "Решите уравнение: x² - 5x + 6 = 0",
-      "question_type": "short_answer",
-      "points": 2
-    }
-  ]
+  "attempts_remaining": 2,
+  "submission_id": 456,
+  "questions_count": 5,
+  "answered_count": 0
 }
 ```
 
-### 9.4 Submit Answer
+### 9.4 Get Task Questions
 
-**Endpoint:** `POST /students/homework/{homework_id}/tasks/{task_id}/questions/{question_id}/answer`
+**Endpoint:** `GET /students/homework/{homework_id}/tasks/{task_id}/questions`
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "question_text": "Решите уравнение: x² - 5x + 6 = 0",
+    "question_type": "short_answer",
+    "options": null,
+    "points": 2,
+    "my_answer": null,
+    "my_selected_options": null,
+    "is_answered": false
+  }
+]
+```
+
+### 9.5 Submit Answer
+
+**Endpoint:** `POST /students/homework/submissions/{submission_id}/answer`
 
 **Request:**
 ```json
 {
+  "question_id": 1,
   "answer_text": "x = 2, x = 3"
 }
 ```
@@ -854,26 +897,27 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
   "question_id": 1,
   "is_correct": true,
   "points_earned": 2,
-  "explanation": "Правильно! Корни уравнения: x₁ = 2, x₂ = 3",
-  "ai_feedback": "Отлично! Ты правильно применил формулу дискриминанта."
+  "explanation": "Правильно!",
+  "ai_feedback": "Отлично! Ты правильно применил формулу."
 }
 ```
 
-### 9.5 Submit Homework
+### 9.6 Complete Submission
 
-**Endpoint:** `POST /students/homework/{homework_id}/submit`
+**Endpoint:** `POST /students/homework/submissions/{submission_id}/complete`
 
 **Response:**
 ```json
 {
-  "homework_id": 1,
-  "status": "submitted",
-  "submitted_at": "2024-02-15T14:30:00",
+  "submission_id": 456,
+  "task_id": 1,
+  "status": "completed",
+  "score": 8,
+  "max_score": 10,
+  "percentage": 80.0,
+  "time_spent_seconds": 600,
   "is_late": false,
-  "total_score": 18,
-  "max_score": 20,
-  "percentage": 90.0,
-  "late_penalty_applied": 0
+  "late_penalty": 0
 }
 ```
 
@@ -934,13 +978,6 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
       "mastery_level": "B",
       "mastery_score": 82.0,
       "progress_percentage": 80
-    },
-    {
-      "chapter_id": 2,
-      "chapter_title": "Неравенства",
-      "mastery_level": "C",
-      "mastery_score": 45.0,
-      "progress_percentage": 30
     }
   ],
   "total_chapters": 2,
@@ -955,9 +992,9 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
 
 | Level | Score Range | Description |
 |-------|-------------|-------------|
-| **A** | 85-100% | Mastered - excellent understanding |
-| **B** | 60-84% | Progressing - good understanding |
-| **C** | 0-59% | Struggling - needs more practice |
+| **A** | 85-100% | Mastered |
+| **B** | 60-84% | Progressing |
+| **C** | 0-59% | Struggling |
 
 ---
 
@@ -1014,7 +1051,7 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
 {
   "id": 2,
   "role": "assistant",
-  "content": "Для решения квадратного уравнения ax² + bx + c = 0 через дискриминант:\n\n1. **Вычислить дискриминант:** D = b² - 4ac\n\n2. **Определить количество корней:**\n   - D > 0: два различных корня\n   - D = 0: один корень (два равных)\n   - D < 0: нет вещественных корней\n\n3. **Найти корни:** x = (-b ± √D) / 2a",
+  "content": "Для решения квадратного уравнения ax² + bx + c = 0 через дискриминант:\n\n1. **Вычислить дискриминант:** D = b² - 4ac\n\n2. **Определить количество корней:**\n   - D > 0: два различных корня\n   - D = 0: один корень\n   - D < 0: нет вещественных корней\n\n3. **Найти корни:** x = (-b ± √D) / 2a",
   "citations": [
     {
       "text": "Формула дискриминанта",
@@ -1034,8 +1071,11 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
 **Endpoint:** `GET /chat/sessions`
 
 **Query Parameters:**
-- `page` (default: 1)
-- `page_size` (default: 10, max: 50)
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | int | 1 | Page number |
+| `page_size` | int | 10 | Items per page (max: 50) |
 
 **Response:**
 ```json
@@ -1053,7 +1093,8 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
   ],
   "total": 1,
   "page": 1,
-  "page_size": 10
+  "page_size": 10,
+  "total_pages": 1
 }
 ```
 
@@ -1098,254 +1139,44 @@ suspend fun <T> handleResponse(response: Response<T>): ApiResult<T> {
 
 ### Query Parameters
 
-| Parameter | Default | Max | Description |
-|-----------|---------|-----|-------------|
-| `skip` | 0 | - | Number of items to skip |
-| `limit` | 20 | 100 | Number of items to return |
-| `page` | 1 | - | Page number (alternative to skip) |
-| `page_size` | 20 | 50 | Items per page |
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `page` | int | 1 | - | Page number (1-indexed) |
+| `page_size` | int | 20 | 100 | Items per page |
 
-### Example
+### Example Request
 
 ```
-GET /students/homework?skip=20&limit=10
-GET /chat/sessions?page=2&page_size=10
+GET /students/textbooks?page=2&page_size=10
+GET /students/homework?page=1&page_size=50&status=in_progress
 ```
 
-### Pagination Response
+### Response Structure
 
 ```json
 {
   "items": [...],
   "total": 100,
   "page": 2,
-  "page_size": 10
+  "page_size": 10,
+  "total_pages": 10
 }
 ```
 
-### Mobile Implementation
+### Pagination Logic
 
-```swift
-// iOS Swift
-struct PaginatedResponse<T: Decodable>: Decodable {
-    let items: [T]
-    let total: Int
-    let page: Int
-    let pageSize: Int
-
-    var hasNextPage: Bool {
-        return page * pageSize < total
-    }
-}
-```
-
-```kotlin
-// Android Kotlin
-data class PaginatedResponse<T>(
-    val items: List<T>,
-    val total: Int,
-    val page: Int,
-    @SerializedName("page_size") val pageSize: Int
-) {
-    fun hasNextPage(): Boolean = page * pageSize < total
-}
-```
+- `total_pages = ceil(total / page_size)`
+- `has_next_page = page < total_pages`
+- `has_prev_page = page > 1`
 
 ---
 
-## 13. Offline Sync Strategy
-
-### 13.1 Data Categories
-
-| Category | Sync Strategy | Priority |
-|----------|--------------|----------|
-| **Textbooks/Chapters/Paragraphs** | Download on first access, cache locally | High |
-| **User Profile** | Sync on login, refresh periodically | High |
-| **Mastery Progress** | Sync bidirectionally | Medium |
-| **Test Attempts** | Queue locally, sync when online | High |
-| **Homework Submissions** | Queue locally, sync when online | High |
-| **Chat Messages** | Online only (requires AI) | Low |
-
-### 13.2 Local Storage Schema
-
-```sql
--- SQLite/Realm schema for mobile
-
-CREATE TABLE textbooks (
-    id INTEGER PRIMARY KEY,
-    title TEXT,
-    subject TEXT,
-    grade_level INTEGER,
-    data JSON,  -- Full response
-    synced_at DATETIME,
-    is_dirty BOOLEAN DEFAULT 0
-);
-
-CREATE TABLE paragraphs (
-    id INTEGER PRIMARY KEY,
-    chapter_id INTEGER,
-    title TEXT,
-    content TEXT,
-    data JSON,
-    synced_at DATETIME
-);
-
-CREATE TABLE sync_queue (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    endpoint TEXT,
-    method TEXT,
-    body JSON,
-    created_at DATETIME,
-    retry_count INTEGER DEFAULT 0,
-    last_error TEXT
-);
-```
-
-### 13.3 Sync Algorithm
-
-```
-1. App Launch:
-   - Check network connectivity
-   - If online: process sync queue
-   - Fetch updated content (use Last-Modified header)
-   - Refresh mastery progress
-
-2. User Action (test answer, homework):
-   - Save locally immediately
-   - If online: send to server
-   - If offline: add to sync queue
-
-3. Coming Online:
-   - Process sync queue (FIFO)
-   - Retry failed requests (max 3 times)
-   - Resolve conflicts (server wins for scores)
-
-4. Background Sync:
-   - Every 15 minutes if app active
-   - On app resume from background
-```
-
-### 13.4 Conflict Resolution
-
-```
-Strategy: Server Wins for Scores
-
-IF local_score != server_score:
-    USE server_score
-
-IF local_timestamp > server_timestamp:
-    WARN user about sync conflict
-    KEEP server data
-```
-
-### 13.5 Example Implementation
-
-```swift
-// iOS Swift - Sync Manager
-class SyncManager {
-    private let syncQueue: SyncQueue
-    private let api: APIClient
-
-    func processQueue() async {
-        while let item = syncQueue.next() {
-            do {
-                try await api.send(item)
-                syncQueue.remove(item)
-            } catch {
-                if item.retryCount < 3 {
-                    syncQueue.retry(item, error: error)
-                } else {
-                    syncQueue.fail(item, error: error)
-                    notifyUser(about: item)
-                }
-            }
-        }
-    }
-
-    func queueAction(_ action: SyncAction) {
-        syncQueue.add(action)
-        if NetworkMonitor.shared.isConnected {
-            Task { await processQueue() }
-        }
-    }
-}
-```
-
----
-
-## 14. Security Best Practices
-
-### 14.1 Token Storage
-
-**DO:**
-- Use Keychain (iOS) / EncryptedSharedPreferences (Android)
-- Never store tokens in plain text
-- Clear tokens on logout
-
-**DON'T:**
-- Store tokens in UserDefaults/SharedPreferences
-- Log tokens to console
-- Include tokens in crash reports
-
-### 14.2 Certificate Pinning (Recommended)
-
-```swift
-// iOS Swift - Certificate Pinning
-let serverTrustManager = ServerTrustManager(evaluators: [
-    "api.ai-mentor.kz": PinnedCertificatesTrustEvaluator(
-        certificates: [certificate],
-        acceptSelfSignedCertificates: false,
-        performDefaultValidation: true
-    )
-])
-```
-
-```kotlin
-// Android Kotlin - Certificate Pinning
-val certificatePinner = CertificatePinner.Builder()
-    .add("api.ai-mentor.kz", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
-    .build()
-
-val client = OkHttpClient.Builder()
-    .certificatePinner(certificatePinner)
-    .build()
-```
-
-### 14.3 Sensitive Data
-
-- Never log user passwords
-- Mask email in logs: `s***t@school.com`
-- Don't include sensitive data in error reports
-
-### 14.4 Network Security
-
-```xml
-<!-- Android: network_security_config.xml -->
-<?xml version="1.0" encoding="utf-8"?>
-<network-security-config>
-    <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">ai-mentor.kz</domain>
-    </domain-config>
-</network-security-config>
-```
-
-```swift
-// iOS: Info.plist - App Transport Security
-<key>NSAppTransportSecurity</key>
-<dict>
-    <key>NSAllowsArbitraryLoads</key>
-    <false/>
-</dict>
-```
-
----
-
-## 15. Rate Limiting
+## 13. Rate Limiting
 
 ### Current Limits
 
-| Endpoint | Limit | Window |
-|----------|-------|--------|
+| Endpoint Category | Limit | Window |
+|-------------------|-------|--------|
 | `/auth/login` | 5 requests | 1 minute |
 | `/auth/refresh` | 10 requests | 1 minute |
 | `/chat/sessions/*/messages` | 20 requests | 1 minute |
@@ -1359,191 +1190,98 @@ X-RateLimit-Remaining: 45
 X-RateLimit-Reset: 1706180000
 ```
 
-### Handling 429 Too Many Requests
+### 429 Response
 
 ```json
 {
-  "detail": "Rate limit exceeded. Try again in 45 seconds."
+  "detail": "Rate limit exceeded. Try again in 45 seconds.",
+  "error_code": "RATE_001"
 }
 ```
 
-**Retry Strategy:**
-```swift
-func handleRateLimit(retryAfter: Int) {
-    // Wait for specified time
-    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(retryAfter)) {
-        retryRequest()
-    }
-}
-```
+### Retry Strategy
+
+When receiving 429:
+1. Parse `X-RateLimit-Reset` header
+2. Wait until reset time
+3. Implement exponential backoff for retries
 
 ---
 
-## 16. SDK Examples
+## 14. Security Requirements
 
-### 16.1 iOS Swift
+### Token Storage
 
-```swift
-import Foundation
+| Requirement | Platform |
+|-------------|----------|
+| Use secure storage | Keychain (iOS), EncryptedSharedPreferences (Android) |
+| Clear on logout | Delete all stored tokens |
+| Never log tokens | Exclude from crash reports |
 
-class AIMentorAPI {
-    private let baseURL = "https://api.ai-mentor.kz/api/v1"
-    private var accessToken: String?
+### Certificate Pinning (Recommended)
 
-    // Login
-    func login(email: String, password: String) async throws -> TokenResponse {
-        let url = URL(string: "\(baseURL)/auth/login")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(LoginRequest(email: email, password: password))
+Pin the API certificate to prevent MITM attacks:
+- Domain: `api.ai-mentor.kz`
+- SHA256 fingerprint provided separately
 
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let response = try JSONDecoder().decode(TokenResponse.self, from: data)
-        self.accessToken = response.accessToken
-        return response
-    }
+### Network Security
 
-    // Get textbooks
-    func getTextbooks() async throws -> [Textbook] {
-        return try await get("/students/textbooks")
-    }
+- HTTPS only (no HTTP fallback)
+- TLS 1.2+ required
+- Disable cleartext traffic
 
-    // Generic GET
-    private func get<T: Decodable>(_ path: String) async throws -> T {
-        let url = URL(string: "\(baseURL)\(path)")!
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(accessToken ?? "")", forHTTPHeaderField: "Authorization")
+### Sensitive Data
 
-        let (data, _) = try await URLSession.shared.data(for: request)
-        return try JSONDecoder().decode(T.self, from: data)
-    }
-}
-```
-
-### 16.2 Android Kotlin
-
-```kotlin
-import retrofit2.Retrofit
-import retrofit2.http.*
-
-interface AIMentorAPI {
-    @POST("auth/login")
-    suspend fun login(@Body request: LoginRequest): TokenResponse
-
-    @GET("students/textbooks")
-    suspend fun getTextbooks(): List<Textbook>
-
-    @GET("students/chapters/{chapter_id}/paragraphs")
-    suspend fun getParagraphs(@Path("chapter_id") chapterId: Int): List<Paragraph>
-
-    @POST("students/tests/{test_id}/start")
-    suspend fun startTest(@Path("test_id") testId: Int): TestAttempt
-
-    @POST("students/attempts/{attempt_id}/answer")
-    suspend fun submitAnswer(
-        @Path("attempt_id") attemptId: Int,
-        @Body answer: AnswerRequest
-    ): AnswerResponse
-}
-
-// Repository
-class StudentRepository(private val api: AIMentorAPI) {
-    suspend fun getTextbooks(): Result<List<Textbook>> {
-        return try {
-            Result.success(api.getTextbooks())
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-}
-```
-
-### 16.3 React Native
-
-```typescript
-import axios from 'axios';
-import * as Keychain from 'react-native-keychain';
-
-const api = axios.create({
-  baseURL: 'https://api.ai-mentor.kz/api/v1',
-});
-
-// Add auth interceptor
-api.interceptors.request.use(async (config) => {
-  const credentials = await Keychain.getGenericPassword();
-  if (credentials) {
-    config.headers.Authorization = `Bearer ${credentials.password}`;
-  }
-  return config;
-});
-
-// API functions
-export const login = async (email: string, password: string) => {
-  const { data } = await api.post('/auth/login', { email, password });
-  await Keychain.setGenericPassword('token', data.access_token);
-  return data;
-};
-
-export const getTextbooks = async () => {
-  const { data } = await api.get('/students/textbooks');
-  return data;
-};
-
-export const startTest = async (testId: number) => {
-  const { data } = await api.post(`/students/tests/${testId}/start`);
-  return data;
-};
-```
-
-### 16.4 Flutter/Dart
-
-```dart
-import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
-class AIMentorAPI {
-  final Dio _dio = Dio(BaseOptions(
-    baseUrl: 'https://api.ai-mentor.kz/api/v1',
-  ));
-  final _storage = FlutterSecureStorage();
-
-  AIMentorAPI() {
-    _dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final token = await _storage.read(key: 'access_token');
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        return handler.next(options);
-      },
-    ));
-  }
-
-  Future<TokenResponse> login(String email, String password) async {
-    final response = await _dio.post('/auth/login', data: {
-      'email': email,
-      'password': password,
-    });
-    final token = TokenResponse.fromJson(response.data);
-    await _storage.write(key: 'access_token', value: token.accessToken);
-    return token;
-  }
-
-  Future<List<Textbook>> getTextbooks() async {
-    final response = await _dio.get('/students/textbooks');
-    return (response.data as List)
-        .map((json) => Textbook.fromJson(json))
-        .toList();
-  }
-}
-```
+- Never log passwords or tokens
+- Mask email in logs: `s***t@school.com`
+- Don't include in error reports
 
 ---
 
-## Appendix A: Data Models
+## 15. Offline Sync Strategy
 
-### TypeScript Interfaces
+### Data Categories
+
+| Category | Sync Strategy | Priority |
+|----------|--------------|----------|
+| **Textbooks/Chapters/Paragraphs** | Download on first access, cache locally | High |
+| **User Profile** | Sync on login, refresh periodically | High |
+| **Mastery Progress** | Sync bidirectionally | Medium |
+| **Test Attempts** | Queue locally, sync when online | High |
+| **Homework Submissions** | Queue locally, sync when online | High |
+| **Chat Messages** | Online only (requires AI) | Low |
+
+### Sync Queue
+
+For offline submissions:
+1. Store in local database with `is_synced = false`
+2. On connectivity restored:
+   - Process queue FIFO
+   - Retry failed requests (max 3 times)
+   - Mark as synced on success
+
+### Conflict Resolution
+
+Strategy: **Server Wins for Scores**
+
+```
+IF local_score != server_score:
+    USE server_score
+
+IF local_timestamp > server_timestamp:
+    WARN user about sync conflict
+    KEEP server data
+```
+
+### Background Sync
+
+- Every 15 minutes if app active
+- On app resume from background
+- On network connectivity change
+
+---
+
+## Appendix A: TypeScript Interfaces
 
 ```typescript
 interface TokenResponse {
@@ -1559,23 +1297,24 @@ interface User {
   school_id: number | null;
   first_name: string;
   last_name: string;
-  middle_name: string | null;
-  phone: string | null;
   is_active: boolean;
-  is_verified: boolean;
-  created_at: string;
-  updated_at: string;
+}
+
+interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
 }
 
 interface Textbook {
   id: number;
-  school_id: number | null;
   title: string;
+  subject_id: number;
   subject: string;
   grade_level: number;
-  author: string | null;
-  is_active: boolean;
-  created_at: string;
+  is_global: boolean;
 }
 
 interface Chapter {
@@ -1584,8 +1323,7 @@ interface Chapter {
   title: string;
   number: number;
   order: number;
-  description: string | null;
-  created_at: string;
+  mastery_level: 'A' | 'B' | 'C' | null;
 }
 
 interface Paragraph {
@@ -1593,52 +1331,15 @@ interface Paragraph {
   chapter_id: number;
   title: string;
   number: number;
-  order: number;
   content: string;
-  summary: string | null;
-  key_terms: string[];
-  created_at: string;
+  status: 'not_started' | 'in_progress' | 'completed';
 }
 
-interface MasteryLevel {
-  level: 'A' | 'B' | 'C';
-  score: number;
-  progress_percentage: number;
+interface APIError {
+  detail: string;
+  error_code?: string;
 }
 ```
-
----
-
-## Appendix B: Common Issues
-
-### 1. Token Expired
-
-**Problem:** 401 Unauthorized on all requests
-
-**Solution:**
-```swift
-if response.statusCode == 401 {
-    let newToken = try await refreshToken()
-    // Retry original request with new token
-}
-```
-
-### 2. Network Timeout
-
-**Problem:** Request times out
-
-**Solution:**
-- Set appropriate timeout (30 seconds for normal, 60 for file upload)
-- Implement retry logic with exponential backoff
-
-### 3. Large Content
-
-**Problem:** Paragraph content too large
-
-**Solution:**
-- Use pagination for lists
-- Implement lazy loading for content
-- Cache content locally
 
 ---
 
@@ -1646,9 +1347,8 @@ if response.statusCode == 401 {
 
 **API Issues:** api-support@ai-mentor.kz
 **Documentation:** https://docs.ai-mentor.kz
-**GitHub:** https://github.com/ai-mentor/mobile-sdk
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2026-01-05
+**Document Version:** 2.0
+**Last Updated:** 2026-01-07

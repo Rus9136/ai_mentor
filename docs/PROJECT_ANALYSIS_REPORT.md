@@ -2,7 +2,7 @@
 
 **Дата анализа:** 2026-01-05
 **Обновлено:** 2026-01-07
-**Версия:** 1.6
+**Версия:** 1.7
 **Статус проекта:** 77% (10/13 итераций завершено)
 
 ---
@@ -12,13 +12,13 @@
 | Критерий | Оценка | Статус |
 |----------|--------|--------|
 | **Готовность к Production** | **90%** | Готово ✅ |
-| **Готовность к Mobile разработке** | **70%** | Улучшено ✅ |
+| **Готовность к Mobile разработке** | **90%** | **Готово** ✅ |
 | **API Quality** | **8.5/10** | Хорошо |
 | **Code Quality** | **8/10** | Улучшено ✅ |
 | **Security** | **8/10** | RLS Complete ✅ |
 | **Test Coverage** | **60%** | Улучшено ✅ |
-| **Documentation** | **50%** | Частично |
-| **Database** | **85%** | RLS Complete ✅ |
+| **Documentation** | **75%** | Улучшено ✅ |
+| **Database** | **90%** | Partitioning ✅ |
 
 ### Исправлено 2026-01-06:
 - ✅ SECRET_KEY валидация (предупреждение при небезопасном дефолте)
@@ -29,6 +29,22 @@
 - ✅ **Рефакторинг 4 файлов > 400 строк** (см. секцию 2)
 - ✅ **Тестовое покрытие увеличено с 35% до 60%** (+349 тестов, см. секцию 4)
 - ✅ **Пагинация для Admin School endpoints** (8 HIGH RISK endpoints, см. секцию 1)
+
+### Обновлено 2026-01-07 (документация для Mobile):
+- ✅ **MOBILE_API_GUIDE.md v2.0** — полностью переработан
+  - Убраны примеры мобильного кода (iOS/Android/Flutter/React Native)
+  - Исправлена пагинация (`skip`/`limit` → `page`/`page_size`, добавлен `total_pages`)
+  - Добавлены фильтры (`subject_id`, `grade_level`, `test_purpose`, `difficulty`)
+  - Актуализированы все response схемы
+- ✅ **README_MOBILE.md v1.0** — концептуальный гайд для мобильных разработчиков
+  - Описание платформы и ролей пользователей
+  - Структура контента (учебники → главы → параграфы)
+  - Система уровней мастерства A/B/C
+  - Путь ученика (Learning Flow)
+  - Типы тестов и домашних заданий
+  - AI-помощник и адаптация
+  - ГОСО (государственный стандарт)
+  - Словарь терминов
 
 ### Исправлено 2026-01-07:
 - ✅ **RLS политики для homework таблиц** (7 таблиц, миграция 023)
@@ -58,6 +74,10 @@
   - Questions: `question_type` с пагинацией (2 endpoints)
 - ✅ **Исправлена несогласованность типов в RLS** (миграция 024)
   - Исправлены 3 политики с небезопасным `::boolean` кастингом
+- ✅ **Партиционирование больших таблиц** (см. секцию 5)
+  - `test_attempts` — RANGE по `started_at` (36 месячных партиций)
+  - `learning_activities` — RANGE по `activity_timestamp` (36 месячных партиций)
+  - Скрипт автоматического создания партиций (`scripts/create_monthly_partitions.py`)
   - `invitation_codes_update_policy`, `invitation_codes_delete_policy`, `invitation_code_uses_select_policy`
   - Изменено с `COALESCE(...)::boolean = true` на `COALESCE(...) = 'true'`
   - Добавлены интеграционные тесты в `test_rls_type_safety.py`
@@ -461,9 +481,10 @@ allow_headers=["Accept", "Content-Type", "Authorization"],
 
 - **32 основные модели**
 - **154 индекса** (простые + composite + vector)
-- **32 миграции** Alembic (+1 RLS homework)
+- **34 миграции** Alembic (+2 партиционирование)
 - **RLS политики** на 37+ таблицах (+7 homework)
 - **pgvector** для embeddings
+- **2 партиционированные таблицы** (test_attempts, learning_activities)
 
 ### Архитектура multi-tenancy
 
@@ -485,7 +506,7 @@ School (tenant root)
 | ~~RLS отсутствует для chat_sessions, homework~~ | ~~КРИТИЧНА~~ | ✅ **Исправлено 2026-01-07** |
 | ~~Session переменные не гарантированы~~ | ~~КРИТИЧНА~~ | ✅ **Исправлено 2026-01-07** (contextvars + get_db) |
 | ~~Несогласованность типов в RLS~~ | ~~ВЫСОКАЯ~~ | ✅ **Исправлено 2026-01-07** (миграция 024) |
-| Нет партиционирования больших таблиц | ВЫСОКАЯ | Добавить для test_attempts, learning_activities |
+| ~~Нет партиционирования больших таблиц~~ | ~~ВЫСОКАЯ~~ | ✅ **Исправлено 2026-01-07** (миграции 5d20a0c758f1, a6f786ce22f9) |
 | Отсутствуют CHECK constraints | СРЕДНЯЯ | grade_level, passing_score |
 
 ### ✅ RLS для Homework таблиц (2026-01-07)
@@ -553,6 +574,37 @@ COALESCE(current_setting('app.is_super_admin', true), 'false') = 'true'
 
 **Тесты:** 12 интеграционных тестов в `test_rls_type_safety.py`
 
+### ✅ Партиционирование таблиц (2026-01-07)
+
+**Миграции:**
+- `5d20a0c758f1_partition_test_attempts.py` — test_attempts
+- `a6f786ce22f9_partition_learning_activities.py` — learning_activities
+
+**Стратегия:** RANGE partitioning по дате (ежемесячно)
+
+| Таблица | Partition Key | Партиции |
+|---------|---------------|----------|
+| `test_attempts` | `started_at` | 36 (2025-01 — 2027-12) + default |
+| `learning_activities` | `activity_timestamp` | 36 (2025-01 — 2027-12) + default |
+
+**Изменения в моделях:**
+- PRIMARY KEY теперь composite: `(id, partition_key)`
+- Добавлен `__table_args__` с `postgresql_partition_by`
+
+**Автоматическое создание партиций:**
+```bash
+# Скрипт для cron (создать партиции на 3 месяца вперёд)
+python scripts/create_monthly_partitions.py --months 3
+
+# Просмотр существующих партиций
+python scripts/create_monthly_partitions.py --list
+```
+
+**Ожидаемые улучшения:**
+- До 10x быстрее запросы с фильтром по дате
+- VACUUM/REINDEX на отдельных партициях
+- Простая архивация (DROP старых партиций)
+
 ### Индексы (хорошее покрытие)
 
 - School_id фильтрация: все таблицы
@@ -563,23 +615,26 @@ COALESCE(current_setting('app.is_super_admin', true), 'false') = 'true'
 
 ## 6. ДОКУМЕНТАЦИЯ
 
-### Существующая документация (85% для web)
+### Существующая документация (95% для web + mobile)
 
-| Документ | Строк | Полнота |
-|----------|-------|---------|
-| ARCHITECTURE.md | 471 | 95% |
-| IMPLEMENTATION_STATUS.md | 265 | 90% |
-| TEACHER_APP.md | 634 | 98% |
-| CHAT_SERVICE.md | 771 | 95% |
-| RAG_SERVICE.md | 566 | 95% |
-| DEPLOYMENT.md | 100+ | 80% |
-| CLAUDE.md | 227 | 90% |
+| Документ | Строк | Полнота | Назначение |
+|----------|-------|---------|------------|
+| ARCHITECTURE.md | 471 | 95% | Техническая архитектура |
+| IMPLEMENTATION_STATUS.md | 300 | 90% | Прогресс итераций |
+| TEACHER_APP.md | 634 | 98% | Teacher Dashboard |
+| CHAT_SERVICE.md | 771 | 95% | Chat API |
+| RAG_SERVICE.md | 566 | 95% | RAG сервис |
+| DEPLOYMENT.md | 100+ | 80% | Инструкции деплоя |
+| CLAUDE.md | 227 | 90% | Инструкции для AI |
+| **MOBILE_API_GUIDE.md** | 1355 | **100%** | **API для Mobile** ✅ |
+| **README_MOBILE.md** | 650 | **100%** | **Концепция для Mobile** ✅ |
 
 ### Критически отсутствует
 
 | Документ | Влияние |
 |----------|---------|
-| **MOBILE_API_GUIDE.md** | iOS/Android разработчики не смогут работать |
+| ~~**MOBILE_API_GUIDE.md**~~ | ✅ **Готово** (v2.0, 2026-01-07) |
+| ~~**README_MOBILE.md**~~ | ✅ **Готово** (v1.0, 2026-01-07) |
 | **SECURITY.md** | Потенциальные уязвимости |
 | **MONITORING.md** | Нет alerting при сбоях |
 | ~~**ERROR_CODES.md**~~ | ✅ Реализовано через i18n (ru.json, kk.json) |
@@ -590,19 +645,27 @@ COALESCE(current_setting('app.is_super_admin', true), 'false') = 'true'
 
 ## 7. ГОТОВНОСТЬ К MOBILE РАЗРАБОТКЕ
 
-### Статус: ЧАСТИЧНО ГОТОВО (70%)
+### Статус: ГОТОВО К СТАРТУ (90%) ✅
 
 | Требование | Статус |
 |-----------|--------|
-| API Response Formats | Не документированы |
-| Offline Sync Guide | Только план (Итерация 12) |
-| Error Codes & Handling | **✅ 48 кодов** (AUTH, ACCESS, VAL, RES, SVC, RATE) |
-| Pagination в всех lists | **95% endpoints** ✅ (Admin School + Global + Students + Teachers) |
-| **Фильтры для Mobile** | **✅ P1 критичные** (subject_id, grade_level, academic_year) |
-| Rate Limiting docs | Отсутствует |
-| WebSocket/Real-time | Нет |
-| SDK/Client Library | Нет |
-| TLS Pinning Guide | Нет |
+| **API Response Formats** | ✅ **Документированы** (MOBILE_API_GUIDE.md v2.0) |
+| **Концептуальный гайд** | ✅ **Готов** (README_MOBILE.md) |
+| Error Codes & Handling | ✅ **48 кодов** (AUTH, ACCESS, VAL, RES, SVC, RATE) |
+| Pagination в всех lists | ✅ **95% endpoints** (page/page_size/total_pages) |
+| **Фильтры для Mobile** | ✅ **P1 + P2** (subject_id, grade_level, test_purpose, difficulty) |
+| **Rate Limiting docs** | ✅ **Документировано** (MOBILE_API_GUIDE.md секция 13) |
+| **Security Requirements** | ✅ **Документировано** (MOBILE_API_GUIDE.md секция 14) |
+| Offline Sync Strategy | ✅ **Документирована** (MOBILE_API_GUIDE.md секция 15) |
+| WebSocket/Real-time | Нет (P3, опционально) |
+| SDK/Client Library | Нет (P3, опционально) |
+
+### Документы для Mobile разработчиков
+
+| Документ | Назначение |
+|----------|------------|
+| `docs/README_MOBILE.md` | Концепция платформы, роли, бизнес-логика |
+| `docs/MOBILE_API_GUIDE.md` | API endpoints, форматы, примеры |
 
 ---
 
@@ -634,7 +697,9 @@ COALESCE(current_setting('app.is_super_admin', true), 'false') = 'true'
 - [x] ~~Пагинация для Admin School endpoints~~ ✅ 8 endpoints (2026-01-06)
 - [x] ~~RLS политики для chat_sessions, homework~~ ✅ 7 homework таблиц + chat уже был (2026-01-07)
 - [x] ~~Пагинация для остальных list endpoints (Admin Global, Students, Teachers)~~ ✅ 14 endpoints (2026-01-07)
-- [ ] Документация: SECURITY.md, MOBILE_API_GUIDE.md
+- [x] ~~Документация: MOBILE_API_GUIDE.md~~ ✅ v2.0 (2026-01-07)
+- [x] ~~Документация: README_MOBILE.md~~ ✅ v1.0 (2026-01-07)
+- [ ] Документация: SECURITY.md
 
 ### Фаза 3: ДЛЯ MOBILE (3-5 недель)
 
@@ -659,14 +724,20 @@ COALESCE(current_setting('app.is_super_admin', true), 'false') = 'true'
 
 ### Для Mobile разработки
 
-**ЧАСТИЧНО ГОТОВО** — осталось:
-- MOBILE_API_GUIDE.md
-- ~~Стандартизация error codes~~ — **✅ 48 кодов готово** (AUTH, ACCESS, VAL, RES, SVC, RATE)
-- ~~Пагинация на всех endpoints~~ — **95% готово** ✅ (Admin School + Admin Global + Students + Teachers)
-- Offline sync API
-- SDK или примеры интеграции
+**✅ ГОТОВО К СТАРТУ** (90%):
+- ~~MOBILE_API_GUIDE.md~~ — **✅ v2.0 готов** (1355 строк, все endpoints)
+- ~~README_MOBILE.md~~ — **✅ v1.0 готов** (650 строк, концепция)
+- ~~Стандартизация error codes~~ — **✅ 48 кодов** (AUTH, ACCESS, VAL, RES, SVC, RATE)
+- ~~Пагинация на всех endpoints~~ — **✅ 95%** (page/page_size/total_pages)
+- ~~Rate Limiting docs~~ — **✅ Документировано**
+- ~~Security Requirements~~ — **✅ Документировано**
+- ~~Offline Sync Strategy~~ — **✅ Документировано**
 
-**Оценка работы:** 2-4 недели (сокращено благодаря error codes + пагинации)
+**Осталось (P3, не блокирует):**
+- SDK для React Native / Flutter (опционально)
+- WebSocket для real-time (опционально)
+
+**Mobile разработчики могут начинать работу!**
 
 ---
 
@@ -823,7 +894,32 @@ tenant_isolation_policy ON ai_generation_logs  -- school_id IS NULL OR matches t
 tenant_insert_policy ON {all 7 tables}
 ```
 
-### E. Error Codes Infrastructure ✅ (2026-01-07)
+### E. Партиционирование таблиц ✅ (2026-01-07)
+
+**Миграции:**
+```
+backend/alembic/versions/5d20a0c758f1_partition_test_attempts.py
+backend/alembic/versions/a6f786ce22f9_partition_learning_activities.py
+```
+
+**Обновлённые модели:**
+```
+backend/app/models/test_attempt.py      — composite PK (id, started_at)
+backend/app/models/learning.py          — composite PK (id, activity_timestamp)
+```
+
+**Скрипт автоматизации:**
+```
+backend/scripts/create_monthly_partitions.py  — cron job для создания партиций
+```
+
+**Партиции (74 таблицы):**
+- `test_attempts_2025_01` ... `test_attempts_2027_12` (36 партиций)
+- `test_attempts_default` (данные вне диапазона)
+- `learning_activities_2025_01` ... `learning_activities_2027_12` (36 партиций)
+- `learning_activities_default` (данные вне диапазона)
+
+### F. Error Codes Infrastructure ✅ (2026-01-07)
 
 **Создано (Backend):**
 ```
@@ -874,5 +970,5 @@ teacher-app/src/messages/kz/index.json  — 48 error messages (KK)
 ---
 
 **Отчет сгенерирован:** 2026-01-05
-**Обновлено:** 2026-01-07 (Security fixes + Code refactoring + Test coverage + Pagination + RLS Homework + Error Codes)
+**Обновлено:** 2026-01-07 (Security fixes + Code refactoring + Test coverage + Pagination + RLS Homework + Error Codes + Mobile Documentation)
 **Инструмент:** Claude Code Analysis
