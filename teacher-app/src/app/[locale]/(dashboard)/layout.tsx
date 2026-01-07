@@ -9,6 +9,7 @@ import {
   Users,
   BarChart3,
   ClipboardList,
+  ClipboardCheck,
   Settings,
   LogOut,
   GraduationCap,
@@ -32,8 +33,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const navItems = [
     { href: '/', icon: LayoutDashboard, label: t('dashboard') },
     { href: '/classes', icon: Users, label: t('classes') },
+    { href: '/homework', icon: ClipboardList, label: t('assignments') },
+    { href: '/homework/review', icon: ClipboardCheck, label: 'Проверка' },
     { href: '/analytics', icon: BarChart3, label: t('analytics') },
-    { href: '/assignments', icon: ClipboardList, label: t('assignments') },
   ];
 
   const isActive = (href: string) => {

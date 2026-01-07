@@ -41,13 +41,17 @@ export function ContentSelector({ onSelect, disabled }: ContentSelectorProps) {
   }, [selectedChapterId]);
 
   // Notify parent when selection changes
+  // NOTE: onSelect intentionally excluded from deps to prevent infinite loop
+  // when parent passes inline function. The callback identity doesn't affect
+  // when we should notify - only the selected IDs matter.
   useEffect(() => {
     if (selectedParagraphId) {
       onSelect({ paragraphId: selectedParagraphId });
     } else if (selectedChapterId) {
       onSelect({ chapterId: selectedChapterId });
     }
-  }, [selectedParagraphId, selectedChapterId, onSelect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedParagraphId, selectedChapterId]);
 
   return (
     <div className="space-y-4">

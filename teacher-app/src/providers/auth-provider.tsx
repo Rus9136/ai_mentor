@@ -5,11 +5,12 @@ import {
   useContext,
   useEffect,
   useState,
+  useCallback,
   ReactNode,
 } from 'react';
 import { useRouter, usePathname } from '@/i18n/routing';
 import {
-  googleAuth,
+  login as loginApi,
   getCurrentUser,
   logout as logoutApi,
   UserResponse,
@@ -20,7 +21,7 @@ interface AuthContextType {
   user: UserResponse | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (idToken: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -78,33 +79,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, isLoading, pathname, router]);
 
-  const login = async (idToken: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const response = await googleAuth(idToken);
-      setUser(response.user as unknown as UserResponse);
-      return { success: true };
-    } catch (error: unknown) {
-      if (error instanceof Error && error.message === 'ACCESS_DENIED') {
-        return { success: false, error: 'ACCESS_DENIED' };
-      }
-      return { success: false, error: 'LOGIN_ERROR' };
-    }
-  };
+  const login = useCallback(async (email: string, password: string) => {
+    await loginApi({ email, password });
 
-  const logout = () => {
+    const userData = await getCurrentUser();
+
+    // Only allow teachers
+    if (userData.role !== 'teacher') {
+      logoutApi();
+      throw new Error('ACCESS_DENIED');
+    }
+
+    setUser(userData);
+    router.replace('/');
+  }, [router]);
+
+  const logout = useCallback(() => {
     logoutApi();
     setUser(null);
     router.replace('/login');
-  };
+  }, [router]);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const userData = await getCurrentUser();
       setUser(userData);
     } catch {
       logout();
     }
-  };
+  }, [logout]);
 
   return (
     <AuthContext.Provider

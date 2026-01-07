@@ -1,19 +1,14 @@
 import { apiClient, setTokens, clearTokens } from './client';
 
-export interface GoogleAuthResponse {
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface TokenResponse {
   access_token: string;
   refresh_token: string;
   token_type: string;
-  requires_onboarding: boolean;
-  user: {
-    id: number;
-    email: string;
-    first_name: string;
-    last_name: string;
-    avatar_url: string | null;
-    role: string;
-    school_id: number | null;
-  };
 }
 
 export interface UserResponse {
@@ -30,16 +25,9 @@ export interface UserResponse {
   is_verified: boolean;
 }
 
-// Google OAuth login
-export async function googleAuth(idToken: string): Promise<GoogleAuthResponse> {
-  const response = await apiClient.post<GoogleAuthResponse>('/auth/google', {
-    id_token: idToken,
-  });
-
-  // Only allow teachers
-  if (response.data.user.role !== 'teacher') {
-    throw new Error('ACCESS_DENIED');
-  }
+// Email/Password login
+export async function login(credentials: LoginCredentials): Promise<TokenResponse> {
+  const response = await apiClient.post<TokenResponse>('/auth/login', credentials);
 
   // Save tokens
   setTokens(response.data.access_token, response.data.refresh_token);
@@ -56,4 +44,17 @@ export async function getCurrentUser(): Promise<UserResponse> {
 // Logout
 export function logout(): void {
   clearTokens();
+}
+
+// Get error message from API response
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    // Check if it's an Axios error with response
+    const axiosError = error as { response?: { data?: { detail?: string } } };
+    if (axiosError.response?.data?.detail) {
+      return axiosError.response.data.detail;
+    }
+    return error.message;
+  }
+  return 'Произошла неизвестная ошибка';
 }
