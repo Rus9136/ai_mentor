@@ -1,8 +1,8 @@
 """
 Repository for Paragraph data access.
 """
-from typing import Optional, List
-from sqlalchemy import select
+from typing import Optional, List, Tuple
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.paragraph import Paragraph
@@ -49,6 +49,43 @@ class ParagraphRepository:
             ).order_by(Paragraph.order)
         )
         return result.scalars().all()
+
+    async def get_by_chapter_paginated(
+        self,
+        chapter_id: int,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[Paragraph], int]:
+        """
+        Get all paragraphs for a chapter with pagination.
+
+        Args:
+            chapter_id: Chapter ID
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+
+        Returns:
+            Tuple of (list of paragraphs, total count)
+        """
+        # Base query
+        query = select(Paragraph).where(
+            Paragraph.chapter_id == chapter_id,
+            Paragraph.is_deleted == False  # noqa: E712
+        )
+
+        # Count total before pagination
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Apply ordering and pagination
+        query = query.order_by(Paragraph.order)
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        result = await self.db.execute(query)
+        paragraphs = list(result.scalars().all())
+
+        return paragraphs, total
 
     async def create(self, paragraph: Paragraph) -> Paragraph:
         """

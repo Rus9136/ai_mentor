@@ -1,14 +1,16 @@
 """
 Repository for HomeworkStudent (assignment) operations.
 """
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from datetime import datetime
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.homework import (
     Homework,
+    HomeworkTask,
+    HomeworkTaskQuestion,
     HomeworkStudent,
     HomeworkStatus,
     HomeworkStudentStatus,
@@ -75,35 +77,62 @@ class StudentAssignmentRepository:
         student_id: int,
         school_id: int,
         status: Optional[HomeworkStudentStatus] = None,
-        limit: int = 50
-    ) -> List[HomeworkStudent]:
-        """List homework assigned to a student."""
-        query = (
-            select(HomeworkStudent)
-            .options(selectinload(HomeworkStudent.homework))
-            .where(
-                HomeworkStudent.student_id == student_id,
-                HomeworkStudent.school_id == school_id,
-                HomeworkStudent.is_deleted == False
-            )
-        )
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[HomeworkStudent], int]:
+        """
+        List homework assigned to a student with pagination.
 
+        Args:
+            student_id: Student ID
+            school_id: School ID
+            status: Filter by status (optional)
+            page: Page number (1-based)
+            page_size: Number of items per page
+
+        Returns:
+            Tuple of (list of homework assignments, total count)
+        """
+        # Base query filters
+        base_filters = [
+            HomeworkStudent.student_id == student_id,
+            HomeworkStudent.school_id == school_id,
+            HomeworkStudent.is_deleted == False
+        ]
         if status:
-            query = query.where(HomeworkStudent.status == status)
+            base_filters.append(HomeworkStudent.status == status)
 
-        query = (
-            query
+        # Build base query with join
+        base_query = (
+            select(HomeworkStudent)
             .join(Homework)
             .where(
+                *base_filters,
                 Homework.status == HomeworkStatus.PUBLISHED,
                 Homework.is_deleted == False
             )
+        )
+
+        # Get total count
+        count_query = select(func.count()).select_from(base_query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Get paginated results with eager loading
+        offset = (page - 1) * page_size
+        query = (
+            base_query
+            .options(
+                selectinload(HomeworkStudent.homework)
+                .selectinload(Homework.tasks)
+                .selectinload(HomeworkTask.questions)
+            )
             .order_by(Homework.due_date.asc())
-            .limit(limit)
+            .offset(offset)
+            .limit(page_size)
         )
 
         result = await self.db.execute(query)
-        return list(result.unique().scalars().all())
+        return list(result.unique().scalars().all()), total
 
     async def update_student_homework_status(
         self,

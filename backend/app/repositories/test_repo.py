@@ -7,7 +7,7 @@ from sqlalchemy import select, and_, text, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 
-from app.models.test import Test, Question, QuestionOption, TestPurpose
+from app.models.test import Test, Question, QuestionOption, TestPurpose, DifficultyLevel
 
 
 class TestRepository:
@@ -69,6 +69,49 @@ class TestRepository:
             ).order_by(Test.difficulty, Test.title)
         )
         return result.scalars().all()
+
+    async def get_all_global_paginated(
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        chapter_id: Optional[int] = None,
+    ) -> Tuple[List[Test], int]:
+        """
+        Get all global tests (school_id = NULL) with pagination.
+
+        Args:
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+            chapter_id: Optional filter by chapter
+
+        Returns:
+            Tuple of (list of tests, total count)
+        """
+        # Build filters
+        filters = [
+            Test.school_id.is_(None),
+            Test.is_deleted == False  # noqa: E712
+        ]
+
+        if chapter_id is not None:
+            filters.append(Test.chapter_id == chapter_id)
+
+        # Base query
+        query = select(Test).where(and_(*filters))
+
+        # Count total before pagination
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Apply ordering and pagination
+        query = query.order_by(Test.difficulty, Test.title)
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        result = await self.db.execute(query)
+        tests = list(result.scalars().all())
+
+        return tests, total
 
     async def get_by_school(
         self,
@@ -268,6 +311,72 @@ class TestRepository:
             ).order_by(Test.difficulty, Test.title)
         )
         return result.scalars().all()
+
+    async def get_available_for_student_paginated(
+        self,
+        school_id: int,
+        page: int = 1,
+        page_size: int = 20,
+        chapter_id: Optional[int] = None,
+        paragraph_id: Optional[int] = None,
+        test_purpose: Optional[TestPurpose] = None,
+        difficulty: Optional[DifficultyLevel] = None,
+        is_active_only: bool = True
+    ) -> Tuple[List[Test], int]:
+        """
+        Get tests available for a student with pagination.
+
+        Returns both global tests (school_id = NULL) and school-specific tests.
+
+        Args:
+            school_id: School ID
+            page: Page number (1-based)
+            page_size: Number of items per page
+            chapter_id: Filter by chapter (optional)
+            paragraph_id: Filter by paragraph (optional)
+            test_purpose: Filter by test purpose (optional)
+            difficulty: Filter by difficulty (optional)
+            is_active_only: Only return active tests (default True)
+
+        Returns:
+            Tuple of (list of tests, total count)
+        """
+        filters = [
+            (Test.school_id == school_id) | (Test.school_id.is_(None)),
+            Test.is_deleted == False
+        ]
+
+        if is_active_only:
+            filters.append(Test.is_active == True)
+
+        if chapter_id is not None:
+            filters.append(Test.chapter_id == chapter_id)
+
+        if paragraph_id is not None:
+            filters.append(Test.paragraph_id == paragraph_id)
+
+        if test_purpose is not None:
+            filters.append(Test.test_purpose == test_purpose)
+
+        if difficulty is not None:
+            filters.append(Test.difficulty == difficulty)
+
+        base_query = select(Test).where(and_(*filters))
+
+        # Get total count
+        count_query = select(func.count()).select_from(base_query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Get paginated results
+        offset = (page - 1) * page_size
+        result = await self.db.execute(
+            base_query
+            .options(selectinload(Test.questions))
+            .order_by(Test.difficulty, Test.title)
+            .offset(offset)
+            .limit(page_size)
+        )
+        return list(result.scalars().all()), total
 
     async def get_by_paragraph(
         self,

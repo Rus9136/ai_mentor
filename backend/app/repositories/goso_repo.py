@@ -1,8 +1,8 @@
 """
 Repository for GOSO (State Educational Standard) data access.
 """
-from typing import Optional, List
-from sqlalchemy import select, and_
+from typing import Optional, List, Tuple
+from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -418,6 +418,52 @@ class ParagraphOutcomeRepository:
 
         result = await self.db.execute(query)
         return result.scalars().all()
+
+    async def get_by_paragraph_paginated(
+        self,
+        paragraph_id: int,
+        page: int = 1,
+        page_size: int = 20,
+        load_outcome: bool = False
+    ) -> Tuple[List[ParagraphOutcome], int]:
+        """
+        Get all outcomes for a paragraph with pagination.
+
+        Args:
+            paragraph_id: Paragraph ID
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+            load_outcome: Whether to eager load outcome details
+
+        Returns:
+            Tuple of (list of paragraph outcomes, total count)
+        """
+        # Base query
+        query = select(ParagraphOutcome).where(
+            ParagraphOutcome.paragraph_id == paragraph_id
+        )
+
+        # Count total before pagination
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Apply eager loading
+        if load_outcome:
+            query = query.options(
+                selectinload(ParagraphOutcome.outcome).selectinload(
+                    LearningOutcome.subsection
+                ).selectinload(GosoSubsection.section)
+            )
+
+        # Apply ordering and pagination
+        query = query.order_by(ParagraphOutcome.id)
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        result = await self.db.execute(query)
+        outcomes = list(result.scalars().all())
+
+        return outcomes, total
 
     async def get_by_outcome(self, outcome_id: int) -> List[ParagraphOutcome]:
         """

@@ -1,8 +1,8 @@
 """
 Repository for Chapter data access.
 """
-from typing import Optional, List
-from sqlalchemy import select
+from typing import Optional, List, Tuple
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chapter import Chapter
@@ -49,6 +49,43 @@ class ChapterRepository:
             ).order_by(Chapter.order)
         )
         return result.scalars().all()
+
+    async def get_by_textbook_paginated(
+        self,
+        textbook_id: int,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[Chapter], int]:
+        """
+        Get all chapters for a textbook with pagination.
+
+        Args:
+            textbook_id: Textbook ID
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+
+        Returns:
+            Tuple of (list of chapters, total count)
+        """
+        # Base query
+        query = select(Chapter).where(
+            Chapter.textbook_id == textbook_id,
+            Chapter.is_deleted == False  # noqa: E712
+        )
+
+        # Count total before pagination
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Apply ordering and pagination
+        query = query.order_by(Chapter.order)
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        result = await self.db.execute(query)
+        chapters = list(result.scalars().all())
+
+        return chapters, total
 
     async def create(self, chapter: Chapter) -> Chapter:
         """

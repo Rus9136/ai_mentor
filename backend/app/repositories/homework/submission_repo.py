@@ -2,7 +2,7 @@
 Repository for StudentTaskSubmission operations.
 """
 from typing import Optional, List, Dict
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -35,7 +35,7 @@ class SubmissionRepository:
             school_id=school_id,
             attempt_number=attempt_number,
             status=TaskSubmissionStatus.IN_PROGRESS,
-            started_at=datetime.utcnow()
+            started_at=datetime.now(timezone.utc)
         )
         self.db.add(submission)
         await self.db.flush()
@@ -108,7 +108,7 @@ class SubmissionRepository:
             if value is not None:
                 setattr(submission, key, value)
 
-        submission.updated_at = datetime.utcnow()
+        submission.updated_at = datetime.now(timezone.utc)
         await self.db.flush()
         await self.db.refresh(submission)
         return submission
