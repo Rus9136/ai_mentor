@@ -3,7 +3,7 @@ OAuth authentication endpoints.
 
 Provides Google OAuth login and student onboarding flow.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.core.security import create_access_token, create_refresh_token
 from app.core.config import settings
 from app.core.rate_limiter import limiter, AUTH_RATE_LIMIT, ONBOARDING_RATE_LIMIT
+from app.core.errors import APIError, ErrorCode
 from app.api.dependencies import get_current_user
 from app.models.user import User, UserRole, AuthProvider
 from app.models.student import Student
@@ -78,20 +79,14 @@ async def google_login(
     """
     # Check if Google OAuth is configured
     if not settings.GOOGLE_CLIENT_ID:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Google OAuth is not configured"
-        )
+        raise APIError(ErrorCode.SVC_004)  # Google OAuth is not configured
 
     # Verify Google token
     try:
         google_service = GoogleAuthService(client_id=data.client_id or settings.GOOGLE_CLIENT_ID)
         google_info = await google_service.verify_token(data.id_token)
     except GoogleAuthError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e)
-        )
+        raise APIError(ErrorCode.AUTH_006, message=str(e))  # Google authentication failed
 
     user_repo = UserRepository(db)
 
@@ -115,10 +110,7 @@ async def google_login(
 
         # Check if user is active
         if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User account is inactive"
-            )
+            raise APIError(ErrorCode.ACCESS_004)  # User account is inactive
 
         # Check if student has completed onboarding (has school_id)
         if user.role == UserRole.STUDENT and user.school_id is None:
@@ -181,16 +173,10 @@ async def validate_invitation_code(
     """
     # Only students without school can validate codes
     if current_user.role != UserRole.STUDENT:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only students can use invitation codes"
-        )
+        raise APIError(ErrorCode.ACCESS_002, message="Only students can use invitation codes")
 
     if current_user.school_id is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User already belongs to a school"
-        )
+        raise APIError(ErrorCode.VAL_006)  # User already belongs to a school
 
     code_repo = InvitationCodeRepository(db)
     is_valid, error, invitation_code = await code_repo.validate_code(data.code)
@@ -240,26 +226,23 @@ async def complete_onboarding(
     """
     # Only students without school can complete onboarding
     if current_user.role != UserRole.STUDENT:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only students can complete onboarding"
-        )
+        raise APIError(ErrorCode.ACCESS_002, message="Only students can complete onboarding")
 
     if current_user.school_id is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User already belongs to a school"
-        )
+        raise APIError(ErrorCode.VAL_006)  # User already belongs to a school
 
     # Validate invitation code
     code_repo = InvitationCodeRepository(db)
     is_valid, error, invitation_code = await code_repo.validate_code(data.invitation_code)
 
     if not is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid invitation code: {error}"
-        )
+        # Map validation error to appropriate code
+        if error == "Invitation code has expired":
+            raise APIError(ErrorCode.VAL_004)  # Code expired
+        elif error == "Invitation code has reached its usage limit":
+            raise APIError(ErrorCode.VAL_005)  # Usage limit reached
+        else:
+            raise APIError(ErrorCode.VAL_003, message=error or "Invalid invitation code")
 
     # Update user profile
     user_repo = UserRepository(db)

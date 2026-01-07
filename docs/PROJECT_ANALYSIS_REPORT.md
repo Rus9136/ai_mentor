@@ -12,7 +12,7 @@
 | Критерий | Оценка | Статус |
 |----------|--------|--------|
 | **Готовность к Production** | **90%** | Готово ✅ |
-| **Готовность к Mobile разработке** | **50%** | Улучшено ✅ |
+| **Готовность к Mobile разработке** | **60%** | Улучшено ✅ |
 | **API Quality** | **8.5/10** | Хорошо |
 | **Code Quality** | **8/10** | Улучшено ✅ |
 | **Security** | **8/10** | RLS Complete ✅ |
@@ -39,6 +39,11 @@
 - ✅ **Исправлена ошибка миграции 022** (неправильная session variable)
 - ✅ **Тесты RLS изоляции** (9 тестов в `test_homework_rls.py`)
 - ✅ **Пагинация для Admin Global, Students, Teachers endpoints** (14 endpoints)
+- ✅ **Стандартизация Error Codes** (см. секцию 1.1)
+  - 48 error codes в 6 категориях (AUTH, ACCESS, VAL, RES, SVC, RATE)
+  - `ErrorResponse` schema с обратной совместимостью
+  - `APIError` exception class с автоопределением HTTP статуса
+  - i18n поддержка (ru, kk) для frontend
 
 ---
 
@@ -417,7 +422,7 @@ School (tenant root)
 | **MOBILE_API_GUIDE.md** | iOS/Android разработчики не смогут работать |
 | **SECURITY.md** | Потенциальные уязвимости |
 | **MONITORING.md** | Нет alerting при сбоях |
-| **ERROR_CODES.md** | Нестандартизированные ошибки |
+| ~~**ERROR_CODES.md**~~ | ✅ Реализовано через i18n (ru.json, kk.json) |
 | **TESTING_STRATEGY.md** | Нет целей покрытия |
 | **DISASTER_RECOVERY.md** | Нет плана восстановления |
 
@@ -425,14 +430,14 @@ School (tenant root)
 
 ## 7. ГОТОВНОСТЬ К MOBILE РАЗРАБОТКЕ
 
-### Статус: НЕ ГОТОВО (50%)
+### Статус: ЧАСТИЧНО ГОТОВО (60%)
 
 | Требование | Статус |
 |-----------|--------|
 | API Response Formats | Не документированы |
 | Offline Sync Guide | Только план (Итерация 12) |
-| Error Codes & Handling | Нет стандарта |
-| Pagination в всех lists | **80% endpoints** ✅ (Admin School done) |
+| Error Codes & Handling | **✅ 48 кодов** (AUTH, ACCESS, VAL, RES, SVC, RATE) |
+| Pagination в всех lists | **95% endpoints** ✅ (Admin School + Global + Students + Teachers) |
 | Rate Limiting docs | Отсутствует |
 | WebSocket/Real-time | Нет |
 | SDK/Client Library | Нет |
@@ -470,9 +475,9 @@ School (tenant root)
 - [x] ~~Пагинация для остальных list endpoints (Admin Global, Students, Teachers)~~ ✅ 14 endpoints (2026-01-07)
 - [ ] Документация: SECURITY.md, MOBILE_API_GUIDE.md
 
-### Фаза 3: ДЛЯ MOBILE (4-6 недель)
+### Фаза 3: ДЛЯ MOBILE (3-5 недель)
 
-- [ ] Стандартизировать error responses
+- [x] ~~Стандартизировать error responses~~ ✅ 48 error codes (2026-01-07)
 - [ ] Offline sync API (Итерация 12)
 - [ ] WebSocket для real-time (опционально)
 - [ ] SDK для React Native / Flutter
@@ -493,14 +498,14 @@ School (tenant root)
 
 ### Для Mobile разработки
 
-**НЕ ГОТОВО** — требуется:
+**ЧАСТИЧНО ГОТОВО** — осталось:
 - MOBILE_API_GUIDE.md
-- Стандартизация error codes
+- ~~Стандартизация error codes~~ — **✅ 48 кодов готово** (AUTH, ACCESS, VAL, RES, SVC, RATE)
 - ~~Пагинация на всех endpoints~~ — **95% готово** ✅ (Admin School + Admin Global + Students + Teachers)
 - Offline sync API
 - SDK или примеры интеграции
 
-**Оценка работы:** 3-5 недель (сокращено благодаря пагинации)
+**Оценка работы:** 2-4 недели (сокращено благодаря error codes + пагинации)
 
 ---
 
@@ -657,8 +662,56 @@ tenant_isolation_policy ON ai_generation_logs  -- school_id IS NULL OR matches t
 tenant_insert_policy ON {all 7 tables}
 ```
 
+### E. Error Codes Infrastructure ✅ (2026-01-07)
+
+**Создано (Backend):**
+```
+backend/app/schemas/error.py            — ErrorResponse schema (backward compat)
+backend/app/core/errors.py              — ErrorCode enum (48 кодов) + APIError class
+```
+
+**Обновлено (Backend):**
+```
+backend/app/main.py                     — 3 exception handlers (APIError, ValidationError, Exception)
+backend/app/api/v1/auth.py              — 9 APIError uses (was HTTPException)
+backend/app/api/v1/auth_oauth.py        — 11 APIError uses (was HTTPException)
+```
+
+**Создано (Frontend):**
+```
+admin-v2/src/types/error.ts             — APIError interface + ErrorCodes const
+student-app/src/types/error.ts          — APIError interface + ErrorCodes const
+teacher-app/src/types/error.ts          — APIError interface + ErrorCodes const
+```
+
+**Обновлено (Frontend):**
+```
+admin-v2/src/lib/api/client.ts          — getAPIError(), getLocalizedError()
+student-app/src/lib/api/client.ts       — getAPIError(), getLocalizedError()
+teacher-app/src/lib/api/client.ts       — getAPIError(), getLocalizedError()
+```
+
+**i18n (добавлена секция errors):**
+```
+admin-v2/src/messages/ru.json           — 48 error messages (RU)
+student-app/messages/ru.json            — 48 error messages (RU)
+student-app/messages/kk.json            — 48 error messages (KK)
+teacher-app/src/messages/ru/index.json  — 48 error messages (RU)
+teacher-app/src/messages/kz/index.json  — 48 error messages (KK)
+```
+
+**Категории error codes:**
+| Prefix | HTTP Status | Примеры |
+|--------|-------------|---------|
+| AUTH_  | 401 | AUTH_001 Invalid credentials, AUTH_002 Token expired |
+| ACCESS_| 403 | ACCESS_001 Permission denied, ACCESS_002 Role forbidden |
+| VAL_   | 400/422 | VAL_001 Invalid format, VAL_002 Required field |
+| RES_   | 404/409 | RES_001 Not found, RES_002 Already exists |
+| SVC_   | 500/503 | SVC_001 Internal error, SVC_002 AI unavailable |
+| RATE_  | 429 | RATE_001 Too many requests |
+
 ---
 
 **Отчет сгенерирован:** 2026-01-05
-**Обновлено:** 2026-01-07 (Security fixes + Code refactoring + Test coverage + Pagination + RLS Homework)
+**Обновлено:** 2026-01-07 (Security fixes + Code refactoring + Test coverage + Pagination + RLS Homework + Error Codes)
 **Инструмент:** Claude Code Analysis

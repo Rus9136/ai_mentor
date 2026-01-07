@@ -1,7 +1,7 @@
 """
 Authentication endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -13,6 +13,7 @@ from app.core.security import (
     verify_token_type,
 )
 from app.core.rate_limiter import limiter, AUTH_RATE_LIMIT, REFRESH_RATE_LIMIT
+from app.core.errors import APIError, ErrorCode
 from app.api.dependencies import get_current_user
 from app.models.user import User
 from app.repositories.user_repo import UserRepository
@@ -44,24 +45,15 @@ async def login(
 
     # Check if user exists
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
-        )
+        raise APIError(ErrorCode.AUTH_001)  # Incorrect email or password
 
     # Verify password
     if not verify_password(credentials.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
-        )
+        raise APIError(ErrorCode.AUTH_001)  # Incorrect email or password
 
     # Check if user is active
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive"
-        )
+        raise APIError(ErrorCode.ACCESS_004)  # User account is inactive
 
     # Create token payload
     token_data = {
@@ -97,49 +89,31 @@ async def refresh_token(
     payload = decode_token(refresh_request.refresh_token)
 
     if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token"
-        )
+        raise APIError(ErrorCode.AUTH_007)  # Invalid refresh token
 
     # Verify token type
     if not verify_token_type(payload, "refresh"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token type"
-        )
+        raise APIError(ErrorCode.AUTH_004)  # Invalid token type
 
     # Get user
     user_id_str = payload.get("sub")
     if not user_id_str:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload"
-        )
+        raise APIError(ErrorCode.AUTH_003)  # Invalid token payload
 
     # Convert user_id from string to int
     try:
         user_id = int(user_id_str)
     except (ValueError, TypeError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user ID in token"
-        )
+        raise APIError(ErrorCode.AUTH_003)  # Invalid user ID in token
 
     user_repo = UserRepository(db)
     user = await user_repo.get_by_id(user_id)
 
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
+        raise APIError(ErrorCode.AUTH_005)  # User not found
 
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive"
-        )
+        raise APIError(ErrorCode.ACCESS_004)  # User account is inactive
 
     # Create new tokens
     token_data = {
