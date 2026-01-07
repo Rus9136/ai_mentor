@@ -6,6 +6,14 @@ This module provides reusable dependencies for:
 - Authorization (role-based access control)
 - Data access with school isolation (textbook, chapter, paragraph)
 - Student context resolution
+
+IMPORTANT: RLS session variables are now set AUTOMATICALLY by get_db().
+Dependencies here only need to:
+1. Validate JWT and return User
+2. Check roles/permissions
+3. Load related entities (Student, Teacher, etc.)
+
+NO NEED to call set_current_tenant, set_super_admin_flag, etc. anymore!
 """
 from typing import Optional
 from fastapi import Depends, HTTPException, status, Query
@@ -15,10 +23,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 import logging
 
-from app.core.database import get_db
+from app.core.database import get_db, get_db_no_rls
 from app.schemas.pagination import PaginationParams
 from app.core.security import decode_token, verify_token_type
-from app.core.tenancy import set_current_tenant, reset_tenant, set_super_admin_flag, set_current_user_id
 from app.models.user import User, UserRole
 from app.models.student import Student
 from app.models.teacher import Teacher
@@ -45,9 +52,13 @@ async def get_current_user(
     """
     Get current authenticated user from JWT token.
 
+    NOTE: RLS session variables are already set by get_db() based on the
+    tenant context from TenancyMiddleware. This dependency only validates
+    the token and returns the User object.
+
     Args:
         credentials: HTTP Bearer credentials
-        db: Database session
+        db: Database session (with RLS already configured)
 
     Returns:
         Current user
@@ -108,28 +119,8 @@ async def get_current_user(
             detail="User is inactive"
         )
 
-    # Set tenant context for RLS policies
-    # This MUST be done in the SAME session that will be used by endpoints
-
-    # Always set current user ID (for self-update RLS policies)
-    await set_current_user_id(db, user.id)
-
-    if user.role == UserRole.SUPER_ADMIN:
-        await set_super_admin_flag(db, True)
-        await reset_tenant(db)
-        await db.commit()
-        logger.info(f"Set SUPER_ADMIN mode for user_id={user.id}")
-    elif user.school_id is not None:
-        await set_current_tenant(db, user.school_id)
-        await set_super_admin_flag(db, False)
-        await db.commit()
-        logger.info(f"Set tenant context: school_id={user.school_id}, user_id={user.id}")
-    else:
-        # User without school_id (e.g., student in onboarding)
-        await set_super_admin_flag(db, False)
-        await reset_tenant(db)
-        await db.commit()
-        logger.info(f"Set context for user without school: user_id={user.id}")
+    # RLS context is already set by get_db() - no need to set it again
+    logger.debug(f"Authenticated user: id={user.id}, role={user.role}, school={user.school_id}")
 
     return user
 
@@ -231,6 +222,15 @@ def get_pagination_params(
     return PaginationParams(page=page, page_size=page_size)
 
 
+# =============================================================================
+# Database with RLS Context Dependencies (SIMPLIFIED)
+# =============================================================================
+#
+# These dependencies are now SIMPLIFIED because get_db() automatically sets
+# RLS context from tenant context. They exist for backwards compatibility
+# and to provide convenient combinations of db + user.
+
+
 async def get_db_with_rls_context(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -238,31 +238,18 @@ async def get_db_with_rls_context(
     """
     Get database session with RLS context properly set.
 
-    This dependency ensures that RLS session variables are set in the SAME
-    database session that will be used by the endpoint. This is necessary
-    because get_current_user creates its own db session for authentication,
-    but the endpoint uses a different session for data operations.
+    NOTE: This is now just a convenience wrapper. RLS context is already
+    set by get_db() automatically. This dependency ensures authentication
+    is performed and returns the same db session.
 
     Args:
-        db: Database session (same one endpoint will use)
+        db: Database session (RLS already configured)
         current_user: Authenticated user (triggers authentication)
 
     Returns:
         Database session with RLS context configured
     """
-    # Re-set RLS context in THIS session (the one endpoint will use)
-    await set_current_user_id(db, current_user.id)
-
-    if current_user.role == UserRole.SUPER_ADMIN:
-        await set_super_admin_flag(db, True)
-        await reset_tenant(db)
-    elif current_user.school_id is not None:
-        await set_current_tenant(db, current_user.school_id)
-        await set_super_admin_flag(db, False)
-    else:
-        await set_super_admin_flag(db, False)
-        await reset_tenant(db)
-
+    # RLS is already set by get_db() - just return the session
     return db
 
 
@@ -271,14 +258,12 @@ async def get_db_for_super_admin(
     current_user: User = Depends(require_super_admin)
 ) -> AsyncSession:
     """
-    Get database session with SUPER_ADMIN RLS context.
+    Get database session for SUPER_ADMIN users.
 
     Convenience dependency that combines require_super_admin check
-    and RLS context setup in one step.
+    with database access. RLS context is automatically set to bypass
+    tenant filtering for super admins.
     """
-    await set_current_user_id(db, current_user.id)
-    await set_super_admin_flag(db, True)
-    await reset_tenant(db)
     return db
 
 
@@ -287,17 +272,12 @@ async def get_db_for_admin(
     current_user: User = Depends(require_admin)
 ) -> AsyncSession:
     """
-    Get database session with School ADMIN RLS context.
+    Get database session for School ADMIN users.
 
     Convenience dependency that combines require_admin check
-    and RLS context setup in one step.
+    with database access. RLS context is automatically set to filter
+    by the admin's school_id.
     """
-    await set_current_user_id(db, current_user.id)
-    await set_super_admin_flag(db, False)
-    if current_user.school_id is not None:
-        await set_current_tenant(db, current_user.school_id)
-    else:
-        await reset_tenant(db)
     return db
 
 
@@ -306,25 +286,19 @@ async def get_db_and_admin_user(
     current_user: User = Depends(require_admin)
 ) -> tuple[AsyncSession, User]:
     """
-    Get database session with School ADMIN RLS context AND the user object.
+    Get database session and current admin user.
 
-    Use this when you need both the db session with proper RLS and access
-    to current_user (e.g., to get school_id for validation).
+    Use this when you need both the db session and access to current_user
+    (e.g., to get school_id for validation or logging).
 
     Returns:
-        Tuple of (db session with RLS context, current user)
+        Tuple of (db session, current user)
     """
-    await set_current_user_id(db, current_user.id)
-    await set_super_admin_flag(db, False)
-    if current_user.school_id is not None:
-        await set_current_tenant(db, current_user.school_id)
-    else:
-        await reset_tenant(db)
     return db, current_user
 
 
 # =============================================================================
-# Content Access Dependencies (Phase 1 Refactoring)
+# Content Access Dependencies
 # =============================================================================
 
 
@@ -341,7 +315,7 @@ async def get_student_from_user(
 
     Args:
         current_user: Authenticated user with STUDENT role
-        db: Database session
+        db: Database session (RLS already configured)
 
     Returns:
         Student record
@@ -349,16 +323,7 @@ async def get_student_from_user(
     Raises:
         HTTPException 400: If Student record not found for this user
     """
-    # Re-set RLS context in THIS session (the one used for query)
-    # This is needed because get_current_user uses a different session
-    await set_current_user_id(db, current_user.id)
-    if current_user.school_id is not None:
-        await set_current_tenant(db, current_user.school_id)
-        await set_super_admin_flag(db, False)
-    else:
-        await set_super_admin_flag(db, False)
-        await reset_tenant(db)
-
+    # RLS is already set by get_db() - just query
     result = await db.execute(
         select(Student).where(Student.user_id == current_user.id)
     )
@@ -386,7 +351,7 @@ async def get_teacher_from_user(
 
     Args:
         current_user: Authenticated user with TEACHER role
-        db: Database session
+        db: Database session (RLS already configured)
 
     Returns:
         Teacher record
@@ -394,16 +359,7 @@ async def get_teacher_from_user(
     Raises:
         HTTPException 400: If Teacher record not found for this user
     """
-    # Re-set RLS context in THIS session (the one used for query)
-    # This is needed because get_current_user uses a different session
-    await set_current_user_id(db, current_user.id)
-    if current_user.school_id is not None:
-        await set_current_tenant(db, current_user.school_id)
-        await set_super_admin_flag(db, False)
-    else:
-        await set_super_admin_flag(db, False)
-        await reset_tenant(db)
-
+    # RLS is already set by get_db() - just query
     result = await db.execute(
         select(Teacher).where(Teacher.user_id == current_user.id)
     )
@@ -436,7 +392,7 @@ async def get_paragraph_with_access(
     Args:
         paragraph_id: Paragraph ID from path
         school_id: Current user's school ID (from token)
-        db: Database session
+        db: Database session (RLS already configured)
 
     Returns:
         Paragraph with chapter and textbook loaded
@@ -492,7 +448,7 @@ async def get_chapter_with_access(
     Args:
         chapter_id: Chapter ID from path
         school_id: Current user's school ID (from token)
-        db: Database session
+        db: Database session (RLS already configured)
 
     Returns:
         Chapter with textbook loaded
@@ -542,7 +498,7 @@ async def get_textbook_with_access(
     Args:
         textbook_id: Textbook ID from path
         school_id: Current user's school ID (from token)
-        db: Database session
+        db: Database session (RLS already configured)
 
     Returns:
         Textbook
@@ -731,7 +687,7 @@ async def verify_task_ownership(
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found"
+            detail="Задание не найдено или уже удалено"
         )
 
     homework = await service.get_homework(

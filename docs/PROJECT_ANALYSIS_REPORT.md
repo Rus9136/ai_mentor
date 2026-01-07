@@ -44,6 +44,10 @@
   - `ErrorResponse` schema с обратной совместимостью
   - `APIError` exception class с автоопределением HTTP статуса
   - i18n поддержка (ru, kk) для frontend
+- ✅ **Session variables гарантированы** (см. секцию 5)
+  - Новая архитектура: `contextvars` + единая точка установки в `get_db()`
+  - Удалено дублирование из 7 dependencies
+  - 18 новых тестов в `test_tenant_context.py`
 
 ---
 
@@ -370,7 +374,7 @@ School (tenant root)
 | Проблема | Severity | Решение |
 |----------|----------|---------|
 | ~~RLS отсутствует для chat_sessions, homework~~ | ~~КРИТИЧНА~~ | ✅ **Исправлено 2026-01-07** |
-| Session переменные не гарантированы | КРИТИЧНА | Верифицировать в middleware |
+| ~~Session переменные не гарантированы~~ | ~~КРИТИЧНА~~ | ✅ **Исправлено 2026-01-07** (contextvars + get_db) |
 | Несогласованность типов в RLS | ВЫСОКАЯ | Унифицировать cast |
 | Нет партиционирования больших таблиц | ВЫСОКАЯ | Добавить для test_attempts, learning_activities |
 | Отсутствуют CHECK constraints | СРЕДНЯЯ | grade_level, passing_score |
@@ -392,6 +396,28 @@ School (tenant root)
 **Session variables:**
 - `app.current_tenant_id` — school_id текущего пользователя
 - `app.is_super_admin` — флаг обхода RLS
+- `app.current_user_id` — ID текущего пользователя
+
+### ✅ Session Variables Architecture (2026-01-07)
+
+**Проблема была:** Session variables устанавливались в 7 разных местах (dependencies),
+но разные dependencies создавали разные DB сессии, и RLS не гарантировался.
+
+**Решение:**
+```
+Request Flow:
+  1. TenancyMiddleware → декодирует JWT → сохраняет в contextvars
+  2. get_db() → читает из contextvars → устанавливает session vars в ОДНОЙ сессии
+  3. Endpoint → использует ту же сессию → RLS гарантирован
+```
+
+**Файлы:**
+- `app/core/tenant_context.py` — TenantInfo dataclass + contextvars
+- `app/middleware/tenancy.py` — извлекает JWT → set_tenant_context()
+- `app/core/database.py` — get_db() с автоустановкой session vars
+- `app/api/dependencies.py` — упрощено, без дублирования
+
+**Тесты:** 18 тестов в `test_tenant_context.py`
 
 ### Индексы (хорошее покрытие)
 
