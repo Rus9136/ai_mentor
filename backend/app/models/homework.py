@@ -65,6 +65,7 @@ class TaskSubmissionStatus(str, enum.Enum):
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
     SUBMITTED = "submitted"
+    NEEDS_REVIEW = "needs_review"  # Requires manual teacher review
     GRADED = "graded"
 
 

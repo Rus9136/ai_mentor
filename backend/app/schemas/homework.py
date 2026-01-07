@@ -69,6 +69,7 @@ class SubmissionStatus(str, Enum):
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
     SUBMITTED = "submitted"
+    NEEDS_REVIEW = "needs_review"  # Requires manual teacher review
     GRADED = "graded"
 
 
@@ -205,7 +206,9 @@ class HomeworkTaskCreate(BaseModel):
     def validate_content_link(self):
         if not self.paragraph_id and not self.chapter_id:
             if self.task_type not in [TaskType.PRACTICE, TaskType.CODE]:
-                raise ValueError('Either paragraph_id or chapter_id is required for this task type')
+                raise ValueError(
+                    'Необходимо выбрать параграф или главу для этого типа задания'
+                )
         return self
 
 
@@ -440,6 +443,7 @@ class StudentTaskResponse(BaseModel):
     current_attempt: int = 0
     max_attempts: int
     attempts_remaining: int
+    submission_id: Optional[int] = None  # ID of current/latest submission
 
     # Results
     my_score: Optional[float] = None
