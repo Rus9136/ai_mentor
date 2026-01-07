@@ -1,6 +1,18 @@
 import { apiClient } from './client';
 
 // =============================================================================
+// Pagination Type
+// =============================================================================
+
+interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+// =============================================================================
 // Types - matching backend schemas
 // =============================================================================
 
@@ -144,28 +156,28 @@ export interface ParagraphNavigation {
  * Get all textbooks available to the student with progress.
  */
 export async function getStudentTextbooks(): Promise<StudentTextbook[]> {
-  const response = await apiClient.get<StudentTextbook[]>('/students/textbooks');
-  return response.data;
+  const response = await apiClient.get<PaginatedResponse<StudentTextbook>>('/students/textbooks');
+  return response.data.items;
 }
 
 /**
  * Get chapters for a textbook with student's progress.
  */
 export async function getTextbookChapters(textbookId: number): Promise<StudentChapter[]> {
-  const response = await apiClient.get<StudentChapter[]>(
+  const response = await apiClient.get<PaginatedResponse<StudentChapter>>(
     `/students/textbooks/${textbookId}/chapters`
   );
-  return response.data;
+  return response.data.items;
 }
 
 /**
  * Get paragraphs for a chapter with student's progress.
  */
 export async function getChapterParagraphs(chapterId: number): Promise<StudentParagraph[]> {
-  const response = await apiClient.get<StudentParagraph[]>(
+  const response = await apiClient.get<PaginatedResponse<StudentParagraph>>(
     `/students/chapters/${chapterId}/paragraphs`
   );
-  return response.data;
+  return response.data.items;
 }
 
 /**

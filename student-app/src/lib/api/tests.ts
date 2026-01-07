@@ -1,6 +1,18 @@
 import { apiClient } from './client';
 
 // =============================================================================
+// Pagination Type
+// =============================================================================
+
+interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+// =============================================================================
 // Types - matching backend schemas
 // =============================================================================
 
@@ -136,13 +148,13 @@ export interface TestAnswerResponse {
  * Returns FORMATIVE tests that student can take after learning the paragraph.
  */
 export async function getTestsForParagraph(paragraphId: number): Promise<AvailableTest[]> {
-  const response = await apiClient.get<AvailableTest[]>('/students/tests', {
+  const response = await apiClient.get<PaginatedResponse<AvailableTest>>('/students/tests', {
     params: {
       paragraph_id: paragraphId,
       test_purpose: 'formative',
     },
   });
-  return response.data;
+  return response.data.items;
 }
 
 /**
@@ -153,13 +165,13 @@ export async function getTestsForChapter(
   chapterId: number,
   testPurpose?: TestPurpose
 ): Promise<AvailableTest[]> {
-  const response = await apiClient.get<AvailableTest[]>('/students/tests', {
+  const response = await apiClient.get<PaginatedResponse<AvailableTest>>('/students/tests', {
     params: {
       chapter_id: chapterId,
       ...(testPurpose && { test_purpose: testPurpose }),
     },
   });
-  return response.data;
+  return response.data.items;
 }
 
 /**

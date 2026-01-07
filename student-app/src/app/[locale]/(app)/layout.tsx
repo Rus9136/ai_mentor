@@ -11,6 +11,7 @@ import {
   GraduationCap,
   LogOut,
   Menu,
+  ClipboardList,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -27,6 +28,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const navItems = [
     { href: '/', icon: Home, label: t('home') },
     { href: '/subjects', icon: BookOpen, label: t('subjects') },
+    { href: '/homework', icon: ClipboardList, label: t('homework') },
     { href: '/profile', icon: User, label: t('profile') },
   ];
 
