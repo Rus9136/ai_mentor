@@ -58,20 +58,24 @@ class AIOrchestrationService:
             AIOrchestrationError: If AI service not available or task misconfigured
         """
         if not self.ai_service:
-            raise AIOrchestrationError("AI service not configured")
+            raise AIOrchestrationError(
+                "Сервис AI не настроен. Обратитесь к администратору."
+            )
 
         task = await self.repo.get_task_by_id(task_id, school_id, load_questions=True)
         if not task:
-            raise AIOrchestrationError("Task not found")
+            raise AIOrchestrationError(
+                "Задание не найдено. Возможно, оно было удалено."
+            )
 
         if not task.generation_params:
             raise AIOrchestrationError(
-                "Task has no generation parameters configured"
+                "Не заданы параметры генерации. Выберите параметры и попробуйте снова."
             )
 
         if task.questions and not regenerate:
             raise AIOrchestrationError(
-                "Task already has questions. Use regenerate=True"
+                "Вопросы уже сгенерированы. Для повторной генерации включите режим перегенерации."
             )
 
         # Deactivate existing questions if regenerating

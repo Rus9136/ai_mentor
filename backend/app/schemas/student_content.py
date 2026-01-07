@@ -11,6 +11,8 @@ from typing import Optional, List, Any
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
+from app.schemas.goso import SubjectBrief
+
 
 # =============================================================================
 # Textbook Schemas for Students
@@ -33,7 +35,9 @@ class StudentTextbookResponse(BaseModel):
 
     id: int
     title: str
-    subject: str
+    subject_id: Optional[int] = Field(None, description="Subject ID (normalized)")
+    subject: str = Field(description="Subject name (for backward compatibility)")
+    subject_rel: Optional[SubjectBrief] = Field(None, description="Subject details")
     grade_level: int
     description: Optional[str] = None
     is_global: bool = Field(description="True if global textbook, False if school-specific")
@@ -240,7 +244,9 @@ class ContinueLearningItem(BaseModel):
     chapter_title: str
     textbook_id: int
     textbook_title: str
-    subject: str
+    subject_id: Optional[int] = Field(None, description="Subject ID (normalized)")
+    subject: str = Field(description="Subject name (for backward compatibility)")
+    subject_rel: Optional[SubjectBrief] = Field(None, description="Subject details")
 
     # Progress
     progress_percentage: int = 0

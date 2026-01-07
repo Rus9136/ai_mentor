@@ -61,12 +61,17 @@ class QuestionGenerationService:
         # 1. Get paragraph content
         paragraph = await self.paragraph_repo.get_by_id(paragraph_id)
         if not paragraph:
-            raise QuestionGenerationError(f"Paragraph {paragraph_id} not found")
+            raise QuestionGenerationError(
+                f"Параграф не найден (ID: {paragraph_id}). "
+                "Проверьте, что параграф существует и не удалён."
+            )
 
         content = await self._get_paragraph_text(paragraph_id)
         if not content:
+            paragraph_title = paragraph.title or f"ID {paragraph_id}"
             raise QuestionGenerationError(
-                f"Paragraph {paragraph_id} has no content"
+                f"Параграф «{paragraph_title}» не содержит текстового контента. "
+                "Для генерации вопросов необходимо сначала добавить учебный материал в параграф."
             )
 
         # 2. Build prompt
@@ -85,7 +90,10 @@ class QuestionGenerationService:
             )
         except LLMServiceError as e:
             logger.error(f"LLM generation failed: {e}")
-            raise QuestionGenerationError(f"AI generation failed: {e}") from e
+            raise QuestionGenerationError(
+                "Не удалось сгенерировать вопросы. "
+                "Сервис AI временно недоступен. Попробуйте позже."
+            ) from e
 
         latency_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
 
@@ -110,7 +118,10 @@ class QuestionGenerationService:
                 success=False,
                 task_id=task_id
             )
-            raise QuestionGenerationError(f"Failed to parse AI response: {e}") from e
+            raise QuestionGenerationError(
+                "AI сгенерировал некорректный ответ. "
+                "Попробуйте повторить генерацию или уменьшить количество вопросов."
+            ) from e
 
         # 5. Log successful operation
         await log_ai_operation(

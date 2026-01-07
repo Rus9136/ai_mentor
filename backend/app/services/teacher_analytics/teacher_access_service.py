@@ -47,7 +47,7 @@ class TeacherAccessService:
                 and_(
                     Teacher.user_id == user_id,
                     Teacher.school_id == school_id,
-                    not Teacher.is_deleted
+                    Teacher.is_deleted == False  # noqa: E712
                 )
             )
         )
@@ -112,7 +112,7 @@ class TeacherAccessService:
             .where(
                 and_(
                     ClassStudent.class_id == class_id,
-                    not Student.is_deleted
+                    Student.is_deleted == False  # noqa: E712
                 )
             )
         )

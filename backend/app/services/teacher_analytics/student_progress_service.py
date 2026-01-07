@@ -72,7 +72,7 @@ class StudentProgressService:
                 and_(
                     Student.id == student_id,
                     Student.school_id == school_id,
-                    not Student.is_deleted
+                    Student.is_deleted == False  # noqa: E712
                 )
             )
         )
@@ -144,7 +144,7 @@ class StudentProgressService:
                 and_(
                     Student.id == student_id,
                     Student.school_id == school_id,
-                    not Student.is_deleted
+                    Student.is_deleted == False  # noqa: E712
                 )
             )
         )

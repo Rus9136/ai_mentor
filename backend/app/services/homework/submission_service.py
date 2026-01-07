@@ -8,7 +8,7 @@ Handles:
 - Managing student homework status
 """
 import logging
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -63,14 +63,16 @@ class SubmissionService:
         student_id: int,
         school_id: int,
         status: Optional[HomeworkStudentStatus] = None,
-        limit: int = 50
-    ) -> List[HomeworkStudent]:
-        """List homework assigned to student."""
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[HomeworkStudent], int]:
+        """List homework assigned to student with pagination."""
         return await self.repo.list_student_homework(
             student_id=student_id,
             school_id=school_id,
             status=status,
-            limit=limit
+            page=page,
+            page_size=page_size,
         )
 
     async def start_task(
