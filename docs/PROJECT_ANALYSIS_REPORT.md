@@ -17,7 +17,7 @@
 | **Code Quality** | **8/10** | Улучшено ✅ |
 | **Security** | **8/10** | RLS Complete ✅ |
 | **Test Coverage** | **60%** | Улучшено ✅ |
-| **Documentation** | **75%** | Улучшено ✅ |
+| **Documentation** | **85%** | Улучшено ✅ |
 | **Database** | **90%** | Partitioning ✅ |
 
 ### Исправлено 2026-01-06:
@@ -628,6 +628,7 @@ python scripts/create_monthly_partitions.py --list
 | CLAUDE.md | 227 | 90% | Инструкции для AI |
 | **MOBILE_API_GUIDE.md** | 1355 | **100%** | **API для Mobile** ✅ |
 | **README_MOBILE.md** | 650 | **100%** | **Концепция для Mobile** ✅ |
+| **SECURITY.md** | 850 | **100%** | **Безопасность** ✅ |
 
 ### Критически отсутствует
 
@@ -635,7 +636,7 @@ python scripts/create_monthly_partitions.py --list
 |----------|---------|
 | ~~**MOBILE_API_GUIDE.md**~~ | ✅ **Готово** (v2.0, 2026-01-07) |
 | ~~**README_MOBILE.md**~~ | ✅ **Готово** (v1.0, 2026-01-07) |
-| **SECURITY.md** | Потенциальные уязвимости |
+| ~~**SECURITY.md**~~ | ✅ **Готово** (v1.0, 2026-01-07) |
 | **MONITORING.md** | Нет alerting при сбоях |
 | ~~**ERROR_CODES.md**~~ | ✅ Реализовано через i18n (ru.json, kk.json) |
 | **TESTING_STRATEGY.md** | Нет целей покрытия |
@@ -699,7 +700,7 @@ python scripts/create_monthly_partitions.py --list
 - [x] ~~Пагинация для остальных list endpoints (Admin Global, Students, Teachers)~~ ✅ 14 endpoints (2026-01-07)
 - [x] ~~Документация: MOBILE_API_GUIDE.md~~ ✅ v2.0 (2026-01-07)
 - [x] ~~Документация: README_MOBILE.md~~ ✅ v1.0 (2026-01-07)
-- [ ] Документация: SECURITY.md
+- [x] ~~Документация: SECURITY.md~~ ✅ v1.0 (2026-01-07)
 
 ### Фаза 3: ДЛЯ MOBILE (3-5 недель)
 
