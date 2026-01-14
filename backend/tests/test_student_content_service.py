@@ -465,16 +465,16 @@ class TestStudentContentService:
     async def test_get_paragraphs_with_progress_has_practice(
         self, service: StudentContentService, student_user, db_session, school1, chapter1, paragraph1
     ):
-        """Test has_practice flag when formative/practice test exists."""
+        """Test has_practice flag when practice test exists."""
         user, student = student_user
 
-        # Create formative test for paragraph
+        # Create practice test for paragraph
         test = Test(
             school_id=school1.id,
             chapter_id=chapter1.id,
             paragraph_id=paragraph1.id,
             title="Practice Test",
-            test_purpose=TestPurpose.FORMATIVE,
+            test_purpose=TestPurpose.PRACTICE,
             difficulty=DifficultyLevel.EASY,
             time_limit=15,
             passing_score=0.6,

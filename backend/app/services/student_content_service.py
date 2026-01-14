@@ -639,7 +639,7 @@ class StudentContentService:
             select(Test.paragraph_id)
             .where(
                 Test.paragraph_id.in_(paragraph_ids),
-                Test.test_purpose.in_([TestPurpose.FORMATIVE, TestPurpose.PRACTICE]),
+                Test.test_purpose == TestPurpose.PRACTICE,
                 Test.is_active == True,
                 Test.is_deleted == False
             )
