@@ -226,14 +226,14 @@ class GradingService:
         attempt.completed_at = datetime.now(timezone.utc)
         attempt.time_spent = int((attempt.completed_at - attempt.started_at).total_seconds())
 
-        # Save test info before commit (relations expire after commit)
+        # Save test info before flush (relations may expire)
         test_purpose = attempt.test.test_purpose
         paragraph_id = attempt.test.paragraph_id
         chapter_id = attempt.test.chapter_id
 
-        # 7. Save to database
-        await self.db.commit()
-        await self.db.refresh(attempt)
+        # 7. Flush changes (caller will commit to preserve RLS context)
+        # NOTE: Don't commit here - endpoint manages transaction
+        await self.db.flush()
 
         logger.info(
             f"Completed grading for attempt {attempt_id}: "

@@ -118,20 +118,32 @@ class TestAttemptRepository:
         """
         Create a new test attempt.
 
+        NOTE: Does NOT commit - caller (endpoint) is responsible for commit.
+
+        For partitioned tables with composite PK, we manually get the next ID
+        from sequence before INSERT (refresh() doesn't work with composite PK).
+
         Args:
             attempt: TestAttempt instance
 
         Returns:
-            Created test attempt
+            Created test attempt with ID populated
         """
+        # Get next ID from sequence (partitioned table workaround)
+        result = await self.db.execute(
+            select(func.nextval("test_attempts_id_seq1"))
+        )
+        attempt.id = result.scalar()
+
         self.db.add(attempt)
-        await self.db.commit()
-        await self.db.refresh(attempt)
+        await self.db.flush()
         return attempt
 
     async def update(self, attempt: TestAttempt) -> TestAttempt:
         """
         Update an existing test attempt.
+
+        NOTE: Does NOT commit - caller (endpoint) is responsible for commit.
 
         Args:
             attempt: TestAttempt instance with updated fields
@@ -139,8 +151,7 @@ class TestAttemptRepository:
         Returns:
             Updated test attempt
         """
-        await self.db.commit()
-        await self.db.refresh(attempt)
+        await self.db.flush()
         return attempt
 
     async def get_with_answers(

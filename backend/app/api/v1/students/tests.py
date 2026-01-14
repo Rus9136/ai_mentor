@@ -333,10 +333,7 @@ async def answer_test_question(
             detail=str(e)
         )
 
-    # Commit answer
-    await db.commit()
-
-    # Auto-complete if last question
+    # Auto-complete if last question (BEFORE commit to preserve RLS context)
     is_test_complete = False
     test_score = None
     test_passed = None
@@ -359,6 +356,9 @@ async def answer_test_question(
             f"Attempt {attempt_id} auto-completed: "
             f"score={test_score:.2f}, passed={test_passed}"
         )
+
+    # Commit all changes at the end (after grading to preserve RLS context)
+    await db.commit()
 
     return TestAnswerResponse(
         question_id=result["question_id"],
