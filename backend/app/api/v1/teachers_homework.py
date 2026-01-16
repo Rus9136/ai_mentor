@@ -113,6 +113,89 @@ async def list_homework(
     ]
 
 
+# =============================================================================
+# Teacher Review (must be BEFORE /{homework_id} to avoid route conflicts)
+# =============================================================================
+
+@router.get(
+    "/review-queue",
+    response_model=List[AnswerForReview],
+    summary="Get answers for review",
+    description="Get student answers flagged for teacher review."
+)
+async def get_review_queue(
+    homework_id: Optional[int] = Query(default=None, description="Filter by homework"),
+    limit: int = Query(default=50, ge=1, le=200, description="Max results"),
+    teacher: Teacher = Depends(get_teacher_from_user),
+    school_id: int = Depends(get_current_user_school_id),
+    service: HomeworkService = Depends(get_homework_service)
+) -> List[AnswerForReview]:
+    """Get answers needing teacher review (open-ended with low AI confidence)."""
+    answers = await service.get_answers_for_review(
+        school_id=school_id,
+        homework_id=homework_id,
+        limit=limit
+    )
+
+    return [
+        AnswerForReview(
+            id=a.id,
+            question_id=a.question_id,
+            question_text=a.question.question_text if a.question else "",
+            question_type=a.question.question_type if a.question else "open_ended",
+            student_id=a.student_id,
+            student_name=f"{a.student.user.first_name} {a.student.user.last_name}" if a.student and a.student.user else "",
+            answer_text=a.answer_text,
+            submitted_at=a.answered_at,
+            ai_score=a.ai_score,
+            ai_confidence=a.ai_confidence,
+            ai_feedback=a.ai_feedback,
+            grading_rubric=a.question.grading_rubric if a.question else None,
+            expected_answer_hints=a.question.expected_answer_hints if a.question else None
+        )
+        for a in answers
+    ]
+
+
+@router.post(
+    "/answers/{answer_id}/review",
+    response_model=TeacherReviewResponse,
+    summary="Review student answer",
+    description="Teacher reviews and grades a student answer."
+)
+async def review_answer(
+    answer_id: int,
+    data: TeacherReviewRequest,
+    teacher: Teacher = Depends(get_teacher_from_user),
+    school_id: int = Depends(get_current_user_school_id),
+    service: HomeworkService = Depends(get_homework_service)
+) -> TeacherReviewResponse:
+    """Review and grade a student answer. Teacher can override AI score."""
+    answer = await service.review_answer(
+        answer_id=answer_id,
+        teacher_id=teacher.id,
+        score=data.score / 100.0,  # Convert to 0-1 scale
+        feedback=data.feedback
+    )
+
+    if not answer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Answer not found"
+        )
+
+    return TeacherReviewResponse(
+        answer_id=answer.id,
+        teacher_score=answer.teacher_override_score * 100 if answer.teacher_override_score else 0,
+        teacher_feedback=answer.teacher_comment,
+        reviewed_at=answer.updated_at
+    )
+
+
+# =============================================================================
+# Homework Detail (with path parameter - must be AFTER literal paths)
+# =============================================================================
+
 @router.get(
     "/{homework_id}",
     response_model=HomeworkResponse,
@@ -363,82 +446,3 @@ async def generate_questions(
         HomeworkResponseBuilder.build_question_with_answer(q)
         for q in questions
     ]
-
-
-# =============================================================================
-# Teacher Review
-# =============================================================================
-
-@router.get(
-    "/review-queue",
-    response_model=List[AnswerForReview],
-    summary="Get answers for review",
-    description="Get student answers flagged for teacher review."
-)
-async def get_review_queue(
-    homework_id: Optional[int] = Query(None, description="Filter by homework"),
-    limit: int = Query(50, ge=1, le=200, description="Max results"),
-    teacher: Teacher = Depends(get_teacher_from_user),
-    school_id: int = Depends(get_current_user_school_id),
-    service: HomeworkService = Depends(get_homework_service)
-) -> List[AnswerForReview]:
-    """Get answers needing teacher review (open-ended with low AI confidence)."""
-    answers = await service.get_answers_for_review(
-        school_id=school_id,
-        homework_id=homework_id,
-        limit=limit
-    )
-
-    return [
-        AnswerForReview(
-            id=a.id,
-            question_id=a.question_id,
-            question_text=a.question.question_text if a.question else "",
-            question_type=a.question.question_type if a.question else "open_ended",
-            student_id=a.student_id,
-            student_name=f"{a.student.first_name} {a.student.last_name}" if a.student else "",
-            answer_text=a.answer_text,
-            submitted_at=a.answered_at,
-            ai_score=a.ai_score,
-            ai_confidence=a.ai_confidence,
-            ai_feedback=a.ai_feedback,
-            grading_rubric=a.question.grading_rubric if a.question else None,
-            expected_answer_hints=a.question.expected_answer_hints if a.question else None
-        )
-        for a in answers
-    ]
-
-
-@router.post(
-    "/answers/{answer_id}/review",
-    response_model=TeacherReviewResponse,
-    summary="Review student answer",
-    description="Teacher reviews and grades a student answer."
-)
-async def review_answer(
-    answer_id: int,
-    data: TeacherReviewRequest,
-    teacher: Teacher = Depends(get_teacher_from_user),
-    school_id: int = Depends(get_current_user_school_id),
-    service: HomeworkService = Depends(get_homework_service)
-) -> TeacherReviewResponse:
-    """Review and grade a student answer. Teacher can override AI score."""
-    answer = await service.review_answer(
-        answer_id=answer_id,
-        teacher_id=teacher.id,
-        score=data.score / 100.0,  # Convert to 0-1 scale
-        feedback=data.feedback
-    )
-
-    if not answer:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Answer not found"
-        )
-
-    return TeacherReviewResponse(
-        answer_id=answer.id,
-        teacher_score=answer.teacher_override_score * 100 if answer.teacher_override_score else 0,
-        teacher_feedback=answer.teacher_comment,
-        reviewed_at=answer.updated_at
-    )

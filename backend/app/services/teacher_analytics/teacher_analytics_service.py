@@ -334,7 +334,7 @@ class TeacherAnalyticsService:
                 class_trends=[]
             )
 
-        classes = await self._classes.get_classes(teacher.id)
+        classes, _ = await self._classes.get_classes(teacher.id)
         classes_data = [
             {"id": c.id, "name": c.name, "average_score": c.average_score}
             for c in classes

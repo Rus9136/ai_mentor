@@ -110,11 +110,13 @@ class AnswerRepository:
         limit: int = 50
     ) -> List[StudentTaskAnswer]:
         """Get answers flagged for teacher review."""
+        from app.models.student import Student
+
         result = await self.db.execute(
             select(StudentTaskAnswer)
             .options(
                 selectinload(StudentTaskAnswer.question),
-                selectinload(StudentTaskAnswer.student)
+                selectinload(StudentTaskAnswer.student).selectinload(Student.user)
             )
             .where(
                 StudentTaskAnswer.school_id == school_id,
