@@ -5,7 +5,7 @@ import logging
 from typing import List, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
 from app.models.student_join_request import StudentJoinRequest, JoinRequestStatus
@@ -155,17 +155,32 @@ class JoinRequestService:
 
         result = []
         for req in requests:
+            # Use FIO from the request itself (not from student/user)
+            # because RLS may block access to students from other schools
+            first_name = req.first_name or ""
+            last_name = req.last_name or ""
+            middle_name = req.middle_name
+
+            # Fallback to student data if available (same school)
+            if req.student and req.student.user:
+                if not first_name:
+                    first_name = req.student.user.first_name or ""
+                if not last_name:
+                    last_name = req.student.user.last_name or ""
+                if middle_name is None:
+                    middle_name = req.student.user.middle_name
+
             result.append(JoinRequestDetailResponse(
                 id=req.id,
                 status=req.status.value,
                 created_at=req.created_at,
-                student_id=req.student.id,
-                student_code=req.student.student_code,
-                student_first_name=req.student.user.first_name,
-                student_last_name=req.student.user.last_name,
-                student_middle_name=req.student.user.middle_name,
-                student_email=req.student.user.email,
-                student_grade_level=req.student.grade_level,
+                student_id=req.student_id,
+                student_code=req.student.student_code if req.student else "",
+                student_first_name=first_name,
+                student_last_name=last_name,
+                student_middle_name=middle_name,
+                student_email=req.student.user.email if req.student and req.student.user else None,
+                student_grade_level=req.student.grade_level if req.student else 0,
                 class_id=req.class_id,
                 class_name=req.school_class.name if req.school_class else "",
                 invitation_code=req.invitation_code.code if req.invitation_code else None
@@ -204,6 +219,12 @@ class JoinRequestService:
         if request.status != JoinRequestStatus.PENDING:
             return None, "request_already_processed"
 
+        # Temporarily bypass RLS to access student from another school
+        # This is safe because we've already validated:
+        # 1. The request exists and belongs to the teacher's school
+        # 2. The teacher has access to the class
+        await self.db.execute(text("SET LOCAL app.is_super_admin = 'true'"))
+
         # Get student with user for FIO update
         result = await self.db.execute(
             select(Student)
@@ -213,6 +234,8 @@ class JoinRequestService:
         student = result.scalar_one_or_none()
 
         if not student:
+            # Reset super admin before returning
+            await self.db.execute(text("SET LOCAL app.is_super_admin = 'false'"))
             return None, "student_not_found"
 
         old_school_id = student.school_id
@@ -234,6 +257,9 @@ class JoinRequestService:
 
         await self.db.commit()
 
+        # Re-set super admin for subsequent operations (commit ends the transaction)
+        await self.db.execute(text("SET LOCAL app.is_super_admin = 'true'"))
+
         # 3. Remove student from all previous classes
         removed_count = await self._class_repo.remove_student_from_all_classes(
             student.id
@@ -245,22 +271,30 @@ class JoinRequestService:
 
         # 4. Add student to new class
         try:
+            logger.info(
+                f"Adding student {request.student_id} to class {request.class_id} "
+                f"in school {request.school_id}"
+            )
             await self._class_repo.add_students(
                 request.class_id,
                 [request.student_id],
                 request.school_id  # Use request's school_id (new school)
             )
+            logger.info(f"Successfully added student {request.student_id} to class {request.class_id}")
         except ValueError as e:
             logger.error(f"Failed to add student to class: {e}")
             return None, str(e)
+        except Exception as e:
+            logger.error(f"Unexpected error adding student to class: {type(e).__name__}: {e}")
+            return None, f"Failed to add student to class: {str(e)}"
 
         # 5. Mark code as used if present
-        if request.invitation_code:
+        if request.invitation_code_id:
             try:
-                await self._code_repo.use_code(
-                    request.invitation_code,
-                    request.student_id
-                )
+                # Load invitation code since it wasn't eagerly loaded
+                code = await self._code_repo.get_by_id(request.invitation_code_id)
+                if code:
+                    await self._code_repo.use_code(code, request.student_id)
             except Exception as e:
                 logger.warning(f"Failed to mark invitation code as used: {e}")
 

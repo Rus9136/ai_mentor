@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useClassDetail } from '@/lib/hooks/use-teacher-data';
@@ -14,16 +15,36 @@ import {
   Users,
   Loader2,
   ChevronRight,
+  UserPlus,
+  Plus,
+  Key,
 } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { usePendingCounts } from '@/lib/hooks/use-join-requests';
+import {
+  useClassInvitationCodes,
+  useCreateInvitationCode,
+  useDeactivateInvitationCode,
+} from '@/lib/hooks/use-invitation-codes';
+import { InvitationCodeCard, CreateInvitationCodeModal } from '@/components/invitation-codes';
 
 export default function ClassDetailPage() {
   const params = useParams();
   const classId = Number(params.id);
   const t = useTranslations('classes');
-  const tStudent = useTranslations('student');
+  const tInvite = useTranslations('invitationCodes');
+
+  const [showCreateCodeModal, setShowCreateCodeModal] = useState(false);
 
   const { data: classData, isLoading, error } = useClassDetail(classId);
+  const { data: pendingCounts } = usePendingCounts();
+  const { data: invitationCodes, isLoading: isLoadingCodes } = useClassInvitationCodes(classId);
+  const createCodeMutation = useCreateInvitationCode(classId);
+  const deactivateCodeMutation = useDeactivateInvitationCode(classId);
+
+  const pendingForClass = pendingCounts?.find(c => c.class_id === classId)?.pending_count || 0;
+  const activeCodesCount = invitationCodes?.filter(c => c.is_active).length || 0;
 
   if (isLoading) {
     return (
@@ -50,18 +71,29 @@ export default function ClassDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link href="/classes">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-5 w-5" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/classes">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">{classData.name}</h1>
+            <p className="text-muted-foreground">
+              {classData.grade_level} класс • {classData.academic_year}
+            </p>
+          </div>
+        </div>
+        <Link href={`/classes/${classId}/requests`}>
+          <Button variant="outline" size="sm" className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            {t('joinRequests')}
+            {pendingForClass > 0 && (
+              <Badge variant="destructive">{pendingForClass}</Badge>
+            )}
           </Button>
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{classData.name}</h1>
-          <p className="text-muted-foreground">
-            {classData.grade_level} класс • {classData.academic_year}
-          </p>
-        </div>
       </div>
 
       {/* Stats row */}
@@ -97,6 +129,60 @@ export default function ClassDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Invitation Codes Section */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div className="flex items-center gap-2">
+            <Key className="h-5 w-5 text-muted-foreground" />
+            <CardTitle className="text-lg">{tInvite('title')}</CardTitle>
+            {activeCodesCount > 0 && (
+              <Badge variant="secondary">{activeCodesCount}</Badge>
+            )}
+          </div>
+          <Button size="sm" onClick={() => setShowCreateCodeModal(true)}>
+            <Plus className="h-4 w-4 mr-1" />
+            {tInvite('createButton')}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {isLoadingCodes ? (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : invitationCodes && invitationCodes.length > 0 ? (
+            <div className="space-y-3">
+              {invitationCodes.map((code) => (
+                <InvitationCodeCard
+                  key={code.id}
+                  code={code}
+                  onDeactivate={(id) => deactivateCodeMutation.mutate(id)}
+                  isDeactivating={deactivateCodeMutation.isPending}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6 text-muted-foreground">
+              <Key className="h-10 w-10 mx-auto mb-2 opacity-50" />
+              <p>{tInvite('noCodesYet')}</p>
+              <p className="text-sm">{tInvite('noCodesDescription')}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create Invitation Code Modal */}
+      <CreateInvitationCodeModal
+        isOpen={showCreateCodeModal}
+        onClose={() => setShowCreateCodeModal(false)}
+        onSubmit={(data) => {
+          createCodeMutation.mutate(data, {
+            onSuccess: () => setShowCreateCodeModal(false),
+          });
+        }}
+        isLoading={createCodeMutation.isPending}
+        className={classData.name}
+      />
 
       {/* Students table */}
       <Card>

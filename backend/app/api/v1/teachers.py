@@ -644,3 +644,187 @@ async def delete_assignment(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Assignment not found"
     )
+
+
+# ============================================================================
+# INVITATION CODES (for class join)
+# ============================================================================
+
+from app.repositories.invitation_code_repo import InvitationCodeRepository
+from app.schemas.invitation_code import (
+    InvitationCodeResponse,
+    InvitationCodeCreate,
+)
+
+
+@router.get(
+    "/classes/{class_id}/invitation-codes",
+    response_model=List[InvitationCodeResponse],
+    summary="Get class invitation codes",
+    description="Get list of invitation codes for a specific class."
+)
+async def get_class_invitation_codes(
+    class_id: int,
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> List[InvitationCodeResponse]:
+    """
+    Get invitation codes for a class.
+
+    Teachers can only see codes for their own classes.
+    """
+    # Verify teacher has access to this class
+    service = TeacherAnalyticsService(db)
+    class_detail = await service.get_class_detail(current_user.id, school_id, class_id)
+
+    if not class_detail:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Class not found or you don't have access to it"
+        )
+
+    code_repo = InvitationCodeRepository(db)
+    codes = await code_repo.get_all(
+        school_id=school_id,
+        class_id=class_id,
+        is_active=is_active,
+        limit=100,
+        offset=0,
+    )
+
+    result = []
+    for code in codes:
+        class_name = None
+        if code.school_class:
+            class_name = code.school_class.name
+
+        created_by_name = None
+        if code.creator:
+            created_by_name = f"{code.creator.last_name} {code.creator.first_name}"
+
+        result.append(InvitationCodeResponse(
+            id=code.id,
+            code=code.code,
+            school_id=code.school_id,
+            class_id=code.class_id,
+            class_name=class_name,
+            grade_level=code.grade_level,
+            expires_at=code.expires_at,
+            max_uses=code.max_uses,
+            uses_count=code.uses_count,
+            is_active=code.is_active,
+            created_by=code.created_by,
+            created_by_name=created_by_name,
+            created_at=code.created_at,
+            updated_at=code.updated_at,
+        ))
+
+    return result
+
+
+@router.post(
+    "/classes/{class_id}/invitation-codes",
+    response_model=InvitationCodeResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create class invitation code",
+    description="Create a new invitation code for a class."
+)
+async def create_class_invitation_code(
+    class_id: int,
+    data: InvitationCodeCreate,
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> InvitationCodeResponse:
+    """
+    Create an invitation code for a class.
+
+    Teachers can create codes for their own classes.
+    The code is automatically linked to the class and its grade level.
+    """
+    # Verify teacher has access to this class
+    service = TeacherAnalyticsService(db)
+    class_detail = await service.get_class_detail(current_user.id, school_id, class_id)
+
+    if not class_detail:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Class not found or you don't have access to it"
+        )
+
+    code_repo = InvitationCodeRepository(db)
+
+    try:
+        code = await code_repo.create(
+            school_id=school_id,
+            grade_level=class_detail.grade_level,
+            created_by=current_user.id,
+            class_id=class_id,
+            expires_at=data.expires_at,
+            max_uses=data.max_uses,
+            code_prefix=data.code_prefix or class_detail.name,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+    return InvitationCodeResponse(
+        id=code.id,
+        code=code.code,
+        school_id=code.school_id,
+        class_id=code.class_id,
+        class_name=class_detail.name,
+        grade_level=code.grade_level,
+        expires_at=code.expires_at,
+        max_uses=code.max_uses,
+        uses_count=code.uses_count,
+        is_active=code.is_active,
+        created_by=code.created_by,
+        created_by_name=f"{current_user.last_name} {current_user.first_name}",
+        created_at=code.created_at,
+        updated_at=code.updated_at,
+    )
+
+
+@router.delete(
+    "/classes/{class_id}/invitation-codes/{code_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Deactivate class invitation code",
+    description="Deactivate an invitation code (soft delete)."
+)
+async def deactivate_class_invitation_code(
+    class_id: int,
+    code_id: int,
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> None:
+    """
+    Deactivate an invitation code.
+
+    Teachers can only deactivate codes for their own classes.
+    """
+    # Verify teacher has access to this class
+    service = TeacherAnalyticsService(db)
+    class_detail = await service.get_class_detail(current_user.id, school_id, class_id)
+
+    if not class_detail:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Class not found or you don't have access to it"
+        )
+
+    code_repo = InvitationCodeRepository(db)
+    code = await code_repo.get_by_id(code_id, school_id)
+
+    if not code or code.class_id != class_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invitation code not found"
+        )
+
+    await code_repo.deactivate(code)
