@@ -307,6 +307,33 @@
     "myLevel": "Мой уровень",
     "settings": "Настройки",
     "logout": "Выйти",
+    "class": "Класс",
+    "gradeLabel": "класс",
+    "joinClass": {
+      "title": "Привязка к классу",
+      "button": "Привязаться к классу",
+      "description": "Введите код приглашения от учителя",
+      "enterYourData": "Введите ваши данные",
+      "invitationCode": "Код приглашения",
+      "firstName": "Имя",
+      "lastName": "Фамилия",
+      "middleName": "Отчество (необязательно)",
+      "submit": "Отправить заявку",
+      "submitting": "Отправка...",
+      "success": "Заявка отправлена!",
+      "successDescription": "Ожидайте подтверждения от учителя",
+      "pendingStatus": "Заявка на рассмотрении",
+      "pendingDescription": "Ожидает подтверждения в класс {className}",
+      "rejectedStatus": "Заявка отклонена",
+      "tryAgain": "Попробовать снова",
+      "errors": {
+        "codeNotFound": "Код не найден",
+        "codeExpired": "Срок действия кода истёк",
+        "codeExhausted": "Код использован максимальное количество раз",
+        "requestPending": "У вас уже есть активная заявка",
+        "unknown": "Произошла ошибка"
+      }
+    },
     "stats": {
       "streak": "дней подряд",
       "streakTitle": "Серия",
@@ -337,7 +364,11 @@
       "kz": "Қазақша"
     },
     "confirmLogout": "Вы уверены, что хотите выйти?",
-    "cancel": "Отмена"
+    "cancel": "Отмена",
+    "deleteAccount": "Удалить аккаунт",
+    "confirmDelete": "Вы уверены, что хотите удалить аккаунт?",
+    "deleteWarning": "Это действие необратимо. Все ваши данные будут удалены.",
+    "deleting": "Удаление..."
   },
   "homework": {
     "title": "Домашние задания",

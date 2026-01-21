@@ -307,6 +307,33 @@
     "myLevel": "Менің деңгейім",
     "settings": "Параметрлер",
     "logout": "Шығу",
+    "class": "Сынып",
+    "gradeLabel": "сынып",
+    "joinClass": {
+      "title": "Сыныпқа қосылу",
+      "button": "Сыныпқа қосылу",
+      "description": "Мұғалімнен алған шақыру кодын енгізіңіз",
+      "enterYourData": "Деректеріңізді енгізіңіз",
+      "invitationCode": "Шақыру коды",
+      "firstName": "Аты",
+      "lastName": "Тегі",
+      "middleName": "Әкесінің аты (міндетті емес)",
+      "submit": "Өтінім жіберу",
+      "submitting": "Жіберілуде...",
+      "success": "Өтінім жіберілді!",
+      "successDescription": "Мұғалімнің растауын күтіңіз",
+      "pendingStatus": "Өтінім қаралуда",
+      "pendingDescription": "{className} сыныбына растауды күтуде",
+      "rejectedStatus": "Өтінім қабылданбады",
+      "tryAgain": "Қайталап көру",
+      "errors": {
+        "codeNotFound": "Код табылмады",
+        "codeExpired": "Код мерзімі өтті",
+        "codeExhausted": "Код максималды рет пайдаланылды",
+        "requestPending": "Сізде белсенді өтінім бар",
+        "unknown": "Қате орын алды"
+      }
+    },
     "stats": {
       "streak": "күн қатарынан",
       "streakTitle": "Серия",
@@ -337,7 +364,11 @@
       "kz": "Қазақша"
     },
     "confirmLogout": "Шығуды қалайсыз ба?",
-    "cancel": "Болдырмау"
+    "cancel": "Болдырмау",
+    "deleteAccount": "Аккаунтты жою",
+    "confirmDelete": "Аккаунтты жойғыңыз келе ме?",
+    "deleteWarning": "Бұл әрекетті қайтару мүмкін емес. Барлық деректеріңіз жойылады.",
+    "deleting": "Жойылуда..."
   },
   "homework": {
     "title": "Үй тапсырмалары",

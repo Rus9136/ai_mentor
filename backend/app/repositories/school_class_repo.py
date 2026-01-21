@@ -509,3 +509,43 @@ class SchoolClassRepository:
             )
         )
         return result.scalar_one()
+
+    async def remove_student_from_all_classes(
+        self,
+        student_id: int,
+        school_id: Optional[int] = None
+    ) -> int:
+        """
+        Remove student from all classes.
+
+        Used when student changes school/class via join request approval.
+
+        Args:
+            student_id: Student ID
+            school_id: Optional school ID to limit removal to specific school
+
+        Returns:
+            Number of class associations removed
+        """
+        # Build delete query
+        if school_id is not None:
+            # Only remove from classes in specific school
+            subquery = (
+                select(SchoolClass.id)
+                .where(SchoolClass.school_id == school_id)
+            )
+            delete_stmt = delete(ClassStudent).where(
+                and_(
+                    ClassStudent.student_id == student_id,
+                    ClassStudent.class_id.in_(subquery)
+                )
+            )
+        else:
+            # Remove from all classes
+            delete_stmt = delete(ClassStudent).where(
+                ClassStudent.student_id == student_id
+            )
+
+        result = await self.db.execute(delete_stmt)
+        await self.db.commit()
+        return result.rowcount
