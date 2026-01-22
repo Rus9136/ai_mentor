@@ -414,6 +414,14 @@
       "practice": "Практика",
       "code": "Код"
     },
+    "reading": {
+      "title": "Чтение",
+      "learningObjective": "Цель обучения",
+      "keyTerms": "Ключевые понятия",
+      "summary": "Краткое содержание",
+      "readyForQuestions": "Прочитали материал? Теперь ответьте на вопросы.",
+      "proceedToQuestions": "Перейти к вопросам"
+    },
     "question": {
       "number": "Вопрос {current} из {total}",
       "submit": "Ответить",

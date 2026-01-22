@@ -414,6 +414,14 @@
       "practice": "Тәжірибе",
       "code": "Код"
     },
+    "reading": {
+      "title": "Оқу",
+      "learningObjective": "Оқу мақсаты",
+      "keyTerms": "Негізгі ұғымдар",
+      "summary": "Қысқаша мазмұны",
+      "readyForQuestions": "Материалды оқыдыңыз ба? Енді сұрақтарға жауап беріңіз.",
+      "proceedToQuestions": "Сұрақтарға көшу"
+    },
     "question": {
       "number": "Сұрақ {current} ішінен {total}",
       "submit": "Жауап беру",

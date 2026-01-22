@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
-import { ArrowLeft, Loader2, CheckCircle2, Clock } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle2, Clock, BookOpen, ChevronRight, Lightbulb } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import {
   useHomeworkDetail,
@@ -12,6 +12,7 @@ import {
   useSubmitAnswer,
   useCompleteSubmission,
 } from '@/lib/hooks/use-homework';
+import { useParagraphDetail } from '@/lib/hooks/use-textbooks';
 import {
   StudentQuestionResponse,
   QuestionType,
@@ -32,7 +33,7 @@ interface AnsweredQuestion {
   feedback: SubmissionResult;
 }
 
-type TaskState = 'loading' | 'not_started' | 'in_progress' | 'completed';
+type TaskState = 'loading' | 'not_started' | 'reading' | 'in_progress' | 'completed';
 
 export default function TaskExecutionPage() {
   const params = useParams();
@@ -66,6 +67,12 @@ export default function TaskExecutionPage() {
 
   // Find current task
   const currentTask = homework?.tasks.find((t) => t.id === taskId);
+
+  // Fetch paragraph content for READ type tasks
+  const isReadTask = currentTask?.task_type === TaskType.READ;
+  const { data: paragraphDetail, isLoading: paragraphLoading } = useParagraphDetail(
+    isReadTask ? currentTask?.paragraph_id ?? undefined : undefined
+  );
 
   // Initialize task state
   useEffect(() => {
@@ -101,11 +108,21 @@ export default function TaskExecutionPage() {
     try {
       const result = await startTaskMutation.mutateAsync(taskId);
       setSubmissionId(result.submission_id || result.id);
-      setTaskState('in_progress');
+      // For READ tasks, go to reading state first
+      if (isReadTask && paragraphDetail?.content) {
+        setTaskState('reading');
+      } else {
+        setTaskState('in_progress');
+      }
     } catch (error) {
       console.error('Failed to start task:', error);
     }
-  }, [taskId, startTaskMutation]);
+  }, [taskId, startTaskMutation, isReadTask, paragraphDetail]);
+
+  // Handle proceed to questions (after reading)
+  const handleProceedToQuestions = useCallback(() => {
+    setTaskState('in_progress');
+  }, []);
 
   // Handle answer submission
   const handleAnswer = useCallback(
@@ -199,7 +216,7 @@ export default function TaskExecutionPage() {
   };
 
   // Loading state
-  if (taskState === 'loading' || questionsLoading) {
+  if (taskState === 'loading' || questionsLoading || (isReadTask && paragraphLoading)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
@@ -279,6 +296,109 @@ export default function TaskExecutionPage() {
               max: currentTask?.max_attempts || 1,
             })}
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Reading state - show paragraph content for READ tasks
+  if (taskState === 'reading' && paragraphDetail) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-8rem)]">
+        {/* Header */}
+        <div className="bg-white border-b px-4 py-3 shrink-0">
+          <div className="mx-auto max-w-2xl flex items-center justify-between">
+            <Link
+              href={`/homework/${homeworkId}`}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('result.backToHomework')}</span>
+            </Link>
+
+            <div className="flex items-center gap-2 text-primary">
+              <BookOpen className="w-5 h-5" />
+              <span className="font-medium">{t('reading.title')}</span>
+            </div>
+
+            <div className="w-16" />
+          </div>
+        </div>
+
+        {/* Reading Content */}
+        <div className="flex-1 overflow-y-auto px-4 py-6">
+          <div className="mx-auto max-w-2xl space-y-6">
+            {/* Paragraph Title */}
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-gray-900">
+                {paragraphDetail.title || currentTask?.paragraph_title}
+              </h1>
+              {paragraphDetail.chapter_title && (
+                <p className="text-sm text-gray-500 mt-1">{paragraphDetail.chapter_title}</p>
+              )}
+            </div>
+
+            {/* Learning Objective */}
+            {paragraphDetail.learning_objective && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <Lightbulb className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-blue-900 mb-1">{t('reading.learningObjective')}</p>
+                    <p className="text-blue-800 text-sm">{paragraphDetail.learning_objective}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Key Terms */}
+            {paragraphDetail.key_terms && paragraphDetail.key_terms.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="font-medium text-amber-900 mb-2">{t('reading.keyTerms')}</p>
+                <div className="flex flex-wrap gap-2">
+                  {paragraphDetail.key_terms.map((term, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm"
+                    >
+                      {term}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Main Content */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+              <div
+                className="prose prose-gray max-w-none"
+                dangerouslySetInnerHTML={{ __html: paragraphDetail.content }}
+              />
+            </div>
+
+            {/* Summary */}
+            {paragraphDetail.summary && (
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                <p className="font-medium text-gray-900 mb-2">{t('reading.summary')}</p>
+                <p className="text-gray-700 text-sm">{paragraphDetail.summary}</p>
+              </div>
+            )}
+
+            {/* Proceed to Questions Button */}
+            <div className="text-center py-4">
+              <p className="text-gray-600 mb-4">{t('reading.readyForQuestions')}</p>
+              <button
+                onClick={handleProceedToQuestions}
+                className="inline-flex items-center gap-2 px-8 py-3 rounded-xl font-medium bg-primary text-white hover:bg-primary/90 transition-colors"
+              >
+                {t('reading.proceedToQuestions')}
+                <ChevronRight className="w-5 h-5" />
+              </button>
+              <p className="text-sm text-gray-500 mt-2">
+                {t('task.questions', { count: currentTask?.questions_count || 0 })}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
