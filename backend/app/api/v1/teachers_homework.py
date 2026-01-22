@@ -423,7 +423,7 @@ async def generate_questions(
     # Use default params if not provided
     generation_params = params or GenerationParams()
 
-    # Update task with generation params
+    # Update task with generation params (for persistence)
     await service.homework_repo.update_task(
         task_id=task.id,
         school_id=school_id,
@@ -431,10 +431,12 @@ async def generate_questions(
     )
 
     try:
+        # Pass params directly to avoid transaction/identity issues
         questions = await service.generate_questions_for_task(
             task_id=task.id,
             school_id=school_id,
-            regenerate=regenerate
+            regenerate=regenerate,
+            params=generation_params
         )
     except (HomeworkServiceError, HomeworkAIServiceError) as e:
         raise HTTPException(

@@ -18,6 +18,7 @@ from app.models.homework import (
     HomeworkStudentStatus,
 )
 from app.schemas.homework import (
+    GenerationParams,
     HomeworkCreate,
     HomeworkUpdate,
     HomeworkTaskCreate,
@@ -301,12 +302,13 @@ class HomeworkService:
         self,
         task_id: int,
         school_id: int,
-        regenerate: bool = False
+        regenerate: bool = False,
+        params: Optional["GenerationParams"] = None
     ) -> List[HomeworkTaskQuestion]:
         if not self._ai_orchestration:
             raise HomeworkServiceError("AI service not configured")
         return await self._ai_orchestration.generate_questions_for_task(
-            task_id, school_id, regenerate
+            task_id, school_id, regenerate, params
         )
 
     # =========================================================================
