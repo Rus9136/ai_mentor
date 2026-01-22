@@ -281,12 +281,16 @@ class SubmissionService:
 
         await self.db.flush()
 
+        # Check if all tasks are completed and update homework status
+        await self._check_and_update_homework_status(submission.homework_student_id)
+
         # Calculate percentage
         percentage = (total_score / max_score * 100) if max_score > 0 else 0.0
 
-        # Count correct/incorrect
+        # Count correct/incorrect/needs_review
         correct_count = sum(1 for a in submission.answers if a.is_correct)
-        incorrect_count = len(submission.answers) - correct_count
+        incorrect_count = sum(1 for a in submission.answers if a.is_correct is False)
+        needs_review_count = sum(1 for a in submission.answers if a.flagged_for_review)
 
         return TaskSubmissionResult(
             submission_id=submission_id,
@@ -300,5 +304,74 @@ class SubmissionService:
             late_penalty_applied=submission.late_penalty_applied or 0,
             original_score=original_score if submission.is_late else None,
             correct_count=correct_count,
-            incorrect_count=incorrect_count
+            incorrect_count=incorrect_count,
+            needs_review_count=needs_review_count
         )
+
+    async def _check_and_update_homework_status(
+        self,
+        homework_student_id: int
+    ) -> None:
+        """
+        Check if all tasks are completed and update homework status to SUBMITTED.
+
+        Called after each task completion to check if the entire homework is done.
+        """
+        # Get the homework_student record
+        hw_student = await self.db.get(HomeworkStudent, homework_student_id)
+        if not hw_student:
+            return
+
+        # Already submitted or graded - no need to update
+        if hw_student.status in (
+            HomeworkStudentStatus.SUBMITTED,
+            HomeworkStudentStatus.GRADED,
+            HomeworkStudentStatus.RETURNED
+        ):
+            return
+
+        # Get the homework with its tasks
+        homework = await self.repo.get_by_id(
+            homework_id=hw_student.homework_id,
+            school_id=hw_student.school_id,
+            load_tasks=True
+        )
+
+        if not homework or not homework.tasks:
+            return
+
+        # Get task IDs
+        task_ids = [task.id for task in homework.tasks if not task.is_deleted]
+
+        if not task_ids:
+            return
+
+        # Get latest submissions for all tasks
+        latest_submissions = await self.repo.get_latest_submissions_batch(
+            homework_student_id=homework_student_id,
+            task_ids=task_ids
+        )
+
+        # Check if all tasks have a completed submission (GRADED or NEEDS_REVIEW)
+        completed_statuses = {
+            TaskSubmissionStatus.GRADED,
+            TaskSubmissionStatus.NEEDS_REVIEW
+        }
+
+        all_completed = True
+        for task_id in task_ids:
+            submission = latest_submissions.get(task_id)
+            if not submission or submission.status not in completed_statuses:
+                all_completed = False
+                break
+
+        # If all tasks are completed, update homework status to SUBMITTED
+        if all_completed:
+            hw_student.status = HomeworkStudentStatus.SUBMITTED
+            hw_student.submitted_at = datetime.now(timezone.utc)
+            hw_student.updated_at = datetime.now(timezone.utc)
+            await self.db.flush()
+            logger.info(
+                f"Homework {hw_student.homework_id} marked as SUBMITTED "
+                f"for student {hw_student.student_id}"
+            )
