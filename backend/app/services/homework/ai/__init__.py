@@ -2,13 +2,14 @@
 Homework AI services package.
 
 Provides modular AI services for question generation and grading.
+Supports different generation strategies for different task types.
 """
 
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.homework import HomeworkTaskQuestion
+from app.models.homework import HomeworkTaskQuestion, HomeworkTaskType
 from app.schemas.homework import GenerationParams
 from app.services.homework.ai.generation_service import (
     QuestionGenerationError,
@@ -55,15 +56,17 @@ class HomeworkAIService:
         self,
         paragraph_id: int,
         params: GenerationParams,
-        task_id: int
+        task_id: int,
+        task_type: HomeworkTaskType = HomeworkTaskType.QUIZ
     ) -> List[Dict[str, Any]]:
         """
-        Generate questions based on paragraph content.
+        Generate questions based on paragraph content and task type.
 
         Args:
             paragraph_id: Source paragraph ID
             params: Generation parameters
             task_id: Task ID (for logging)
+            task_type: Type of homework task (determines generation strategy)
 
         Returns:
             List of question dicts
@@ -73,7 +76,7 @@ class HomeworkAIService:
         """
         try:
             return await self._generation.generate_questions(
-                paragraph_id, params, task_id
+                paragraph_id, params, task_id, task_type
             )
         except QuestionGenerationError as e:
             raise HomeworkAIServiceError(str(e)) from e

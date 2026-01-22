@@ -221,7 +221,19 @@
       "checking": "AI жауаптарды тексеру",
       "checkingDesc": "Ашық жауаптарды автоматты тексеру",
       "personalization": "Дербестендіру",
-      "personalizationDesc": "Оқушы деңгейіне сәйкес күрделілікті бейімдеу"
+      "personalizationDesc": "Оқушы деңгейіне сәйкес күрделілікті бейімдеу",
+      "generate": "Генерациялау",
+      "generateReadingCheck": "Бақылау сұрақтарын генерациялау",
+      "generateOpenQuestions": "Ашық сұрақтарды генерациялау",
+      "generateEssayTopic": "Эссе тақырыбын генерациялау",
+      "generatePractice": "Практикалық тапсырмаларды генерациялау",
+      "generateCodeTask": "Бағдарламалау тапсырмасын генерациялау",
+      "readingCheckDescription": "Материалды оқуды тексеретін қарапайым сұрақтар",
+      "quizDescription": "Жауапты таңдауы бар тест сұрақтары",
+      "openQuestionDescription": "Бағалау рубрикасы бар ашық сұрақтар",
+      "essayDescription": "Бағалау критерийлері бар эссе тақырыбы",
+      "practiceDescription": "Практикалық тапсырмалар мен кейстер",
+      "codeDescription": "Тесттері бар бағдарламалау тапсырмасы"
     },
     "grading": {
       "title": "Бағалау параметрлері",
@@ -254,6 +266,9 @@
         "practice": "Практика",
         "code": "Код"
       },
+      "contentInfo": "Материал",
+      "subject": "Пән",
+      "grade": "сынып",
       "textbook": "Оқулық",
       "selectTextbook": "Оқулықты таңдаңыз",
       "chapter": "Тарау",

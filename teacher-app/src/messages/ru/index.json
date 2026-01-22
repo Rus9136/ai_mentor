@@ -221,7 +221,19 @@
       "checking": "AI проверка ответов",
       "checkingDesc": "Автоматическая проверка открытых ответов",
       "personalization": "Персонализация",
-      "personalizationDesc": "Адаптация сложности под уровень ученика"
+      "personalizationDesc": "Адаптация сложности под уровень ученика",
+      "generate": "Сгенерировать",
+      "generateReadingCheck": "Сгенерировать контрольные вопросы",
+      "generateOpenQuestions": "Сгенерировать открытые вопросы",
+      "generateEssayTopic": "Сгенерировать тему эссе",
+      "generatePractice": "Сгенерировать практические задачи",
+      "generateCodeTask": "Сгенерировать задачу по программированию",
+      "readingCheckDescription": "Простые вопросы для проверки прочтения материала",
+      "quizDescription": "Тестовые вопросы с выбором ответа",
+      "openQuestionDescription": "Открытые вопросы с рубрикой оценки",
+      "essayDescription": "Тема эссе с критериями оценки",
+      "practiceDescription": "Практические задачи и кейсы",
+      "codeDescription": "Задача программирования с тестами"
     },
     "grading": {
       "title": "Настройки оценивания",
@@ -254,6 +266,9 @@
         "practice": "Практика",
         "code": "Код"
       },
+      "contentInfo": "Источник материала",
+      "subject": "Предмет",
+      "grade": "класс",
       "textbook": "Учебник",
       "selectTextbook": "Выберите учебник",
       "chapter": "Глава",

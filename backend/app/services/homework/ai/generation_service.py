@@ -1,5 +1,13 @@
 """
 AI Question Generation Service.
+
+Supports different generation strategies for different task types:
+- READ: Simple comprehension check questions
+- QUIZ: Test questions with multiple choice
+- OPEN_QUESTION: Open-ended questions with grading rubrics
+- ESSAY: Essay topics with evaluation criteria
+- PRACTICE: Practical tasks and case studies
+- CODE: Programming tasks with test cases
 """
 
 import logging
@@ -8,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.homework import HomeworkTaskType
 from app.repositories.paragraph_repo import ParagraphRepository
 from app.schemas.homework import GenerationParams
 from app.services.homework.ai.utils.json_parser import parse_json_array
@@ -15,6 +24,8 @@ from app.services.homework.ai.utils.logging import log_ai_operation
 from app.services.homework.ai.utils.prompt_builder import (
     build_generation_prompt,
     get_generation_system_prompt,
+    get_prompt_for_task_type,
+    get_system_prompt_for_task_type,
 )
 from app.services.llm_service import LLMService, LLMServiceError
 
@@ -42,15 +53,17 @@ class QuestionGenerationService:
         self,
         paragraph_id: int,
         params: GenerationParams,
-        task_id: int
+        task_id: int,
+        task_type: HomeworkTaskType = HomeworkTaskType.QUIZ
     ) -> List[Dict[str, Any]]:
         """
-        Generate questions based on paragraph content.
+        Generate questions based on paragraph content and task type.
 
         Args:
             paragraph_id: Source paragraph ID
             params: Generation parameters
             task_id: Task ID (for logging)
+            task_type: Type of homework task (determines generation strategy)
 
         Returns:
             List of question dicts ready for database insertion
@@ -74,15 +87,21 @@ class QuestionGenerationService:
                 "Для генерации вопросов необходимо сначала добавить учебный материал в параграф."
             )
 
-        # 2. Build prompt
-        prompt = build_generation_prompt(content, params)
+        # 2. Get content metadata (subject, chapter, textbook info)
+        metadata = await self.paragraph_repo.get_content_metadata(paragraph_id)
 
-        # 3. Call LLM
+        # 3. Build type-specific prompt
+        prompt = get_prompt_for_task_type(task_type, content, params, metadata)
+        system_prompt = get_system_prompt_for_task_type(task_type)
+
+        logger.info(f"Generating for task_type={task_type.value}, paragraph={paragraph_id}")
+
+        # 4. Call LLM
         start_time = datetime.utcnow()
         try:
             response = await self.llm.generate(
                 messages=[
-                    {"role": "system", "content": get_generation_system_prompt()},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
@@ -108,7 +127,9 @@ class QuestionGenerationService:
                 operation_type="question_generation",
                 input_context={
                     "paragraph_id": paragraph_id,
-                    "params": params.model_dump()
+                    "task_type": task_type.value,
+                    "params": params.model_dump(),
+                    "metadata": metadata,
                 },
                 prompt_used=prompt,
                 parsed_output={"error": str(e), "raw_response": response.content},
@@ -129,7 +150,9 @@ class QuestionGenerationService:
             operation_type="question_generation",
             input_context={
                 "paragraph_id": paragraph_id,
-                "params": params.model_dump()
+                "task_type": task_type.value,
+                "params": params.model_dump(),
+                "metadata": metadata,
             },
             prompt_used=prompt,
             parsed_output={"questions_count": len(questions)},

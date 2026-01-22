@@ -6,7 +6,7 @@ Handles:
 - Managing regeneration workflows
 """
 import logging
-from typing import List, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,7 +41,8 @@ class AIOrchestrationService:
         self,
         task_id: int,
         school_id: int,
-        regenerate: bool = False
+        regenerate: bool = False,
+        params: Optional[GenerationParams] = None
     ) -> List[HomeworkTaskQuestion]:
         """
         Generate questions for task using AI.
@@ -50,6 +51,7 @@ class AIOrchestrationService:
             task_id: Task ID
             school_id: School ID
             regenerate: If True, deactivate existing and generate new
+            params: Generation parameters (if None, uses task.generation_params or defaults)
 
         Returns:
             List of generated questions
@@ -68,10 +70,13 @@ class AIOrchestrationService:
                 "Задание не найдено. Возможно, оно было удалено."
             )
 
-        if not task.generation_params:
-            raise AIOrchestrationError(
-                "Не заданы параметры генерации. Выберите параметры и попробуйте снова."
-            )
+        # Determine generation params: passed > from task > defaults
+        if params:
+            generation_params = params
+        elif task.generation_params:
+            generation_params = GenerationParams.model_validate(task.generation_params)
+        else:
+            generation_params = GenerationParams()
 
         if task.questions and not regenerate:
             raise AIOrchestrationError(
@@ -83,16 +88,17 @@ class AIOrchestrationService:
             await self.repo.deactivate_task_questions(task_id)
 
         logger.info(
-            f"Generating questions for task {task_id} with params: "
-            f"{task.generation_params}"
+            f"Generating questions for task {task_id} "
+            f"(type={task.task_type.value}) with params: "
+            f"{generation_params.model_dump()}"
         )
 
-        # Generate via AI service
-        params = GenerationParams.model_validate(task.generation_params)
+        # Generate via AI service with task type for type-specific prompts
         questions = await self.ai_service.generate_questions(
             paragraph_id=task.paragraph_id,
-            params=params,
-            task_id=task_id
+            params=generation_params,
+            task_id=task_id,
+            task_type=task.task_type
         )
 
         # Save generated questions

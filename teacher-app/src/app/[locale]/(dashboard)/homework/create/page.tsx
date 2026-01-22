@@ -31,6 +31,7 @@ import {
   ContentSelector,
   AIGenerationPanel,
   QuestionCard,
+  type ContentSelection,
 } from '@/components/homework';
 import { useClasses } from '@/lib/hooks/use-teacher-data';
 import {
@@ -60,13 +61,22 @@ interface WizardState {
 
 interface TaskDraft {
   id: string;
-  paragraphId?: number;
+  // Content selection
+  textbookId?: number;
+  textbookTitle?: string;
+  subject?: string;
+  gradeLevel?: number;
   chapterId?: number;
+  chapterNumber?: number;
+  chapterTitle?: string;
+  paragraphId?: number;
+  paragraphNumber?: number;
+  paragraphTitle?: string;
+  // Task config
   taskType: TaskType;
   points: number;
   maxAttempts: number;
   instructions: string;
-  paragraphTitle?: string;
   // Server-created task ID
   serverId?: number;
   // Questions
@@ -504,13 +514,21 @@ export default function CreateHomeworkPage() {
                         </div>
 
                         <ContentSelector
-                          onSelect={(selection) =>
+                          onSelect={(selection: ContentSelection) =>
                             dispatch({
                               type: 'UPDATE_TASK',
                               id: task.id,
                               updates: {
-                                paragraphId: selection.paragraphId,
+                                textbookId: selection.textbookId,
+                                textbookTitle: selection.textbookTitle,
+                                subject: selection.subject,
+                                gradeLevel: selection.gradeLevel,
                                 chapterId: selection.chapterId,
+                                chapterNumber: selection.chapterNumber,
+                                chapterTitle: selection.chapterTitle,
+                                paragraphId: selection.paragraphId,
+                                paragraphNumber: selection.paragraphNumber,
+                                paragraphTitle: selection.paragraphTitle,
                               },
                             })
                           }
@@ -582,15 +600,52 @@ export default function CreateHomeworkPage() {
             <Card key={task.id}>
               <CardHeader>
                 <CardTitle className="text-base">
-                  {t('task.title')} #{i + 1}: {task.paragraphTitle || t(`task.types.${task.taskType}`)}
+                  {t('task.title')} #{i + 1}: {t(`task.types.${task.taskType}`)}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Content Info */}
+                {(task.subject || task.chapterTitle || task.paragraphTitle) && (
+                  <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      {t('task.contentInfo')}
+                    </h4>
+                    {task.subject && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">{t('task.subject')}:</span>
+                        <span className="font-medium">
+                          {task.subject}
+                          {task.gradeLevel && ` (${task.gradeLevel} ${t('task.grade')})`}
+                        </span>
+                      </div>
+                    )}
+                    {task.chapterTitle && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">{t('task.chapter')}:</span>
+                        <span className="font-medium">
+                          {task.chapterNumber && `${task.chapterNumber}. `}
+                          {task.chapterTitle}
+                        </span>
+                      </div>
+                    )}
+                    {task.paragraphTitle && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">{t('task.paragraph')}:</span>
+                        <span className="font-medium">
+                          {task.paragraphNumber && `§${task.paragraphNumber}. `}
+                          {task.paragraphTitle}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {state.aiGenerationEnabled && (
                   <AIGenerationPanel
                     onGenerate={(params) => handleGenerateQuestions(task.id, params)}
                     isGenerating={task.isGenerating}
                     hasQuestions={task.questions.length > 0}
+                    taskType={task.taskType}
                   />
                 )}
 

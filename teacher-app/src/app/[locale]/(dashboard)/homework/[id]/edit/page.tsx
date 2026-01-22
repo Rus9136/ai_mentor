@@ -618,6 +618,7 @@ export default function EditHomeworkPage() {
                           onGenerate={(params) => handleGenerateQuestions(task.id, params)}
                           isGenerating={generatingTaskId === task.id}
                           hasQuestions={(task.questions?.length || 0) > 0}
+                          taskType={task.task_type}
                         />
                       )}
 
