@@ -17,6 +17,7 @@ import type {
   ReviewQueueParams,
   TeacherReviewRequest,
   TeacherReviewResponse,
+  Attachment,
 } from '@/types/homework';
 
 // =============================================================================
@@ -141,6 +142,22 @@ export async function reviewAnswer(
     `/teachers/homework/answers/${answerId}/review`,
     data
   );
+  return response.data;
+}
+
+// =============================================================================
+// File Upload
+// =============================================================================
+
+export async function uploadHomeworkFile(file: File): Promise<Attachment> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await apiClient.post<Attachment>('/teachers/homework/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return response.data;
 }
 

@@ -125,7 +125,8 @@ class TenancyMiddleware(BaseHTTPMiddleware):
             "/api/v1/auth/login",
             "/api/v1/auth/refresh",
             "/api/v1/auth/google",
-            "/api/v1/auth/onboarding",
+            # NOTE: /api/v1/auth/onboarding is NOT public - it requires auth token
+            # and needs tenant context for RLS to work on user updates
             "/health",
             "/docs",
             "/openapi.json",

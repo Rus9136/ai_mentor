@@ -122,6 +122,14 @@ class GenerationParams(BaseModel):
     difficulty: Optional[str] = Field(None, description="Target difficulty (easy/medium/hard)")
 
 
+class Attachment(BaseModel):
+    """File attachment schema."""
+    url: str = Field(..., description="URL of uploaded file")
+    name: str = Field(..., description="Original filename")
+    type: str = Field(..., description="File type: image/pdf/doc")
+    size: int = Field(..., ge=0, description="File size in bytes")
+
+
 # =============================================================================
 # Create Schemas
 # =============================================================================
@@ -150,6 +158,9 @@ class HomeworkCreate(BaseModel):
     late_penalty_per_day: int = Field(default=0, ge=0, le=100, description="Penalty % per day")
     grace_period_hours: int = Field(default=0, ge=0, le=168, description="Grace period in hours")
     max_late_days: int = Field(default=7, ge=0, le=30, description="Max days for late submission")
+
+    # Attachments
+    attachments: Optional[List[Attachment]] = Field(None, description="Attached files")
 
     @field_validator('target_difficulty')
     @classmethod
@@ -184,6 +195,9 @@ class HomeworkUpdate(BaseModel):
     grace_period_hours: Optional[int] = Field(None, ge=0, le=168)
     max_late_days: Optional[int] = Field(None, ge=0, le=30)
 
+    # Attachments
+    attachments: Optional[List[Attachment]] = Field(None, description="Attached files")
+
 
 class HomeworkTaskCreate(BaseModel):
     """Schema for creating a task within homework."""
@@ -201,6 +215,9 @@ class HomeworkTaskCreate(BaseModel):
     # AI generation
     ai_prompt_template: Optional[str] = Field(None, description="Custom AI prompt template")
     generation_params: Optional[GenerationParams] = Field(None, description="AI generation parameters")
+
+    # Attachments
+    attachments: Optional[List[Attachment]] = Field(None, description="Attached files for task")
 
     @model_validator(mode='after')
     def validate_content_link(self):
@@ -224,6 +241,7 @@ class HomeworkTaskUpdate(BaseModel):
     instructions: Optional[str] = None
     ai_prompt_template: Optional[str] = None
     generation_params: Optional[GenerationParams] = None
+    attachments: Optional[List[Attachment]] = Field(None, description="Attached files for task")
 
 
 class QuestionCreate(BaseModel):
@@ -331,6 +349,7 @@ class HomeworkTaskResponse(BaseModel):
     max_attempts: int
     ai_generated: bool
     instructions: Optional[str] = None
+    attachments: Optional[List[Attachment]] = None
     questions_count: int = 0
     questions: List[QuestionResponse] = []
 
@@ -365,6 +384,9 @@ class HomeworkResponse(BaseModel):
     late_penalty_per_day: int
     grace_period_hours: int
     max_late_days: int
+
+    # Attachments
+    attachments: Optional[List[Attachment]] = None
 
     # Computed stats
     total_students: int = 0
@@ -423,6 +445,9 @@ class StudentHomeworkResponse(BaseModel):
     # Settings
     show_explanations: bool
 
+    # Attachments (materials from teacher)
+    attachments: Optional[List[Attachment]] = None
+
     tasks: List["StudentTaskResponse"] = []
 
 
@@ -437,6 +462,9 @@ class StudentTaskResponse(BaseModel):
     instructions: Optional[str] = None
     points: int
     time_limit_minutes: Optional[int] = None
+
+    # Attachments (materials from teacher)
+    attachments: Optional[List[Attachment]] = None
 
     # My progress
     status: SubmissionStatus

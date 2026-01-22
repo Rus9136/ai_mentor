@@ -98,7 +98,8 @@ class Settings(BaseSettings):
 
     # Google OAuth
     GOOGLE_CLIENT_ID: Optional[str] = None
-    GOOGLE_CLIENT_ID_MOBILE: Optional[str] = None  # For mobile app later
+    GOOGLE_CLIENT_ID_IOS: Optional[str] = None  # iOS app Client ID
+    GOOGLE_CLIENT_ID_ANDROID: Optional[str] = None  # Android app Client ID (future)
 
     # CORS
     # Поддерживает как list[str] так и CSV строку "domain1,domain2,domain3"

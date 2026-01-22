@@ -1,14 +1,27 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { UserResponse } from '@/lib/api/auth';
+import { ClassInfo } from '@/lib/api/profile';
 
 interface ProfileHeaderProps {
   user: UserResponse;
+  classes?: ClassInfo[];
+  gradeLevel?: number;
+  schoolName?: string | null;
   className?: string;
 }
 
-export function ProfileHeader({ user, className = '' }: ProfileHeaderProps) {
+export function ProfileHeader({ user, classes, gradeLevel, schoolName, className = '' }: ProfileHeaderProps) {
+  const t = useTranslations('profile');
   const initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase();
+
+  // Show class names if available, otherwise show grade level
+  const classDisplay = classes && classes.length > 0
+    ? classes.map((c) => c.name).join(', ')
+    : gradeLevel
+      ? `${gradeLevel} ${t('gradeLabel')}`
+      : null;
 
   return (
     <div className={`flex items-center gap-4 ${className}`}>
@@ -32,6 +45,14 @@ export function ProfileHeader({ user, className = '' }: ProfileHeaderProps) {
         </h1>
         {user.middle_name && (
           <p className="text-sm text-muted-foreground truncate">{user.middle_name}</p>
+        )}
+        {schoolName && (
+          <p className="text-sm text-muted-foreground truncate">{schoolName}</p>
+        )}
+        {classDisplay && (
+          <p className="text-sm text-muted-foreground truncate">
+            {classDisplay}
+          </p>
         )}
         <p className="text-sm text-muted-foreground truncate">{user.email}</p>
       </div>

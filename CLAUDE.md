@@ -44,9 +44,89 @@ docker exec -it ai_mentor_postgres psql -U ai_mentor_user -d ai_mentor_db
 ```bash
 ./deploy.sh              # Умный деплой (анализ изменений)
 ./deploy.sh backend      # Только backend
+./deploy.sh teacher-app  # Только teacher-app
 ./deploy-infra.sh status # Статус сервисов
 ./deploy-infra.sh logs backend
 ```
+
+---
+
+## Production Deployment (ВАЖНО)
+
+### Контейнеры и порты
+
+| Сервис | Контейнер | Внутренний порт | Локальный порт |
+|--------|-----------|-----------------|----------------|
+| Backend API | `ai_mentor_backend_prod` | 8000 | **8006** |
+| Teacher App | `ai_mentor_teacher_app_prod` | 3007 | 3007 |
+| Student App | `ai_mentor_student_app_prod` | 3000 | 3000 |
+| Admin Panel | `ai_mentor_admin_v2_prod` | 3000 | 3001 |
+| PostgreSQL | `ai_mentor_postgres_prod` | 5432 | 5432 |
+
+**ВАЖНО:** Backend слушает на порту **8006** локально, не 8000!
+
+### Проверка статуса
+
+```bash
+# Статус всех контейнеров
+docker ps --filter "name=ai_mentor" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+# Health check backend
+curl -s http://localhost:8006/health
+
+# Health check teacher-app
+curl -s http://localhost:3007/
+```
+
+### Ручной деплой (если ./deploy.sh не работает)
+
+```bash
+# 1. Пересобрать образ
+docker compose -f docker-compose.infra.yml build backend --no-cache
+docker compose -f docker-compose.infra.yml build teacher-app --no-cache
+
+# 2. Перезапустить контейнер
+docker compose -f docker-compose.infra.yml up -d backend --force-recreate
+docker compose -f docker-compose.infra.yml up -d teacher-app --force-recreate
+
+# 3. Проверить логи
+docker logs ai_mentor_backend_prod --tail 30
+docker logs ai_mentor_teacher_app_prod --tail 20
+```
+
+### Troubleshooting
+
+**Ошибка "container name already in use":**
+```bash
+docker rm -f ai_mentor_backend_prod
+docker compose -f docker-compose.infra.yml up -d backend
+```
+
+**Ошибка "password authentication failed for user ai_mentor_app":**
+```bash
+# 1. Проверить какой пароль использует контейнер
+docker exec ai_mentor_backend_prod env | grep POSTGRES_PASSWORD
+
+# 2. Установить этот же пароль в PostgreSQL
+docker exec ai_mentor_postgres_prod psql -U ai_mentor_user -d ai_mentor_db \
+  -c "ALTER USER ai_mentor_app WITH PASSWORD 'пароль_из_шага_1';"
+
+# 3. Перезапустить backend
+docker restart ai_mentor_backend_prod
+```
+
+**КРИТИЧНО: Пароль PostgreSQL**
+- Пароль берётся из `.env` в корне проекта (переменная `POSTGRES_PASSWORD`)
+- НЕ используй спецсимволы `@`, `!`, `#` в пароле — asyncpg может неправильно их обрабатывать
+- Текущий рабочий пароль: `AiM3nt0rPr0dS3cur3Passw0rd2025` (без спецсимволов)
+
+### Nginx (внешний доступ)
+
+Nginx проксирует запросы:
+- `api.ai-mentor.kz` → `localhost:8006`
+- `teacher.ai-mentor.kz` → `localhost:3007`
+- `ai-mentor.kz` → `localhost:3000`
+- `admin.ai-mentor.kz` → `localhost:3001`
 
 ### Code Quality
 ```bash

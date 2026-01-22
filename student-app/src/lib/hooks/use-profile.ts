@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import {
   getStudentStats,
   getMasteryOverview,
+  getStudentProfile,
   StudentStats,
   MasteryOverview,
+  StudentProfile,
 } from '@/lib/api/profile';
 
 // =============================================================================
@@ -14,6 +16,7 @@ export const profileKeys = {
   all: ['profile'] as const,
   stats: () => [...profileKeys.all, 'stats'] as const,
   mastery: () => [...profileKeys.all, 'mastery'] as const,
+  student: () => [...profileKeys.all, 'student'] as const,
 };
 
 // =============================================================================
@@ -39,5 +42,16 @@ export function useMasteryOverview() {
     queryKey: profileKeys.mastery(),
     queryFn: getMasteryOverview,
     staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+/**
+ * Hook to get student's profile with class information.
+ */
+export function useStudentProfile() {
+  return useQuery<StudentProfile, Error>({
+    queryKey: profileKeys.student(),
+    queryFn: getStudentProfile,
+    staleTime: 1000 * 60 * 10, // 10 minutes
   });
 }

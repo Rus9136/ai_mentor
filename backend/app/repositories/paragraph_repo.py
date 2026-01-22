@@ -1,11 +1,28 @@
 """
 Repository for Paragraph data access.
 """
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, TypedDict
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.paragraph import Paragraph
+from app.models.chapter import Chapter
+from app.models.textbook import Textbook
+
+
+class ContentMetadata(TypedDict):
+    """Metadata about paragraph's content hierarchy."""
+    paragraph_id: int
+    paragraph_title: Optional[str]
+    paragraph_number: int
+    chapter_id: int
+    chapter_title: str
+    chapter_number: int
+    textbook_id: int
+    textbook_title: str
+    subject: str
+    grade_level: int
 
 
 class ParagraphRepository:
@@ -132,3 +149,44 @@ class ParagraphRepository:
         await self.db.commit()
         await self.db.refresh(paragraph)
         return paragraph
+
+    async def get_content_metadata(self, paragraph_id: int) -> Optional[ContentMetadata]:
+        """
+        Get content metadata for a paragraph including chapter and textbook info.
+
+        Args:
+            paragraph_id: Paragraph ID
+
+        Returns:
+            ContentMetadata dict or None if not found
+        """
+        result = await self.db.execute(
+            select(Paragraph)
+            .options(
+                selectinload(Paragraph.chapter).selectinload(Chapter.textbook)
+            )
+            .where(
+                Paragraph.id == paragraph_id,
+                Paragraph.is_deleted == False  # noqa: E712
+            )
+        )
+        paragraph = result.scalar_one_or_none()
+
+        if not paragraph or not paragraph.chapter or not paragraph.chapter.textbook:
+            return None
+
+        chapter = paragraph.chapter
+        textbook = chapter.textbook
+
+        return ContentMetadata(
+            paragraph_id=paragraph.id,
+            paragraph_title=paragraph.title,
+            paragraph_number=paragraph.number,
+            chapter_id=chapter.id,
+            chapter_title=chapter.title,
+            chapter_number=chapter.number,
+            textbook_id=textbook.id,
+            textbook_title=textbook.title,
+            subject=textbook.subject,
+            grade_level=textbook.grade_level,
+        )

@@ -56,6 +56,17 @@ export enum QuestionType {
 }
 
 // =============================================================================
+// Attachment Type
+// =============================================================================
+
+export interface Attachment {
+  url: string;
+  name: string;
+  type: 'image' | 'pdf' | 'doc' | 'other';
+  size: number;
+}
+
+// =============================================================================
 // Response Types
 // =============================================================================
 
@@ -93,6 +104,7 @@ export interface StudentTaskResponse {
   instructions: string | null;
   points: number;
   time_limit_minutes: number | null;
+  attachments?: Attachment[] | null;
   status: SubmissionStatus;
   current_attempt: number;
   max_attempts: number;
@@ -117,6 +129,7 @@ export interface StudentHomeworkResponse {
   is_late: boolean;
   late_penalty: number;
   show_explanations: boolean;
+  attachments?: Attachment[] | null;
   tasks: StudentTaskResponse[];
 }
 

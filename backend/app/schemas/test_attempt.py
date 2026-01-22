@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Optional, List
 from datetime import datetime, date
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.models.test_attempt import AttemptStatus
 from app.models.test import TestPurpose, DifficultyLevel
@@ -15,26 +15,22 @@ from app.models.test import TestPurpose, DifficultyLevel
 
 
 class AnswerSubmit(BaseModel):
-    """Schema for submitting a single answer to a question."""
+    """Schema for submitting a single answer to a question.
+
+    Note: Both selected_option_ids and answer_text can be empty/None
+    to represent an unanswered question (will be scored as incorrect).
+    """
 
     question_id: int = Field(..., description="Question ID")
     selected_option_ids: Optional[List[int]] = Field(
-        None,
+        default=None,
         description="Selected option IDs for SINGLE/MULTIPLE_CHOICE/TRUE_FALSE questions"
     )
     answer_text: Optional[str] = Field(
-        None,
+        default=None,
         description="Text answer for SHORT_ANSWER questions"
     )
-
-    @model_validator(mode='after')
-    def validate_answer_data(self):
-        """Validate that at least one answer field is provided."""
-        if not self.selected_option_ids and not self.answer_text:
-            raise ValueError(
-                "Either selected_option_ids or answer_text must be provided"
-            )
-        return self
+    # No validator - empty answers are allowed (scored as incorrect)
 
 
 # Schema 2: TestAttemptCreate - Starting a test
@@ -52,16 +48,15 @@ class TestAttemptCreate(BaseModel):
 
 
 class TestAttemptSubmit(BaseModel):
-    """Schema for completing a test and submitting all answers at once."""
+    """Schema for completing a test and submitting all answers at once.
+
+    Supports partial submissions - unanswered questions are scored as incorrect.
+    """
 
     answers: List[AnswerSubmit] = Field(
-        ...,
-        min_length=1,
-        description="List of all answers for the test"
+        default_factory=list,
+        description="List of answers (can be partial - unanswered questions get score=0)"
     )
-
-    # NOTE: Validation that answer count matches question count
-    # is done in the service layer, not schema
 
 
 # Schema 4: TestAttemptAnswerResponse - Answer with grading results

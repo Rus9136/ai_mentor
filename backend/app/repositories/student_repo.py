@@ -260,6 +260,24 @@ class StudentRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_user_id_include_deleted(self, user_id: int) -> Optional[Student]:
+        """
+        Get student by user ID including soft-deleted students.
+
+        Used for account restoration.
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            Student or None if not found
+        """
+        result = await self.db.execute(
+            select(Student).where(Student.user_id == user_id)
+            .options(selectinload(Student.user))
+        )
+        return result.scalar_one_or_none()
+
     async def generate_student_code(self, school_id: int) -> str:
         """
         Generate a unique student code for a school.
@@ -340,6 +358,22 @@ class StudentRepository:
         from datetime import datetime
         student.is_deleted = True
         student.deleted_at = datetime.utcnow()
+        await self.db.commit()
+        await self.db.refresh(student)
+        return student
+
+    async def restore(self, student: Student) -> Student:
+        """
+        Restore a soft-deleted student.
+
+        Args:
+            student: Student instance
+
+        Returns:
+            Restored student
+        """
+        student.is_deleted = False
+        student.deleted_at = None
         await self.db.commit()
         await self.db.refresh(student)
         return student

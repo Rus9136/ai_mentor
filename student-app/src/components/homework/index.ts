@@ -6,3 +6,4 @@ export { TextQuestion } from './TextQuestion';
 export { QuestionFeedback } from './QuestionFeedback';
 export { SubmissionResultCard } from './SubmissionResultCard';
 export { LateWarning } from './LateWarning';
+export { AttachmentsList } from './AttachmentsList';

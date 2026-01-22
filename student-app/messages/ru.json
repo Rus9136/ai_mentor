@@ -385,6 +385,7 @@
     "hoursLeft": "{count, plural, one {# час} few {# часа} other {# часов}} осталось",
     "allTasksCompleted": "Все задачи выполнены!",
     "allQuestionsAnswered": "Все вопросы отвечены!",
+    "attachments": "Прикреплённые файлы",
     "clickToComplete": "Нажмите, чтобы завершить задачу",
     "status": {
       "assigned": "Назначено",

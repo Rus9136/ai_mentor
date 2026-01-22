@@ -31,6 +31,7 @@ import {
   ContentSelector,
   AIGenerationPanel,
   QuestionCard,
+  FileUpload,
   type ContentSelection,
 } from '@/components/homework';
 import { useClasses } from '@/lib/hooks/use-teacher-data';
@@ -40,7 +41,7 @@ import {
   useGenerateQuestions,
   usePublishHomework,
 } from '@/lib/hooks/use-homework';
-import { TaskType, HomeworkStatus, type HomeworkTaskCreate, type GenerationParams } from '@/types/homework';
+import { TaskType, HomeworkStatus, type HomeworkTaskCreate, type GenerationParams, type Attachment } from '@/types/homework';
 
 // Wizard State
 interface WizardState {
@@ -53,6 +54,7 @@ interface WizardState {
   targetDifficulty: 'easy' | 'medium' | 'hard' | 'auto';
   aiGenerationEnabled: boolean;
   aiCheckEnabled: boolean;
+  attachments: Attachment[];
   // Step 2: Tasks
   tasks: TaskDraft[];
   // Created homework ID
@@ -77,6 +79,7 @@ interface TaskDraft {
   points: number;
   maxAttempts: number;
   instructions: string;
+  attachments: Attachment[];
   // Server-created task ID
   serverId?: number;
   // Questions
@@ -152,6 +155,7 @@ const initialState: WizardState = {
   targetDifficulty: 'auto',
   aiGenerationEnabled: true,
   aiCheckEnabled: true,
+  attachments: [],
   tasks: [],
   homeworkId: null,
 };
@@ -190,6 +194,7 @@ export default function CreateHomeworkPage() {
         target_difficulty: state.targetDifficulty,
         ai_generation_enabled: state.aiGenerationEnabled,
         ai_check_enabled: state.aiCheckEnabled,
+        attachments: state.attachments.length > 0 ? state.attachments : undefined,
       });
 
       dispatch({ type: 'SET_HOMEWORK_ID', id: result.id });
@@ -210,6 +215,7 @@ export default function CreateHomeworkPage() {
       points: 10,
       maxAttempts: 1,
       instructions: '',
+      attachments: [],
       questions: [],
     };
     dispatch({ type: 'ADD_TASK', task: newTask });
@@ -234,6 +240,7 @@ export default function CreateHomeworkPage() {
               points: task.points,
               max_attempts: task.maxAttempts,
               instructions: task.instructions || undefined,
+              attachments: task.attachments.length > 0 ? task.attachments : undefined,
             },
           });
           dispatch({ type: 'SET_TASK_SERVER_ID', taskId: task.id, serverId: result.id });
@@ -367,6 +374,17 @@ export default function CreateHomeworkPage() {
                   dispatch({ type: 'SET_FIELD', field: 'description', value: e.target.value })
                 }
                 placeholder={t('form.descriptionPlaceholder')}
+              />
+            </div>
+
+            {/* Attachments */}
+            <div className="space-y-2">
+              <Label>{t('form.attachments')}</Label>
+              <FileUpload
+                attachments={state.attachments}
+                onAttachmentsChange={(attachments) =>
+                  dispatch({ type: 'SET_FIELD', field: 'attachments', value: attachments })
+                }
               />
             </div>
 
@@ -581,6 +599,21 @@ export default function CreateHomeworkPage() {
                               })
                             }
                             placeholder={t('task.instructionsPlaceholder')}
+                          />
+                        </div>
+
+                        {/* Task Attachments */}
+                        <div className="space-y-2">
+                          <Label>{t('form.taskAttachments')}</Label>
+                          <FileUpload
+                            attachments={task.attachments}
+                            onAttachmentsChange={(attachments) =>
+                              dispatch({
+                                type: 'UPDATE_TASK',
+                                id: task.id,
+                                updates: { attachments },
+                              })
+                            }
                           />
                         </div>
                       </CardContent>

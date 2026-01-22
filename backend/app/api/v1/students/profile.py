@@ -53,6 +53,7 @@ class StudentProfileResponse(BaseModel):
     student_code: str
     grade_level: int
     birth_date: Optional[date] = None
+    school_name: Optional[str] = None
     classes: List[ClassInfo] = []
 
 
@@ -78,7 +79,7 @@ async def get_student_profile(
     result = await db.execute(
         select(Student)
         .where(Student.user_id == current_user.id)
-        .options(selectinload(Student.classes))
+        .options(selectinload(Student.classes), selectinload(Student.school))
     )
     student = result.scalar_one_or_none()
 
@@ -96,6 +97,7 @@ async def get_student_profile(
         student_code=student.student_code,
         grade_level=student.grade_level,
         birth_date=student.birth_date,
+        school_name=student.school.name if student.school else None,
         classes=[
             ClassInfo(
                 id=cls.id,

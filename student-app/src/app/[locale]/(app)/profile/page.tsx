@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { BarChart3, Settings, Loader2 } from 'lucide-react';
 import { useAuth } from '@/providers/auth-provider';
-import { useStudentStats, useMasteryOverview } from '@/lib/hooks/use-profile';
+import { useStudentStats, useMasteryOverview, useStudentProfile } from '@/lib/hooks/use-profile';
 import {
   ProfileHeader,
   StatsCards,
@@ -17,6 +17,7 @@ export default function ProfilePage() {
 
   const { data: stats, isLoading: isStatsLoading } = useStudentStats();
   const { data: masteryOverview, isLoading: isMasteryLoading } = useMasteryOverview();
+  const { data: studentProfile } = useStudentProfile();
 
   if (isAuthLoading) {
     return (
@@ -33,7 +34,13 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 md:py-8">
       {/* Profile Header */}
-      <ProfileHeader user={user} className="mb-8" />
+      <ProfileHeader
+        user={user}
+        classes={studentProfile?.classes}
+        gradeLevel={studentProfile?.grade_level}
+        schoolName={studentProfile?.school_name}
+        className="mb-8"
+      />
 
       {/* Stats Section */}
       <section className="mb-8">

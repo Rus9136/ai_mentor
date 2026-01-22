@@ -212,7 +212,16 @@
       "difficultyAuto": "Автоматически",
       "difficultyEasy": "Легкая",
       "difficultyMedium": "Средняя",
-      "difficultyHard": "Сложная"
+      "difficultyHard": "Сложная",
+      "attachments": "Прикрепленные файлы",
+      "taskAttachments": "Файлы к задаче"
+    },
+    "file": {
+      "dropOrClick": "Перетащите файлы или нажмите для выбора",
+      "supportedFormats": "Изображения, PDF, Word, Excel, PowerPoint",
+      "uploading": "Загрузка...",
+      "count": "{count} из {max} файлов",
+      "remove": "Удалить"
     },
     "ai": {
       "title": "AI настройки",
@@ -357,6 +366,8 @@
     "errors": {
       "loadFailed": "Не удалось загрузить данные",
       "createFailed": "Не удалось создать задание",
+      "maxFilesExceeded": "Максимум {max} файлов",
+      "uploadFailed": "Ошибка загрузки файла",
       "updateFailed": "Не удалось обновить задание",
       "publishFailed": "Не удалось опубликовать",
       "generateFailed": "Не удалось сгенерировать вопросы",

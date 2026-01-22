@@ -87,6 +87,13 @@ export interface GenerationParams {
   difficulty?: 'easy' | 'medium' | 'hard';
 }
 
+export interface Attachment {
+  url: string;
+  name: string;
+  type: 'image' | 'pdf' | 'doc' | 'other';
+  size: number;
+}
+
 // =============================================================================
 // Create/Update Types
 // =============================================================================
@@ -113,6 +120,9 @@ export interface HomeworkCreate {
   late_penalty_per_day?: number;
   grace_period_hours?: number;
   max_late_days?: number;
+
+  // Attachments
+  attachments?: Attachment[];
 }
 
 export interface HomeworkUpdate {
@@ -133,6 +143,8 @@ export interface HomeworkUpdate {
   late_penalty_per_day?: number;
   grace_period_hours?: number;
   max_late_days?: number;
+
+  attachments?: Attachment[];
 }
 
 export interface HomeworkTaskCreate {
@@ -147,6 +159,7 @@ export interface HomeworkTaskCreate {
   instructions?: string;
   ai_prompt_template?: string;
   generation_params?: GenerationParams;
+  attachments?: Attachment[];
 }
 
 export interface QuestionCreate {
@@ -203,6 +216,7 @@ export interface HomeworkTaskResponse {
   max_attempts: number;
   ai_generated: boolean;
   instructions?: string;
+  attachments?: Attachment[];
   questions_count: number;
   questions: QuestionResponse[];
 }
@@ -234,6 +248,9 @@ export interface HomeworkResponse {
   late_penalty_per_day: number;
   grace_period_hours: number;
   max_late_days: number;
+
+  // Attachments
+  attachments?: Attachment[];
 
   // Computed stats
   total_students: number;

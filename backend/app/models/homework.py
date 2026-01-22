@@ -143,6 +143,10 @@ class Homework(SoftDeleteModel):
     show_answers_after = Column(String(20), default="submission", nullable=False)  # submission/deadline/manual
     show_explanations = Column(Boolean, default=True, nullable=False)
 
+    # ---- Attachments ----
+    # Формат: [{"url": "/uploads/...", "name": "file.pdf", "type": "pdf", "size": 1024}]
+    attachments = Column(JSONB, nullable=True)
+
     # ---- Status ----
     status = Column(
         SQLEnum(
@@ -238,6 +242,10 @@ class HomeworkTask(SoftDeleteModel):
 
     # ---- Instructions ----
     instructions = Column(Text, nullable=True)
+
+    # ---- Attachments ----
+    # Формат: [{"url": "/uploads/...", "name": "diagram.png", "type": "image", "size": 2048}]
+    attachments = Column(JSONB, nullable=True)
 
     # ---- Relationships ----
     homework = relationship("Homework", back_populates="tasks")

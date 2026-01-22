@@ -241,7 +241,10 @@ class HomeworkService:
         task_id: int,
         student_id: int
     ) -> StudentTaskSubmission:
-        return await self._submission.start_task(homework_id, task_id, student_id)
+        try:
+            return await self._submission.start_task(homework_id, task_id, student_id)
+        except SubmissionServiceError as e:
+            raise HomeworkServiceError(str(e)) from e
 
     async def submit_answer(
         self,
@@ -251,16 +254,22 @@ class HomeworkService:
         selected_options: Optional[List[str]] = None,
         student_id: int = None
     ) -> SubmissionResult:
-        return await self._submission.submit_answer(
-            submission_id, question_id, answer_text, selected_options, student_id
-        )
+        try:
+            return await self._submission.submit_answer(
+                submission_id, question_id, answer_text, selected_options, student_id
+            )
+        except SubmissionServiceError as e:
+            raise HomeworkServiceError(str(e)) from e
 
     async def complete_submission(
         self,
         submission_id: int,
         student_id: int
     ) -> TaskSubmissionResult:
-        return await self._submission.complete_submission(submission_id, student_id)
+        try:
+            return await self._submission.complete_submission(submission_id, student_id)
+        except SubmissionServiceError as e:
+            raise HomeworkServiceError(str(e)) from e
 
     # =========================================================================
     # Grading (delegates to GradingService via SubmissionService)

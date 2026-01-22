@@ -55,6 +55,10 @@
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
+  /* Popover (dropdowns, selects) */
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+
   /* Borders */
   --border: 214 32% 91%;
   --input: 214 32% 91%;
@@ -89,6 +93,8 @@
   --warning-foreground: 0 0% 100%;
   --destructive: 0 62% 50%;
   --destructive-foreground: 0 0% 100%;
+  --popover: 222 47% 15%;
+  --popover-foreground: 210 40% 98%;
   --border: 217 33% 20%;
   --input: 217 33% 20%;
   --ring: 217 91% 60%;

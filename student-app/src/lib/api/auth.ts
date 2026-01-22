@@ -147,3 +147,9 @@ export async function loginWithPassword(credentials: LoginCredentials): Promise<
 export function logout(): void {
   clearTokens();
 }
+
+// Delete account
+export async function deleteAccount(): Promise<void> {
+  await apiClient.delete('/auth/me');
+  clearTokens();
+}

@@ -13,8 +13,21 @@ import {
 } from '@/components/ui/select';
 import { useTextbooks, useChapters, useParagraphs } from '@/lib/hooks/use-content';
 
+export interface ContentSelection {
+  textbookId?: number;
+  textbookTitle?: string;
+  subject?: string;
+  gradeLevel?: number;
+  chapterId?: number;
+  chapterNumber?: number;
+  chapterTitle?: string;
+  paragraphId?: number;
+  paragraphNumber?: number;
+  paragraphTitle?: string;
+}
+
 interface ContentSelectorProps {
-  onSelect: (selection: { paragraphId?: number; chapterId?: number }) => void;
+  onSelect: (selection: ContentSelection) => void;
   disabled?: boolean;
 }
 
@@ -45,13 +58,37 @@ export function ContentSelector({ onSelect, disabled }: ContentSelectorProps) {
   // when parent passes inline function. The callback identity doesn't affect
   // when we should notify - only the selected IDs matter.
   useEffect(() => {
-    if (selectedParagraphId) {
-      onSelect({ paragraphId: selectedParagraphId });
-    } else if (selectedChapterId) {
-      onSelect({ chapterId: selectedChapterId });
+    const selectedTextbook = textbooks?.find((tb) => tb.id === selectedTextbookId);
+    const selectedChapter = chapters?.find((ch) => ch.id === selectedChapterId);
+    const selectedParagraph = paragraphs?.find((p) => p.id === selectedParagraphId);
+
+    const selection: ContentSelection = {};
+
+    if (selectedTextbook) {
+      selection.textbookId = selectedTextbook.id;
+      selection.textbookTitle = selectedTextbook.title;
+      selection.subject = selectedTextbook.subject;
+      selection.gradeLevel = selectedTextbook.grade_level;
+    }
+
+    if (selectedChapter) {
+      selection.chapterId = selectedChapter.id;
+      selection.chapterNumber = selectedChapter.number;
+      selection.chapterTitle = selectedChapter.title;
+    }
+
+    if (selectedParagraph) {
+      selection.paragraphId = selectedParagraph.id;
+      selection.paragraphNumber = selectedParagraph.number;
+      selection.paragraphTitle = selectedParagraph.title;
+    }
+
+    // Only notify if at least chapter or paragraph is selected
+    if (selectedParagraphId || selectedChapterId) {
+      onSelect(selection);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedParagraphId, selectedChapterId]);
+  }, [selectedParagraphId, selectedChapterId, selectedTextbookId, textbooks, chapters, paragraphs]);
 
   return (
     <div className="space-y-4">

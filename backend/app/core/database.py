@@ -65,28 +65,30 @@ async def _set_session_variables(session: AsyncSession) -> bool:
     if not ctx.is_authenticated:
         # Unauthenticated request - clear all context
         # RLS policies will deny access to protected resources
+        # NOTE: Using false for is_local so variables persist across transactions
         await session.execute(
-            text("SELECT set_config('app.current_user_id', NULL, true)")
+            text("SELECT set_config('app.current_user_id', NULL, false)")
         )
         await session.execute(
-            text("SELECT set_config('app.current_tenant_id', NULL, true)")
+            text("SELECT set_config('app.current_tenant_id', NULL, false)")
         )
         await session.execute(
-            text("SELECT set_config('app.is_super_admin', 'false', true)")
+            text("SELECT set_config('app.is_super_admin', 'false', false)")
         )
         logger.debug("RLS context: unauthenticated (all NULL)")
         return False
 
     # Set current user ID
+    # NOTE: Using false for is_local so variables persist across commit() calls
     await session.execute(
-        text("SELECT set_config('app.current_user_id', :user_id, true)"),
+        text("SELECT set_config('app.current_user_id', :user_id, false)"),
         {"user_id": str(ctx.user_id)}
     )
 
     # Set super admin flag
     is_super_admin = ctx.is_super_admin
     await session.execute(
-        text("SELECT set_config('app.is_super_admin', :value, true)"),
+        text("SELECT set_config('app.is_super_admin', :value, false)"),
         {"value": "true" if is_super_admin else "false"}
     )
 
@@ -94,7 +96,7 @@ async def _set_session_variables(session: AsyncSession) -> bool:
     if is_super_admin:
         # Super admin bypasses RLS - set NULL tenant
         await session.execute(
-            text("SELECT set_config('app.current_tenant_id', NULL, true)")
+            text("SELECT set_config('app.current_tenant_id', NULL, false)")
         )
         logger.debug(
             f"RLS context: SUPER_ADMIN user_id={ctx.user_id} (tenant=NULL)"
@@ -102,7 +104,7 @@ async def _set_session_variables(session: AsyncSession) -> bool:
     elif ctx.school_id is not None:
         # Regular user with school - set tenant
         await session.execute(
-            text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+            text("SELECT set_config('app.current_tenant_id', :tenant_id, false)"),
             {"tenant_id": str(ctx.school_id)}
         )
         logger.debug(
@@ -111,7 +113,7 @@ async def _set_session_variables(session: AsyncSession) -> bool:
     else:
         # User without school (e.g., during onboarding) - set NULL tenant
         await session.execute(
-            text("SELECT set_config('app.current_tenant_id', NULL, true)")
+            text("SELECT set_config('app.current_tenant_id', NULL, false)")
         )
         logger.debug(
             f"RLS context: user_id={ctx.user_id}, no school (tenant=NULL)"
@@ -175,14 +177,15 @@ async def get_db_no_rls() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         try:
             # Explicitly clear context to ensure no RLS filtering
+            # NOTE: Using false for is_local for consistency across commits
             await session.execute(
-                text("SELECT set_config('app.current_user_id', NULL, true)")
+                text("SELECT set_config('app.current_user_id', NULL, false)")
             )
             await session.execute(
-                text("SELECT set_config('app.current_tenant_id', NULL, true)")
+                text("SELECT set_config('app.current_tenant_id', NULL, false)")
             )
             await session.execute(
-                text("SELECT set_config('app.is_super_admin', 'false', true)")
+                text("SELECT set_config('app.is_super_admin', 'false', false)")
             )
 
             yield session

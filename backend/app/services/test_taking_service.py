@@ -211,14 +211,18 @@ class TestTakingService:
         """
         Отправить все ответы сразу (bulk submit).
 
+        Supports partial submissions - unanswered questions are filled
+        with empty answers (scored as incorrect, 0 points).
+
         Args:
             attempt_id: ID попытки
             answers: Список ответов [{question_id, selected_option_ids, answer_text}]
+                     Can be partial - not all questions need to be answered
             student_id: ID студента
             school_id: ID школы
 
         Raises:
-            ValueError: Attempt not found, wrong status, or answer count mismatch
+            ValueError: Attempt not found, wrong status, or invalid question_id
         """
         # 1. Validate attempt
         attempt = await self._validate_attempt_access(
@@ -236,32 +240,44 @@ class TestTakingService:
             attempt.test_id, load_options=False
         )
 
-        if len(answers) != len(questions):
-            raise ValueError(
-                f"Answer count mismatch: got {len(answers)} answers, "
-                f"expected {len(questions)} questions"
-            )
+        # 3. Build map of submitted answers by question_id
+        submitted_answers = {a.get("question_id"): a for a in answers}
 
-        # 3. Validate and create answers
-        question_map = {q.id: q for q in questions}
+        # Validate that all submitted question_ids exist in the test
+        valid_question_ids = {q.id for q in questions}
+        for qid in submitted_answers:
+            if qid not in valid_question_ids:
+                raise ValueError(f"Invalid question_id: {qid}")
 
-        for answer_data in answers:
-            question_id = answer_data.get("question_id")
-            if question_id not in question_map:
-                raise ValueError(f"Invalid question_id: {question_id}")
+        # 4. Create answers for ALL questions (submitted or empty)
+        answered_count = 0
+        now = datetime.now(timezone.utc)
+
+        for question in questions:
+            if question.id in submitted_answers:
+                # Use submitted answer
+                answer_data = submitted_answers[question.id]
+                answered_count += 1
+            else:
+                # Create empty answer for unanswered question
+                answer_data = {
+                    "question_id": question.id,
+                    "selected_option_ids": [],
+                    "answer_text": None
+                }
 
             answer = TestAttemptAnswer(
                 attempt_id=attempt_id,
-                question_id=question_id,
-                selected_option_ids=answer_data.get("selected_option_ids", []),
+                question_id=answer_data.get("question_id"),
+                selected_option_ids=answer_data.get("selected_option_ids") or [],
                 answer_text=answer_data.get("answer_text"),
-                answered_at=datetime.now(timezone.utc)
+                answered_at=now
             )
             self.db.add(answer)
 
         logger.info(
-            f"Student {student_id} submitted {len(answers)} answers "
-            f"for attempt {attempt_id}"
+            f"Student {student_id} submitted test attempt {attempt_id}: "
+            f"{answered_count}/{len(questions)} questions answered"
         )
 
     async def get_attempt_details(

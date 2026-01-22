@@ -5,7 +5,7 @@ Note: test_attempts is a partitioned table (RANGE by started_at, monthly).
 PRIMARY KEY is (id, started_at) to support PostgreSQL partitioning.
 See migration: 5d20a0c758f1_partition_test_attempts.py
 """
-from sqlalchemy import Column, Integer, ForeignKey, Float, DateTime, Boolean, Text, Enum as SQLEnum, JSON, PrimaryKeyConstraint
+from sqlalchemy import Column, Integer, ForeignKey, Float, DateTime, Boolean, Text, String, JSON, PrimaryKeyConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 import enum
@@ -14,7 +14,11 @@ from app.models.base import BaseModel
 
 
 class AttemptStatus(str, enum.Enum):
-    """Test attempt status enumeration."""
+    """Test attempt status enumeration.
+
+    Note: The database column is VARCHAR(20), not an enum type.
+    This Python enum is used for type safety in application code.
+    """
 
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -50,9 +54,9 @@ class TestAttempt(BaseModel):
     # Attempt info
     attempt_number = Column(Integer, nullable=False, default=1)  # Attempt number for this student/test
     status = Column(
-        SQLEnum(AttemptStatus, values_callable=lambda x: [e.value for e in x]),
+        String(20),
         nullable=False,
-        default=AttemptStatus.IN_PROGRESS,
+        default=AttemptStatus.IN_PROGRESS.value,
         index=True
     )
     completed_at = Column(DateTime(timezone=True), nullable=True)

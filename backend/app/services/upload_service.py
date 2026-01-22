@@ -26,9 +26,24 @@ class UploadService:
         "application/pdf",
     ]
 
+    ALLOWED_DOC_TYPES = [
+        "application/msword",  # .doc
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+        "application/vnd.ms-excel",  # .xls
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # .xlsx
+        "application/vnd.ms-powerpoint",  # .ppt
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # .pptx
+        "text/plain",  # .txt
+    ]
+
+    # All allowed types for homework attachments
+    ALLOWED_HOMEWORK_TYPES = ALLOWED_IMAGE_TYPES + ALLOWED_PDF_TYPES + ALLOWED_DOC_TYPES
+
     # Максимальные размеры файлов (в байтах)
     MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
     MAX_PDF_SIZE = 50 * 1024 * 1024  # 50 MB
+    MAX_DOC_SIZE = 20 * 1024 * 1024  # 20 MB
+    MAX_HOMEWORK_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
     def __init__(self, upload_dir: str = "uploads"):
         """
@@ -208,6 +223,78 @@ class UploadService:
         filename = f"{unique_id}_{timestamp}{file_ext}"
 
         return filename
+
+    async def save_homework_file(
+        self,
+        file: UploadFile,
+        max_size: Optional[int] = None,
+    ) -> dict:
+        """
+        Сохранить файл для homework attachment.
+
+        Args:
+            file: Загруженный файл
+            max_size: Максимальный размер файла (опционально)
+
+        Returns:
+            dict с url, name, type, size
+
+        Raises:
+            HTTPException: Если файл невалиден или произошла ошибка сохранения
+        """
+        max_size = max_size or self.MAX_HOMEWORK_FILE_SIZE
+
+        # Валидация файла
+        self._validate_file(
+            file=file,
+            allowed_types=self.ALLOWED_HOMEWORK_TYPES,
+            max_size=max_size,
+        )
+
+        # Чтение содержимого файла
+        try:
+            file_content = await file.read()
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Ошибка чтения файла: {str(e)}",
+            )
+
+        # Генерация уникального имени файла
+        filename = self._generate_filename(file.filename or "file")
+
+        # Сохранение файла
+        file_path = self.upload_dir / filename
+
+        try:
+            with open(file_path, "wb") as f:
+                f.write(file_content)
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Ошибка сохранения файла: {str(e)}",
+            )
+
+        # Определение типа файла
+        file_type = self._get_file_type(file.content_type)
+
+        # Возврат данных attachment
+        return {
+            "url": f"/{self.upload_dir}/{filename}",
+            "name": file.filename or "file",
+            "type": file_type,
+            "size": len(file_content),
+        }
+
+    def _get_file_type(self, mime_type: str) -> str:
+        """Определить тип файла по MIME type."""
+        if mime_type in self.ALLOWED_IMAGE_TYPES:
+            return "image"
+        elif mime_type in self.ALLOWED_PDF_TYPES:
+            return "pdf"
+        elif mime_type in self.ALLOWED_DOC_TYPES:
+            return "doc"
+        return "other"
 
     def delete_file(self, file_url: str) -> bool:
         """

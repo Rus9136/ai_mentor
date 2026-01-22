@@ -177,8 +177,8 @@ export async function getDashboard(): Promise<TeacherDashboardResponse> {
 
 // Classes
 export async function getClasses(): Promise<TeacherClassResponse[]> {
-  const response = await apiClient.get<TeacherClassResponse[]>('/teachers/classes');
-  return response.data;
+  const response = await apiClient.get<{ items: TeacherClassResponse[]; total: number }>('/teachers/classes');
+  return response.data.items;
 }
 
 export async function getClassDetail(classId: number): Promise<TeacherClassDetailResponse> {
@@ -211,10 +211,10 @@ export async function getMasteryHistory(studentId: number): Promise<MasteryHisto
 
 // Analytics
 export async function getStrugglingTopics(): Promise<StrugglingTopicResponse[]> {
-  const response = await apiClient.get<StrugglingTopicResponse[]>(
+  const response = await apiClient.get<{ items: StrugglingTopicResponse[]; total: number }>(
     '/teachers/analytics/struggling-topics'
   );
-  return response.data;
+  return response.data.items;
 }
 
 export async function getMasteryTrends(

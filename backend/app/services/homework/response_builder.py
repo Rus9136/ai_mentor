@@ -84,6 +84,7 @@ class HomeworkResponseBuilder:
             max_attempts=task.max_attempts,
             ai_generated=task.ai_generated,
             instructions=task.instructions,
+            attachments=task.attachments,
             questions_count=len(questions_response),
             questions=questions_response
         )
@@ -118,6 +119,7 @@ class HomeworkResponseBuilder:
             late_penalty_per_day=homework.late_penalty_per_day,
             grace_period_hours=homework.grace_period_hours,
             max_late_days=homework.max_late_days,
+            attachments=homework.attachments,
             tasks=tasks_response,
             created_at=homework.created_at,
             updated_at=homework.updated_at

@@ -24,3 +24,14 @@ class PDFUploadResponse(BaseModel):
     size: int = Field(..., description="Размер файла в байтах")
 
     model_config = {"from_attributes": True}
+
+
+class FileUploadResponse(BaseModel):
+    """Response schema для generic file upload (homework attachments)"""
+
+    url: str = Field(..., description="URL загруженного файла")
+    name: str = Field(..., description="Оригинальное имя файла")
+    type: str = Field(..., description="Тип файла: image/pdf/doc")
+    size: int = Field(..., description="Размер файла в байтах")
+
+    model_config = {"from_attributes": True}

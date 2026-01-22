@@ -89,6 +89,7 @@ async def google_login(
         raise APIError(ErrorCode.AUTH_006, message=str(e))  # Google authentication failed
 
     user_repo = UserRepository(db)
+    student_repo = StudentRepository(db)
 
     # Try to find existing user by Google ID
     user = await user_repo.get_by_google_id(google_info.google_id)
@@ -96,6 +97,24 @@ async def google_login(
     # If not found by Google ID, try by email
     if not user:
         user = await user_repo.get_by_email(google_info.email)
+
+    # If still not found, check for soft-deleted user with same email
+    # This handles the case when user deleted account and wants to re-register
+    if not user:
+        deleted_user = await user_repo.get_by_email_include_deleted(google_info.email)
+        if deleted_user and deleted_user.is_deleted:
+            # Restore the deleted user
+            user = await user_repo.restore(deleted_user)
+            user.google_id = google_info.google_id
+            user.auth_provider = AuthProvider.GOOGLE
+            if google_info.avatar_url:
+                user.avatar_url = google_info.avatar_url
+            await user_repo.update(user)
+
+            # Also restore the student record if exists
+            deleted_student = await student_repo.get_by_user_id_include_deleted(user.id)
+            if deleted_student and deleted_student.is_deleted:
+                await student_repo.restore(deleted_student)
 
     requires_onboarding = False
 
@@ -277,22 +296,27 @@ async def complete_onboarding(
         )
         student = await student_repo.create(student)
 
-    # Add student to class if specified
+    # Create join request instead of auto-adding to class
+    # Teacher will approve/reject the request
+    pending_request = None
     if invitation_code.class_id and invitation_code.school_class:
-        from app.repositories.school_class_repo import SchoolClassRepository
-        class_repo = SchoolClassRepository(db)
-        try:
-            await class_repo.add_students(
-                invitation_code.class_id,
-                [student.id],
-                invitation_code.school_id
-            )
-        except ValueError:
-            # Class might not exist anymore, ignore
-            pass
+        from app.repositories.join_request_repo import JoinRequestRepository
+        join_repo = JoinRequestRepository(db)
 
-    # Record code usage
-    await code_repo.use_code(invitation_code, student.id)
+        # Check if already has a request for this class
+        existing_request = await join_repo.get_by_student_and_class(
+            student.id, invitation_code.class_id
+        )
+        if not existing_request:
+            pending_request = await join_repo.create(
+                student_id=student.id,
+                class_id=invitation_code.class_id,
+                school_id=invitation_code.school_id,
+                invitation_code_id=invitation_code.id
+            )
+
+    # Note: We don't record code usage here anymore
+    # Code usage is recorded when teacher approves the request
 
     # Generate new tokens with updated school_id
     token_data = {
@@ -306,18 +330,24 @@ async def complete_onboarding(
     refresh_token = create_refresh_token({"sub": str(current_user.id)})
 
     # Build student response
-    student_classes = []
-    if invitation_code.school_class:
-        student_classes.append({
-            "id": invitation_code.school_class.id,
-            "name": invitation_code.school_class.name
-        })
+    student_classes = []  # Empty - student is not in any class yet
+
+    # Add pending request info if exists
+    pending_request_info = None
+    if pending_request and invitation_code.school_class:
+        pending_request_info = {
+            "id": pending_request.id,
+            "class_id": invitation_code.class_id,
+            "class_name": invitation_code.school_class.name,
+            "status": "pending"
+        }
 
     student_info = {
         "id": student.id,
         "student_code": student.student_code,
         "grade_level": student.grade_level,
-        "classes": student_classes
+        "classes": student_classes,
+        "pending_request": pending_request_info
     }
 
     return OnboardingCompleteResponse(

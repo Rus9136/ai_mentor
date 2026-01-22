@@ -11,6 +11,21 @@ export interface StudentStats {
   total_time_spent_minutes: number;
 }
 
+export interface ClassInfo {
+  id: number;
+  name: string;
+  grade_level: number;
+}
+
+export interface StudentProfile {
+  id: number;
+  student_code: string;
+  grade_level: number;
+  birth_date: string | null;
+  school_name: string | null;
+  classes: ClassInfo[];
+}
+
 export interface ChapterMasteryDetail {
   id: number;
   student_id: number;
@@ -59,5 +74,13 @@ export async function getStudentStats(): Promise<StudentStats> {
  */
 export async function getMasteryOverview(): Promise<MasteryOverview> {
   const response = await apiClient.get<MasteryOverview>('/students/mastery/overview');
+  return response.data;
+}
+
+/**
+ * Get student's profile with class information.
+ */
+export async function getStudentProfile(): Promise<StudentProfile> {
+  const response = await apiClient.get<StudentProfile>('/students/profile');
   return response.data;
 }

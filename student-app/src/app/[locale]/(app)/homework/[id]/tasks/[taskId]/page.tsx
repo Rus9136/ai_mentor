@@ -25,6 +25,7 @@ import {
   TextQuestion,
   QuestionFeedback,
   SubmissionResultCard,
+  AttachmentsList,
 } from '@/components/homework';
 import { cn } from '@/lib/utils';
 
@@ -264,6 +265,16 @@ export default function TaskExecutionPage() {
 
           {currentTask?.instructions && (
             <p className="text-gray-600 mb-4">{currentTask.instructions}</p>
+          )}
+
+          {/* Task Attachments */}
+          {currentTask?.attachments && currentTask.attachments.length > 0 && (
+            <div className="mb-6 text-left">
+              <AttachmentsList
+                attachments={currentTask.attachments}
+                title={t('attachments')}
+              />
+            </div>
           )}
 
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-500 mb-6">

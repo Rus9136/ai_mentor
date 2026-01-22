@@ -136,6 +136,7 @@ async def list_my_homework(
             is_late=is_late,
             late_penalty=0,  # Penalty calculated per-task in submissions
             show_explanations=homework.show_explanations,
+            attachments=homework.attachments,
             tasks=tasks_response
         ))
 
@@ -216,6 +217,7 @@ async def get_homework_detail(
         is_late=is_late,
         late_penalty=0,  # Penalty calculated per-task in submissions
         show_explanations=homework.show_explanations,
+        attachments=homework.attachments,
         tasks=tasks_response
     )
 
@@ -272,6 +274,7 @@ async def start_task(
         instructions=task.instructions,
         points=task.points,
         time_limit_minutes=task.time_limit_minutes,
+        attachments=task.attachments,
         status=SubmissionStatus.IN_PROGRESS,
         current_attempt=attempts_used,
         max_attempts=task.max_attempts,
@@ -574,6 +577,7 @@ async def _build_student_tasks(
             instructions=task.instructions,
             points=task.points,
             time_limit_minutes=task.time_limit_minutes,
+            attachments=task.attachments,
             status=status,
             current_attempt=attempts_used,
             max_attempts=task.max_attempts,

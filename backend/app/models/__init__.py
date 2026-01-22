@@ -10,6 +10,7 @@ from app.models.school import School
 from app.models.user import User, UserRole, AuthProvider
 from app.models.student import Student
 from app.models.invitation_code import InvitationCode, InvitationCodeUse
+from app.models.student_join_request import StudentJoinRequest, JoinRequestStatus
 from app.models.teacher import Teacher
 from app.models.parent import Parent, parent_students
 from app.models.school_class import SchoolClass
@@ -89,6 +90,8 @@ __all__ = [
     "ClassTeacher",
     "InvitationCode",
     "InvitationCodeUse",
+    "StudentJoinRequest",
+    "JoinRequestStatus",
     # Content
     "Textbook",
     "Chapter",

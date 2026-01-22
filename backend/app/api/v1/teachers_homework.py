@@ -10,7 +10,7 @@ Endpoints for teachers to:
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 
 from app.api.dependencies import (
     get_current_user_school_id,
@@ -39,8 +39,13 @@ from app.schemas.homework import (
 from app.services.homework import HomeworkService, HomeworkServiceError
 from app.services.homework.ai import HomeworkAIServiceError
 from app.services.homework.response_builder import HomeworkResponseBuilder
+from app.services.upload_service import UploadService
+from app.schemas.upload import FileUploadResponse
 
 router = APIRouter(prefix="/teachers/homework", tags=["teachers-homework"])
+
+# Upload service instance
+upload_service = UploadService(upload_dir="uploads")
 
 
 # =============================================================================
@@ -190,6 +195,40 @@ async def review_answer(
         teacher_feedback=answer.teacher_comment,
         reviewed_at=answer.updated_at
     )
+
+
+# =============================================================================
+# File Upload
+# =============================================================================
+
+@router.post(
+    "/upload",
+    response_model=FileUploadResponse,
+    summary="Upload file for homework",
+    description="Upload a file (image, PDF, doc) to attach to homework or task."
+)
+async def upload_homework_file(
+    file: UploadFile = File(...),
+    teacher: Teacher = Depends(get_teacher_from_user),
+) -> FileUploadResponse:
+    """
+    Upload a file for homework attachment.
+
+    Supported types:
+    - Images: JPEG, PNG, WebP, GIF (max 5 MB)
+    - PDF: (max 50 MB)
+    - Documents: DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT (max 20 MB)
+    """
+    try:
+        result = await upload_service.save_homework_file(file)
+        return FileUploadResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка загрузки файла: {str(e)}"
+        ) from e
 
 
 # =============================================================================

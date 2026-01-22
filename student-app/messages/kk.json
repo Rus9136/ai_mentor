@@ -385,6 +385,7 @@
     "hoursLeft": "{count} сағат қалды",
     "allTasksCompleted": "Барлық тапсырмалар орындалды!",
     "allQuestionsAnswered": "Барлық сұрақтарға жауап берілді!",
+    "attachments": "Тіркелген файлдар",
     "clickToComplete": "Тапсырманы аяқтау үшін басыңыз",
     "status": {
       "assigned": "Тағайындалды",

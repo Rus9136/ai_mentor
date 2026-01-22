@@ -13,6 +13,7 @@ import {
   getCurrentUser,
   logout as logoutApi,
   loginWithPassword as loginWithPasswordApi,
+  deleteAccount as deleteAccountApi,
   UserResponse,
 } from '@/lib/api/auth';
 import { getAccessToken } from '@/lib/api/client';
@@ -25,6 +26,7 @@ interface AuthContextType {
   login: (idToken: string) => Promise<boolean>;
   loginWithPassword: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  deleteAccount: () => Promise<boolean>;
   refreshUser: () => Promise<void>;
   setRequiresOnboarding: (value: boolean) => void;
 }
@@ -150,6 +152,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.replace('/login');
   };
 
+  const deleteAccount = async (): Promise<boolean> => {
+    try {
+      await deleteAccountApi();
+      // Clear skipped onboarding flag
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('ai_mentor_skipped_onboarding');
+      }
+      setUser(null);
+      setRequiresOnboarding(false);
+      router.replace('/login');
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const refreshUser = async () => {
     try {
       const userData = await getCurrentUser();
@@ -173,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         loginWithPassword,
         logout,
+        deleteAccount,
         refreshUser,
         setRequiresOnboarding,
       }}

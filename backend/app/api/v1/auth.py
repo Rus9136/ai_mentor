@@ -1,7 +1,7 @@
 """
 Authentication endpoints.
 """
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -15,8 +15,9 @@ from app.core.security import (
 from app.core.rate_limiter import limiter, AUTH_RATE_LIMIT, REFRESH_RATE_LIMIT
 from app.core.errors import APIError, ErrorCode
 from app.api.dependencies import get_current_user
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
+from app.repositories.student_repo import StudentRepository
 from app.schemas.auth import (
     LoginRequest,
     TokenResponse,
@@ -143,3 +144,30 @@ async def get_current_user_info(
     Returns information about the authenticated user.
     """
     return UserResponse.model_validate(current_user)
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_current_account(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Delete current user's account (soft delete).
+
+    Only students can delete their own accounts.
+    """
+    # Only students can delete their own accounts
+    if current_user.role != UserRole.STUDENT:
+        raise APIError(ErrorCode.ACCESS_002)  # Role doesn't allow this action
+
+    # Soft delete student record
+    student_repo = StudentRepository(db)
+    student = await student_repo.get_by_user_id(current_user.id)
+    if student:
+        await student_repo.soft_delete(student)
+
+    # Soft delete user record
+    user_repo = UserRepository(db)
+    await user_repo.soft_delete(current_user)
+
+    return None

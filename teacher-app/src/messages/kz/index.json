@@ -212,7 +212,16 @@
       "difficultyAuto": "Автоматты",
       "difficultyEasy": "Жеңіл",
       "difficultyMedium": "Орташа",
-      "difficultyHard": "Қиын"
+      "difficultyHard": "Қиын",
+      "attachments": "Тіркелген файлдар",
+      "taskAttachments": "Тапсырмаға файлдар"
+    },
+    "file": {
+      "dropOrClick": "Файлдарды жүктеңіз немесе таңдау үшін басыңыз",
+      "supportedFormats": "Суреттер, PDF, Word, Excel, PowerPoint",
+      "uploading": "Жүктелуде...",
+      "count": "{count} / {max} файл",
+      "remove": "Жою"
     },
     "ai": {
       "title": "AI параметрлері",
@@ -357,6 +366,8 @@
     "errors": {
       "loadFailed": "Деректерді жүктеу мүмкін болмады",
       "createFailed": "Тапсырманы құру мүмкін болмады",
+      "maxFilesExceeded": "Максимум {max} файл",
+      "uploadFailed": "Файлды жүктеу қатесі",
       "updateFailed": "Тапсырманы жаңарту мүмкін болмады",
       "publishFailed": "Жариялау мүмкін болмады",
       "generateFailed": "Сұрақтарды генерациялау мүмкін болмады",

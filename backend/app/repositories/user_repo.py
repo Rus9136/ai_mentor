@@ -68,6 +68,40 @@ class UserRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_google_id_include_deleted(self, google_id: str) -> Optional[User]:
+        """
+        Get user by Google ID including soft-deleted users.
+
+        Used for account restoration when a deleted user tries to log in again.
+
+        Args:
+            google_id: Google account ID
+
+        Returns:
+            User object or None if not found
+        """
+        result = await self.db.execute(
+            select(User).where(User.google_id == google_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_by_email_include_deleted(self, email: str) -> Optional[User]:
+        """
+        Get user by email including soft-deleted users.
+
+        Used for account restoration when a deleted user tries to register again.
+
+        Args:
+            email: User email
+
+        Returns:
+            User object or None if not found
+        """
+        result = await self.db.execute(
+            select(User).where(User.email == email)
+        )
+        return result.scalar_one_or_none()
+
     async def get_by_school(
         self,
         school_id: int,
@@ -185,6 +219,8 @@ class UserRepository:
         """
         Soft delete a user.
 
+        Clears google_id to allow re-registration with the same Google account.
+
         Args:
             user: User instance
 
@@ -194,6 +230,24 @@ class UserRepository:
         from datetime import datetime
         user.is_deleted = True
         user.deleted_at = datetime.utcnow()
+        user.google_id = None  # Allow re-registration with same Google account
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+
+    async def restore(self, user: User) -> User:
+        """
+        Restore a soft-deleted user.
+
+        Args:
+            user: User instance
+
+        Returns:
+            Restored user
+        """
+        user.is_deleted = False
+        user.deleted_at = None
+        user.is_active = True
         await self.db.commit()
         await self.db.refresh(user)
         return user

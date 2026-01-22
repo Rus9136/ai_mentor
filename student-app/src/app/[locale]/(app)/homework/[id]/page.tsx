@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { ArrowLeft, Calendar, Award, Loader2 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useHomeworkDetail } from '@/lib/hooks/use-homework';
-import { HomeworkStatusBadge, TaskCard, LateWarning } from '@/components/homework';
+import { HomeworkStatusBadge, TaskCard, LateWarning, AttachmentsList } from '@/components/homework';
 
 export default function HomeworkDetailPage() {
   const params = useParams();
@@ -99,6 +99,15 @@ export default function HomeworkDetailPage() {
         {/* Description */}
         {homework.description && (
           <p className="text-gray-600 mb-4">{homework.description}</p>
+        )}
+
+        {/* Attachments */}
+        {homework.attachments && homework.attachments.length > 0 && (
+          <AttachmentsList
+            attachments={homework.attachments}
+            title={t('attachments')}
+            className="mb-4"
+          />
         )}
 
         {/* Meta Info */}

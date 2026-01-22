@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
+import { Toaster } from 'sonner';
 import { routing } from '@/i18n/routing';
 import { AuthProvider } from '@/providers/auth-provider';
 import { QueryProvider } from '@/providers/query-provider';
@@ -48,6 +49,7 @@ export default async function LocaleLayout({
         <QueryProvider>
           <NextIntlClientProvider messages={messages}>
             <AuthProvider>{children}</AuthProvider>
+            <Toaster richColors position="top-right" />
           </NextIntlClientProvider>
         </QueryProvider>
       </body>
