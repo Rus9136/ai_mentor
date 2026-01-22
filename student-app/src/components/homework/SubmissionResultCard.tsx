@@ -1,12 +1,16 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { CheckCircle2, XCircle, AlertTriangle, Award, Clock } from 'lucide-react';
-import { TaskSubmissionResult } from '@/lib/api/homework';
+import { CheckCircle2, XCircle, AlertTriangle, Award, Clock, FileText, Brain } from 'lucide-react';
+import { TaskSubmissionResult, TaskType } from '@/lib/api/homework';
 import { cn } from '@/lib/utils';
+
+// Task types that don't show correct/incorrect stats (AI-graded open tasks)
+const OPEN_TASK_TYPES = [TaskType.PRACTICE, TaskType.ESSAY, TaskType.OPEN_QUESTION];
 
 interface SubmissionResultCardProps {
   result: TaskSubmissionResult;
+  taskType?: TaskType;
   onBackToHomework: () => void;
   onTryAgain?: () => void;
   canTryAgain?: boolean;
@@ -14,6 +18,7 @@ interface SubmissionResultCardProps {
 
 export function SubmissionResultCard({
   result,
+  taskType,
   onBackToHomework,
   onTryAgain,
   canTryAgain,
@@ -22,24 +27,46 @@ export function SubmissionResultCard({
 
   const isPassed = result.percentage >= 60;
 
+  // Open task types (essay, practice, open_question) don't show correct/incorrect stats
+  const isOpenTask = taskType && OPEN_TASK_TYPES.includes(taskType);
+
+  // For open tasks, check if all answers need review (not yet graded by teacher)
+  const isPendingReview = isOpenTask && result.needs_review_count > 0;
+
   return (
     <div className="card-elevated overflow-hidden">
       {/* Header */}
       <div
         className={cn(
           'px-6 py-8 text-center',
-          isPassed
-            ? 'bg-gradient-to-r from-green-50 to-emerald-50'
-            : 'bg-gradient-to-r from-red-50 to-orange-50'
+          isOpenTask
+            ? isPendingReview
+              ? 'bg-gradient-to-r from-amber-50 to-orange-50'
+              : 'bg-gradient-to-r from-blue-50 to-indigo-50'
+            : isPassed
+              ? 'bg-gradient-to-r from-green-50 to-emerald-50'
+              : 'bg-gradient-to-r from-red-50 to-orange-50'
         )}
       >
         <div
           className={cn(
             'w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center',
-            isPassed ? 'bg-green-100' : 'bg-red-100'
+            isOpenTask
+              ? isPendingReview
+                ? 'bg-amber-100'
+                : 'bg-blue-100'
+              : isPassed
+                ? 'bg-green-100'
+                : 'bg-red-100'
           )}
         >
-          {isPassed ? (
+          {isOpenTask ? (
+            isPendingReview ? (
+              <AlertTriangle className="w-8 h-8 text-amber-600" />
+            ) : (
+              <FileText className="w-8 h-8 text-blue-600" />
+            )
+          ) : isPassed ? (
             <CheckCircle2 className="w-8 h-8 text-green-600" />
           ) : (
             <XCircle className="w-8 h-8 text-red-600" />
@@ -51,10 +78,22 @@ export function SubmissionResultCard({
         <p
           className={cn(
             'text-lg font-medium',
-            isPassed ? 'text-green-600' : 'text-red-600'
+            isOpenTask
+              ? isPendingReview
+                ? 'text-amber-600'
+                : 'text-blue-600'
+              : isPassed
+                ? 'text-green-600'
+                : 'text-red-600'
           )}
         >
-          {isPassed ? t('passed') : t('failed')}
+          {isOpenTask
+            ? isPendingReview
+              ? t('pendingReview')
+              : t('submitted')
+            : isPassed
+              ? t('passed')
+              : t('failed')}
         </p>
       </div>
 
@@ -77,27 +116,44 @@ export function SubmissionResultCard({
           </div>
         </div>
 
-        {/* Correct/Incorrect */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl">
-            <CheckCircle2 className="w-5 h-5 text-green-600" />
-            <div>
-              <p className="text-lg font-bold text-green-700">
-                {result.correct_count}
-              </p>
-              <p className="text-xs text-green-600">{t('correct')}</p>
+        {/* Correct/Incorrect - only for quiz/test tasks */}
+        {!isOpenTask && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl">
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              <div>
+                <p className="text-lg font-bold text-green-700">
+                  {result.correct_count}
+                </p>
+                <p className="text-xs text-green-600">{t('correct')}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl">
+              <XCircle className="w-5 h-5 text-red-600" />
+              <div>
+                <p className="text-lg font-bold text-red-700">
+                  {result.incorrect_count}
+                </p>
+                <p className="text-xs text-red-600">{t('incorrect')}</p>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl">
-            <XCircle className="w-5 h-5 text-red-600" />
+        )}
+
+        {/* AI Feedback summary for open tasks */}
+        {isOpenTask && (
+          <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-xl">
+            <Brain className="w-5 h-5 text-purple-600" />
             <div>
-              <p className="text-lg font-bold text-red-700">
-                {result.incorrect_count}
+              <p className="text-sm font-medium text-purple-700">
+                {t('aiEvaluated')}
               </p>
-              <p className="text-xs text-red-600">{t('incorrect')}</p>
+              <p className="text-xs text-purple-600">
+                {t('aiEvaluatedDescription')}
+              </p>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Needs Review */}
         {result.needs_review_count > 0 && (

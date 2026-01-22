@@ -17,6 +17,7 @@ import {
   QuestionType,
   SubmissionStatus,
   SubmissionResult,
+  TaskType,
 } from '@/lib/api/homework';
 import {
   ChoiceQuestion,
@@ -213,6 +214,7 @@ export default function TaskExecutionPage() {
       <div className="mx-auto max-w-2xl px-4 py-6">
         <SubmissionResultCard
           result={completionResult}
+          taskType={currentTask?.task_type}
           onBackToHomework={handleBackToHomework}
           onTryAgain={handleTryAgain}
           canTryAgain={(currentTask?.attempts_remaining ?? 0) > 0}
@@ -346,6 +348,7 @@ export default function TaskExecutionPage() {
               {/* Feedback */}
               <QuestionFeedback
                 feedback={answered.feedback}
+                taskType={currentTask?.task_type}
                 showExplanation={homework?.show_explanations}
               />
             </div>
