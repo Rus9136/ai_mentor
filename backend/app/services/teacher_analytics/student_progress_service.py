@@ -283,11 +283,27 @@ class StudentProgressService:
         )
         total_time = time_result.scalar() or 0
 
-        # Get last activity
-        last_activity_result = await self.db.execute(
-            select(func.max(ParagraphMastery.last_updated_at))
+        # Get last activity from paragraph_mastery
+        paragraph_activity_result = await self.db.execute(
+            select(func.max(ParagraphMastery.updated_at))
             .where(ParagraphMastery.student_id == student_id)
         )
-        last_activity = last_activity_result.scalar()
+        paragraph_last = paragraph_activity_result.scalar()
+
+        # Get last activity from test_attempts
+        test_activity_result = await self.db.execute(
+            select(func.max(TestAttempt.started_at))
+            .where(TestAttempt.student_id == student_id)
+        )
+        test_last = test_activity_result.scalar()
+
+        # Take max of both sources
+        last_activity = None
+        if paragraph_last and test_last:
+            last_activity = max(paragraph_last, test_last)
+        elif paragraph_last:
+            last_activity = paragraph_last
+        elif test_last:
+            last_activity = test_last
 
         return total_time, last_activity

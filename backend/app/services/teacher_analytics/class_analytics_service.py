@@ -15,6 +15,7 @@ from app.models.chapter import Chapter
 from app.models.class_teacher import ClassTeacher
 from app.models.mastery import ChapterMastery, ParagraphMastery
 from app.models.school_class import SchoolClass
+from app.models.test_attempt import TestAttempt
 from app.schemas.teacher_dashboard import (
     ChapterProgressBrief,
     ClassOverviewResponse,
@@ -178,6 +179,8 @@ class ClassAnalyticsService:
         # Batch load mastery data to avoid N+1
         mastery_data = await self._get_students_mastery_data(student_ids)
         progress_data = await self._get_students_progress_data(student_ids)
+        # Get real last activity from multiple sources (test_attempts, paragraph_mastery)
+        activity_data = await self._get_students_last_activity(student_ids)
 
         # Build students with mastery
         students_with_mastery = []
@@ -196,7 +199,7 @@ class ClassAnalyticsService:
                 completed_paragraphs=progress[0],
                 total_paragraphs=progress[1],
                 progress_percentage=int(100 * progress[0] / progress[1]) if progress[1] > 0 else 0,
-                last_activity=mastery["updated_at"] if mastery else None
+                last_activity=activity_data.get(student.id)
             ))
 
         # Calculate distribution
@@ -376,3 +379,60 @@ class ClassAnalyticsService:
             row[0]: (row[1], row[2])
             for row in result.fetchall()
         }
+
+    async def _get_students_last_activity(
+        self,
+        student_ids: List[int]
+    ) -> dict:
+        """
+        Get last activity date for students from multiple sources.
+
+        Sources:
+        - test_attempts.started_at - when student started a test
+        - paragraph_mastery.updated_at - when progress was updated
+
+        Args:
+            student_ids: List of student IDs
+
+        Returns:
+            Dict mapping student_id to last activity datetime
+        """
+        if not student_ids:
+            return {}
+
+        # Get max activity from test_attempts
+        test_result = await self.db.execute(
+            select(
+                TestAttempt.student_id,
+                func.max(TestAttempt.started_at).label("last_activity")
+            )
+            .where(TestAttempt.student_id.in_(student_ids))
+            .group_by(TestAttempt.student_id)
+        )
+        test_activity = {row[0]: row[1] for row in test_result.fetchall()}
+
+        # Get max activity from paragraph_mastery
+        paragraph_result = await self.db.execute(
+            select(
+                ParagraphMastery.student_id,
+                func.max(ParagraphMastery.updated_at).label("last_activity")
+            )
+            .where(ParagraphMastery.student_id.in_(student_ids))
+            .group_by(ParagraphMastery.student_id)
+        )
+        paragraph_activity = {row[0]: row[1] for row in paragraph_result.fetchall()}
+
+        # Combine: take max from both sources
+        result = {}
+        for student_id in student_ids:
+            test_date = test_activity.get(student_id)
+            paragraph_date = paragraph_activity.get(student_id)
+
+            if test_date and paragraph_date:
+                result[student_id] = max(test_date, paragraph_date)
+            elif test_date:
+                result[student_id] = test_date
+            elif paragraph_date:
+                result[student_id] = paragraph_date
+
+        return result
