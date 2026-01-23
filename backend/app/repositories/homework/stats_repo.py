@@ -1,8 +1,8 @@
 """
 Repository for Homework statistics and AI logging.
 """
-from typing import Optional
-from sqlalchemy import select, func
+from typing import Optional, List, Dict
+from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.homework import (
@@ -79,6 +79,66 @@ class HomeworkStatsRepository:
             "graded_count": graded_count,
             "average_score": round(average_score, 2) if average_score else None
         }
+
+    async def get_homework_stats_batch(
+        self,
+        homework_ids: List[int]
+    ) -> Dict[int, dict]:
+        """
+        Get statistics for multiple homework assignments in one query.
+
+        Returns dict mapping homework_id to stats dict.
+        """
+        if not homework_ids:
+            return {}
+
+        # Single aggregated query for all homework_ids
+        result = await self.db.execute(
+            select(
+                HomeworkStudent.homework_id,
+                func.count().label("total_students"),
+                func.sum(
+                    case(
+                        (HomeworkStudent.status.in_([
+                            HomeworkStudentStatus.SUBMITTED,
+                            HomeworkStudentStatus.GRADED
+                        ]), 1),
+                        else_=0
+                    )
+                ).label("submitted_count"),
+                func.sum(
+                    case(
+                        (HomeworkStudent.status == HomeworkStudentStatus.GRADED, 1),
+                        else_=0
+                    )
+                ).label("graded_count")
+            )
+            .where(
+                HomeworkStudent.homework_id.in_(homework_ids),
+                HomeworkStudent.is_deleted == False
+            )
+            .group_by(HomeworkStudent.homework_id)
+        )
+
+        stats_map: Dict[int, dict] = {}
+
+        for row in result:
+            stats_map[row.homework_id] = {
+                "total_students": row.total_students or 0,
+                "submitted_count": row.submitted_count or 0,
+                "graded_count": row.graded_count or 0,
+            }
+
+        # Fill missing homework_ids with zeros
+        for hw_id in homework_ids:
+            if hw_id not in stats_map:
+                stats_map[hw_id] = {
+                    "total_students": 0,
+                    "submitted_count": 0,
+                    "graded_count": 0,
+                }
+
+        return stats_map
 
     async def log_ai_operation(
         self,

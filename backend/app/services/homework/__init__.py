@@ -3,7 +3,7 @@ Homework services package.
 
 Provides modular service classes and a facade for backward compatibility.
 """
-from typing import Optional, List, Tuple, TYPE_CHECKING
+from typing import Optional, List, Tuple, Dict, TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -326,6 +326,10 @@ class HomeworkService:
 
     async def get_homework_stats(self, homework_id: int, school_id: int) -> dict:
         return await self._core.get_homework_stats(homework_id, school_id)
+
+    async def get_homework_stats_batch(self, homework_ids: List[int]) -> Dict[int, dict]:
+        """Get statistics for multiple homework in one query."""
+        return await self._core.get_homework_stats_batch(homework_ids)
 
 
 __all__ = [

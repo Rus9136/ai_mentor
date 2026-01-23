@@ -3,7 +3,7 @@ Homework Response Builder.
 
 Converts Homework models to response schemas for teacher API.
 """
-from typing import List
+from typing import List, Optional
 
 from app.models.homework import Homework, HomeworkTask, HomeworkTaskQuestion
 from app.schemas.homework import (
@@ -90,8 +90,17 @@ class HomeworkResponseBuilder:
         )
 
     @staticmethod
-    def build_homework_response(homework: Homework) -> HomeworkResponse:
-        """Build complete homework response with tasks and questions."""
+    def build_homework_response(
+        homework: Homework,
+        stats: Optional[dict] = None
+    ) -> HomeworkResponse:
+        """Build complete homework response with tasks and questions.
+
+        Args:
+            homework: Homework model with tasks loaded
+            stats: Optional stats dict with total_students, submitted_count,
+                   graded_count, average_score
+        """
         tasks_response: List[HomeworkTaskResponse] = []
 
         if homework.tasks:
@@ -100,6 +109,17 @@ class HomeworkResponseBuilder:
                 for task in homework.tasks
             ]
 
+        # Get stats values (default to 0 if not provided)
+        total_students = stats.get("total_students", 0) if stats else 0
+        submitted_count = stats.get("submitted_count", 0) if stats else 0
+        graded_count = stats.get("graded_count", 0) if stats else 0
+        average_score = stats.get("average_score") if stats else None
+
+        # Get class name if relationship is loaded
+        class_name = None
+        if hasattr(homework, 'school_class') and homework.school_class:
+            class_name = homework.school_class.name
+
         return HomeworkResponse(
             id=homework.id,
             title=homework.title,
@@ -107,6 +127,7 @@ class HomeworkResponseBuilder:
             status=homework.status,
             due_date=homework.due_date,
             class_id=homework.class_id,
+            class_name=class_name,
             teacher_id=homework.teacher_id,
             ai_generation_enabled=homework.ai_generation_enabled,
             ai_check_enabled=homework.ai_check_enabled,
@@ -120,6 +141,10 @@ class HomeworkResponseBuilder:
             grace_period_hours=homework.grace_period_hours,
             max_late_days=homework.max_late_days,
             attachments=homework.attachments,
+            total_students=total_students,
+            submitted_count=submitted_count,
+            graded_count=graded_count,
+            average_score=average_score,
             tasks=tasks_response,
             created_at=homework.created_at,
             updated_at=homework.updated_at

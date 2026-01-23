@@ -3,7 +3,7 @@ Homework repositories package.
 
 Provides modular repository classes and a facade for backward compatibility.
 """
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.homework.homework_crud_repo import HomeworkCrudRepository
@@ -273,6 +273,10 @@ class HomeworkRepository:
 
     async def get_homework_stats(self, homework_id: int, school_id: int) -> dict:
         return await self._stats.get_homework_stats(homework_id, school_id)
+
+    async def get_homework_stats_batch(self, homework_ids: List[int]) -> Dict[int, dict]:
+        """Get statistics for multiple homework in one query."""
+        return await self._stats.get_homework_stats_batch(homework_ids)
 
     async def log_ai_operation(
         self,

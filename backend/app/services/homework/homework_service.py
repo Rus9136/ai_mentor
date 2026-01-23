@@ -7,7 +7,7 @@ Handles:
 - List operations
 """
 import logging
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -279,3 +279,7 @@ class HomeworkService:
             homework_id=homework_id,
             school_id=school_id
         )
+
+    async def get_homework_stats_batch(self, homework_ids: List[int]) -> Dict[int, dict]:
+        """Get statistics for multiple homework in one query."""
+        return await self.repo.get_homework_stats_batch(homework_ids)

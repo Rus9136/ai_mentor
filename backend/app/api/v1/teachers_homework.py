@@ -102,6 +102,10 @@ async def list_homework(
         limit=limit
     )
 
+    # Get statistics for all homework in one batch query
+    homework_ids = [hw.id for hw in homework_list]
+    stats_map = await service.get_homework_stats_batch(homework_ids) if homework_ids else {}
+
     return [
         HomeworkListResponse(
             id=hw.id,
@@ -109,8 +113,10 @@ async def list_homework(
             status=hw.status,
             due_date=hw.due_date,
             class_id=hw.class_id,
-            class_name=None,
+            class_name=hw.school_class.name if hw.school_class else None,
             tasks_count=len(hw.tasks) if hw.tasks else 0,
+            total_students=stats_map.get(hw.id, {}).get("total_students", 0),
+            submitted_count=stats_map.get(hw.id, {}).get("submitted_count", 0),
             ai_generation_enabled=hw.ai_generation_enabled,
             created_at=hw.created_at
         )
@@ -242,10 +248,14 @@ async def upload_homework_file(
     description="Get detailed homework information including tasks and questions."
 )
 async def get_homework(
-    homework: Homework = Depends(verify_homework_ownership)
+    homework: Homework = Depends(verify_homework_ownership),
+    school_id: int = Depends(get_current_user_school_id),
+    service: HomeworkService = Depends(get_homework_service)
 ) -> HomeworkResponse:
-    """Get homework with tasks and questions."""
-    return HomeworkResponseBuilder.build_homework_response(homework)
+    """Get homework with tasks, questions and statistics."""
+    # Get statistics for the homework
+    stats = await service.get_homework_stats(homework.id, school_id)
+    return HomeworkResponseBuilder.build_homework_response(homework, stats=stats)
 
 
 @router.put(
@@ -336,7 +346,9 @@ async def publish_homework(
             detail=str(e)
         ) from e
 
-    return HomeworkResponseBuilder.build_homework_response(published)
+    # Get statistics after publishing
+    stats = await service.get_homework_stats(published.id, school_id)
+    return HomeworkResponseBuilder.build_homework_response(published, stats=stats)
 
 
 @router.post(
@@ -362,7 +374,9 @@ async def close_homework(
             detail=str(e)
         ) from e
 
-    return HomeworkResponseBuilder.build_homework_response(closed)
+    # Get final statistics
+    stats = await service.get_homework_stats(closed.id, school_id)
+    return HomeworkResponseBuilder.build_homework_response(closed, stats=stats)
 
 
 # =============================================================================

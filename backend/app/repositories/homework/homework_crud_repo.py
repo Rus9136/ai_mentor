@@ -51,7 +51,7 @@ class HomeworkCrudRepository:
             Homework.id == homework_id,
             Homework.school_id == school_id,
             Homework.is_deleted == False
-        )
+        ).options(selectinload(Homework.school_class))
 
         if load_tasks:
             if load_questions:
@@ -89,7 +89,10 @@ class HomeworkCrudRepository:
         """List homework assignments for a teacher."""
         query = (
             select(Homework)
-            .options(selectinload(Homework.tasks))
+            .options(
+                selectinload(Homework.tasks),
+                selectinload(Homework.school_class)
+            )
             .where(
                 Homework.teacher_id == teacher_id,
                 Homework.school_id == school_id,
