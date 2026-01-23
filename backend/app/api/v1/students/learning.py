@@ -213,21 +213,26 @@ async def update_paragraph_progress(
 
     now = datetime.now(timezone.utc)
 
+    # Validate time_spent (additional server-side check)
+    validated_time_spent = 0
+    if request.time_spent is not None and 0 < request.time_spent <= 3600:
+        validated_time_spent = request.time_spent
+
     if not student_para:
         student_para = StudentParagraphModel(
             student_id=student_id,
             paragraph_id=paragraph_id,
             school_id=school_id,
             current_step=request.step,
-            time_spent=request.time_spent or 0,
+            time_spent=validated_time_spent,
             last_accessed_at=now
         )
         db.add(student_para)
     else:
         student_para.current_step = request.step
         student_para.last_accessed_at = now
-        if request.time_spent:
-            student_para.time_spent += request.time_spent
+        if validated_time_spent > 0:
+            student_para.time_spent += validated_time_spent
 
     # Mark as completed if step is 'completed'
     if request.step == "completed":

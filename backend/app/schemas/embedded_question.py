@@ -140,7 +140,12 @@ class UpdateStepRequest(BaseModel):
         ...,
         description="Current learning step"
     )
-    time_spent: Optional[int] = Field(None, description="Additional time spent in seconds")
+    time_spent: Optional[int] = Field(
+        None,
+        ge=0,
+        le=3600,
+        description="Additional time spent in seconds (0-3600, max 1 hour per update)"
+    )
 
 
 class StepProgressResponse(BaseModel):

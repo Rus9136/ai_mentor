@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/auth-provider';
 import { useTextbooks } from '@/lib/hooks/use-textbooks';
+import { useStudentStats } from '@/lib/hooks/use-profile';
 import { Link } from '@/i18n/routing';
 import { TextbookCard } from '@/components/textbooks';
 import {
@@ -11,23 +12,17 @@ import {
   Flame,
   CheckCircle2,
   ChevronRight,
-  Trophy,
+  ClipboardList,
   Loader2,
   AlertCircle,
 } from 'lucide-react';
-
-// Mock stats - will be replaced with real API
-const mockStats = {
-  streakDays: 5,
-  paragraphsCompleted: 12,
-  questionsAnswered: 48,
-};
 
 export default function HomePage() {
   const t = useTranslations('home');
   const tCommon = useTranslations('common');
   const { user } = useAuth();
   const { data: textbooks, isLoading, error } = useTextbooks();
+  const { data: stats } = useStudentStats();
 
   const greeting = () => {
     const hour = new Date().getHours();
@@ -101,7 +96,7 @@ export default function HomePage() {
           <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
             <Flame className="h-5 w-5 text-orange-500" />
           </div>
-          <p className="text-2xl font-bold text-foreground">{mockStats.streakDays}</p>
+          <p className="text-2xl font-bold text-foreground">{stats?.streak_days ?? 0}</p>
           <p className="text-xs text-muted-foreground">{t('stats.streak')}</p>
         </div>
         <div className="card-flat p-4 text-center">
@@ -109,16 +104,16 @@ export default function HomePage() {
             <CheckCircle2 className="h-5 w-5 text-green-500" />
           </div>
           <p className="text-2xl font-bold text-foreground">
-            {textbooks?.reduce((sum, tb) => sum + tb.progress.paragraphs_completed, 0) || mockStats.paragraphsCompleted}
+            {stats?.total_paragraphs_completed ?? 0}
           </p>
           <p className="text-xs text-muted-foreground">{t('stats.paragraphs')}</p>
         </div>
         <div className="card-flat p-4 text-center">
           <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-            <Trophy className="h-5 w-5 text-blue-500" />
+            <ClipboardList className="h-5 w-5 text-blue-500" />
           </div>
-          <p className="text-2xl font-bold text-foreground">{mockStats.questionsAnswered}</p>
-          <p className="text-xs text-muted-foreground">{t('stats.questions')}</p>
+          <p className="text-2xl font-bold text-foreground">{stats?.total_tasks_completed ?? 0}</p>
+          <p className="text-xs text-muted-foreground">{t('stats.tasks')}</p>
         </div>
       </div>
 

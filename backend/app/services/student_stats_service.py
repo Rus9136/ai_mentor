@@ -4,7 +4,7 @@ Student Statistics Service.
 This service handles calculation of student dashboard statistics including:
 - Streak calculation (consecutive active days)
 - Total paragraphs completed
-- Total embedded questions answered
+- Active homework tasks (not yet submitted)
 - Total time spent learning
 
 The service is read-only and does not modify data, so no commit is needed.
@@ -17,7 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, cast, Date
 
 from app.models.learning import StudentParagraph
-from app.models.embedded_question import StudentEmbeddedAnswer
+from app.models.mastery import ParagraphMastery
+from app.models.homework import HomeworkStudent, Homework, HomeworkStatus, HomeworkStudentStatus
 from app.schemas.student_content import StudentDashboardStats
 from app.core.config import settings
 
@@ -117,7 +118,7 @@ class StudentStatsService:
         Aggregates:
         - streak_days: Consecutive active learning days
         - total_paragraphs_completed: Number of fully completed paragraphs
-        - total_tasks_completed: Number of embedded questions answered
+        - total_tasks_completed: Number of active homework assignments (not yet submitted)
         - total_time_spent_minutes: Total learning time in minutes
 
         Args:
@@ -127,24 +128,34 @@ class StudentStatsService:
         Returns:
             StudentDashboardStats with all aggregated statistics
         """
-        # 1. Count completed paragraphs
+        # 1. Count completed paragraphs (from ParagraphMastery for consistency with UI progress)
+        # Note: ParagraphMastery.is_completed is set when student passes a test for the paragraph
+        # This ensures stats match the progress shown in textbook/chapter views
         completed_result = await self.db.execute(
-            select(func.count(StudentParagraph.id)).where(
-                StudentParagraph.student_id == student_id,
-                StudentParagraph.school_id == school_id,
-                StudentParagraph.is_completed == True
+            select(func.count(ParagraphMastery.id)).where(
+                ParagraphMastery.student_id == student_id,
+                ParagraphMastery.school_id == school_id,
+                ParagraphMastery.is_completed == True
             )
         )
         total_paragraphs_completed = completed_result.scalar() or 0
 
-        # 2. Count answered embedded questions
-        tasks_result = await self.db.execute(
-            select(func.count(StudentEmbeddedAnswer.id)).where(
-                StudentEmbeddedAnswer.student_id == student_id,
-                StudentEmbeddedAnswer.school_id == school_id
+        # 2. Count active homework assignments (not yet submitted)
+        # Active = Homework is PUBLISHED and student status is ASSIGNED or IN_PROGRESS
+        active_tasks_result = await self.db.execute(
+            select(func.count(HomeworkStudent.id))
+            .join(Homework, HomeworkStudent.homework_id == Homework.id)
+            .where(
+                HomeworkStudent.student_id == student_id,
+                HomeworkStudent.school_id == school_id,
+                Homework.status == HomeworkStatus.PUBLISHED,
+                HomeworkStudent.status.in_([
+                    HomeworkStudentStatus.ASSIGNED,
+                    HomeworkStudentStatus.IN_PROGRESS
+                ])
             )
         )
-        total_tasks_completed = tasks_result.scalar() or 0
+        total_tasks_pending = active_tasks_result.scalar() or 0
 
         # 3. Sum total time spent
         time_result = await self.db.execute(
@@ -161,13 +172,13 @@ class StudentStatsService:
 
         logger.info(
             f"Student {student_id} stats: streak={streak_days}, "
-            f"paragraphs={total_paragraphs_completed}, tasks={total_tasks_completed}, "
+            f"paragraphs={total_paragraphs_completed}, pending_tasks={total_tasks_pending}, "
             f"time={total_time_minutes}min"
         )
 
         return StudentDashboardStats(
             streak_days=streak_days,
             total_paragraphs_completed=total_paragraphs_completed,
-            total_tasks_completed=total_tasks_completed,
+            total_tasks_completed=total_tasks_pending,  # Now counts active homework, not embedded questions
             total_time_spent_minutes=total_time_minutes
         )

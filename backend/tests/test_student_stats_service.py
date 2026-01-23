@@ -16,9 +16,13 @@ from sqlalchemy import select
 
 from app.services.student_stats_service import StudentStatsService
 from app.models.learning import StudentParagraph
-from app.models.embedded_question import StudentEmbeddedAnswer, EmbeddedQuestion
+from app.models.mastery import ParagraphMastery
 from app.models.paragraph import Paragraph
 from app.core.config import settings
+
+# Note: total_tasks_completed now counts active HomeworkStudent records (not embedded answers).
+# Testing homework requires complex fixtures (Homework, HomeworkStudent, Teacher, Class).
+# These tests focus on streak, paragraphs, and time. Homework tests should be in integration tests.
 
 
 class TestStudentStatsService:
@@ -247,7 +251,7 @@ class TestStudentStatsService:
         db = student_data["db"]
         now = datetime.now(timezone.utc)
 
-        # Add completed paragraphs
+        # Add StudentParagraph records for time tracking and streak calculation
         for i in range(3):
             db.add(StudentParagraph(
                 student_id=student_data["student_id"],
@@ -258,15 +262,19 @@ class TestStudentStatsService:
                 is_completed=True
             ))
 
-        # Add embedded question answers
-        for i in range(5):
-            db.add(StudentEmbeddedAnswer(
+        # Add ParagraphMastery records for completed paragraphs count
+        # (paragraphs_completed now uses ParagraphMastery.is_completed)
+        for i in range(3):
+            db.add(ParagraphMastery(
                 student_id=student_data["student_id"],
-                question_id=i + 1,  # Assuming questions exist
+                paragraph_id=test_paragraph.id + i,
                 school_id=student_data["school_id"],
-                is_correct=True,
-                answered_at=now
+                is_completed=True,
+                status="mastered"
             ))
+
+        # Note: total_tasks_completed now counts active HomeworkStudent records.
+        # Creating homework requires Teacher, Class fixtures - tested in integration tests.
 
         await db.commit()
 
@@ -277,7 +285,7 @@ class TestStudentStatsService:
 
         assert stats.streak_days == 3
         assert stats.total_paragraphs_completed == 3
-        assert stats.total_tasks_completed == 5
+        assert stats.total_tasks_completed == 0  # No homework assigned in this test
         assert stats.total_time_spent_minutes == 30  # 3 * 600 seconds = 1800 / 60 = 30 min
 
     async def test_get_dashboard_stats_school_isolation(
@@ -287,7 +295,7 @@ class TestStudentStatsService:
         db = student_data["db"]
         now = datetime.now(timezone.utc)
 
-        # Add activity for correct school
+        # Add StudentParagraph for time tracking (correct school)
         db.add(StudentParagraph(
             student_id=student_data["student_id"],
             paragraph_id=test_paragraph.id,
@@ -297,7 +305,16 @@ class TestStudentStatsService:
             is_completed=True
         ))
 
-        # Add activity for different school (should be ignored)
+        # Add ParagraphMastery for completed count (correct school)
+        db.add(ParagraphMastery(
+            student_id=student_data["student_id"],
+            paragraph_id=test_paragraph.id,
+            school_id=student_data["school_id"],
+            is_completed=True,
+            status="mastered"
+        ))
+
+        # Add StudentParagraph for different school (should be ignored for time)
         db.add(StudentParagraph(
             student_id=student_data["student_id"],
             paragraph_id=test_paragraph.id + 1,
@@ -305,6 +322,15 @@ class TestStudentStatsService:
             time_spent=settings.MIN_DAILY_ACTIVITY_SECONDS * 10,
             last_accessed_at=now,
             is_completed=True
+        ))
+
+        # Add ParagraphMastery for different school (should be ignored for completed count)
+        db.add(ParagraphMastery(
+            student_id=student_data["student_id"],
+            paragraph_id=test_paragraph.id + 1,
+            school_id=student_data["school_id"] + 9999,  # Different school
+            is_completed=True,
+            status="mastered"
         ))
 
         await db.commit()
