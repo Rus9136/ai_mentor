@@ -385,6 +385,11 @@
     "hoursLeft": "{count} сағат қалды",
     "allTasksCompleted": "Барлық тапсырмалар орындалды!",
     "allQuestionsAnswered": "Барлық сұрақтарға жауап берілді!",
+    "noTasksAvailable": "Қол жетімді тапсырмалар жоқ",
+    "taskNotReady": "Тапсырма әлі дайын емес",
+    "taskNoContent": "Бұл тапсырмада әзірше сұрақтар жоқ. Мұғалімге хабарласыңыз.",
+    "readingCompleted": "Материал оқылды!",
+    "clickToCompleteReading": "Оқылды деп белгілеу үшін басыңыз",
     "attachments": "Тіркелген файлдар",
     "clickToComplete": "Тапсырманы аяқтау үшін басыңыз",
     "status": {

@@ -261,3 +261,44 @@ export async function getSubmissionResults(
   );
   return response.data;
 }
+
+// =============================================================================
+// Utility Functions
+// =============================================================================
+
+/**
+ * Check if a task is "empty" (has no content for student to complete).
+ *
+ * Rules:
+ * - READ: valid if has paragraph_id OR questions
+ * - QUIZ, OPEN_QUESTION, PRACTICE, CODE: must have questions
+ * - ESSAY: valid if has questions OR instructions
+ */
+export function isEmptyTask(task: StudentTaskResponse): boolean {
+  switch (task.task_type) {
+    case TaskType.READ:
+      // READ is valid if has paragraph to read OR has questions
+      return !task.paragraph_id && task.questions_count === 0;
+
+    case TaskType.QUIZ:
+    case TaskType.OPEN_QUESTION:
+    case TaskType.PRACTICE:
+    case TaskType.CODE:
+      // These types must have questions
+      return task.questions_count === 0;
+
+    case TaskType.ESSAY:
+      // ESSAY can have just instructions without questions
+      return task.questions_count === 0 && !task.instructions;
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Filter out empty tasks from a task list.
+ */
+export function filterValidTasks(tasks: StudentTaskResponse[]): StudentTaskResponse[] {
+  return tasks.filter(task => !isEmptyTask(task));
+}

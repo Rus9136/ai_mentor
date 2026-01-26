@@ -1,10 +1,12 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import { ArrowLeft, Calendar, Award, Loader2 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useHomeworkDetail } from '@/lib/hooks/use-homework';
+import { filterValidTasks } from '@/lib/api/homework';
 import { HomeworkStatusBadge, TaskCard, LateWarning, AttachmentsList } from '@/components/homework';
 
 export default function HomeworkDetailPage() {
@@ -40,6 +42,12 @@ export default function HomeworkDetailPage() {
     );
   }
 
+  // Filter out empty tasks (tasks without content)
+  const validTasks = useMemo(
+    () => (homework ? filterValidTasks(homework.tasks) : []),
+    [homework]
+  );
+
   if (error || !homework) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
@@ -55,7 +63,7 @@ export default function HomeworkDetailPage() {
     );
   }
 
-  const completedTasks = homework.tasks.filter(
+  const completedTasks = validTasks.filter(
     (t) => t.status === 'submitted' || t.status === 'graded'
   ).length;
 
@@ -119,7 +127,7 @@ export default function HomeworkDetailPage() {
           <div className="flex items-center gap-2">
             <Award className="w-4 h-4" />
             <span>
-              {completedTasks}/{homework.tasks.length} {t('task.tasks')}
+              {completedTasks}/{validTasks.length} {t('task.tasks')}
             </span>
           </div>
         </div>
@@ -144,18 +152,24 @@ export default function HomeworkDetailPage() {
       {/* Tasks */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-gray-900">{t('task.title')}</h2>
-        {homework.tasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            onClick={() => handleTaskClick(task.id)}
-            disabled={!homework.can_submit && task.status === 'not_started'}
-          />
-        ))}
+        {validTasks.length === 0 ? (
+          <div className="p-6 bg-gray-50 rounded-xl text-center">
+            <p className="text-gray-500">{t('noTasksAvailable')}</p>
+          </div>
+        ) : (
+          validTasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              onClick={() => handleTaskClick(task.id)}
+              disabled={!homework.can_submit && task.status === 'not_started'}
+            />
+          ))
+        )}
       </div>
 
       {/* All Tasks Completed Message */}
-      {completedTasks === homework.tasks.length && homework.tasks.length > 0 && (
+      {completedTasks === validTasks.length && validTasks.length > 0 && (
         <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl text-center">
           <p className="text-green-700 font-medium">{t('allTasksCompleted')}</p>
         </div>

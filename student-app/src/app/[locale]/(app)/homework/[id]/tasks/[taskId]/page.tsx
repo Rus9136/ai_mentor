@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
-import { ArrowLeft, Loader2, CheckCircle2, Clock, BookOpen, ChevronRight, Lightbulb } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle2, Clock, BookOpen, ChevronRight, Lightbulb, AlertCircle } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import {
   useHomeworkDetail,
@@ -19,6 +19,7 @@ import {
   SubmissionStatus,
   SubmissionResult,
   TaskType,
+  isEmptyTask,
 } from '@/lib/api/homework';
 import {
   ChoiceQuestion,
@@ -222,6 +223,40 @@ export default function TaskExecutionPage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
         <p className="text-gray-500">{t('loading')}</p>
+      </div>
+    );
+  }
+
+  // Empty task state - task has no content (no questions and no paragraph for READ)
+  if (currentTask && isEmptyTask(currentTask)) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-6">
+        <Link
+          href={`/homework/${homeworkId}`}
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          {t('result.backToHomework')}
+        </Link>
+
+        <div className="card-elevated p-8 text-center">
+          <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-amber-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            {t('taskNotReady')}
+          </h2>
+          <p className="text-gray-600 mb-6">
+            {t('taskNoContent')}
+          </p>
+          <Link
+            href={`/homework/${homeworkId}`}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium bg-primary text-white hover:bg-primary/90 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            {t('result.backToHomework')}
+          </Link>
+        </div>
       </div>
     );
   }
@@ -432,29 +467,33 @@ export default function TaskExecutionPage() {
             <span className="hidden sm:inline">{t('result.backToHomework')}</span>
           </Link>
 
-          <div className="text-center">
-            <p className="text-sm font-medium text-gray-900">
-              {t('question.number', {
-                current: Math.min(answeredQuestions.length + 1, totalQuestions),
-                total: totalQuestions,
-              })}
-            </p>
-          </div>
+          {totalQuestions > 0 && (
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-900">
+                {t('question.number', {
+                  current: Math.min(answeredQuestions.length + 1, totalQuestions),
+                  total: totalQuestions,
+                })}
+              </p>
+            </div>
+          )}
 
           <div className="w-16" /> {/* Spacer for centering */}
         </div>
 
-        {/* Progress Bar */}
-        <div className="mx-auto max-w-2xl mt-2">
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary transition-all duration-500"
-              style={{
-                width: `${(answeredQuestions.length / totalQuestions) * 100}%`,
-              }}
-            />
+        {/* Progress Bar - only show if there are questions */}
+        {totalQuestions > 0 && (
+          <div className="mx-auto max-w-2xl mt-2">
+            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-500"
+                style={{
+                  width: `${(answeredQuestions.length / totalQuestions) * 100}%`,
+                }}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Content */}
@@ -499,9 +538,11 @@ export default function TaskExecutionPage() {
                 <CheckCircle2 className="w-8 h-8 text-green-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">
-                {t('allQuestionsAnswered')}
+                {totalQuestions > 0 ? t('allQuestionsAnswered') : t('readingCompleted')}
               </h3>
-              <p className="text-gray-600 mb-6">{t('clickToComplete')}</p>
+              <p className="text-gray-600 mb-6">
+                {totalQuestions > 0 ? t('clickToComplete') : t('clickToCompleteReading')}
+              </p>
               <button
                 onClick={handleComplete}
                 disabled={completeSubmissionMutation.isPending}

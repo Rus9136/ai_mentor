@@ -385,6 +385,11 @@
     "hoursLeft": "{count, plural, one {# час} few {# часа} other {# часов}} осталось",
     "allTasksCompleted": "Все задачи выполнены!",
     "allQuestionsAnswered": "Все вопросы отвечены!",
+    "noTasksAvailable": "Нет доступных задач",
+    "taskNotReady": "Задача ещё не готова",
+    "taskNoContent": "В этой задаче пока нет вопросов. Обратитесь к учителю.",
+    "readingCompleted": "Материал изучен!",
+    "clickToCompleteReading": "Нажмите, чтобы отметить прочитанным",
     "attachments": "Прикреплённые файлы",
     "clickToComplete": "Нажмите, чтобы завершить задачу",
     "status": {

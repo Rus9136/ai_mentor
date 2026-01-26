@@ -10,7 +10,7 @@ from typing import Optional, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.homework import Homework, HomeworkStatus
+from app.models.homework import Homework, HomeworkStatus, HomeworkTaskType
 from app.repositories.homework import HomeworkRepository
 from app.repositories.school_class_repo import SchoolClassRepository
 
@@ -63,12 +63,12 @@ class PublishingService:
         if not homework.tasks:
             raise PublishingServiceError("Homework must have at least one task")
 
-        # Validate all tasks have questions
-        for task in homework.tasks:
-            if not task.questions:
-                raise PublishingServiceError(
-                    f"Task '{task.paragraph_id}' has no questions"
-                )
+        # Validate all tasks have required content based on task type
+        validation_errors = self._validate_tasks_content(homework.tasks)
+        if validation_errors:
+            raise PublishingServiceError(
+                f"Invalid tasks: {'; '.join(validation_errors)}"
+            )
 
         # Get students to assign
         if student_ids is None:
@@ -100,6 +100,50 @@ class PublishingService:
         )
 
         return homework
+
+    def _validate_tasks_content(self, tasks) -> List[str]:
+        """
+        Validate that tasks have required content based on their type.
+
+        Rules:
+        - READ: valid if has paragraph_id OR has questions
+        - QUIZ, OPEN_QUESTION, PRACTICE, CODE: must have questions
+        - ESSAY: valid if has questions OR instructions
+
+        Returns:
+            List of validation error messages (empty if valid)
+        """
+        errors = []
+        for task in tasks:
+            has_questions = task.questions and len(task.questions) > 0
+
+            if task.task_type == HomeworkTaskType.READ:
+                # READ is valid if has paragraph to read OR has questions
+                if not task.paragraph_id and not has_questions:
+                    errors.append(
+                        f"READ task (ID:{task.id}) needs paragraph_id or questions"
+                    )
+
+            elif task.task_type in [
+                HomeworkTaskType.QUIZ,
+                HomeworkTaskType.OPEN_QUESTION,
+                HomeworkTaskType.PRACTICE,
+                HomeworkTaskType.CODE,
+            ]:
+                # These types must have questions
+                if not has_questions:
+                    errors.append(
+                        f"{task.task_type.value.upper()} task (ID:{task.id}) must have questions"
+                    )
+
+            elif task.task_type == HomeworkTaskType.ESSAY:
+                # ESSAY can have just instructions without questions
+                if not has_questions and not task.instructions:
+                    errors.append(
+                        f"ESSAY task (ID:{task.id}) needs questions or instructions"
+                    )
+
+        return errors
 
     async def close_homework(
         self,
