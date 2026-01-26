@@ -12,6 +12,7 @@ import {
 import { useStartTest, useSubmitTest } from '@/lib/hooks/use-tests';
 import { QuizQuestion } from '@/components/learning/QuizQuestion';
 import { QuizResult } from '@/components/learning/QuizResult';
+import { ChatModal } from '@/components/chat';
 import { X, Loader2, ChevronLeft, ChevronRight, Brain } from 'lucide-react';
 
 interface TestQuizModalProps {
@@ -19,6 +20,7 @@ interface TestQuizModalProps {
   onClose: () => void;
   test: AvailableTest;
   paragraphId?: number;
+  chapterId?: number;
   onCompleted?: (passed: boolean, score: number) => void;
 }
 
@@ -29,6 +31,7 @@ export function TestQuizModal({
   onClose,
   test,
   paragraphId,
+  chapterId,
   onCompleted,
 }: TestQuizModalProps) {
   const t = useTranslations('paragraph.quiz');
@@ -38,6 +41,7 @@ export function TestQuizModal({
   const [attempt, setAttempt] = useState<TestAttemptDetail | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Map<number, number[]>>(new Map());
+  const [showChat, setShowChat] = useState(false);
 
   // Mutations
   const startTestMutation = useStartTest();
@@ -68,6 +72,7 @@ export function TestQuizModal({
       setQuizState('loading');
       setCurrentQuestionIndex(0);
       setAnswers(new Map());
+      setShowChat(false);
     }
   }, [isOpen]);
 
@@ -284,10 +289,25 @@ export function TestQuizModal({
 
           {/* Completed State */}
           {quizState === 'completed' && attempt && (
-            <QuizResult attempt={attempt} onRetake={handleRetake} onClose={onClose} />
+            <QuizResult
+              attempt={attempt}
+              onRetake={handleRetake}
+              onClose={onClose}
+              onOpenChat={() => setShowChat(true)}
+            />
           )}
         </div>
       </div>
+
+      {/* AI Chat Modal */}
+      <ChatModal
+        isOpen={showChat}
+        onClose={() => setShowChat(false)}
+        sessionType="test_help"
+        testId={test.id}
+        chapterId={chapterId}
+        paragraphId={paragraphId}
+      />
     </div>
   );
 }

@@ -18,6 +18,7 @@ interface QuizResultProps {
   attempt: TestAttemptDetail;
   onRetake: () => void;
   onClose: () => void;
+  onOpenChat?: () => void;
   className?: string;
 }
 
@@ -25,6 +26,7 @@ export function QuizResult({
   attempt,
   onRetake,
   onClose,
+  onOpenChat,
   className,
 }: QuizResultProps) {
   const t = useTranslations('paragraph.quiz');
@@ -162,7 +164,7 @@ export function QuizResult({
         </div>
       </div>
 
-      {/* TODO: AI Chat for failed attempts */}
+      {/* AI Chat for failed attempts */}
       {!passed && (
         <div className="w-full max-w-md mb-8 p-4 bg-purple-50 border border-purple-200 rounded-xl">
           <div className="flex items-center gap-3 mb-2">
@@ -173,10 +175,10 @@ export function QuizResult({
             {t('result.aiChatHint')}
           </p>
           <button
-            disabled
-            className="w-full py-2 px-4 bg-purple-200 text-purple-400 rounded-lg font-medium cursor-not-allowed"
+            onClick={onOpenChat}
+            className="w-full py-2 px-4 bg-purple-500 text-white rounded-lg font-medium hover:bg-purple-600 transition-colors"
           >
-            {t('result.aiChatComingSoon')}
+            {t('result.askAI')}
           </button>
         </div>
       )}

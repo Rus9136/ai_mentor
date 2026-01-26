@@ -26,6 +26,7 @@ import {
   MobileSidebarTrigger,
   MobileSidebarSheet,
 } from '@/components/learning';
+import { ChatModal } from '@/components/chat';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -42,6 +43,7 @@ import {
   Play,
   RotateCcw,
   Brain,
+  Sparkles,
 } from 'lucide-react';
 
 // Content tabs
@@ -57,6 +59,7 @@ export default function ParagraphPage({ params }: PageProps) {
 
   const t = useTranslations('paragraph');
   const tCommon = useTranslations('common');
+  const tChat = useTranslations('chat');
   const router = useRouter();
 
   // Active content tab
@@ -64,6 +67,7 @@ export default function ParagraphPage({ params }: PageProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showCompletion, setShowCompletion] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   // Fetch paragraph data
   const { data: paragraph, isLoading, error } = useParagraphDetail(paragraphId);
@@ -521,6 +525,24 @@ export default function ParagraphPage({ params }: PageProps) {
 
         </div>
       </div>
+
+      {/* Floating AI Chat Button */}
+      <button
+        onClick={() => setShowChat(true)}
+        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 flex items-center gap-2 px-4 py-3 bg-purple-500 text-white rounded-full shadow-lg hover:bg-purple-600 hover:shadow-xl transition-all"
+      >
+        <Sparkles className="w-5 h-5" />
+        <span className="font-medium">{tChat('floatingButton')}</span>
+      </button>
+
+      {/* AI Chat Modal */}
+      <ChatModal
+        isOpen={showChat}
+        onClose={() => setShowChat(false)}
+        sessionType="reading_help"
+        paragraphId={paragraphId}
+        chapterId={navigation?.chapter_id}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { AvailableTest, TestAttemptDetail, AnswerSubmit, QuestionOptionWithAnswe
 import { useStartTest, useSubmitTest } from '@/lib/hooks/use-tests';
 import { QuizQuestion } from './QuizQuestion';
 import { QuizResult } from './QuizResult';
+import { ChatModal } from '@/components/chat';
 import { X, Loader2, ChevronLeft, ChevronRight, Brain } from 'lucide-react';
 
 interface QuizModalProps {
@@ -14,6 +15,7 @@ interface QuizModalProps {
   onClose: () => void;
   test: AvailableTest;
   paragraphId: number;
+  chapterId?: number;
   onCompleted?: (passed: boolean, score: number) => void;
 }
 
@@ -24,6 +26,7 @@ export function QuizModal({
   onClose,
   test,
   paragraphId,
+  chapterId,
   onCompleted,
 }: QuizModalProps) {
   const t = useTranslations('paragraph.quiz');
@@ -33,6 +36,7 @@ export function QuizModal({
   const [attempt, setAttempt] = useState<TestAttemptDetail | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Map<number, number[]>>(new Map());
+  const [showChat, setShowChat] = useState(false);
 
   // Mutations
   const startTestMutation = useStartTest();
@@ -63,6 +67,7 @@ export function QuizModal({
       setQuizState('loading');
       setCurrentQuestionIndex(0);
       setAnswers(new Map());
+      setShowChat(false);
     }
   }, [isOpen]);
 
@@ -288,10 +293,21 @@ export function QuizModal({
               attempt={attempt}
               onRetake={handleRetake}
               onClose={onClose}
+              onOpenChat={() => setShowChat(true)}
             />
           )}
         </div>
       </div>
+
+      {/* AI Chat Modal */}
+      <ChatModal
+        isOpen={showChat}
+        onClose={() => setShowChat(false)}
+        sessionType="test_help"
+        testId={test.id}
+        chapterId={chapterId}
+        paragraphId={paragraphId}
+      />
     </div>
   );
 }
