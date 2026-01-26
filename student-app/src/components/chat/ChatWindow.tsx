@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Sparkles, AlertCircle } from 'lucide-react';
-import { useChatSession, useSendMessage } from '@/lib/hooks/use-chat';
+import { useChatSession, useStreamMessage } from '@/lib/hooks/use-chat';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { TypingIndicator } from './TypingIndicator';
@@ -17,15 +17,15 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: session, isLoading: isLoadingSession, error } = useChatSession(sessionId);
-  const sendMessageMutation = useSendMessage(sessionId);
+  const { sendStreamingMessage, isStreaming, streamingContent, error: streamError } = useStreamMessage(sessionId);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom when messages change or streaming content updates
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [session?.messages]);
+  }, [session?.messages, streamingContent]);
 
   const handleSend = (content: string) => {
-    sendMessageMutation.mutate(content);
+    sendStreamingMessage(content);
   };
 
   // Loading state
@@ -48,7 +48,7 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
   }
 
   const messages = session?.messages || [];
-  const hasMessages = messages.length > 0;
+  const hasMessages = messages.length > 0 || isStreaming;
 
   return (
     <div className="flex flex-col h-full">
@@ -74,13 +74,42 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
               <ChatMessage key={message.id} message={message} />
             ))}
 
-            {/* Typing indicator when sending */}
-            {sendMessageMutation.isPending && (
+            {/* Streaming response */}
+            {isStreaming && streamingContent && (
+              <div className="flex gap-3">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="bg-gray-100 rounded-2xl rounded-tl-md px-4 py-3">
+                    <p className="text-gray-800 whitespace-pre-wrap">
+                      {streamingContent}
+                      <span className="inline-block w-2 h-4 bg-purple-500 ml-0.5 animate-pulse" />
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Typing indicator when waiting for first token */}
+            {isStreaming && !streamingContent && (
               <div className="flex gap-3">
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
                   <Sparkles className="w-4 h-4 text-purple-600" />
                 </div>
                 <TypingIndicator text={t('thinking')} />
+              </div>
+            )}
+
+            {/* Stream error */}
+            {streamError && (
+              <div className="flex gap-3">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertCircle className="w-4 h-4 text-red-600" />
+                </div>
+                <div className="bg-red-50 rounded-2xl px-4 py-3">
+                  <p className="text-red-600 text-sm">{streamError}</p>
+                </div>
               </div>
             )}
 
@@ -92,7 +121,7 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
       {/* Input area */}
       <ChatInput
         onSend={handleSend}
-        isLoading={sendMessageMutation.isPending}
+        isLoading={isStreaming}
       />
     </div>
   );

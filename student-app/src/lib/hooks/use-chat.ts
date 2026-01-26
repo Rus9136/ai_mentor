@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   createChatSession,
@@ -5,11 +6,15 @@ import {
   sendChatMessage,
   getChatSessions,
   deleteChatSession,
+  streamChatMessage,
   CreateSessionRequest,
   ChatSession,
   ChatSessionDetail,
   ChatResponse,
+  ChatMessage,
+  Citation,
   SessionType,
+  StreamDoneEvent,
 } from '@/lib/api/chat';
 
 // =============================================================================
@@ -112,4 +117,91 @@ export function useDeleteChatSession() {
       queryClient.invalidateQueries({ queryKey: chatKeys.sessions() });
     },
   });
+}
+
+/**
+ * Hook for streaming chat messages
+ */
+export function useStreamMessage(sessionId: number) {
+  const queryClient = useQueryClient();
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const sendStreamingMessage = useCallback(
+    async (content: string) => {
+      setIsStreaming(true);
+      setStreamingContent('');
+      setError(null);
+
+      try {
+        await streamChatMessage(sessionId, content, {
+          onUserMessage: (message: ChatMessage) => {
+            // Add user message to cache immediately
+            queryClient.setQueryData<ChatSessionDetail>(
+              chatKeys.session(sessionId),
+              (oldData) => {
+                if (!oldData) return oldData;
+                return {
+                  ...oldData,
+                  messages: [...oldData.messages, message],
+                };
+              }
+            );
+          },
+          onDelta: (delta: string) => {
+            setStreamingContent((prev) => prev + delta);
+          },
+          onComplete: (
+            message: ChatMessage,
+            session: StreamDoneEvent['session'],
+            citations: Citation[]
+          ) => {
+            // Update cache with final assistant message
+            queryClient.setQueryData<ChatSessionDetail>(
+              chatKeys.session(sessionId),
+              (oldData) => {
+                if (!oldData) return oldData;
+                return {
+                  ...oldData,
+                  messages: [...oldData.messages, { ...message, citations }],
+                  message_count: session.message_count,
+                  total_tokens_used: session.total_tokens_used,
+                  last_message_at: session.last_message_at,
+                };
+              }
+            );
+            setStreamingContent('');
+            setIsStreaming(false);
+            // Invalidate sessions list
+            queryClient.invalidateQueries({ queryKey: chatKeys.sessions() });
+          },
+          onError: (errorMsg: string) => {
+            setError(errorMsg);
+            setIsStreaming(false);
+            setStreamingContent('');
+          },
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        setIsStreaming(false);
+        setStreamingContent('');
+      }
+    },
+    [sessionId, queryClient]
+  );
+
+  const reset = useCallback(() => {
+    setIsStreaming(false);
+    setStreamingContent('');
+    setError(null);
+  }, []);
+
+  return {
+    sendStreamingMessage,
+    isStreaming,
+    streamingContent,
+    error,
+    reset,
+  };
 }

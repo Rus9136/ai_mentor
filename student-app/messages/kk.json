@@ -425,7 +425,14 @@
     "emptyTitle": "Қалай көмектесе аламын?",
     "emptyHint": "Материал бойынша сұрақ қойыңыз, мен көмектесуге тырысамын",
     "floatingButton": "AI көмек",
-    "askAI": "AI-дан сұрау"
+    "askAI": "AI-дан сұрау",
+    "history": "Тарих",
+    "selectChat": "Чатты таңдаңыз",
+    "noHistory": "Алдыңғы чаттар жоқ",
+    "newChat": "Жаңа чат",
+    "messagesCount": "{count} хабарлама",
+    "deleteChat": "Жою",
+    "cancel": "Болдырмау"
   },
   "homework": {
     "title": "Үй тапсырмалары",

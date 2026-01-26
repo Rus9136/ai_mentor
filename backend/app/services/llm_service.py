@@ -5,9 +5,13 @@ Supports multiple providers:
 - Cerebras (llama-3.3-70b) - fastest inference, direct API
 - OpenRouter (Cerebras, Qwen, Llama) - cost-effective multi-model
 - OpenAI (GPT-4, GPT-3.5) - higher quality fallback
+
+Streaming support:
+- stream_generate() method returns AsyncIterator for SSE streaming
 """
+import json
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, AsyncIterator
 from dataclasses import dataclass
 
 import httpx
@@ -27,6 +31,15 @@ class LLMResponse:
     """Response from LLM generation."""
     content: str
     model: str
+    tokens_used: Optional[int] = None
+    finish_reason: Optional[str] = None
+
+
+@dataclass
+class LLMStreamChunk:
+    """A chunk from streaming LLM generation."""
+    content: str
+    is_final: bool = False
     tokens_used: Optional[int] = None
     finish_reason: Optional[str] = None
 
@@ -125,6 +138,75 @@ class OpenRouterClient:
 
         except httpx.HTTPError as e:
             error_msg = f"OpenRouter request failed: {str(e)}"
+            logger.error(error_msg)
+            raise LLMServiceError(error_msg)
+
+    async def stream_generate(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: int = 1500,
+        model: Optional[str] = None
+    ) -> AsyncIterator[LLMStreamChunk]:
+        """
+        Stream text completion using OpenRouter.
+
+        Args:
+            messages: Chat messages in OpenAI format
+            temperature: Sampling temperature (0-2)
+            max_tokens: Maximum tokens to generate
+            model: Override default model
+
+        Yields:
+            LLMStreamChunk with partial content
+
+        Raises:
+            LLMServiceError: If API call fails
+        """
+        try:
+            async with self.client.stream(
+                "POST",
+                "/chat/completions",
+                json={
+                    "model": model or self.model,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "stream": True
+                }
+            ) as response:
+                if response.status_code != 200:
+                    content = await response.aread()
+                    error_msg = f"OpenRouter API error: {response.status_code} - {content.decode()}"
+                    logger.error(error_msg)
+                    raise LLMServiceError(error_msg)
+
+                async for line in response.aiter_lines():
+                    if not line or not line.startswith("data: "):
+                        continue
+
+                    data_str = line[6:]  # Remove "data: " prefix
+                    if data_str == "[DONE]":
+                        break
+
+                    try:
+                        data = json.loads(data_str)
+                        choice = data.get("choices", [{}])[0]
+                        delta = choice.get("delta", {})
+                        content = delta.get("content", "")
+                        finish_reason = choice.get("finish_reason")
+
+                        if content or finish_reason:
+                            yield LLMStreamChunk(
+                                content=content,
+                                is_final=finish_reason is not None,
+                                finish_reason=finish_reason
+                            )
+                    except json.JSONDecodeError:
+                        continue
+
+        except httpx.HTTPError as e:
+            error_msg = f"OpenRouter stream request failed: {str(e)}"
             logger.error(error_msg)
             raise LLMServiceError(error_msg)
 
@@ -378,6 +460,55 @@ class LLMService:
                     pass  # Re-raise original error
 
             raise
+
+    async def stream_generate(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: int = 1500,
+        model: Optional[str] = None
+    ) -> AsyncIterator[LLMStreamChunk]:
+        """
+        Stream text completion.
+
+        Args:
+            messages: Chat messages in OpenAI format
+            temperature: Sampling temperature (0-2)
+            max_tokens: Maximum tokens to generate
+            model: Override default model
+
+        Yields:
+            LLMStreamChunk with partial content
+
+        Raises:
+            LLMServiceError: If provider fails or doesn't support streaming
+        """
+        # Currently only OpenRouter supports streaming in our implementation
+        if self.provider == "openrouter":
+            if self._openrouter_client is None:
+                self._openrouter_client = OpenRouterClient()
+            async for chunk in self._openrouter_client.stream_generate(
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                model=model
+            ):
+                yield chunk
+        else:
+            # Fallback: generate full response and yield as single chunk
+            response = await self.generate(
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                model=model,
+                fallback_on_error=True
+            )
+            yield LLMStreamChunk(
+                content=response.content,
+                is_final=True,
+                tokens_used=response.tokens_used,
+                finish_reason=response.finish_reason
+            )
 
     async def close(self):
         """Close all clients."""

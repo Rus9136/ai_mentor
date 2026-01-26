@@ -1,11 +1,14 @@
 """
 Chat API endpoints for RAG-based conversations.
+
+Includes streaming endpoint for real-time AI responses.
 """
 import json
 import logging
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -232,6 +235,54 @@ async def send_message(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process message: {str(e)}"
         )
+
+
+@router.post("/sessions/{session_id}/messages/stream")
+async def send_message_stream(
+    session_id: int,
+    request: ChatMessageCreate,
+    current_user: User = Depends(require_student),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Send a message and stream AI response via Server-Sent Events.
+
+    Returns SSE stream with events:
+    - user_message: The saved user message
+    - delta: Partial AI response content
+    - done: Final message with metadata and citations
+    - error: Error message if something fails
+    """
+    student = await get_student_from_user(db, current_user)
+
+    chat_service = ChatService(db)
+
+    async def event_generator():
+        """Generate SSE events from chat service stream."""
+        try:
+            async for event in chat_service.send_message_stream(
+                session_id=session_id,
+                student_id=student.id,
+                school_id=school_id,
+                content=request.content
+            ):
+                yield f"data: {json.dumps(event)}\n\n"
+        except ValueError as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+        except Exception as e:
+            logger.error(f"Streaming error: {str(e)}")
+            yield f"data: {json.dumps({'type': 'error', 'error': 'Internal server error'})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable nginx buffering
+        }
+    )
 
 
 @router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)

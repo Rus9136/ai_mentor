@@ -425,7 +425,14 @@
     "emptyTitle": "Чем могу помочь?",
     "emptyHint": "Задайте вопрос по материалу, и я постараюсь помочь",
     "floatingButton": "Помощь AI",
-    "askAI": "Спросить AI"
+    "askAI": "Спросить AI",
+    "history": "История",
+    "selectChat": "Выберите чат",
+    "noHistory": "Нет предыдущих чатов",
+    "newChat": "Новый чат",
+    "messagesCount": "{count, plural, one {# сообщение} few {# сообщения} many {# сообщений} other {# сообщений}}",
+    "deleteChat": "Удалить",
+    "cancel": "Отмена"
   },
   "homework": {
     "title": "Домашние задания",

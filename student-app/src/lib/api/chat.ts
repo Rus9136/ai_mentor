@@ -76,6 +76,39 @@ export interface PaginatedResponse<T> {
 }
 
 // =============================================================================
+// Streaming Types
+// =============================================================================
+
+export interface StreamUserMessageEvent {
+  type: 'user_message';
+  message: ChatMessage;
+}
+
+export interface StreamDeltaEvent {
+  type: 'delta';
+  content: string;
+}
+
+export interface StreamDoneEvent {
+  type: 'done';
+  message: ChatMessage;
+  session: {
+    id: number;
+    message_count: number;
+    total_tokens_used: number;
+    last_message_at: string;
+  };
+  citations: Citation[];
+}
+
+export interface StreamErrorEvent {
+  type: 'error';
+  error: string;
+}
+
+export type StreamEvent = StreamUserMessageEvent | StreamDeltaEvent | StreamDoneEvent | StreamErrorEvent;
+
+// =============================================================================
 // API Functions
 // =============================================================================
 
@@ -128,4 +161,88 @@ export async function getChatSessions(params?: {
  */
 export async function deleteChatSession(sessionId: number): Promise<void> {
   await apiClient.delete(`/chat/sessions/${sessionId}`);
+}
+
+/**
+ * Stream a chat message response via Server-Sent Events
+ */
+export async function streamChatMessage(
+  sessionId: number,
+  content: string,
+  callbacks: {
+    onUserMessage?: (message: ChatMessage) => void;
+    onDelta?: (content: string) => void;
+    onComplete?: (message: ChatMessage, session: StreamDoneEvent['session'], citations: Citation[]) => void;
+    onError?: (error: string) => void;
+  }
+): Promise<void> {
+  const baseURL = process.env.NEXT_PUBLIC_API_URL || '';
+  const token = localStorage.getItem('access_token');
+
+  const response = await fetch(`${baseURL}/chat/sessions/${sessionId}/messages/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': token ? `Bearer ${token}` : '',
+    },
+    body: JSON.stringify({ content }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    callbacks.onError?.(`HTTP error: ${response.status} - ${errorText}`);
+    return;
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    callbacks.onError?.('No response body');
+    return;
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // Process complete SSE events
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+
+        const dataStr = line.slice(6); // Remove "data: " prefix
+        if (!dataStr) continue;
+
+        try {
+          const event = JSON.parse(dataStr) as StreamEvent;
+
+          switch (event.type) {
+            case 'user_message':
+              callbacks.onUserMessage?.(event.message);
+              break;
+            case 'delta':
+              callbacks.onDelta?.(event.content);
+              break;
+            case 'done':
+              callbacks.onComplete?.(event.message, event.session, event.citations);
+              break;
+            case 'error':
+              callbacks.onError?.(event.error);
+              break;
+          }
+        } catch {
+          // Ignore parse errors for incomplete data
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }

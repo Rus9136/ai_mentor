@@ -9,7 +9,7 @@ Integrates with:
 import json
 import logging
 import time
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, AsyncIterator, Any, Dict
 from datetime import datetime
 
 from sqlalchemy import select, func
@@ -19,7 +19,7 @@ from sqlalchemy.orm import selectinload
 from app.models.chat import ChatSession, ChatMessage
 from app.models.system_prompt import SystemPromptTemplate
 from app.services.rag_service import RAGService
-from app.services.llm_service import LLMService, LLMResponse
+from app.services.llm_service import LLMService, LLMResponse, LLMStreamChunk
 from app.schemas.chat import (
     ChatSessionResponse,
     ChatMessageResponse,
@@ -310,6 +310,132 @@ class ChatService:
             assistant_message=self._message_to_response(assistant_message, citations),
             session=self._session_to_response(session)
         )
+
+    async def send_message_stream(
+        self,
+        session_id: int,
+        student_id: int,
+        school_id: int,
+        content: str
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """
+        Send a user message and stream AI response.
+
+        Yields SSE events:
+        - {"type": "user_message", "message": {...}}
+        - {"type": "delta", "content": "..."}
+        - {"type": "done", "message": {...}, "session": {...}, "citations": [...]}
+        - {"type": "error", "error": "..."}
+        """
+        start_time = time.time()
+
+        # Get session with messages
+        session = await self.get_session_with_messages(session_id, student_id, school_id)
+        if not session:
+            yield {"type": "error", "error": f"Chat session {session_id} not found"}
+            return
+
+        # 1. Save user message
+        user_message = ChatMessage(
+            session_id=session_id,
+            school_id=school_id,
+            role="user",
+            content=content
+        )
+        self.db.add(user_message)
+        await self.db.flush()
+
+        # Yield user message immediately
+        yield {
+            "type": "user_message",
+            "message": self._message_to_response(user_message).model_dump(mode="json")
+        }
+
+        # 2. Build conversation history for LLM
+        messages = await self._build_llm_messages(session, content)
+
+        # 3. Retrieve relevant context via RAG
+        context = await self.rag_service.retrieve_context(
+            query=content,
+            chapter_id=session.chapter_id,
+            paragraph_ids=[session.paragraph_id] if session.paragraph_id else None
+        )
+
+        # 4. Add context to the last user message if found
+        if context.chunks:
+            context_string = self.rag_service._build_context_string(context.chunks)
+            messages[-1]["content"] = f"""Контекст из учебника:
+---
+{context_string}
+---
+
+Вопрос ученика: {content}"""
+
+        # 5. Stream AI response
+        full_content = ""
+        tokens_used = 0
+        finish_reason = None
+
+        try:
+            async for chunk in self.llm.stream_generate(
+                messages=messages,
+                temperature=0.7,
+                max_tokens=1500
+            ):
+                if chunk.content:
+                    full_content += chunk.content
+                    yield {"type": "delta", "content": chunk.content}
+
+                if chunk.is_final:
+                    tokens_used = chunk.tokens_used or 0
+                    finish_reason = chunk.finish_reason
+
+        except Exception as e:
+            logger.error(f"LLM streaming failed: {str(e)}")
+            full_content = "Извините, произошла ошибка при генерации ответа. Попробуйте позже."
+            yield {"type": "delta", "content": full_content}
+
+        processing_time = int((time.time() - start_time) * 1000)
+
+        # 6. Extract citations
+        citations = self.rag_service._extract_citations(context.chunks) if context.chunks else []
+
+        # 7. Save assistant message
+        assistant_message = ChatMessage(
+            session_id=session_id,
+            school_id=school_id,
+            role="assistant",
+            content=full_content,
+            citations_json=json.dumps([c.model_dump() for c in citations]) if citations else None,
+            context_chunks_used=len(context.chunks) if context.chunks else 0,
+            tokens_used=tokens_used,
+            model_used=self.llm.provider,
+            processing_time_ms=processing_time
+        )
+        self.db.add(assistant_message)
+
+        # 8. Update session stats
+        session.message_count += 2
+        session.total_tokens_used += tokens_used
+        session.last_message_at = datetime.utcnow()
+
+        await self.db.commit()
+        await self.db.refresh(user_message)
+        await self.db.refresh(assistant_message)
+        await self.db.refresh(session)
+
+        logger.info(
+            f"Chat stream response: session={session_id}, tokens={tokens_used}, "
+            f"chunks={len(context.chunks) if context.chunks else 0}, time={processing_time}ms"
+        )
+
+        # Yield final message with metadata
+        yield {
+            "type": "done",
+            "message": self._message_to_response(assistant_message, citations).model_dump(mode="json"),
+            "session": self._session_to_response(session).model_dump(mode="json"),
+            "citations": [c.model_dump(mode="json") for c in citations]
+        }
 
     async def _build_llm_messages(
         self,

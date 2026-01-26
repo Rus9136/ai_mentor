@@ -4,3 +4,4 @@ export { ChatInput } from './ChatInput';
 export { TypingIndicator } from './TypingIndicator';
 export { ChatWindow } from './ChatWindow';
 export { ChatModal } from './ChatModal';
+export { ChatHistory } from './ChatHistory';
