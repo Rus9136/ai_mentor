@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, getAccessToken, getRefreshToken, setTokens, clearTokens } from './client';
 
 // =============================================================================
 // Types
@@ -166,6 +166,43 @@ export async function deleteChatSession(sessionId: number): Promise<void> {
 /**
  * Stream a chat message response via Server-Sent Events
  */
+/**
+ * Helper to ensure we have a valid token, refreshing if needed
+ */
+async function ensureValidToken(): Promise<string | null> {
+  const baseURL = process.env.NEXT_PUBLIC_API_URL || '';
+  let token = getAccessToken();
+
+  if (!token) {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(`${baseURL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTokens(data.access_token, data.refresh_token);
+        token = data.access_token;
+      } else {
+        clearTokens();
+        return null;
+      }
+    } catch {
+      clearTokens();
+      return null;
+    }
+  }
+
+  return token;
+}
+
 export async function streamChatMessage(
   sessionId: number,
   content: string,
@@ -177,18 +214,35 @@ export async function streamChatMessage(
   }
 ): Promise<void> {
   const baseURL = process.env.NEXT_PUBLIC_API_URL || '';
-  const token = localStorage.getItem('access_token');
+  let token = getAccessToken();
 
-  const response = await fetch(`${baseURL}/chat/sessions/${sessionId}/messages/stream`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
-    },
-    body: JSON.stringify({ content }),
-  });
+  const makeRequest = async (authToken: string | null) => {
+    return fetch(`${baseURL}/chat/sessions/${sessionId}/messages/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authToken ? `Bearer ${authToken}` : '',
+      },
+      body: JSON.stringify({ content }),
+    });
+  };
+
+  let response = await makeRequest(token);
+
+  // If 401/403, try to refresh token and retry
+  if (response.status === 401 || response.status === 403) {
+    const newToken = await ensureValidToken();
+    if (newToken && newToken !== token) {
+      response = await makeRequest(newToken);
+    }
+  }
 
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      clearTokens();
+      window.location.href = '/ru/login';
+      return;
+    }
     const errorText = await response.text();
     callbacks.onError?.(`HTTP error: ${response.status} - ${errorText}`);
     return;
