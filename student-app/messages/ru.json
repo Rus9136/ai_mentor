@@ -135,6 +135,7 @@
   "navigation": {
     "home": "Главная",
     "subjects": "Предметы",
+    "tests": "Тесты",
     "homework": "Задания",
     "profile": "Профиль",
     "logout": "Выйти"
@@ -299,6 +300,44 @@
       },
       "previousScore": "Лучший результат: {score}%",
       "alreadyPassed": "Вы уже прошли этот тест"
+    }
+  },
+  "tests": {
+    "title": "Мои тесты",
+    "loading": "Загрузка...",
+    "error": "Ошибка загрузки",
+    "retry": "Повторить",
+    "tabs": {
+      "all": "Все",
+      "diagnostic": "Диагностические",
+      "summative": "Итоговые",
+      "practice": "Практика"
+    },
+    "type": {
+      "diagnostic": "Диагностический",
+      "formative": "Формативный",
+      "summative": "Итоговый",
+      "practice": "Практика"
+    },
+    "difficulty": {
+      "easy": "Легкий",
+      "medium": "Средний",
+      "hard": "Сложный"
+    },
+    "card": {
+      "questions": "{count} вопросов",
+      "timeLimit": "{minutes} мин",
+      "attempts": "{count} попыток",
+      "bestScore": "Лучший: {score}%",
+      "latestScore": "Последний: {score}%",
+      "passingScore": "Проходной: {score}%",
+      "start": "Начать",
+      "retake": "Пересдать",
+      "viewResults": "Результаты"
+    },
+    "empty": {
+      "title": "Нет доступных тестов",
+      "description": "Тесты появятся после изучения материалов"
     }
   },
   "profile": {

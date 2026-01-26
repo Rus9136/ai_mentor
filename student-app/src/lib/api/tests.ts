@@ -247,3 +247,22 @@ export async function completeTest(attemptId: number): Promise<TestAttemptDetail
   );
   return response.data;
 }
+
+/**
+ * Get all available tests for the current student.
+ * Can filter by test purpose and difficulty.
+ */
+export async function getAllStudentTests(params?: {
+  test_purpose?: TestPurpose;
+  difficulty?: DifficultyLevel;
+  page?: number;
+  page_size?: number;
+}): Promise<PaginatedResponse<AvailableTest>> {
+  const response = await apiClient.get<PaginatedResponse<AvailableTest>>('/students/tests', {
+    params: {
+      ...params,
+      page_size: params?.page_size ?? 100,
+    },
+  });
+  return response.data;
+}

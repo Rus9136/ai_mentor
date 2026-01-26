@@ -135,6 +135,7 @@
   "navigation": {
     "home": "Басты бет",
     "subjects": "Пәндер",
+    "tests": "Тесттер",
     "homework": "Тапсырмалар",
     "profile": "Профиль",
     "logout": "Шығу"
@@ -299,6 +300,44 @@
       },
       "previousScore": "Үздік нәтиже: {score}%",
       "alreadyPassed": "Сіз бұл тестті өттіңіз"
+    }
+  },
+  "tests": {
+    "title": "Менің тесттерім",
+    "loading": "Жүктелуде...",
+    "error": "Жүктеу қатесі",
+    "retry": "Қайталау",
+    "tabs": {
+      "all": "Барлығы",
+      "diagnostic": "Диагностикалық",
+      "summative": "Қорытынды",
+      "practice": "Тәжірибе"
+    },
+    "type": {
+      "diagnostic": "Диагностикалық",
+      "formative": "Формативті",
+      "summative": "Қорытынды",
+      "practice": "Тәжірибе"
+    },
+    "difficulty": {
+      "easy": "Жеңіл",
+      "medium": "Орташа",
+      "hard": "Қиын"
+    },
+    "card": {
+      "questions": "{count} сұрақ",
+      "timeLimit": "{minutes} мин",
+      "attempts": "{count} әрекет",
+      "bestScore": "Үздік: {score}%",
+      "latestScore": "Соңғы: {score}%",
+      "passingScore": "Өту балы: {score}%",
+      "start": "Бастау",
+      "retake": "Қайта тапсыру",
+      "viewResults": "Нәтижелер"
+    },
+    "empty": {
+      "title": "Қол жетімді тесттер жоқ",
+      "description": "Материалдарды оқығаннан кейін тесттер пайда болады"
     }
   },
   "profile": {

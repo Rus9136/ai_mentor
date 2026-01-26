@@ -2,10 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getTestsForParagraph,
   getTestsForChapter,
+  getAllStudentTests,
   startTest,
   submitTest,
   completeTest,
   getAttempt,
+  getStudentAttempts,
   answerTestQuestion,
   AvailableTest,
   TestAttemptDetail,
@@ -21,11 +23,12 @@ import { textbookKeys } from './use-textbooks';
 
 export const testKeys = {
   all: ['tests'] as const,
+  allTests: (purpose?: TestPurpose) => [...testKeys.all, 'all', purpose] as const,
   forParagraph: (paragraphId: number) => [...testKeys.all, 'paragraph', paragraphId] as const,
   forChapter: (chapterId: number, purpose?: TestPurpose) =>
     [...testKeys.all, 'chapter', chapterId, purpose] as const,
   attempt: (attemptId: number) => ['test-attempts', attemptId] as const,
-  attempts: () => ['test-attempts'] as const,
+  attempts: (testId?: number) => ['test-attempts', testId] as const,
 };
 
 // =============================================================================
@@ -187,5 +190,33 @@ export function useCompleteTest(paragraphId?: number) {
       // Invalidate attempts list
       queryClient.invalidateQueries({ queryKey: testKeys.attempts() });
     },
+  });
+}
+
+/**
+ * Hook to get all available tests for the current student.
+ * Can filter by test purpose.
+ */
+export function useAllStudentTests(testPurpose?: TestPurpose) {
+  return useQuery({
+    queryKey: testKeys.allTests(testPurpose),
+    queryFn: async () => {
+      const response = await getAllStudentTests({
+        test_purpose: testPurpose,
+        page_size: 100,
+      });
+      return response.items;
+    },
+  });
+}
+
+/**
+ * Hook to get student's test attempts history.
+ * Can filter by specific test_id.
+ */
+export function useStudentAttempts(testId?: number) {
+  return useQuery({
+    queryKey: testKeys.attempts(testId),
+    queryFn: () => getStudentAttempts(testId),
   });
 }
