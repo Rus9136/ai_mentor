@@ -96,7 +96,7 @@ export function ChatModal({
       {/* Modal */}
       <div className="relative w-full max-w-lg h-[85vh] max-h-[700px] bg-white rounded-2xl shadow-2xl mx-4 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-purple-500 to-purple-600">
+        <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b bg-success">
           <div className="flex items-center gap-3">
             {showHistory ? (
               <button
@@ -114,7 +114,7 @@ export function ChatModal({
               <h2 className="font-bold text-white">
                 {showHistory ? t('history') : t('title')}
               </h2>
-              <p className="text-xs text-purple-100">
+              <p className="text-xs text-white/80">
                 {showHistory ? t('selectChat') : t('subtitle')}
               </p>
             </div>
@@ -148,7 +148,7 @@ export function ChatModal({
             />
           ) : createSessionMutation.isPending || !sessionId ? (
             <div className="flex flex-col items-center justify-center h-full">
-              <Loader2 className="w-8 h-8 text-purple-500 animate-spin mb-3" />
+              <Loader2 className="w-8 h-8 text-success animate-spin mb-3" />
               <p className="text-gray-500">{t('creating')}</p>
             </div>
           ) : createSessionMutation.isError ? (
@@ -159,7 +159,7 @@ export function ChatModal({
                   setSessionId(null);
                   createSessionMutation.reset();
                 }}
-                className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                className="px-4 py-2 bg-success text-white rounded-lg hover:bg-success/90 transition-colors"
               >
                 {t('retry')}
               </button>

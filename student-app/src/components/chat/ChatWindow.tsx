@@ -57,8 +57,8 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
         {!hasMessages ? (
           // Empty state
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mb-4">
-              <Sparkles className="w-8 h-8 text-purple-500" />
+            <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mb-4">
+              <Sparkles className="w-8 h-8 text-success" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               {t('emptyTitle')}
@@ -77,14 +77,14 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
             {/* Streaming response */}
             {isStreaming && streamingContent && (
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-purple-600" />
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-success/20 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-success" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="bg-gray-100 rounded-2xl rounded-tl-md px-4 py-3">
                     <p className="text-gray-800 whitespace-pre-wrap">
                       {streamingContent}
-                      <span className="inline-block w-2 h-4 bg-purple-500 ml-0.5 animate-pulse" />
+                      <span className="inline-block w-2 h-4 bg-success ml-0.5 animate-pulse" />
                     </p>
                   </div>
                 </div>
@@ -94,8 +94,8 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
             {/* Typing indicator when waiting for first token */}
             {isStreaming && !streamingContent && (
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-purple-600" />
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-success/20 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-success" />
                 </div>
                 <TypingIndicator text={t('thinking')} />
               </div>

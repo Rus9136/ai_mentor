@@ -11,6 +11,7 @@ import logging
 import time
 from typing import Optional, List, Tuple, AsyncIterator, Any, Dict
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -509,7 +510,9 @@ class ChatService:
             "test_help": "Помощь с тестом",
             "general_tutor": "Общие вопросы"
         }
-        return f"{type_names.get(session_type, 'Чат')} - {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+        # Use Kazakhstan timezone for title
+        almaty_time = datetime.now(ZoneInfo('Asia/Almaty'))
+        return f"{type_names.get(session_type, 'Чат')} - {almaty_time.strftime('%d.%m.%Y %H:%M')}"
 
     def _message_to_response(
         self,

@@ -45,11 +45,24 @@ export function ChatHistory({
     }
   };
 
-  // Simple relative time formatting without external dependencies
+  // Timezone for Kazakhstan
+  const TIMEZONE = 'Asia/Almaty';
+
+  // Format time in Almaty timezone
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '';
-    const date = new Date(dateString);
+
+    // Parse the date - assume server returns UTC if no timezone specified
+    let date = new Date(dateString);
+
+    // If the date string doesn't have timezone info, treat it as UTC
+    if (!dateString.includes('Z') && !dateString.includes('+')) {
+      date = new Date(dateString + 'Z');
+    }
+
     const now = new Date();
+
+    // Calculate difference in milliseconds
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
@@ -57,15 +70,23 @@ export function ChatHistory({
 
     const isKk = locale === 'kk';
 
+    // Very recent - just now
     if (diffMins < 1) return isKk ? 'жаңа ғана' : 'только что';
+
+    // Less than an hour - show minutes
     if (diffMins < 60) return isKk ? `${diffMins} мин бұрын` : `${diffMins} мин назад`;
+
+    // Less than 24 hours - show hours
     if (diffHours < 24) return isKk ? `${diffHours} сағ бұрын` : `${diffHours} ч назад`;
+
+    // Less than 7 days - show days
     if (diffDays < 7) return isKk ? `${diffDays} күн бұрын` : `${diffDays} дн назад`;
 
-    // Format as date for older entries
+    // Older entries - show date in Almaty timezone
     return date.toLocaleDateString(isKk ? 'kk-KZ' : 'ru-RU', {
       day: 'numeric',
       month: 'short',
+      timeZone: TIMEZONE,
     });
   };
 
@@ -73,7 +94,7 @@ export function ChatHistory({
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 text-purple-500 animate-spin mb-3" />
+        <Loader2 className="w-8 h-8 text-success animate-spin mb-3" />
         <p className="text-gray-500">{t('loading')}</p>
       </div>
     );
@@ -95,7 +116,7 @@ export function ChatHistory({
       <div className="p-4 border-b">
         <button
           onClick={onNewChat}
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-purple-500 text-white rounded-xl font-medium hover:bg-purple-600 transition-colors"
+          className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-success text-white rounded-xl font-medium hover:bg-success/90 transition-colors"
         >
           <Plus className="w-5 h-5" />
           {t('newChat')}
@@ -162,8 +183,8 @@ function SessionCard({
       onClick={isConfirmingDelete ? undefined : onSelect}
     >
       {/* Icon */}
-      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-        <MessageSquare className="w-5 h-5 text-purple-600" />
+      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-success/20 flex items-center justify-center">
+        <MessageSquare className="w-5 h-5 text-success" />
       </div>
 
       {/* Content */}

@@ -22,13 +22,13 @@ export function ChatMessage({ message, className }: ChatMessageProps) {
       <div
         className={cn(
           'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
-          isUser ? 'bg-amber-100' : 'bg-purple-100'
+          isUser ? 'bg-amber-100' : 'bg-success/20'
         )}
       >
         {isUser ? (
           <User className="w-4 h-4 text-amber-600" />
         ) : (
-          <Sparkles className="w-4 h-4 text-purple-600" />
+          <Sparkles className="w-4 h-4 text-success" />
         )}
       </div>
 

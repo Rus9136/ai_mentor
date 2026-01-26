@@ -529,7 +529,7 @@ export default function ParagraphPage({ params }: PageProps) {
       {/* Floating AI Chat Button */}
       <button
         onClick={() => setShowChat(true)}
-        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 flex items-center gap-2 px-4 py-3 bg-purple-500 text-white rounded-full shadow-lg hover:bg-purple-600 hover:shadow-xl transition-all"
+        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 flex items-center gap-2 px-4 py-3 bg-success text-white rounded-full shadow-lg hover:bg-success/90 hover:shadow-xl transition-all"
       >
         <Sparkles className="w-5 h-5" />
         <span className="font-medium">{tChat('floatingButton')}</span>

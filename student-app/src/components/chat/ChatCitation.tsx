@@ -12,17 +12,17 @@ export function ChatCitation({ citation }: ChatCitationProps) {
   return (
     <Link
       href={`/paragraphs/${citation.paragraph_id}`}
-      className="block p-3 bg-purple-50 border border-purple-100 rounded-lg hover:bg-purple-100 transition-colors group"
+      className="block p-3 bg-success/10 border border-success/20 rounded-lg hover:bg-success/20 transition-colors group"
     >
       <div className="flex items-start gap-2">
-        <div className="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-          <BookOpen className="w-4 h-4 text-purple-600" />
+        <div className="flex-shrink-0 w-8 h-8 bg-success/20 rounded-lg flex items-center justify-center group-hover:bg-success/30 transition-colors">
+          <BookOpen className="w-4 h-4 text-success" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-purple-900 truncate">
+          <p className="text-sm font-medium text-foreground truncate">
             {citation.paragraph_title}
           </p>
-          <p className="text-xs text-purple-600 truncate">
+          <p className="text-xs text-success truncate">
             {citation.chapter_title}
           </p>
           {citation.chunk_text && (

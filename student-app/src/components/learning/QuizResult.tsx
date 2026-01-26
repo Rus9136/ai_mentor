@@ -166,17 +166,17 @@ export function QuizResult({
 
       {/* AI Chat for failed attempts */}
       {!passed && (
-        <div className="w-full max-w-md mb-8 p-4 bg-purple-50 border border-purple-200 rounded-xl">
+        <div className="w-full max-w-md mb-8 p-4 bg-success/10 border border-success/30 rounded-xl">
           <div className="flex items-center gap-3 mb-2">
-            <MessageCircle className="w-5 h-5 text-purple-600" />
-            <span className="font-semibold text-purple-700">{t('result.needHelp')}</span>
+            <MessageCircle className="w-5 h-5 text-success" />
+            <span className="font-semibold text-foreground">{t('result.needHelp')}</span>
           </div>
-          <p className="text-sm text-purple-600 mb-3">
+          <p className="text-sm text-muted-foreground mb-3">
             {t('result.aiChatHint')}
           </p>
           <button
             onClick={onOpenChat}
-            className="w-full py-2 px-4 bg-purple-500 text-white rounded-lg font-medium hover:bg-purple-600 transition-colors"
+            className="w-full py-2 px-4 bg-success text-white rounded-lg font-medium hover:bg-success/90 transition-colors"
           >
             {t('result.askAI')}
           </button>
