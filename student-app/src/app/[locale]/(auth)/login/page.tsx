@@ -28,7 +28,7 @@ export default function LoginPage() {
     try {
       const success = await login(idToken);
       if (success) {
-        router.push('/');
+        router.push('/home');
       } else {
         setError(t('error'));
       }
@@ -51,7 +51,7 @@ export default function LoginPage() {
     try {
       const result = await loginWithPassword(email, password);
       if (result.success) {
-        router.push('/');
+        router.push('/home');
       } else {
         // Map error codes to user-friendly messages
         if (result.error === 'ACCESS_DENIED') {

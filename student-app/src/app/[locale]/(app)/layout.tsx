@@ -27,7 +27,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { href: '/', icon: Home, label: t('home') },
+    { href: '/home', icon: Home, label: t('home') },
     { href: '/subjects', icon: BookOpen, label: t('subjects') },
     { href: '/tests', icon: FileCheck, label: t('tests') },
     { href: '/homework', icon: ClipboardList, label: t('homework') },
@@ -35,8 +35,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   ];
 
   const isActive = (href: string) => {
-    if (href === '/') {
-      return pathname.endsWith('/ru') || pathname.endsWith('/kz') || pathname === '/';
+    if (href === '/home') {
+      return pathname.includes('/home');
     }
     return pathname.includes(href);
   };
@@ -47,7 +47,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <header className="sticky top-0 z-50 hidden border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:block">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-3">
+          <Link href="/home" className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
               <GraduationCap className="h-5 w-5 text-white" />
             </div>
@@ -105,7 +105,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       {/* Mobile Header */}
       <header className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-border/40 bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:hidden">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/home" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <GraduationCap className="h-4 w-4 text-white" />
           </div>

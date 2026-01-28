@@ -143,7 +143,7 @@ export default function OnboardingPage() {
       });
 
       await refreshUser();
-      router.push('/');
+      router.push('/home');
     } catch {
       setError('Failed to complete registration');
     } finally {

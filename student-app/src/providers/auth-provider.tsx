@@ -82,13 +82,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const isAuthPage = pathname === '/login';
     const isOnboardingPage = pathname.startsWith('/onboarding');
+    const isPublicPage = pathname === '/' || pathname.startsWith('/privacy');
 
-    if (!user && !isAuthPage && !isOnboardingPage) {
+    if (!user && !isAuthPage && !isOnboardingPage && !isPublicPage) {
       router.replace('/login');
     } else if (user && requiresOnboarding && !isOnboardingPage) {
       router.replace('/onboarding');
     } else if (user && !requiresOnboarding && (isAuthPage || isOnboardingPage)) {
-      router.replace('/');
+      router.replace('/home');
     }
   }, [user, isLoading, requiresOnboarding, pathname, router]);
 
