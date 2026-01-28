@@ -136,6 +136,12 @@ export default function LandingPage() {
             {/* Links */}
             <div className="flex items-center gap-6">
               <Link
+                href="/terms"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {t('footer.terms')}
+              </Link>
+              <Link
                 href="/privacy"
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
