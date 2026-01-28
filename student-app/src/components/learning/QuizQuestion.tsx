@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils';
 import { TestQuestion, QuestionOption } from '@/lib/api/tests';
 import { CheckCircle2, XCircle } from 'lucide-react';
+import { MathText } from '@/components/common/MathText';
 
 interface QuizQuestionProps {
   question: TestQuestion;
@@ -94,7 +95,7 @@ export function QuizQuestion({
 
       {/* Question text */}
       <h3 className="text-lg font-semibold text-gray-900 mb-6">
-        {question.question_text}
+        <MathText>{question.question_text}</MathText>
       </h3>
 
       {/* Options */}
@@ -138,7 +139,7 @@ export function QuizQuestion({
                 'flex-1',
                 showResult && !isCorrectOption && !isSelected && 'text-gray-400'
               )}>
-                {option.option_text}
+                <MathText>{option.option_text}</MathText>
               </span>
 
               {/* Multiple choice checkbox indicator */}

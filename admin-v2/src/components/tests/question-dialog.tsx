@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { MathTextarea } from '@/components/ui/math-textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
@@ -198,10 +199,11 @@ export function QuestionDialog({
                 <FormItem>
                   <FormLabel>Текст вопроса *</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Введите текст вопроса..."
-                      className="min-h-[100px]"
-                      {...field}
+                    <MathTextarea
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Введите текст вопроса... Для формул используйте $формула$"
+                      minHeight="100px"
                     />
                   </FormControl>
                   <FormMessage />
@@ -257,7 +259,7 @@ export function QuestionDialog({
                             <FormItem>
                               <FormControl>
                                 <Input
-                                  placeholder={`Вариант ${index + 1}`}
+                                  placeholder={`Вариант ${index + 1} (для формул: $x^2$)`}
                                   {...field}
                                   disabled={questionType === 'true_false'}
                                 />
@@ -284,7 +286,7 @@ export function QuestionDialog({
                 </div>
 
                 <FormDescription>
-                  Отметьте галочкой правильные варианты ответа
+                  Отметьте галочкой правильные варианты ответа. Для формул используйте $формула$.
                 </FormDescription>
               </div>
             )}
@@ -296,10 +298,11 @@ export function QuestionDialog({
                 <FormItem>
                   <FormLabel>Пояснение (необязательно)</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Пояснение к правильному ответу..."
-                      className="min-h-[80px]"
-                      {...field}
+                    <MathTextarea
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      placeholder="Пояснение к правильному ответу... Можно использовать формулы."
+                      minHeight="80px"
                     />
                   </FormControl>
                   <FormDescription>

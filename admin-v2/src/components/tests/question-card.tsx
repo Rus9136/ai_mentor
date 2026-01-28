@@ -13,6 +13,7 @@ import {
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { MathInline } from '@/components/ui/math-textarea';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,7 +83,7 @@ export function QuestionCard({ question, onEdit, onDelete }: QuestionCardProps) 
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm">{question.question_text}</p>
+          <p className="text-sm"><MathInline>{question.question_text}</MathInline></p>
 
           {question.options.length > 0 && (
             <div className="space-y-2">
@@ -102,7 +103,7 @@ export function QuestionCard({ question, onEdit, onDelete }: QuestionCardProps) 
                     ) : (
                       <XCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     )}
-                    <span>{option.option_text}</span>
+                    <span><MathInline>{option.option_text}</MathInline></span>
                   </div>
                 ))}
             </div>
@@ -112,7 +113,7 @@ export function QuestionCard({ question, onEdit, onDelete }: QuestionCardProps) 
             <div className="flex items-start gap-2 rounded-md bg-muted p-3">
               <HelpCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
               <div className="text-sm text-muted-foreground">
-                <span className="font-medium">Пояснение:</span> {question.explanation}
+                <span className="font-medium">Пояснение:</span> <MathInline>{question.explanation}</MathInline>
               </div>
             </div>
           )}
