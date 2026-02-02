@@ -34,7 +34,7 @@ def get_allowed_client_ids() -> List[str]:
     Get list of all configured Google Client IDs.
 
     Returns:
-        List of valid client IDs (Web, iOS, Android)
+        List of valid client IDs (Web, iOS, Android, Firebase, etc.)
     """
     client_ids = []
     if settings.GOOGLE_CLIENT_ID:
@@ -43,6 +43,10 @@ def get_allowed_client_ids() -> List[str]:
         client_ids.append(settings.GOOGLE_CLIENT_ID_IOS)
     if settings.GOOGLE_CLIENT_ID_ANDROID:
         client_ids.append(settings.GOOGLE_CLIENT_ID_ANDROID)
+    # Parse extra client IDs (comma-separated)
+    if settings.GOOGLE_CLIENT_IDS_EXTRA:
+        extra_ids = [cid.strip() for cid in settings.GOOGLE_CLIENT_IDS_EXTRA.split(",") if cid.strip()]
+        client_ids.extend(extra_ids)
     return client_ids
 
 
