@@ -27,6 +27,8 @@
 | `docs/RAG_SERVICE.md` | RAG сервис (Jina + Cerebras) |
 | `docs/CHAT_SERVICE.md` | Chat API |
 | `docs/database_schema.md` | Схема БД |
+| `docs/TASK_SELF_ASSESSMENT_BACKEND.md` | ТЗ самооценки ученика (этапы 1-2 готовы) |
+| `docs/API_SELF_ASSESSMENT.md` | API документация самооценки для мобильных |
 
 ---
 
@@ -57,13 +59,13 @@ docker exec -it ai_mentor_postgres psql -U ai_mentor_user -d ai_mentor_db
 
 | Сервис | Контейнер | Внутренний порт | Локальный порт |
 |--------|-----------|-----------------|----------------|
-| Backend API | `ai_mentor_backend_prod` | 8000 | **8006** |
+| Backend API | `ai_mentor_backend_prod` | 8000 | **8020** |
 | Teacher App | `ai_mentor_teacher_app_prod` | 3007 | 3007 |
 | Student App | `ai_mentor_student_app_prod` | 3000 | 3000 |
 | Admin Panel | `ai_mentor_admin_v2_prod` | 3000 | 3001 |
-| PostgreSQL | `ai_mentor_postgres_prod` | 5432 | 5432 |
+| PostgreSQL | `ai_mentor_postgres_prod` | 5432 | **5435** |
 
-**ВАЖНО:** Backend слушает на порту **8006** локально, не 8000!
+**ВАЖНО:** Backend слушает на порту **8020** локально, не 8000!
 
 ### Проверка статуса
 
@@ -72,7 +74,7 @@ docker exec -it ai_mentor_postgres psql -U ai_mentor_user -d ai_mentor_db
 docker ps --filter "name=ai_mentor" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 # Health check backend
-curl -s http://localhost:8006/health
+curl -s http://localhost:8020/health
 
 # Health check teacher-app
 curl -s http://localhost:3007/
@@ -123,7 +125,7 @@ docker restart ai_mentor_backend_prod
 ### Nginx (внешний доступ)
 
 Nginx проксирует запросы:
-- `api.ai-mentor.kz` → `localhost:8006`
+- `api.ai-mentor.kz` → `localhost:8020`
 - `teacher.ai-mentor.kz` → `localhost:3007`
 - `ai-mentor.kz` → `localhost:3000`
 - `admin.ai-mentor.kz` → `localhost:3001`
@@ -298,6 +300,19 @@ docker exec -it ai_mentor_postgres psql -U ai_mentor_user -d ai_mentor_db -c "\d
 
 ### 5 ролей RBAC
 SUPER_ADMIN → ADMIN → TEACHER → STUDENT → PARENT
+
+### Два вида mastery (раздельные метрики)
+- **Объективный** (`paragraph_mastery`) — от тестов, шкала 0.0–1.0, статусы struggling/progressing/mastered
+- **Субъективный** (`paragraph_self_assessments`) — самооценка ученика, append-only, mastery_impact ±5.0
+
+Они НЕ объединяются. Расхождение между ними — метакогнитивный сигнал для аналитики учителя.
+
+### Самооценка ученика (Self-Assessment)
+Ученик на шаге "Итоги" выбирает самооценку (`understood`/`questions`/`difficult`).
+Сервер рассчитывает `mastery_impact` с корректировкой по `practice_score` и возвращает `next_recommendation`.
+Поддержка идемпотентности для оффлайн-синхронизации.
+- Сервис: `backend/app/services/self_assessment_service.py`
+- API docs: `docs/API_SELF_ASSESSMENT.md`
 
 ### API префиксы
 - `/api/v1/admin/global/*` — SUPER_ADMIN
