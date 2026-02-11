@@ -308,6 +308,91 @@ class MasteryTrendsResponse(BaseModel):
 
 
 # ============================================================================
+# Self-Assessment Analytics schemas
+# ============================================================================
+
+class SelfAssessmentParagraphSummary(BaseModel):
+    """Self-assessment breakdown for a single paragraph."""
+
+    paragraph_id: int
+    paragraph_title: str
+    chapter_id: int
+    chapter_title: str
+
+    total_assessments: int
+    understood_count: int = 0
+    questions_count: int = 0
+    difficult_count: int = 0
+    understood_pct: float = 0.0
+    questions_pct: float = 0.0
+    difficult_pct: float = 0.0
+
+
+class SelfAssessmentSummaryResponse(BaseModel):
+    """Aggregated self-assessment analytics for teacher's classes."""
+
+    total_assessments: int = 0
+    total_students: int = 0
+    paragraphs: List[SelfAssessmentParagraphSummary] = []
+
+
+class MetacognitiveAlertStudent(BaseModel):
+    """Student with metacognitive mismatch."""
+
+    student_id: int
+    student_code: str
+    first_name: str
+    last_name: str
+    paragraph_id: int
+    paragraph_title: str
+    rating: str
+    practice_score: float
+    mastery_impact: float
+    created_at: datetime
+
+
+class MetacognitiveAlertsResponse(BaseModel):
+    """Students with overconfidence/underconfidence patterns."""
+
+    overconfident: List[MetacognitiveAlertStudent] = Field(
+        default_factory=list,
+        description="Students who rated 'understood' but practice_score < 60%"
+    )
+    underconfident: List[MetacognitiveAlertStudent] = Field(
+        default_factory=list,
+        description="Students who rated 'difficult' but practice_score > 80%"
+    )
+
+
+class StudentSelfAssessmentItem(BaseModel):
+    """Single self-assessment record for teacher view."""
+
+    id: int
+    paragraph_id: int
+    paragraph_title: str
+    chapter_title: str
+    rating: str
+    practice_score: Optional[float] = None
+    mastery_impact: float
+    mismatch_type: Optional[str] = Field(
+        None, description="overconfident, underconfident, or null (adequate)"
+    )
+    created_at: datetime
+
+
+class StudentSelfAssessmentHistory(BaseModel):
+    """Self-assessment history for a single student."""
+
+    student_id: int
+    student_name: str
+    total_assessments: int = 0
+    adequate_count: int = 0
+    overconfident_count: int = 0
+    underconfident_count: int = 0
+    assessments: List[StudentSelfAssessmentItem] = []
+
+
+# ============================================================================
 # Assignment schemas
 # ============================================================================
 

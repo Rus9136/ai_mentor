@@ -54,7 +54,7 @@ from app.models.homework import (
 )
 
 # Learning models
-from app.models.learning import StudentParagraph, LearningSession, LearningActivity, ActivityType, SelfAssessmentRating, ParagraphStep
+from app.models.learning import StudentParagraph, ParagraphSelfAssessment, LearningSession, LearningActivity, ActivityType, SelfAssessmentRating, ParagraphStep
 
 # Embedded questions models
 from app.models.embedded_question import EmbeddedQuestion, StudentEmbeddedAnswer, EmbeddedQuestionType
@@ -142,6 +142,7 @@ __all__ = [
     "AIOperationType",
     # Learning
     "StudentParagraph",
+    "ParagraphSelfAssessment",
     "LearningSession",
     "LearningActivity",
     "ActivityType",

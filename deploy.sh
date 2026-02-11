@@ -270,7 +270,7 @@ deploy_backend() {
     local max_retries=6  # 30 seconds total (6 * 5)
 
     while [ $retries -lt $max_retries ]; do
-        if check_http_endpoint "http://127.0.0.1:8006/health" 5; then
+        if check_http_endpoint "http://127.0.0.1:8020/health" 5; then
             log_success "Backend is healthy"
             return 0
         fi
@@ -528,7 +528,7 @@ check_services() {
     fi
 
     # Check API endpoint
-    if check_http_endpoint "http://127.0.0.1:8006/health" 5; then
+    if check_http_endpoint "http://127.0.0.1:8020/health" 5; then
         show_service_status "API Health" "healthy"
     else
         show_service_status "API Health" "unhealthy"

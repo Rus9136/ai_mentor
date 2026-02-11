@@ -25,7 +25,7 @@
 
 ```bash
 NAME                      STATUS        PORTS
-ai_mentor_backend_prod    Up (healthy)  127.0.0.1:8006->8000/tcp
+ai_mentor_backend_prod    Up (healthy)  127.0.0.1:8020->8000/tcp
 ai_mentor_postgres_prod   Up (healthy)  5432/tcp (internal only)
 ```
 
@@ -44,7 +44,7 @@ Internet (HTTPS)
          │
          ├─── admin.ai-mentor.kz ──────► /var/www/ai-mentor/ (Static Files)
          │
-         └─── api.ai-mentor.kz ────────► 127.0.0.1:8006 (Backend Docker)
+         └─── api.ai-mentor.kz ────────► 127.0.0.1:8020 (Backend Docker)
                                                   │
                                                   ▼
                                           PostgreSQL + pgvector
@@ -56,7 +56,7 @@ Internet (HTTPS)
 - **Общий Nginx:** `/home/rus/infrastructure/nginx/`
 - **Общий SSL (certbot):** Централизованно управляется
 - **Docker сеть:** `infrastructure_network` (связь между проектами)
-- **Backend порт:** 127.0.0.1:8006 (только localhost, не доступен извне)
+- **Backend порт:** 127.0.0.1:8020 (только localhost, не доступен извне)
 
 ---
 
@@ -271,8 +271,8 @@ curl https://api.ai-mentor.kz/health
 # Проверить Docker сеть
 docker network ls | grep infrastructure_network
 
-# Проверить свободен ли порт 8006
-docker ps --format "table {{.Names}}\t{{.Ports}}" | grep 8006
+# Проверить свободен ли порт 8020
+docker ps --format "table {{.Names}}\t{{.Ports}}" | grep 8020
 ```
 
 ---
@@ -532,11 +532,11 @@ curl -X POST https://api.ai-mentor.kz/api/v1/auth/login \
 # Проверить логи
 ./deploy-infra.sh logs backend
 
-# Проверить порт 8006
-netstat -tlnp | grep 8006
+# Проверить порт 8020
+netstat -tlnp | grep 8020
 
 # Проверить health
-curl http://127.0.0.1:8006/health
+curl http://127.0.0.1:8020/health
 
 # Перезапустить
 ./deploy-infra.sh restart
@@ -643,8 +643,8 @@ docker compose -f docker-compose.infra.yml up -d --force-recreate backend
 ### Backend конфигурация:
 
 - **Gunicorn:** 4 workers (Uvicorn workers)
-- **Порт:** 127.0.0.1:8006 (только localhost)
-- **Health check:** http://127.0.0.1:8006/health
+- **Порт:** 127.0.0.1:8020 (только localhost)
+- **Health check:** http://127.0.0.1:8020/health
 - **Timeout:** 120 секунд
 
 ### Frontend:
@@ -678,7 +678,7 @@ OPENAI_API_KEY=<optional>        # Для RAG (опционально)
 2. **Использовать сильные пароли** (32+ символов)
 3. **Сменить тестовые пароли** сразу после деплоя
 4. **SSL сертификаты** обновляются автоматически (certbot cron)
-5. **Backend доступен ТОЛЬКО на localhost:8006** - не извне
+5. **Backend доступен ТОЛЬКО на localhost:8020** - не извне
 
 ---
 
@@ -717,7 +717,7 @@ nano /home/rus/infrastructure/backup.sh
 - [ ] DNS настроен для всех доменов
 - [ ] SSL сертификаты получены и активны
 - [ ] PostgreSQL запущен и здоров
-- [ ] Backend запущен на 127.0.0.1:8006
+- [ ] Backend запущен на 127.0.0.1:8020
 - [ ] Миграции применены (14/14)
 - [ ] **База данных заполнена (`./deploy-infra.sh seed`)**
 - [ ] Frontend собран и задеплоен в /var/www/ai-mentor/

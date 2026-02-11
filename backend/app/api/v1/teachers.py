@@ -40,6 +40,9 @@ from app.schemas.teacher_dashboard import (
     MasteryHistoryResponse,
     StrugglingTopicResponse,
     MasteryTrendsResponse,
+    SelfAssessmentSummaryResponse,
+    MetacognitiveAlertsResponse,
+    StudentSelfAssessmentHistory,
     AssignmentCreate,
     AssignmentUpdate,
     AssignmentResponse,
@@ -389,6 +392,60 @@ async def get_mastery_trends(
     """
     service = TeacherAnalyticsService(db)
     return await service.get_mastery_trends(current_user.id, school_id, period)
+
+
+@router.get(
+    "/analytics/self-assessment-summary",
+    response_model=SelfAssessmentSummaryResponse,
+    summary="Get self-assessment summary",
+    description="Get aggregated self-assessment breakdown by paragraph for teacher's students."
+)
+async def get_self_assessment_summary(
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> SelfAssessmentSummaryResponse:
+    service = TeacherAnalyticsService(db)
+    return await service.get_self_assessment_summary(current_user.id, school_id)
+
+
+@router.get(
+    "/analytics/metacognitive-alerts",
+    response_model=MetacognitiveAlertsResponse,
+    summary="Get metacognitive alerts",
+    description="Get students with overconfidence/underconfidence patterns."
+)
+async def get_metacognitive_alerts(
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> MetacognitiveAlertsResponse:
+    service = TeacherAnalyticsService(db)
+    return await service.get_metacognitive_alerts(current_user.id, school_id)
+
+
+@router.get(
+    "/students/{student_id}/self-assessments",
+    response_model=StudentSelfAssessmentHistory,
+    summary="Get student self-assessments",
+    description="Get self-assessment history for a student."
+)
+async def get_student_self_assessments(
+    student_id: int,
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> StudentSelfAssessmentHistory:
+    service = TeacherAnalyticsService(db)
+    result = await service.get_student_self_assessments(
+        current_user.id, school_id, student_id
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student not found"
+        )
+    return result
 
 
 # ============================================================================

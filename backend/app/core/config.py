@@ -103,6 +103,10 @@ class Settings(BaseSettings):
     # Additional Client IDs (comma-separated) - Firebase, additional platforms, etc.
     GOOGLE_CLIENT_IDS_EXTRA: Optional[str] = None
 
+    # Apple Sign In
+    APPLE_CLIENT_ID: Optional[str] = None  # iOS Bundle ID (e.g., "com.aimentor.app")
+    APPLE_CLIENT_ID_WEB: Optional[str] = None  # Web Service ID (optional)
+
     # CORS
     # Поддерживает как list[str] так и CSV строку "domain1,domain2,domain3"
     BACKEND_CORS_ORIGINS: list[str] | str = [

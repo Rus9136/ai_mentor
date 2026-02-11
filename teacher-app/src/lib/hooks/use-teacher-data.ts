@@ -8,6 +8,9 @@ import {
   getMasteryHistory,
   getStrugglingTopics,
   getMasteryTrends,
+  getSelfAssessmentSummary,
+  getMetacognitiveAlerts,
+  getStudentSelfAssessments,
 } from '@/lib/api/teachers';
 
 // Dashboard
@@ -71,5 +74,28 @@ export function useMasteryTrends(period: 'weekly' | 'monthly' = 'weekly') {
   return useQuery({
     queryKey: ['teacher', 'analytics', 'mastery-trends', period],
     queryFn: () => getMasteryTrends(period),
+  });
+}
+
+// Self-Assessment Analytics
+export function useSelfAssessmentSummary() {
+  return useQuery({
+    queryKey: ['teacher', 'analytics', 'self-assessment-summary'],
+    queryFn: getSelfAssessmentSummary,
+  });
+}
+
+export function useMetacognitiveAlerts() {
+  return useQuery({
+    queryKey: ['teacher', 'analytics', 'metacognitive-alerts'],
+    queryFn: getMetacognitiveAlerts,
+  });
+}
+
+export function useStudentSelfAssessments(studentId: number) {
+  return useQuery({
+    queryKey: ['teacher', 'students', studentId, 'self-assessments'],
+    queryFn: () => getStudentSelfAssessments(studentId),
+    enabled: !!studentId,
   });
 }

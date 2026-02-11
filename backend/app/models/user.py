@@ -23,6 +23,7 @@ class AuthProvider(str, enum.Enum):
 
     LOCAL = "local"
     GOOGLE = "google"
+    APPLE = "apple"
 
 
 class User(SoftDeleteModel):
@@ -47,6 +48,7 @@ class User(SoftDeleteModel):
         server_default="local"
     )
     google_id = Column(String(255), nullable=True, unique=True, index=True)
+    apple_id = Column(String(255), nullable=True, unique=True, index=True)
     avatar_url = Column(String(500), nullable=True)
 
     # Profile

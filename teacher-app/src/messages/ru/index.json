@@ -157,7 +157,37 @@
     "improving": "Улучшается",
     "stable": "Стабильно",
     "declining": "Ухудшается",
-    "studentsStruggling": "учеников испытывают трудности"
+    "studentsStruggling": "учеников испытывают трудности",
+    "feedback": "Обратная связь",
+    "feedbackDescription": "Самооценка учеников после изучения параграфов",
+    "understood": "Всё понял",
+    "hasQuestions": "Есть вопросы",
+    "difficult": "Нужна помощь",
+    "totalAssessments": "Всего оценок",
+    "noAssessments": "Ученики ещё не оставили самооценку",
+    "noAssessmentsHint": "Данные появятся после того, как ученики пройдут параграфы",
+    "overconfident": "Переоценивают себя",
+    "overconfidentDesc": "Ученик ставит «Всё понял», но результат практики ниже 60%",
+    "underconfident": "Недооценивают себя",
+    "underconfidentDesc": "Ученик ставит «Нужна помощь», но результат практики выше 80%",
+    "practiceScore": "Практика",
+    "noAlerts": "Нет расхождений",
+    "noAlertsHint": "Все ученики адекватно оценивают свои знания"
+  },
+  "selfAssessment": {
+    "title": "Самооценка",
+    "metacognitiveProfile": "Метакогнитивный профиль",
+    "adequate": "Адекватная",
+    "overconfident": "Переоценка",
+    "underconfident": "Недооценка",
+    "history": "История самооценок",
+    "noData": "Нет данных по самооценке",
+    "noDataHint": "Данные появятся после прохождения параграфов",
+    "assessmentsCount": "оценок",
+    "ratingUnderstood": "Понял",
+    "ratingQuestions": "Вопросы",
+    "ratingDifficult": "Трудно",
+    "impact": "Влияние"
   },
   "mastery": {
     "levelA": "A",
@@ -180,6 +210,24 @@
     },
     "noHomework": "Домашних заданий пока нет",
     "createFirst": "Создайте первое домашнее задание",
+    "noSearchResults": "Ничего не найдено",
+    "tryDifferentSearch": "Попробуйте изменить параметры поиска",
+    "filters": {
+      "searchPlaceholder": "Поиск по названию...",
+      "allClasses": "Все классы",
+      "sortByDueDate": "По дедлайну",
+      "sortByCreated": "По дате создания",
+      "sortByTitle": "По названию",
+      "ascending": "По возрастанию",
+      "descending": "По убыванию"
+    },
+    "table": {
+      "title": "Название",
+      "class": "Класс",
+      "status": "Статус",
+      "dueDate": "Дедлайн",
+      "progress": "Прогресс"
+    },
     "status": {
       "draft": "Черновик",
       "published": "Опубликовано",

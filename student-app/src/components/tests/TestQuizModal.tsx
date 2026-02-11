@@ -42,6 +42,7 @@ export function TestQuizModal({
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Map<number, number[]>>(new Map());
   const [showChat, setShowChat] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
 
   // Mutations
   const startTestMutation = useStartTest();
@@ -49,21 +50,25 @@ export function TestQuizModal({
 
   // Start test when modal opens
   useEffect(() => {
-    if (isOpen && !attempt) {
+    if (isOpen && !attempt && !isStarting) {
+      setIsStarting(true);
       startTestMutation.mutate(test.id, {
         onSuccess: (data) => {
           setAttempt(data);
           setQuizState('in_progress');
           setCurrentQuestionIndex(0);
           setAnswers(new Map());
+          setIsStarting(false);
         },
         onError: (error) => {
           console.error('Failed to start test:', error);
+          setIsStarting(false);
           onClose();
         },
       });
     }
-  }, [isOpen, test.id, attempt, startTestMutation, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, test.id]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -73,6 +78,7 @@ export function TestQuizModal({
       setCurrentQuestionIndex(0);
       setAnswers(new Map());
       setShowChat(false);
+      setIsStarting(false);
     }
   }, [isOpen]);
 

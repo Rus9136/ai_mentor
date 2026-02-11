@@ -1,25 +1,78 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
 import { Plus, Loader2, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { HomeworkCard } from '@/components/homework';
+import { HomeworkTable, HomeworkFilters, type SortField, type SortOrder } from '@/components/homework';
 import { useHomeworkList } from '@/lib/hooks/use-homework';
-import { HomeworkStatus } from '@/types/homework';
+import { useClasses } from '@/lib/hooks/use-teacher-data';
+import { HomeworkStatus, type HomeworkListResponse } from '@/types/homework';
 
 export default function HomeworkListPage() {
   const t = useTranslations('homework');
   const locale = useLocale();
 
+  // Filters state
   const [statusFilter, setStatusFilter] = useState<HomeworkStatus | 'all'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
+  const [sortField, setSortField] = useState<SortField>('due_date');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
+  // Data fetching
+  const { data: classes = [], isLoading: classesLoading } = useClasses();
   const { data: homework, isLoading, error } = useHomeworkList(
-    statusFilter === 'all' ? undefined : { status: statusFilter }
+    statusFilter === 'all'
+      ? selectedClassId ? { class_id: selectedClassId } : undefined
+      : selectedClassId
+        ? { status: statusFilter, class_id: selectedClassId }
+        : { status: statusFilter }
   );
+
+  // Client-side filtering and sorting
+  const filteredAndSortedHomework = useMemo(() => {
+    if (!homework) return [];
+
+    let result = [...homework];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter((hw) =>
+        hw.title.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case 'due_date':
+          comparison = new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+          break;
+        case 'created_at':
+          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          break;
+        case 'title':
+          comparison = a.title.localeCompare(b.title, locale);
+          break;
+      }
+
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return result;
+  }, [homework, searchQuery, sortField, sortOrder, locale]);
+
+  const handleSortChange = (field: SortField, order: SortOrder) => {
+    setSortField(field);
+    setSortOrder(order);
+  };
 
   if (isLoading) {
     return (
@@ -63,24 +116,38 @@ export default function HomeworkListPage() {
         </TabsList>
       </Tabs>
 
-      {/* Homework Grid */}
-      {homework && homework.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {homework.map((hw) => (
-            <HomeworkCard key={hw.id} homework={hw} />
-          ))}
-        </div>
+      {/* Filters */}
+      <HomeworkFilters
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        selectedClassId={selectedClassId}
+        onClassChange={setSelectedClassId}
+        classes={classes}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSortChange={handleSortChange}
+      />
+
+      {/* Homework Table */}
+      {filteredAndSortedHomework.length > 0 ? (
+        <HomeworkTable homework={filteredAndSortedHomework} />
       ) : (
         <div className="flex flex-col items-center justify-center h-64 text-center">
           <ClipboardList className="h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium mb-1">{t('noHomework')}</h3>
-          <p className="text-muted-foreground mb-4">{t('createFirst')}</p>
-          <Link href={`/${locale}/homework/create`}>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              {t('create')}
-            </Button>
-          </Link>
+          <h3 className="text-lg font-medium mb-1">
+            {searchQuery ? t('noSearchResults') : t('noHomework')}
+          </h3>
+          <p className="text-muted-foreground mb-4">
+            {searchQuery ? t('tryDifferentSearch') : t('createFirst')}
+          </p>
+          {!searchQuery && (
+            <Link href={`/${locale}/homework/create`}>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                {t('create')}
+              </Button>
+            </Link>
+          )}
         </div>
       )}
     </div>

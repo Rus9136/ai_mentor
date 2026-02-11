@@ -8,7 +8,8 @@ services:
       POSTGRES_PASSWORD: ai_mentor_pass
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C.UTF-8"
     ports:
-      - "5432:5432"
+      - "5435:5432"
+    restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
@@ -30,7 +31,7 @@ services:
       - ENVIRONMENT=development
       - DEBUG=True
     ports:
-      - "8000:8000"
+      - "8020:8000"
     volumes:
       - ./backend:/app/backend
       - ./docs:/app/docs

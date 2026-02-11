@@ -157,7 +157,37 @@
     "improving": "Жақсаруда",
     "stable": "Тұрақты",
     "declining": "Нашарлауда",
-    "studentsStruggling": "оқушы қиындық көруде"
+    "studentsStruggling": "оқушы қиындық көруде",
+    "feedback": "Кері байланыс",
+    "feedbackDescription": "Оқушылардың параграфты оқығаннан кейінгі өзін-өзі бағалауы",
+    "understood": "Бәрін түсіндім",
+    "hasQuestions": "Сұрақтарым бар",
+    "difficult": "Көмек керек",
+    "totalAssessments": "Барлық бағалар",
+    "noAssessments": "Оқушылар әлі өзін-өзі бағаламады",
+    "noAssessmentsHint": "Деректер оқушылар параграфтарды өткеннен кейін пайда болады",
+    "overconfident": "Өзін жоғары бағалайды",
+    "overconfidentDesc": "Оқушы «Бәрін түсіндім» дейді, бірақ тәжірибе нәтижесі 60%-дан төмен",
+    "underconfident": "Өзін төмен бағалайды",
+    "underconfidentDesc": "Оқушы «Көмек керек» дейді, бірақ тәжірибе нәтижесі 80%-дан жоғары",
+    "practiceScore": "Тәжірибе",
+    "noAlerts": "Сәйкессіздік жоқ",
+    "noAlertsHint": "Барлық оқушылар білімін дұрыс бағалайды"
+  },
+  "selfAssessment": {
+    "title": "Өзін-өзі бағалау",
+    "metacognitiveProfile": "Метакогнитивті профиль",
+    "adequate": "Адекватты",
+    "overconfident": "Жоғары бағалау",
+    "underconfident": "Төмен бағалау",
+    "history": "Бағалау тарихы",
+    "noData": "Өзін-өзі бағалау деректері жоқ",
+    "noDataHint": "Деректер параграфтарды өткеннен кейін пайда болады",
+    "assessmentsCount": "бағалар",
+    "ratingUnderstood": "Түсіндім",
+    "ratingQuestions": "Сұрақтар",
+    "ratingDifficult": "Қиын",
+    "impact": "Әсері"
   },
   "mastery": {
     "levelA": "A",
@@ -180,6 +210,24 @@
     },
     "noHomework": "Үй тапсырмалары әлі жоқ",
     "createFirst": "Бірінші үй тапсырмасын құрыңыз",
+    "noSearchResults": "Ештеңе табылмады",
+    "tryDifferentSearch": "Іздеу параметрлерін өзгертіп көріңіз",
+    "filters": {
+      "searchPlaceholder": "Атауы бойынша іздеу...",
+      "allClasses": "Барлық сыныптар",
+      "sortByDueDate": "Мерзімі бойынша",
+      "sortByCreated": "Құрылған күні бойынша",
+      "sortByTitle": "Атауы бойынша",
+      "ascending": "Өсу бойынша",
+      "descending": "Кему бойынша"
+    },
+    "table": {
+      "title": "Атауы",
+      "class": "Сынып",
+      "status": "Күйі",
+      "dueDate": "Мерзімі",
+      "progress": "Прогресс"
+    },
     "status": {
       "draft": "Жоба",
       "published": "Жарияланған",

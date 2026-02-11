@@ -104,14 +104,19 @@ async def get_mastery_overview(
         school_id=school_id
     )
 
+    # Batch fetch all chapters in one query (fixes N+1)
+    chapter_ids = [m.chapter_id for m in mastery_records]
+    chapters_map = {}
+    if chapter_ids:
+        chapters_result = await db.execute(
+            select(Chapter).where(Chapter.id.in_(chapter_ids))
+        )
+        chapters_map = {c.id: c for c in chapters_result.scalars().all()}
+
     # Build chapters data with chapter info
     chapters_data = []
     for mastery in mastery_records:
-        # Get chapter info
-        chapter_result = await db.execute(
-            select(Chapter).where(Chapter.id == mastery.chapter_id)
-        )
-        chapter = chapter_result.scalar_one_or_none()
+        chapter = chapters_map.get(mastery.chapter_id)
 
         chapters_data.append(
             ChapterMasteryDetailResponse(

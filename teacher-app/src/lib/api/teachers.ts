@@ -165,6 +165,67 @@ export interface MasteryTrendsResponse {
   class_trends: ClassTrend[];
 }
 
+// Self-Assessment Analytics
+export interface SelfAssessmentParagraphSummary {
+  paragraph_id: number;
+  paragraph_title: string;
+  chapter_id: number;
+  chapter_title: string;
+  total_assessments: number;
+  understood_count: number;
+  questions_count: number;
+  difficult_count: number;
+  understood_pct: number;
+  questions_pct: number;
+  difficult_pct: number;
+}
+
+export interface SelfAssessmentSummaryResponse {
+  total_assessments: number;
+  total_students: number;
+  paragraphs: SelfAssessmentParagraphSummary[];
+}
+
+export interface MetacognitiveAlertStudent {
+  student_id: number;
+  student_code: string;
+  first_name: string;
+  last_name: string;
+  paragraph_id: number;
+  paragraph_title: string;
+  rating: string;
+  practice_score: number;
+  mastery_impact: number;
+  created_at: string;
+}
+
+export interface MetacognitiveAlertsResponse {
+  overconfident: MetacognitiveAlertStudent[];
+  underconfident: MetacognitiveAlertStudent[];
+}
+
+export interface StudentSelfAssessmentItem {
+  id: number;
+  paragraph_id: number;
+  paragraph_title: string;
+  chapter_title: string;
+  rating: string;
+  practice_score: number | null;
+  mastery_impact: number;
+  mismatch_type: string | null;
+  created_at: string;
+}
+
+export interface StudentSelfAssessmentHistory {
+  student_id: number;
+  student_name: string;
+  total_assessments: number;
+  adequate_count: number;
+  overconfident_count: number;
+  underconfident_count: number;
+  assessments: StudentSelfAssessmentItem[];
+}
+
 // ============================================================================
 // API Functions
 // ============================================================================
@@ -222,6 +283,30 @@ export async function getMasteryTrends(
 ): Promise<MasteryTrendsResponse> {
   const response = await apiClient.get<MasteryTrendsResponse>(
     `/teachers/analytics/mastery-trends?period=${period}`
+  );
+  return response.data;
+}
+
+// Self-Assessment Analytics
+export async function getSelfAssessmentSummary(): Promise<SelfAssessmentSummaryResponse> {
+  const response = await apiClient.get<SelfAssessmentSummaryResponse>(
+    '/teachers/analytics/self-assessment-summary'
+  );
+  return response.data;
+}
+
+export async function getMetacognitiveAlerts(): Promise<MetacognitiveAlertsResponse> {
+  const response = await apiClient.get<MetacognitiveAlertsResponse>(
+    '/teachers/analytics/metacognitive-alerts'
+  );
+  return response.data;
+}
+
+export async function getStudentSelfAssessments(
+  studentId: number
+): Promise<StudentSelfAssessmentHistory> {
+  const response = await apiClient.get<StudentSelfAssessmentHistory>(
+    `/teachers/students/${studentId}/self-assessments`
   );
   return response.data;
 }

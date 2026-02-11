@@ -85,6 +85,41 @@ class UserRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_apple_id(self, apple_id: str) -> Optional[User]:
+        """
+        Get user by Apple ID (for OAuth users).
+
+        Args:
+            apple_id: Apple account ID (sub claim)
+
+        Returns:
+            User object or None if not found
+        """
+        result = await self.db.execute(
+            select(User).where(
+                User.apple_id == apple_id,
+                User.is_deleted == False  # noqa: E712
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_by_apple_id_include_deleted(self, apple_id: str) -> Optional[User]:
+        """
+        Get user by Apple ID including soft-deleted users.
+
+        Used for account restoration when a deleted user tries to log in again.
+
+        Args:
+            apple_id: Apple account ID
+
+        Returns:
+            User object or None if not found
+        """
+        result = await self.db.execute(
+            select(User).where(User.apple_id == apple_id)
+        )
+        return result.scalar_one_or_none()
+
     async def get_by_email_include_deleted(self, email: str) -> Optional[User]:
         """
         Get user by email including soft-deleted users.
@@ -219,7 +254,7 @@ class UserRepository:
         """
         Soft delete a user.
 
-        Clears google_id to allow re-registration with the same Google account.
+        Clears OAuth IDs to allow re-registration with the same OAuth accounts.
 
         Args:
             user: User instance
@@ -231,6 +266,7 @@ class UserRepository:
         user.is_deleted = True
         user.deleted_at = datetime.utcnow()
         user.google_id = None  # Allow re-registration with same Google account
+        user.apple_id = None  # Allow re-registration with same Apple account
         await self.db.commit()
         await self.db.refresh(user)
         return user
@@ -245,12 +281,21 @@ class UserRepository:
         Returns:
             Restored user
         """
-        user.is_deleted = False
-        user.deleted_at = None
-        user.is_active = True
+        from sqlalchemy import update
+
+        # Use direct UPDATE to avoid StaleDataError with detached objects
+        await self.db.execute(
+            update(User)
+            .where(User.id == user.id)
+            .values(is_deleted=False, deleted_at=None, is_active=True)
+        )
         await self.db.commit()
-        await self.db.refresh(user)
-        return user
+
+        # Re-fetch the user to get fresh state
+        result = await self.db.execute(
+            select(User).where(User.id == user.id)
+        )
+        return result.scalar_one()
 
     async def deactivate(self, user: User) -> User:
         """

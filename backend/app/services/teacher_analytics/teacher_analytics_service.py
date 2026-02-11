@@ -14,12 +14,19 @@ from app.schemas.teacher_dashboard import (
     MasteryDistribution,
     MasteryHistoryResponse,
     MasteryTrendsResponse,
+    MetacognitiveAlertStudent,
+    MetacognitiveAlertsResponse,
+    SelfAssessmentParagraphSummary,
+    SelfAssessmentSummaryResponse,
+    StudentSelfAssessmentHistory,
+    StudentSelfAssessmentItem,
     StrugglingTopicResponse,
     StudentProgressDetailResponse,
     TeacherClassDetailResponse,
     TeacherClassResponse,
     TeacherDashboardResponse,
 )
+from app.repositories.self_assessment_repo import SelfAssessmentRepository
 from app.services.teacher_analytics.class_analytics_service import ClassAnalyticsService
 from app.services.teacher_analytics.mastery_analytics_service import (
     MasteryAnalyticsService,
@@ -55,6 +62,7 @@ class TeacherAnalyticsService:
         self._mastery = MasteryAnalyticsService(db)
         self._classes = ClassAnalyticsService(db, self._access, self._mastery)
         self._progress = StudentProgressService(db, self._access)
+        self._sa_repo = SelfAssessmentRepository(db)
 
     # ========================================================================
     # DASHBOARD
@@ -341,3 +349,202 @@ class TeacherAnalyticsService:
         ]
 
         return await self._mastery.get_mastery_trends(classes_data, period)
+
+    # ========================================================================
+    # SELF-ASSESSMENT ANALYTICS
+    # ========================================================================
+
+    async def _get_teacher_student_ids(
+        self, user_id: int, school_id: int
+    ) -> Optional[list]:
+        """Helper: get student IDs for teacher's classes. Returns None if teacher not found."""
+        teacher = await self._access.get_teacher_by_user_id(user_id, school_id)
+        if not teacher:
+            return None
+        class_ids = await self._access.get_teacher_class_ids(teacher.id)
+        if not class_ids:
+            return []
+        return await self._access.get_student_ids_for_classes(class_ids)
+
+    async def get_self_assessment_summary(
+        self,
+        user_id: int,
+        school_id: int,
+    ) -> SelfAssessmentSummaryResponse:
+        """Get aggregated self-assessment breakdown by paragraph."""
+        student_ids = await self._get_teacher_student_ids(user_id, school_id)
+        if not student_ids:
+            return SelfAssessmentSummaryResponse()
+
+        rows = await self._sa_repo.get_summary_by_paragraph(student_ids)
+
+        paragraphs = []
+        total_assessments = 0
+        for r in rows:
+            total = r["total"]
+            total_assessments += total
+            paragraphs.append(SelfAssessmentParagraphSummary(
+                paragraph_id=r["paragraph_id"],
+                paragraph_title=r["paragraph_title"],
+                chapter_id=r["chapter_id"],
+                chapter_title=r["chapter_title"],
+                total_assessments=total,
+                understood_count=r["understood"],
+                questions_count=r["questions"],
+                difficult_count=r["difficult"],
+                understood_pct=round(r["understood"] / total * 100, 1) if total else 0,
+                questions_pct=round(r["questions"] / total * 100, 1) if total else 0,
+                difficult_pct=round(r["difficult"] / total * 100, 1) if total else 0,
+            ))
+
+        return SelfAssessmentSummaryResponse(
+            total_assessments=total_assessments,
+            total_students=len(student_ids),
+            paragraphs=paragraphs,
+        )
+
+    async def get_metacognitive_alerts(
+        self,
+        user_id: int,
+        school_id: int,
+    ) -> MetacognitiveAlertsResponse:
+        """Get students with overconfidence/underconfidence patterns."""
+        student_ids = await self._get_teacher_student_ids(user_id, school_id)
+        if not student_ids:
+            return MetacognitiveAlertsResponse()
+
+        overconfident_records, underconfident_records = (
+            await self._sa_repo.get_metacognitive_alerts(student_ids)
+        )
+
+        from app.models.student import Student
+        from app.models.user import User
+        from app.models.paragraph import Paragraph
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+
+        async def build_alerts(records):
+            alerts = []
+            for rec in records:
+                # Fetch student + user info
+                res = await self.db.execute(
+                    select(Student)
+                    .options(selectinload(Student.user))
+                    .where(Student.id == rec.student_id)
+                )
+                student = res.scalar_one_or_none()
+                if not student or not student.user:
+                    continue
+
+                # Fetch paragraph title
+                p_res = await self.db.execute(
+                    select(Paragraph.title).where(Paragraph.id == rec.paragraph_id)
+                )
+                p_title = p_res.scalar_one_or_none() or "—"
+
+                alerts.append(MetacognitiveAlertStudent(
+                    student_id=student.id,
+                    student_code=student.student_code,
+                    first_name=student.user.first_name,
+                    last_name=student.user.last_name,
+                    paragraph_id=rec.paragraph_id,
+                    paragraph_title=p_title,
+                    rating=rec.rating,
+                    practice_score=rec.practice_score,
+                    mastery_impact=rec.mastery_impact,
+                    created_at=rec.created_at,
+                ))
+            return alerts
+
+        return MetacognitiveAlertsResponse(
+            overconfident=await build_alerts(overconfident_records),
+            underconfident=await build_alerts(underconfident_records),
+        )
+
+    async def get_student_self_assessments(
+        self,
+        user_id: int,
+        school_id: int,
+        student_id: int,
+    ) -> Optional[StudentSelfAssessmentHistory]:
+        """Get self-assessment history for a student (teacher view)."""
+        from app.models.student import Student
+        from app.models.paragraph import Paragraph
+        from app.models.chapter import Chapter
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+
+        teacher = await self._access.get_teacher_by_user_id(user_id, school_id)
+        if not teacher:
+            return None
+
+        # Fetch student
+        res = await self.db.execute(
+            select(Student)
+            .options(selectinload(Student.user))
+            .where(Student.id == student_id)
+        )
+        student = res.scalar_one_or_none()
+        if not student or not student.user:
+            return None
+
+        student_name = f"{student.user.last_name} {student.user.first_name}"
+
+        records = await self._sa_repo.get_student_assessments(student_id)
+
+        # Build paragraph/chapter title cache
+        p_ids = list({r.paragraph_id for r in records})
+        p_info = {}
+        if p_ids:
+            p_res = await self.db.execute(
+                select(Paragraph.id, Paragraph.title, Chapter.title.label("chapter_title"))
+                .join(Chapter, Chapter.id == Paragraph.chapter_id)
+                .where(Paragraph.id.in_(p_ids))
+            )
+            for row in p_res.all():
+                p_info[row.id] = (row.title, row.chapter_title)
+
+        def classify_mismatch(rating: str, practice_score) -> Optional[str]:
+            if practice_score is None:
+                return None
+            if rating == "understood" and practice_score < 60:
+                return "overconfident"
+            if rating == "difficult" and practice_score > 80:
+                return "underconfident"
+            return None
+
+        items = []
+        adequate = overconfident = underconfident = 0
+
+        for rec in records:
+            titles = p_info.get(rec.paragraph_id, ("—", "—"))
+            mismatch = classify_mismatch(rec.rating, rec.practice_score)
+
+            if mismatch == "overconfident":
+                overconfident += 1
+            elif mismatch == "underconfident":
+                underconfident += 1
+            else:
+                adequate += 1
+
+            items.append(StudentSelfAssessmentItem(
+                id=rec.id,
+                paragraph_id=rec.paragraph_id,
+                paragraph_title=titles[0],
+                chapter_title=titles[1],
+                rating=rec.rating,
+                practice_score=rec.practice_score,
+                mastery_impact=rec.mastery_impact,
+                mismatch_type=mismatch,
+                created_at=rec.created_at,
+            ))
+
+        return StudentSelfAssessmentHistory(
+            student_id=student_id,
+            student_name=student_name,
+            total_assessments=len(records),
+            adequate_count=adequate,
+            overconfident_count=overconfident,
+            underconfident_count=underconfident,
+            assessments=items,
+        )

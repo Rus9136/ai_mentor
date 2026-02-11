@@ -1,5 +1,7 @@
 export { HomeworkStatusBadge } from './HomeworkStatusBadge';
 export { HomeworkCard } from './HomeworkCard';
+export { HomeworkTable } from './HomeworkTable';
+export { HomeworkFilters, type SortField, type SortOrder } from './HomeworkFilters';
 export { TaskTypeSelector } from './TaskTypeSelector';
 export { ContentSelector, type ContentSelection } from './ContentSelector';
 export { AIGenerationPanel } from './AIGenerationPanel';
