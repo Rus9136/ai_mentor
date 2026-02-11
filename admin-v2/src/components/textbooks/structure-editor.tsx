@@ -481,6 +481,7 @@ function ChapterItem({
         onSubmit={handleParagraphSubmit}
         isLoading={createParagraph.isPending || updateParagraph.isPending}
         isFetchingParagraph={paragraphLoading}
+        isSchool={isSchool}
       />
 
       {/* Delete Paragraph Dialog */}

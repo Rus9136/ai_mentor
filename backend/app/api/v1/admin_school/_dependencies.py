@@ -204,3 +204,33 @@ require_school_option = create_hierarchical_dependency(
     write_mode=True,
     return_chain=True
 )
+
+
+# =============================================================================
+# Embedded Question Dependencies
+# =============================================================================
+
+# EmbeddedQuestion -> Paragraph -> Chapter -> Textbook (Read)
+get_embedded_question_for_school_admin = create_hierarchical_dependency(
+    entity_name="EmbeddedQuestion",
+    entity_repo_path="app.repositories.embedded_question_repo.EmbeddedQuestionRepository",
+    parent_chain=[
+        ("paragraph", "app.repositories.paragraph_repo.ParagraphRepository", "paragraph_id"),
+        ("chapter", "app.repositories.chapter_repo.ChapterRepository", "chapter_id"),
+        ("textbook", "app.repositories.textbook_repo.TextbookRepository", "textbook_id")
+    ],
+    write_mode=False
+)
+
+# EmbeddedQuestion -> Paragraph -> Chapter -> Textbook (Write) - Returns tuple
+require_school_embedded_question = create_hierarchical_dependency(
+    entity_name="EmbeddedQuestion",
+    entity_repo_path="app.repositories.embedded_question_repo.EmbeddedQuestionRepository",
+    parent_chain=[
+        ("paragraph", "app.repositories.paragraph_repo.ParagraphRepository", "paragraph_id"),
+        ("chapter", "app.repositories.chapter_repo.ChapterRepository", "chapter_id"),
+        ("textbook", "app.repositories.textbook_repo.TextbookRepository", "textbook_id")
+    ],
+    write_mode=True,
+    return_chain=True
+)

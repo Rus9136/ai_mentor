@@ -32,6 +32,7 @@ import {
   type ParagraphUpdateInput,
 } from '@/lib/validations/textbook';
 import type { Paragraph } from '@/types';
+import { EmbeddedQuestionsSection } from './embedded-questions-section';
 
 interface ParagraphDialogProps {
   open: boolean;
@@ -42,6 +43,7 @@ interface ParagraphDialogProps {
   onSubmit: (data: ParagraphCreateInput | ParagraphUpdateInput) => void;
   isLoading?: boolean;
   isFetchingParagraph?: boolean;
+  isSchool?: boolean;
 }
 
 export function ParagraphDialog({
@@ -53,6 +55,7 @@ export function ParagraphDialog({
   onSubmit,
   isLoading,
   isFetchingParagraph,
+  isSchool = false,
 }: ParagraphDialogProps) {
   const isEditing = !!paragraph;
 
@@ -338,6 +341,14 @@ export function ParagraphDialog({
                 )}
               </CardContent>
             </Card>
+
+            {/* Embedded Questions Section (only when editing existing paragraph) */}
+            {isEditing && paragraph && (
+              <EmbeddedQuestionsSection
+                paragraphId={paragraph.id}
+                isSchool={isSchool}
+              />
+            )}
 
             <DialogFooter>
               <Button

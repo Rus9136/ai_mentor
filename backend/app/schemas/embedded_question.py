@@ -36,6 +36,17 @@ class EmbeddedQuestionCreate(EmbeddedQuestionBase):
     paragraph_id: int
 
 
+class EmbeddedQuestionUpdate(BaseModel):
+    """Schema for updating an embedded question (all fields optional)."""
+    question_text: Optional[str] = None
+    question_type: Optional[Literal["single_choice", "multiple_choice", "true_false"]] = None
+    options: Optional[List[QuestionOption]] = None
+    correct_answer: Optional[str] = None
+    explanation: Optional[str] = None
+    hint: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
 class EmbeddedQuestionResponse(EmbeddedQuestionBase):
     """Schema for embedded question response."""
     model_config = ConfigDict(from_attributes=True)
@@ -124,10 +135,15 @@ class SelfAssessmentRequest(BaseModel):
 
 class SelfAssessmentResponse(BaseModel):
     """Response after submitting self-assessment."""
+    id: int
     paragraph_id: int
     rating: str
-    recorded_at: datetime
-    message: str = "Оценка сохранена"
+    mastery_impact: float = Field(..., description="Impact on mastery: +5.0, 0.0, or -5.0")
+    next_recommendation: str = Field(
+        ...,
+        description="Recommendation: review, chat_tutor, or next_paragraph"
+    )
+    created_at: datetime
 
 
 # =============================================================================

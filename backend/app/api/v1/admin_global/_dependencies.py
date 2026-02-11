@@ -16,6 +16,7 @@ from app.models.textbook import Textbook
 from app.models.chapter import Chapter
 from app.models.paragraph import Paragraph
 from app.models.test import Test, Question, QuestionOption
+from app.models.embedded_question import EmbeddedQuestion
 
 
 # =============================================================================
@@ -253,3 +254,67 @@ async def require_global_option(
         )
 
     return option, question, test
+
+
+# =============================================================================
+# Embedded Question Access Dependencies
+# =============================================================================
+
+async def require_global_embedded_question(
+    embedded_question_id: int,
+    db: AsyncSession = Depends(get_db)
+) -> Tuple[EmbeddedQuestion, Paragraph, Chapter, Textbook]:
+    """
+    Get embedded question in a global textbook.
+    Traverses: EmbeddedQuestion → Paragraph → Chapter → Textbook.
+    Returns tuple (embedded_question, paragraph, chapter, textbook).
+    Raises 404 if not found, 403 if parent textbook is not global.
+    """
+    from app.repositories.embedded_question_repo import EmbeddedQuestionRepository
+    from app.repositories.paragraph_repo import ParagraphRepository
+    from app.repositories.chapter_repo import ChapterRepository
+    from app.repositories.textbook_repo import TextbookRepository
+
+    eq_repo = EmbeddedQuestionRepository(db)
+    question = await eq_repo.get_by_id(embedded_question_id)
+
+    if not question:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Embedded question {embedded_question_id} not found"
+        )
+
+    paragraph_repo = ParagraphRepository(db)
+    paragraph = await paragraph_repo.get_by_id(question.paragraph_id)
+
+    if not paragraph:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Paragraph {question.paragraph_id} not found"
+        )
+
+    chapter_repo = ChapterRepository(db)
+    chapter = await chapter_repo.get_by_id(paragraph.chapter_id)
+
+    if not chapter:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Chapter {paragraph.chapter_id} not found"
+        )
+
+    textbook_repo = TextbookRepository(db)
+    textbook = await textbook_repo.get_by_id(chapter.textbook_id)
+
+    if not textbook:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Textbook {chapter.textbook_id} not found"
+        )
+
+    if textbook.school_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This embedded question belongs to a non-global textbook. Use school admin endpoints."
+        )
+
+    return question, paragraph, chapter, textbook

@@ -246,6 +246,50 @@ export interface QuestionCreate {
 
 export interface QuestionUpdate extends Partial<QuestionCreate> {}
 
+// Embedded Question types (inline "Проверь себя" questions within paragraphs)
+export type EmbeddedQuestionType = 'single_choice' | 'multiple_choice' | 'true_false';
+
+export interface EmbeddedQuestionOption {
+  id: string;
+  text: string;
+  is_correct: boolean;
+}
+
+export interface EmbeddedQuestion {
+  id: number;
+  paragraph_id: number;
+  question_text: string;
+  question_type: EmbeddedQuestionType;
+  options?: EmbeddedQuestionOption[];
+  correct_answer?: string;
+  explanation?: string;
+  hint?: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface EmbeddedQuestionCreate {
+  paragraph_id: number;
+  question_text: string;
+  question_type: EmbeddedQuestionType;
+  options?: EmbeddedQuestionOption[];
+  correct_answer?: string;
+  explanation?: string;
+  hint?: string;
+  sort_order?: number;
+}
+
+export interface EmbeddedQuestionUpdate {
+  question_text?: string;
+  question_type?: EmbeddedQuestionType;
+  options?: EmbeddedQuestionOption[];
+  correct_answer?: string;
+  explanation?: string;
+  hint?: string;
+  sort_order?: number;
+}
+
 // Student types
 export interface Student {
   id: number;

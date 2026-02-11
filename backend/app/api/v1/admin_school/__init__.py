@@ -39,6 +39,7 @@ from .classes import router as classes_router
 from .class_members import router as class_members_router
 from .settings import router as settings_router
 from .paragraph_outcomes import router as paragraph_outcomes_router
+from .embedded_questions import router as embedded_questions_router
 
 
 router = APIRouter()
@@ -52,6 +53,9 @@ router.include_router(paragraphs_router)
 router.include_router(tests_router)
 router.include_router(questions_router)
 router.include_router(question_options_router)
+
+# Embedded Questions
+router.include_router(embedded_questions_router)
 
 # User Management
 router.include_router(users_router)
