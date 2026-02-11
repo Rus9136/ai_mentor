@@ -1,9 +1,9 @@
 'use client';
 
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect } from 'react';
-import { Loader2, Plus, Trash2, HelpCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -24,7 +24,6 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   paragraphCreateSchema,
   paragraphCreateDefaults,
@@ -75,11 +74,6 @@ export function ParagraphDialog({
           questions: paragraph.questions || [],
         }
       : paragraphCreateDefaults(chapterId, nextNumber),
-  });
-
-  const { fields: questionFields, append: appendQuestion, remove: removeQuestion } = useFieldArray({
-    control: form.control,
-    name: 'questions',
   });
 
   // Reset form when dialog opens/closes or paragraph changes
@@ -262,85 +256,6 @@ export function ParagraphDialog({
                 )}
               />
             </div>
-
-            {/* Questions Section */}
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <HelpCircle className="h-4 w-4" />
-                    Вопросы к параграфу
-                  </CardTitle>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => appendQuestion({ order: questionFields.length + 1, text: '' })}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Добавить
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {questionFields.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Нет вопросов. Нажмите &quot;Добавить&quot; для создания вопроса.
-                  </p>
-                ) : (
-                  questionFields.map((field, index) => (
-                    <div key={field.id} className="flex gap-2 items-start">
-                      <div className="flex-shrink-0 w-12">
-                        <FormField
-                          control={form.control}
-                          name={`questions.${index}.order`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  className="text-center"
-                                  {...field}
-                                  onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <FormField
-                          control={form.control}
-                          name={`questions.${index}.text`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormControl>
-                                <Textarea
-                                  placeholder="Текст вопроса..."
-                                  className="min-h-[60px]"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="flex-shrink-0"
-                        onClick={() => removeQuestion(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
 
             {/* Embedded Questions Section (only when editing existing paragraph) */}
             {isEditing && paragraph && (
