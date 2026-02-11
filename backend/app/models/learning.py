@@ -72,6 +72,34 @@ class StudentParagraph(BaseModel):
         return f"<StudentParagraph(student_id={self.student_id}, paragraph_id={self.paragraph_id}, completed={self.is_completed})>"
 
 
+class ParagraphSelfAssessment(BaseModel):
+    """Append-only self-assessment history per paragraph.
+
+    Each time a student submits a self-assessment on the Summary step,
+    a new record is created. Records are never updated or deleted.
+    """
+
+    __tablename__ = "paragraph_self_assessments"
+
+    # Relationships
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
+    paragraph_id = Column(Integer, ForeignKey("paragraphs.id", ondelete="CASCADE"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Assessment data
+    rating = Column(String(20), nullable=False)  # understood / questions / difficult
+    mastery_impact = Column(Float, nullable=False, default=0.0)  # +5.0 / 0.0 / -5.0
+    practice_score = Column(Float, nullable=True)   # 0.0-100.0, null if no practice
+    time_spent = Column(Integer, nullable=True)      # seconds, null if not provided
+
+    # Relationships
+    student = relationship("Student")
+    paragraph = relationship("Paragraph")
+
+    def __repr__(self) -> str:
+        return f"<ParagraphSelfAssessment(student_id={self.student_id}, paragraph_id={self.paragraph_id}, rating={self.rating})>"
+
+
 class LearningSession(BaseModel):
     """Learning session model."""
 

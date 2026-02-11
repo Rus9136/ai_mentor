@@ -131,6 +131,14 @@ class SelfAssessmentRequest(BaseModel):
         ...,
         description="Self-assessment rating: understood (всё понятно), questions (есть вопросы), difficult (сложно)"
     )
+    practice_score: Optional[float] = Field(
+        None, ge=0.0, le=100.0,
+        description="Practice score percentage (0-100). Null if no practice"
+    )
+    time_spent: Optional[int] = Field(
+        None, ge=0, le=36000,
+        description="Time spent on paragraph in seconds (max 10 hours)"
+    )
 
 
 class SelfAssessmentResponse(BaseModel):
@@ -138,10 +146,11 @@ class SelfAssessmentResponse(BaseModel):
     id: int
     paragraph_id: int
     rating: str
-    mastery_impact: float = Field(..., description="Impact on mastery: +5.0, 0.0, or -5.0")
+    practice_score: Optional[float] = None
+    mastery_impact: float = Field(..., description="Impact on mastery, corrected by practice_score")
     next_recommendation: str = Field(
         ...,
-        description="Recommendation: review, chat_tutor, or next_paragraph"
+        description="Recommendation: review, chat_tutor, next_paragraph, or practice_retry"
     )
     created_at: datetime
 

@@ -39,6 +39,7 @@ from app.schemas.embedded_question import (
     ParagraphProgressResponse,
 )
 from app.schemas.test_attempt import StudentProgressResponse
+from app.services.self_assessment_service import SelfAssessmentService
 
 
 router = APIRouter()
@@ -279,12 +280,14 @@ async def submit_self_assessment(
     Submit self-assessment for a paragraph.
 
     Rating options:
-    - understood: All clear
-    - questions: Have questions
-    - difficult: Difficult to understand
+    - understood: All clear -> +5.0 impact, recommendation: next_paragraph
+    - questions: Have questions -> 0.0 impact, recommendation: chat_tutor
+    - difficult: Difficult -> -5.0 impact, recommendation: review
+
+    Creates an append-only history record and returns mastery_impact
+    and next_recommendation for the mobile app.
     """
     student = await get_student_from_user(current_user, db)
-    student_id = student.id
 
     # Get paragraph to verify access
     para_result = await db.execute(
@@ -307,47 +310,27 @@ async def submit_self_assessment(
             detail="Access denied to this paragraph"
         )
 
-    # Get or create student's paragraph progress
-    student_para_result = await db.execute(
-        select(StudentParagraphModel).where(
-            StudentParagraphModel.paragraph_id == paragraph_id,
-            StudentParagraphModel.student_id == student_id
-        )
+    # Delegate to service
+    service = SelfAssessmentService(db)
+    assessment, next_recommendation = await service.submit_assessment(
+        student_id=student.id,
+        paragraph_id=paragraph_id,
+        school_id=school_id,
+        rating=request.rating,
+        practice_score=request.practice_score,
+        time_spent=request.time_spent,
     )
-    student_para = student_para_result.scalar_one_or_none()
 
-    now = datetime.now(timezone.utc)
-
-    if not student_para:
-        student_para = StudentParagraphModel(
-            student_id=student_id,
-            paragraph_id=paragraph_id,
-            school_id=school_id,
-            self_assessment=request.rating,
-            self_assessment_at=now,
-            last_accessed_at=now
-        )
-        db.add(student_para)
-    else:
-        student_para.self_assessment = request.rating
-        student_para.self_assessment_at = now
-        student_para.last_accessed_at = now
-
-    await db.commit()
-
-    logger.info(f"Student {student_id} submitted self-assessment '{request.rating}' for paragraph {paragraph_id}")
-
-    messages = {
-        "understood": "Отлично! Продолжай в том же духе!",
-        "questions": "Хорошо, попробуй повторить материал или задай вопрос.",
-        "difficult": "Не переживай! Попробуй посмотреть материал в другом формате."
-    }
+    logger.info(f"Student {student.id} submitted self-assessment '{request.rating}' for paragraph {paragraph_id}")
 
     return SelfAssessmentResponse(
+        id=assessment.id,
         paragraph_id=paragraph_id,
         rating=request.rating,
-        recorded_at=now,
-        message=messages.get(request.rating, "Оценка сохранена")
+        practice_score=assessment.practice_score,
+        mastery_impact=assessment.mastery_impact,
+        next_recommendation=next_recommendation,
+        created_at=assessment.created_at,
     )
 
 
