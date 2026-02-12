@@ -49,6 +49,15 @@ import {
 // Content tabs
 type ContentTab = 'text' | 'audio' | 'cards' | 'practice';
 
+// Learning flow phases — state machine for paragraph completion
+type LearningFlowPhase =
+  | 'reading'        // Reading content (default)
+  | 'questions'      // Embedded questions "Проверь себя"
+  | 'assessment'     // First self-assessment
+  | 'chat'           // AI chat (after "not understood")
+  | 'reassessment'   // Repeat self-assessment after chat
+  | 'completed';     // Paragraph completed
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -68,6 +77,10 @@ export default function ParagraphPage({ params }: PageProps) {
   const [showCompletion, setShowCompletion] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showChat, setShowChat] = useState(false);
+
+  // Learning flow state machine
+  const [flowPhase, setFlowPhase] = useState<LearningFlowPhase>('reading');
+  const [assessmentRound, setAssessmentRound] = useState(0);
 
   // Fetch paragraph data
   const { data: paragraph, isLoading, error } = useParagraphDetail(paragraphId);
@@ -97,14 +110,34 @@ export default function ParagraphPage({ params }: PageProps) {
     }
   }, [updateStepMutation]);
 
-  // Handle self-assessment submission
+  // Handle "Завершить изучение" button click — start the learning flow
+  const handleFinishStudying = useCallback(async () => {
+    const hasQuestions = embeddedQuestions && embeddedQuestions.length > 0;
+    if (hasQuestions) {
+      await updateStepMutation.mutateAsync({ step: 'practice' });
+      setCurrentQuestionIndex(0);
+      setFlowPhase('questions');
+    } else {
+      await updateStepMutation.mutateAsync({ step: 'summary' });
+      setFlowPhase('assessment');
+    }
+  }, [embeddedQuestions, updateStepMutation]);
+
+  // Handle self-assessment submission with branching
   const handleSelfAssessment = useCallback(async (rating: SelfAssessmentRating) => {
     await submitAssessmentMutation.mutateAsync(rating);
-    // Update step to completed
-    await updateStepMutation.mutateAsync({ step: 'completed' });
-    await refetchProgress();
-    // Show completion screen
-    setShowCompletion(true);
+
+    if (rating === 'understood') {
+      // Mark completed and show completion screen
+      await updateStepMutation.mutateAsync({ step: 'completed' });
+      await refetchProgress();
+      setFlowPhase('completed');
+      setShowCompletion(true);
+    } else {
+      // "questions" or "difficult" → open AI chat
+      setFlowPhase('chat');
+      setShowChat(true);
+    }
   }, [submitAssessmentMutation, updateStepMutation, refetchProgress]);
 
   // Handle embedded question answer
@@ -113,15 +146,29 @@ export default function ParagraphPage({ params }: PageProps) {
     return result;
   }, [answerQuestionMutation]);
 
+  // Handle chat close — transition to reassessment
+  const handleChatClose = useCallback(() => {
+    setShowChat(false);
+    if (flowPhase === 'chat') {
+      setAssessmentRound(prev => prev + 1);
+      setFlowPhase('reassessment');
+    }
+  }, [flowPhase]);
+
   // Handle next question
-  const handleNextQuestion = useCallback(() => {
+  const handleNextQuestion = useCallback(async () => {
     if (embeddedQuestions && currentQuestionIndex < embeddedQuestions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
+    } else if (flowPhase === 'questions') {
+      // All questions answered in flow mode → move to assessment
+      await updateStepMutation.mutateAsync({ step: 'summary' });
+      await refetchProgress();
+      setFlowPhase('assessment');
     } else {
-      // All questions answered, move to summary
+      // Legacy: all questions answered outside flow mode
       handleStepChange('summary');
     }
-  }, [embeddedQuestions, currentQuestionIndex, handleStepChange]);
+  }, [embeddedQuestions, currentQuestionIndex, flowPhase, updateStepMutation, refetchProgress, handleStepChange]);
 
   // Determine available tabs
   const availableTabs = useMemo(() => {
@@ -314,73 +361,139 @@ export default function ParagraphPage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Content Tabs */}
-      {availableTabs.length > 1 && (
-        <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
-          {availableTabs.map((tab) => {
-            const TabIcon = tab === 'text' ? BookOpen : tab === 'audio' ? Headphones : tab === 'practice' ? Brain : Layers;
-            const tabLabel = tab === 'practice' ? t('steps.practice') : t(`tabs.${tab}`);
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                  activeTab === tab
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                }`}
-              >
-                <TabIcon className="h-4 w-4" />
-                {tabLabel}
-                {tab === 'practice' && progress && progress.embedded_questions_total > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-white/20">
-                    {progress.embedded_questions_answered}/{progress.embedded_questions_total}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* === PHASE: READING — Content tabs and material === */}
+      {flowPhase === 'reading' && (
+        <>
+          {/* Content Tabs */}
+          {availableTabs.length > 1 && (
+            <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
+              {availableTabs.map((tab) => {
+                const TabIcon = tab === 'text' ? BookOpen : tab === 'audio' ? Headphones : tab === 'practice' ? Brain : Layers;
+                const tabLabel = tab === 'practice' ? t('steps.practice') : t(`tabs.${tab}`);
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                      activeTab === tab
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    <TabIcon className="h-4 w-4" />
+                    {tabLabel}
+                    {tab === 'practice' && progress && progress.embedded_questions_total > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-white/20">
+                        {progress.embedded_questions_answered}/{progress.embedded_questions_total}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-      {/* Content Area */}
-      <main className="mb-8">
-        {/* Text Content */}
-        {activeTab === 'text' && (
-          <article className="card-elevated p-6">
-            {displayContent ? (
-              <div
-                className="prose prose-stone dark:prose-invert max-w-none
-                  prose-headings:text-foreground prose-headings:font-bold
-                  prose-p:text-foreground prose-p:leading-relaxed
-                  prose-strong:text-foreground prose-strong:font-semibold
-                  prose-ul:text-foreground prose-ol:text-foreground
-                  prose-li:marker:text-primary"
-                dangerouslySetInnerHTML={{ __html: displayContent }}
-              />
-            ) : (
-              <div className="text-center py-8">
-                <BookOpen className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                <p className="mt-4 text-muted-foreground">{t('noContent')}</p>
+          {/* Content Area */}
+          <main className="mb-8">
+            {/* Text Content */}
+            {activeTab === 'text' && (
+              <article className="card-elevated p-6">
+                {displayContent ? (
+                  <div
+                    className="prose prose-stone dark:prose-invert max-w-none
+                      prose-headings:text-foreground prose-headings:font-bold
+                      prose-p:text-foreground prose-p:leading-relaxed
+                      prose-strong:text-foreground prose-strong:font-semibold
+                      prose-ul:text-foreground prose-ol:text-foreground
+                      prose-li:marker:text-primary"
+                    dangerouslySetInnerHTML={{ __html: displayContent }}
+                  />
+                ) : (
+                  <div className="text-center py-8">
+                    <BookOpen className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                    <p className="mt-4 text-muted-foreground">{t('noContent')}</p>
+                  </div>
+                )}
+              </article>
+            )}
+
+            {/* Audio Content */}
+            {activeTab === 'audio' && (
+              <AudioPlayer audioUrl={getMediaUrl(richContent?.audio_url)} t={t} />
+            )}
+
+            {/* Cards Content */}
+            {activeTab === 'cards' && (
+              <FlashCards cards={richContent?.cards || []} t={t} />
+            )}
+
+            {/* Practice Content - Embedded Questions (tab mode, for already completed paragraphs) */}
+            {activeTab === 'practice' && embeddedQuestions && embeddedQuestions.length > 0 && (
+              <div className="space-y-6">
+                <div className="text-center mb-6">
+                  <h2 className="text-xl font-bold text-foreground mb-2">{t('practice.title')}</h2>
+                  <p className="text-muted-foreground">{t('practice.subtitle')}</p>
+                  {progress && progress.embedded_questions_answered === progress.embedded_questions_total && progress.embedded_questions_total > 0 && (
+                    <div className="mt-4 inline-flex items-center gap-2 bg-success/10 text-success px-4 py-2 rounded-full">
+                      <span className="font-medium">{t('practice.completed')}</span>
+                      <span className="text-sm">
+                        {t('practice.score', {
+                          correct: progress.embedded_questions_correct,
+                          total: progress.embedded_questions_total
+                        })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <EmbeddedQuestion
+                  question={embeddedQuestions[currentQuestionIndex]}
+                  questionNumber={currentQuestionIndex + 1}
+                  totalQuestions={embeddedQuestions.length}
+                  onAnswer={handleAnswerQuestion}
+                  onNext={handleNextQuestion}
+                  isLast={currentQuestionIndex === embeddedQuestions.length - 1}
+                />
+
+                {embeddedQuestions.length > 1 && (
+                  <div className="flex justify-center gap-2">
+                    {embeddedQuestions.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setCurrentQuestionIndex(index)}
+                        className={`w-3 h-3 rounded-full transition-all ${
+                          index === currentQuestionIndex
+                            ? 'bg-primary scale-125'
+                            : 'bg-muted hover:bg-muted/80'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-          </article>
-        )}
+          </main>
 
-        {/* Audio Content */}
-        {activeTab === 'audio' && (
-          <AudioPlayer audioUrl={getMediaUrl(richContent?.audio_url)} t={t} />
-        )}
+          {/* Paragraph Quiz - Chat-like quiz under content */}
+          {paragraphTest && paragraph && (
+            <section className="mb-8">
+              <ParagraphQuiz
+                test={paragraphTest}
+                paragraphId={paragraph.id}
+                onComplete={(passed, score) => {
+                  refetchProgress();
+                  console.log(`Quiz completed: passed=${passed}, score=${score}`);
+                }}
+              />
+            </section>
+          )}
+        </>
+      )}
 
-        {/* Cards Content */}
-        {activeTab === 'cards' && (
-          <FlashCards cards={richContent?.cards || []} t={t} />
-        )}
-
-        {/* Practice Content - Embedded Questions */}
-        {activeTab === 'practice' && embeddedQuestions && embeddedQuestions.length > 0 && (
+      {/* === PHASE: QUESTIONS — Embedded questions in focus mode === */}
+      {flowPhase === 'questions' && embeddedQuestions && embeddedQuestions.length > 0 && (
+        <section className="mb-8">
           <div className="space-y-6">
-            {/* Practice header */}
             <div className="text-center mb-6">
               <h2 className="text-xl font-bold text-foreground mb-2">{t('practice.title')}</h2>
               <p className="text-muted-foreground">{t('practice.subtitle')}</p>
@@ -397,7 +510,6 @@ export default function ParagraphPage({ params }: PageProps) {
               )}
             </div>
 
-            {/* Current question */}
             <EmbeddedQuestion
               question={embeddedQuestions[currentQuestionIndex]}
               questionNumber={currentQuestionIndex + 1}
@@ -407,7 +519,6 @@ export default function ParagraphPage({ params }: PageProps) {
               isLast={currentQuestionIndex === embeddedQuestions.length - 1}
             />
 
-            {/* Question navigation dots */}
             {embeddedQuestions.length > 1 && (
               <div className="flex justify-center gap-2">
                 {embeddedQuestions.map((_, index) => (
@@ -424,34 +535,20 @@ export default function ParagraphPage({ params }: PageProps) {
               </div>
             )}
           </div>
-        )}
-      </main>
-
-      {/* Paragraph Quiz - Chat-like quiz under content */}
-      {paragraphTest && paragraph && !showCompletion && (
-        <section className="mb-8">
-          <ParagraphQuiz
-            test={paragraphTest}
-            paragraphId={paragraph.id}
-            onComplete={(passed, score) => {
-              refetchProgress();
-              console.log(`Quiz completed: passed=${passed}, score=${score}`);
-            }}
-          />
         </section>
       )}
 
-      {/* Self Assessment - Show after completing content or practice (before completion) */}
-      {progress && (progress.current_step === 'summary' || progress.current_step === 'completed') && !showCompletion && !progress.self_assessment && (
+      {/* === PHASE: ASSESSMENT / REASSESSMENT — Self-assessment buttons === */}
+      {(flowPhase === 'assessment' || flowPhase === 'reassessment') && (
         <section className="mb-8">
           <SelfAssessment
+            key={`assessment-${assessmentRound}`}
             onSubmit={handleSelfAssessment}
-            currentRating={progress.self_assessment}
           />
         </section>
       )}
 
-      {/* Completion Screen - Show after self-assessment */}
+      {/* === PHASE: COMPLETED — Completion screen === */}
       {showCompletion && progress && navigation && paragraph && (
         <CompletionScreen
           paragraphTitle={paragraph.title}
@@ -475,8 +572,8 @@ export default function ParagraphPage({ params }: PageProps) {
         />
       )}
 
-      {/* Navigation - hide when showing completion screen */}
-      {!showCompletion && (
+      {/* === NAVIGATION BAR === */}
+      {!showCompletion && flowPhase !== 'questions' && flowPhase !== 'assessment' && flowPhase !== 'reassessment' && (
         <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 md:static md:border-0 md:bg-transparent md:p-0">
           <div className="mx-auto max-w-4xl flex items-center justify-between gap-4">
             {/* Previous */}
@@ -502,22 +599,35 @@ export default function ParagraphPage({ params }: PageProps) {
               </Link>
             )}
 
-            {/* Next */}
-            {navigation?.next_paragraph_id ? (
-              <Link
-                href={`/paragraphs/${navigation.next_paragraph_id}`}
-                className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-all"
-              >
-                <span className="hidden sm:inline">{tCommon('next')}</span>
-                <ChevronRight className="h-4 w-4" />
-              </Link>
+            {/* Right button: "Завершить изучение" for incomplete, "Далее" for completed */}
+            {progress?.is_completed ? (
+              // Already completed — normal navigation
+              navigation?.next_paragraph_id ? (
+                <Link
+                  href={`/paragraphs/${navigation.next_paragraph_id}`}
+                  className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-all"
+                >
+                  <span className="hidden sm:inline">{tCommon('next')}</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              ) : (
+                <Link
+                  href={`/chapters/${navigation?.chapter_id || ''}`}
+                  className="flex items-center gap-2 rounded-full bg-success px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-all"
+                >
+                  <span>{t('finishChapter')}</span>
+                </Link>
+              )
             ) : (
-              <Link
-                href={`/chapters/${navigation?.chapter_id || ''}`}
-                className="flex items-center gap-2 rounded-full bg-success px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-all"
+              // Not completed — "Завершить изучение" button
+              <button
+                onClick={handleFinishStudying}
+                disabled={updateStepMutation.isPending}
+                className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-all disabled:opacity-50"
               >
-                <span>{t('finishChapter')}</span>
-              </Link>
+                <span>{t('finishStudying')}</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
             )}
           </div>
         </nav>
@@ -526,20 +636,22 @@ export default function ParagraphPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Floating AI Chat Button */}
-      <button
-        onClick={() => setShowChat(true)}
-        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 flex items-center gap-2 px-4 py-3 bg-success text-white rounded-full shadow-lg hover:bg-success/90 hover:shadow-xl transition-all"
-      >
-        <Sparkles className="w-5 h-5" />
-        <span className="font-medium">{tChat('floatingButton')}</span>
-      </button>
+      {/* Floating AI Chat Button — hide during chat flow phase */}
+      {flowPhase !== 'chat' && !showCompletion && (
+        <button
+          onClick={() => setShowChat(true)}
+          className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 flex items-center gap-2 px-4 py-3 bg-success text-white rounded-full shadow-lg hover:bg-success/90 hover:shadow-xl transition-all"
+        >
+          <Sparkles className="w-5 h-5" />
+          <span className="font-medium">{tChat('floatingButton')}</span>
+        </button>
+      )}
 
-      {/* AI Chat Modal */}
+      {/* AI Chat Modal — uses post_paragraph during flow, reading_help otherwise */}
       <ChatModal
         isOpen={showChat}
-        onClose={() => setShowChat(false)}
-        sessionType="reading_help"
+        onClose={flowPhase === 'chat' ? handleChatClose : () => setShowChat(false)}
+        sessionType={flowPhase === 'chat' ? 'post_paragraph' : 'reading_help'}
         paragraphId={paragraphId}
         chapterId={navigation?.chapter_id}
       />
