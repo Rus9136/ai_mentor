@@ -327,11 +327,24 @@ AI-тьютор должен адаптировать стиль общения:
 > - Сервис: `backend/app/services/self_assessment_service.py` → `_calculate_mastery_impact()`, `_determine_recommendation()`, идемпотентность
 > - Схема: `backend/app/schemas/embedded_question.py` → `practice_score`, `time_spent` в Request/Response
 
-### Этап 3 — Аналитика
-- [ ] Эндпоинт: проблемные параграфы для учителя (раздел 6.1)
-- [ ] Эндпоинт: прогресс понимания ученика (раздел 6.2)
-- [ ] Метакогнитивный профиль (раздел 6.3)
+### Этап 3 — Аналитика для учителя
+- [x] Эндпоинт: `GET /teachers/analytics/self-assessment-summary` — агрегация по параграфам: % understood / questions / difficult (раздел 6.1, 6.4)
+- [x] Эндпоинт: `GET /teachers/students/{id}/self-assessments` — история самооценок ученика с метакогнитивным профилем (раздел 6.2, 6.3)
+- [x] Эндпоинт: `GET /teachers/analytics/metacognitive-alerts` — переоценка / недооценка (раздел 5.3)
+- [x] Frontend: вкладка "Обратная связь" на странице Аналитика (`teacher-app/analytics`)
+- [x] Frontend: вкладка "Самооценка" на странице ученика (`teacher-app/classes/[id]/students/[sid]`)
+- [x] Локализация ru/kz
 - [ ] Передача самооценки как контекст для AI-чата (раздел 7)
+
+> **Реализовано 2026-02-12.** Коммит: `b43e5d6`. Файлы:
+> - Репозиторий: `backend/app/repositories/self_assessment_repo.py` → `get_summary_by_paragraph()`, `get_metacognitive_alerts()`, `get_student_assessments()`
+> - Схемы: `backend/app/schemas/teacher_dashboard.py` → 6 новых Pydantic-схем
+> - Сервис: `backend/app/services/teacher_analytics/teacher_analytics_service.py` → 3 новых метода
+> - Эндпоинты: `backend/app/api/v1/teachers.py` → 3 новых GET-эндпоинта
+> - Frontend API: `teacher-app/src/lib/api/teachers.ts` → типы + 3 функции
+> - Frontend хуки: `teacher-app/src/lib/hooks/use-teacher-data.ts` → 3 хука
+> - Frontend страницы: `analytics/page.tsx`, `students/[sid]/page.tsx` — новые вкладки
+> - Переводы: `messages/ru/index.json`, `messages/kz/index.json`
 
 ---
 
