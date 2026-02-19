@@ -292,10 +292,13 @@ export const mockAnswerIncorrect = {
 };
 
 export const mockSelfAssessmentResponse = {
+  id: 1,
   paragraph_id: 2,
   rating: 'understood',
-  recorded_at: new Date().toISOString(),
-  message: 'Оценка сохранена',
+  practice_score: null,
+  mastery_impact: 5.0,
+  next_recommendation: 'next_paragraph',
+  created_at: new Date().toISOString(),
 };
 
 export const mockStudentStats = {

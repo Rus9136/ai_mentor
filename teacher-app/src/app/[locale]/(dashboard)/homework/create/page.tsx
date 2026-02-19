@@ -213,7 +213,7 @@ export default function CreateHomeworkPage() {
       id: crypto.randomUUID(),
       taskType: TaskType.QUIZ,
       points: 10,
-      maxAttempts: 1,
+      maxAttempts: 3,
       instructions: '',
       attachments: [],
       questions: [],
@@ -580,7 +580,7 @@ export default function CreateHomeworkPage() {
                                 dispatch({
                                   type: 'UPDATE_TASK',
                                   id: task.id,
-                                  updates: { maxAttempts: Number(e.target.value) },
+                                  updates: { maxAttempts: Math.min(10, Math.max(1, Number(e.target.value) || 1)) },
                                 })
                               }
                             />

@@ -6,6 +6,7 @@ import pytest_asyncio
 from datetime import date, datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
+from sqlalchemy import text
 
 from sqlalchemy.orm import selectinload
 from sqlalchemy import select as sa_select
@@ -24,13 +25,28 @@ from app.models.textbook import Textbook
 from app.models.chapter import Chapter
 from app.models.paragraph import Paragraph
 from app.models.test import Test, Question, QuestionOption, DifficultyLevel, QuestionType, TestPurpose
+from app.models.class_student import ClassStudent
+from app.models.homework import (
+    Homework,
+    HomeworkTask,
+    HomeworkTaskQuestion,
+    HomeworkStudent,
+    HomeworkStatus,
+    HomeworkTaskType,
+    HomeworkQuestionType,
+    HomeworkStudentStatus,
+)
 
 
 # Test database URL (use separate test database)
 # IMPORTANT: Use ai_mentor_user (SUPERUSER) for tests to bypass RLS and have DROP TABLE permissions
+# Allow override via environment variables for running outside Docker
+import os
+_test_db_host = os.environ.get("TEST_DB_HOST", settings.POSTGRES_HOST)
+_test_db_port = os.environ.get("TEST_DB_PORT", str(settings.POSTGRES_PORT))
 TEST_DATABASE_URL = (
     f"postgresql+asyncpg://ai_mentor_user:ai_mentor_pass"
-    f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/ai_mentor_test_db"
+    f"@{_test_db_host}:{_test_db_port}/ai_mentor_test_db"
 )
 
 
@@ -49,9 +65,38 @@ async def db_session():
         echo=False,
     )
 
-    # Create all tables
+    # Recreate schema from scratch.
+    # test_attempts is a partitioned table with composite PK (id, started_at) in production.
+    # create_all can't handle partitioning, so we pre-create it as a regular table
+    # with simple PK (id), then let create_all handle all other tables.
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+
+        # Pre-create test_attempts as a non-partitioned table (simple PK for tests)
+        await conn.execute(text("""
+            CREATE TABLE test_attempts (
+                id SERIAL PRIMARY KEY,
+                started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                student_id INTEGER NOT NULL,
+                test_id INTEGER NOT NULL,
+                school_id INTEGER NOT NULL,
+                attempt_number INTEGER NOT NULL DEFAULT 1,
+                status VARCHAR(20) NOT NULL DEFAULT 'in_progress',
+                completed_at TIMESTAMPTZ,
+                score FLOAT,
+                points_earned FLOAT,
+                total_points FLOAT,
+                passed BOOLEAN,
+                time_spent INTEGER,
+                synced_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+
+        # Now create_all will skip test_attempts (already exists) and create everything else
         await conn.run_sync(Base.metadata.create_all)
 
     # Create session
@@ -774,3 +819,175 @@ async def google_user_token(google_user_without_school: User) -> str:
         "role": google_user_without_school.role.value,
         "school_id": google_user_without_school.school_id,
     })
+
+
+# ========== Teacher2 Fixtures (for school isolation tests) ==========
+
+@pytest_asyncio.fixture
+async def teacher2_user(db_session: AsyncSession, school2: School) -> tuple[User, Teacher]:
+    """Create a second TEACHER in school2 for isolation tests."""
+    user = User(
+        email="teacher2@test.com",
+        password_hash=get_password_hash("teacher123"),
+        first_name="Second",
+        last_name="Teacher",
+        role=UserRole.TEACHER,
+        school_id=school2.id,
+        is_active=True,
+    )
+    db_session.add(user)
+    await db_session.flush()
+
+    teacher = Teacher(
+        user_id=user.id,
+        school_id=school2.id,
+        teacher_code="TCH0720250002",
+        subject="Физика",
+    )
+    db_session.add(teacher)
+    await db_session.commit()
+
+    result = await db_session.execute(
+        sa_select(User).where(User.id == user.id).options(selectinload(User.teacher))
+    )
+    user = result.scalar_one()
+
+    result = await db_session.execute(
+        sa_select(Teacher).where(Teacher.id == teacher.id).options(selectinload(Teacher.user))
+    )
+    teacher = result.scalar_one()
+
+    return (user, teacher)
+
+
+@pytest_asyncio.fixture
+async def teacher2_token(teacher2_user: tuple[User, Teacher]) -> str:
+    """Create access token for teacher2."""
+    user, _ = teacher2_user
+    return create_access_token(data={
+        "sub": str(user.id),
+        "email": user.email,
+        "role": user.role.value,
+        "school_id": user.school_id,
+    })
+
+
+# ========== Homework Fixtures ==========
+
+@pytest_asyncio.fixture
+async def student_in_class(
+    db_session: AsyncSession,
+    student_user: tuple[User, Student],
+    school_class: SchoolClass
+) -> ClassStudent:
+    """Enroll student in school_class via ClassStudent association."""
+    _, student = student_user
+    cs = ClassStudent(class_id=school_class.id, student_id=student.id)
+    db_session.add(cs)
+    await db_session.commit()
+    await db_session.refresh(cs)
+    return cs
+
+
+@pytest_asyncio.fixture
+async def draft_homework(
+    db_session: AsyncSession,
+    school1: School,
+    teacher_user: tuple[User, Teacher],
+    school_class: SchoolClass,
+    paragraph1: Paragraph,
+) -> tuple[Homework, HomeworkTask, HomeworkTaskQuestion]:
+    """
+    Create a DRAFT homework with one QUIZ task and one single_choice question.
+    Returns (homework, task, question).
+    """
+    _, teacher = teacher_user
+    hw = Homework(
+        school_id=school1.id,
+        class_id=school_class.id,
+        teacher_id=teacher.id,
+        title="Test Homework Draft",
+        description="Homework for testing",
+        due_date=datetime.now(timezone.utc) + timedelta(days=7),
+        status=HomeworkStatus.DRAFT,
+        late_submission_allowed=True,
+        late_penalty_per_day=10,
+        grace_period_hours=2,
+        max_late_days=7,
+        show_explanations=True,
+    )
+    db_session.add(hw)
+    await db_session.flush()
+
+    task = HomeworkTask(
+        homework_id=hw.id,
+        school_id=school1.id,
+        paragraph_id=paragraph1.id,
+        task_type=HomeworkTaskType.QUIZ,
+        sort_order=0,
+        points=10,
+        max_attempts=2,
+    )
+    db_session.add(task)
+    await db_session.flush()
+
+    question = HomeworkTaskQuestion(
+        homework_task_id=task.id,
+        school_id=school1.id,
+        question_type=HomeworkQuestionType.SINGLE_CHOICE,
+        question_text="Чему равно 2 + 2?",
+        options=[
+            {"id": "a", "text": "3", "is_correct": False},
+            {"id": "b", "text": "4", "is_correct": True},
+            {"id": "c", "text": "5", "is_correct": False},
+        ],
+        points=10,
+        sort_order=0,
+    )
+    db_session.add(question)
+    await db_session.commit()
+
+    # Eager reload
+    result = await db_session.execute(
+        sa_select(Homework)
+        .where(Homework.id == hw.id)
+        .options(
+            selectinload(Homework.tasks).selectinload(HomeworkTask.questions),
+            selectinload(Homework.school_class),
+        )
+    )
+    hw = result.scalar_one()
+    task = hw.tasks[0]
+    question = task.questions[0]
+
+    return (hw, task, question)
+
+
+@pytest_asyncio.fixture
+async def published_homework(
+    db_session: AsyncSession,
+    draft_homework: tuple[Homework, HomeworkTask, HomeworkTaskQuestion],
+    student_in_class: ClassStudent,
+    student_user: tuple[User, Student],
+) -> tuple[Homework, HomeworkTask, HomeworkTaskQuestion, HomeworkStudent]:
+    """
+    Publish draft_homework and assign to student.
+    Returns (homework, task, question, hw_student).
+    """
+    hw, task, question = draft_homework
+    _, student = student_user
+
+    hw.status = HomeworkStatus.PUBLISHED
+    await db_session.flush()
+
+    hw_student = HomeworkStudent(
+        homework_id=hw.id,
+        student_id=student.id,
+        school_id=hw.school_id,
+        status=HomeworkStudentStatus.ASSIGNED,
+    )
+    db_session.add(hw_student)
+    await db_session.commit()
+    await db_session.refresh(hw_student)
+
+    return (hw, task, question, hw_student)

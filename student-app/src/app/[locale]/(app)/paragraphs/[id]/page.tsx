@@ -123,9 +123,23 @@ export default function ParagraphPage({ params }: PageProps) {
     }
   }, [embeddedQuestions, updateStepMutation]);
 
-  // Handle self-assessment submission with branching
+  // Handle self-assessment submission — branch by student's rating
+  // practice_score & time_spent are sent for backend analytics (mastery_impact, teacher dashboard)
   const handleSelfAssessment = useCallback(async (rating: SelfAssessmentRating) => {
-    await submitAssessmentMutation.mutateAsync(rating);
+    // Calculate practice_score from embedded questions progress
+    const practiceScore =
+      progress && progress.embedded_questions_total > 0
+        ? (progress.embedded_questions_correct / progress.embedded_questions_total) * 100
+        : null;
+
+    const timeSpent = progress?.time_spent ?? null;
+
+    // Submit enriched assessment data
+    await submitAssessmentMutation.mutateAsync({
+      rating,
+      practice_score: practiceScore,
+      time_spent: timeSpent,
+    });
 
     if (rating === 'understood') {
       // Mark completed and show completion screen
@@ -138,7 +152,7 @@ export default function ParagraphPage({ params }: PageProps) {
       setFlowPhase('chat');
       setShowChat(true);
     }
-  }, [submitAssessmentMutation, updateStepMutation, refetchProgress]);
+  }, [submitAssessmentMutation, updateStepMutation, refetchProgress, progress]);
 
   // Handle embedded question answer
   const handleAnswerQuestion = useCallback(async (questionId: number, answer: string | string[]): Promise<AnswerResult> => {

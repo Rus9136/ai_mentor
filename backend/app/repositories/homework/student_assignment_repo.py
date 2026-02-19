@@ -63,7 +63,10 @@ class StudentAssignmentRepository:
         """Get student's homework assignment."""
         result = await self.db.execute(
             select(HomeworkStudent)
-            .options(selectinload(HomeworkStudent.task_submissions))
+            .options(
+                selectinload(HomeworkStudent.task_submissions),
+                selectinload(HomeworkStudent.homework),
+            )
             .where(
                 HomeworkStudent.homework_id == homework_id,
                 HomeworkStudent.student_id == student_id,
@@ -123,8 +126,12 @@ class StudentAssignmentRepository:
             base_query
             .options(
                 selectinload(HomeworkStudent.homework)
-                .selectinload(Homework.tasks)
-                .selectinload(HomeworkTask.questions)
+                .selectinload(Homework.tasks.and_(
+                    HomeworkTask.is_deleted == False
+                ))
+                .selectinload(HomeworkTask.questions.and_(
+                    HomeworkTaskQuestion.is_deleted == False
+                ))
             )
             .order_by(Homework.due_date.asc())
             .offset(offset)

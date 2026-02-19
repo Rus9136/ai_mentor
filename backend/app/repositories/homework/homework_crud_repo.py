@@ -56,14 +56,19 @@ class HomeworkCrudRepository:
         if load_tasks:
             if load_questions:
                 query = query.options(
-                    selectinload(Homework.tasks)
-                    .selectinload(HomeworkTask.questions.and_(
+                    selectinload(Homework.tasks.and_(
+                        HomeworkTask.is_deleted == False
+                    )).selectinload(HomeworkTask.questions.and_(
                         HomeworkTaskQuestion.is_active == True,
                         HomeworkTaskQuestion.is_deleted == False
                     ))
                 )
             else:
-                query = query.options(selectinload(Homework.tasks))
+                query = query.options(
+                    selectinload(Homework.tasks.and_(
+                        HomeworkTask.is_deleted == False
+                    ))
+                )
 
         result = await self.db.execute(query)
         homework = result.unique().scalar_one_or_none()
@@ -90,7 +95,9 @@ class HomeworkCrudRepository:
         query = (
             select(Homework)
             .options(
-                selectinload(Homework.tasks),
+                selectinload(Homework.tasks.and_(
+                    HomeworkTask.is_deleted == False
+                )),
                 selectinload(Homework.school_class)
             )
             .where(
@@ -153,8 +160,8 @@ class HomeworkCrudRepository:
 
         homework.updated_at = datetime.utcnow()
         await self.db.flush()
-        await self.db.refresh(homework)
-        return homework
+        # Re-fetch with eager loading to avoid lazy-load in async context
+        return await self.get_by_id(homework_id, school_id, load_tasks=True, load_questions=True)
 
     async def update_status(
         self,

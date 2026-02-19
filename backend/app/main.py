@@ -99,6 +99,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "message": error.get("msg", "Validation error"),
         })
 
+    logger.warning(
+        f"Validation error on {request.method} {request.url.path}: {errors}"
+    )
+
     return JSONResponse(
         status_code=422,
         content={

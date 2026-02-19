@@ -209,7 +209,7 @@ class HomeworkTaskCreate(BaseModel):
     is_required: bool = Field(default=True, description="Is task required")
     points: int = Field(default=10, ge=1, le=100, description="Total points for task")
     time_limit_minutes: Optional[int] = Field(None, ge=1, description="Time limit in minutes")
-    max_attempts: int = Field(default=1, ge=1, le=10, description="Max attempts allowed")
+    max_attempts: int = Field(default=3, ge=1, le=10, description="Max attempts allowed")
     instructions: Optional[str] = Field(None, description="Task instructions")
 
     # AI generation

@@ -11,6 +11,7 @@ Endpoints for teachers to:
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import JSONResponse
 
 from app.api.dependencies import (
     get_current_user_school_id,
@@ -38,6 +39,7 @@ from app.schemas.homework import (
 )
 from app.services.homework import HomeworkService, HomeworkServiceError
 from app.services.homework.ai import HomeworkAIServiceError
+from app.services.homework.publishing_service import PublishingServiceError
 from app.services.homework.response_builder import HomeworkResponseBuilder
 from app.services.upload_service import UploadService
 from app.schemas.upload import FileUploadResponse
@@ -340,11 +342,11 @@ async def publish_homework(
             school_id=school_id,
             student_ids=student_ids
         )
-    except HomeworkServiceError as e:
-        raise HTTPException(
+    except (HomeworkServiceError, PublishingServiceError) as e:
+        return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        ) from e
+            content={"detail": str(e)}
+        )
 
     # Get statistics after publishing
     stats = await service.get_homework_stats(published.id, school_id)
@@ -368,11 +370,11 @@ async def close_homework(
             homework_id=homework.id,
             school_id=school_id
         )
-    except HomeworkServiceError as e:
-        raise HTTPException(
+    except (HomeworkServiceError, PublishingServiceError) as e:
+        return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        ) from e
+            content={"detail": str(e)}
+        )
 
     # Get final statistics
     stats = await service.get_homework_stats(closed.id, school_id)

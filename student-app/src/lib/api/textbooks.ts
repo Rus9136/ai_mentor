@@ -224,6 +224,13 @@ export async function getParagraphNavigation(paragraphId: number): Promise<Parag
 
 export type ParagraphStep = 'intro' | 'content' | 'practice' | 'summary' | 'completed';
 export type SelfAssessmentRating = 'understood' | 'questions' | 'difficult';
+export type NextRecommendation = 'review' | 'chat_tutor' | 'next_paragraph' | 'practice_retry';
+
+export interface SelfAssessmentRequest {
+  rating: SelfAssessmentRating;
+  practice_score?: number | null;
+  time_spent?: number | null;
+}
 
 export interface ParagraphProgress {
   paragraph_id: number;
@@ -250,10 +257,13 @@ export interface StepProgressResponse {
 }
 
 export interface SelfAssessmentResponse {
+  id: number;
   paragraph_id: number;
   rating: SelfAssessmentRating;
-  recorded_at: string;
-  message: string;
+  practice_score: number | null;
+  mastery_impact: number;
+  next_recommendation: NextRecommendation;
+  created_at: string;
 }
 
 // =============================================================================
@@ -316,11 +326,11 @@ export async function updateParagraphStep(
  */
 export async function submitSelfAssessment(
   paragraphId: number,
-  rating: SelfAssessmentRating
+  request: SelfAssessmentRequest
 ): Promise<SelfAssessmentResponse> {
   const response = await apiClient.post<SelfAssessmentResponse>(
     `/students/paragraphs/${paragraphId}/self-assessment`,
-    { rating }
+    request
   );
   return response.data;
 }

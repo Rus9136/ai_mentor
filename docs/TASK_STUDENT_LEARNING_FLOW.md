@@ -307,13 +307,21 @@ POST /students/paragraphs/{id}/progress { step: "completed" }
 > - `student-app/messages/ru.json` — `paragraph.finishStudying`
 > - `student-app/messages/kk.json` — `paragraph.finishStudying`
 
-### Этап 2 — Расширение API и типов самооценки
+### Этап 2 — Расширение API и типов самооценки ✅
 
-- [ ] Расширить `submitSelfAssessment()` в `textbooks.ts`: передача `practice_score`, `time_spent`
-- [ ] Обновить `SelfAssessmentResponse` тип: добавить `mastery_impact`, `next_recommendation`
-- [ ] Обновить хук `useSubmitSelfAssessment`
+- [x] Расширить `submitSelfAssessment()` в `textbooks.ts`: передача `practice_score`, `time_spent`
+- [x] Обновить `SelfAssessmentResponse` тип: добавить `mastery_impact`, `next_recommendation`
+- [x] Обновить хук `useSubmitSelfAssessment`
+- [x] Обновить `handleSelfAssessment` в `page.tsx`: расчёт `practice_score` из прогресса embedded questions
+- [x] Обновить E2E моки (`auth.ts`, `mocks.ts`) под новый формат ответа
 
-**Результат:** фронтенд передаёт `practice_score` и `time_spent` на бэкенд, получает `next_recommendation`.
+**Результат:** фронтенд передаёт `practice_score` и `time_spent` на бэкенд, получает `mastery_impact` и `next_recommendation`. Данные используются для аналитики учителя; ветвление UX остаётся по рейтингу ученика.
+
+> **Реализовано 2026-02-12.** Файлы:
+> - `student-app/src/lib/api/textbooks.ts` — типы `SelfAssessmentRequest`, `NextRecommendation`, обновлён `SelfAssessmentResponse`, функция `submitSelfAssessment()`
+> - `student-app/src/lib/hooks/use-textbooks.ts` — хук `useSubmitSelfAssessment`
+> - `student-app/src/app/[locale]/(app)/paragraphs/[id]/page.tsx` — `handleSelfAssessment` с расчётом `practice_score` и `time_spent`
+> - `student-app/e2e/fixtures/auth.ts`, `student-app/e2e/fixtures/mocks.ts` — моки
 
 ### Этап 3 — UX-улучшения самооценки и чата
 

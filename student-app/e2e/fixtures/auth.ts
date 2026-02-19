@@ -186,10 +186,13 @@ export async function setupParagraphMocks(
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
+        id: 1,
         paragraph_id: paragraphId,
         rating: 'understood',
-        recorded_at: new Date().toISOString(),
-        message: 'Assessment saved',
+        practice_score: null,
+        mastery_impact: 5.0,
+        next_recommendation: 'next_paragraph',
+        created_at: new Date().toISOString(),
       }),
     });
   });

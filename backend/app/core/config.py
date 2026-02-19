@@ -146,7 +146,7 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: Optional[str] = None
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     LLM_PROVIDER: str = "openrouter"  # openai | openrouter
-    CEREBRAS_MODEL: str = "cerebras/llama-3.3-70b"  # ~$0.50/1M tokens
+    CEREBRAS_MODEL: str = "gpt-oss-120b"
 
     # RAG
     CHUNK_SIZE: int = 1000

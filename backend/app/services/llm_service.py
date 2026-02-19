@@ -229,7 +229,7 @@ class CerebrasClient:
         model: Optional[str] = None
     ):
         self.api_key = api_key or settings.OPENROUTER_API_KEY  # Uses same key field
-        self.model = model or "llama-3.3-70b"  # Cerebras model name (without provider prefix)
+        self.model = model or settings.CEREBRAS_MODEL
 
         if not self.api_key:
             raise LLMServiceError("CEREBRAS/OPENROUTER_API_KEY is not configured")

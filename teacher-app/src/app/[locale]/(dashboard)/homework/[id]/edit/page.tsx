@@ -99,7 +99,7 @@ export default function EditHomeworkPage() {
   const [newTaskParagraphId, setNewTaskParagraphId] = useState<number | null>(null);
   const [newTaskChapterId, setNewTaskChapterId] = useState<number | null>(null);
   const [newTaskPoints, setNewTaskPoints] = useState(10);
-  const [newTaskMaxAttempts, setNewTaskMaxAttempts] = useState(1);
+  const [newTaskMaxAttempts, setNewTaskMaxAttempts] = useState(3);
   const [newTaskInstructions, setNewTaskInstructions] = useState('');
 
   // Initialize form from homework data
@@ -519,7 +519,7 @@ export default function EditHomeworkPage() {
                       min={1}
                       max={10}
                       value={newTaskMaxAttempts}
-                      onChange={(e) => setNewTaskMaxAttempts(Number(e.target.value))}
+                      onChange={(e) => setNewTaskMaxAttempts(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
                     />
                   </div>
                 </div>

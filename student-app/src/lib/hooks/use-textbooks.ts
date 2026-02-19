@@ -20,6 +20,7 @@ import {
   ParagraphProgress,
   ParagraphStep,
   SelfAssessmentRating,
+  SelfAssessmentRequest,
   EmbeddedQuestion,
   AnswerResult,
 } from '@/lib/api/textbooks';
@@ -154,7 +155,7 @@ export function useSubmitSelfAssessment(paragraphId: number) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (rating: SelfAssessmentRating) => submitSelfAssessment(paragraphId, rating),
+    mutationFn: (request: SelfAssessmentRequest) => submitSelfAssessment(paragraphId, request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: textbookKeys.paragraphProgress(paragraphId) });
     },

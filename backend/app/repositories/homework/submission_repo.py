@@ -51,7 +51,7 @@ class SubmissionRepository:
         query = select(StudentTaskSubmission).where(
             StudentTaskSubmission.id == submission_id,
             StudentTaskSubmission.is_deleted == False
-        )
+        ).options(selectinload(StudentTaskSubmission.homework_student))
 
         if load_answers:
             query = query.options(selectinload(StudentTaskSubmission.answers))
