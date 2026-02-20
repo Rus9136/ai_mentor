@@ -19,6 +19,12 @@ from sqlalchemy.orm import selectinload
 
 from app.models.chat import ChatSession, ChatMessage
 from app.models.system_prompt import SystemPromptTemplate
+from app.models.test_attempt import AttemptStatus
+from app.models.chapter import Chapter
+from app.models.paragraph import Paragraph
+from app.models.learning import ParagraphSelfAssessment
+from app.repositories.test_attempt_repo import TestAttemptRepository
+from app.repositories.test_repo import TestRepository
 from app.services.rag_service import RAGService
 from app.services.llm_service import LLMService, LLMResponse, LLMStreamChunk
 from app.schemas.chat import (
@@ -452,9 +458,28 @@ class ChatService:
             language=session.language
         )
 
+        # 2. Enrich system prompt with context based on session type
+        if session.session_type == "test_help" and session.test_id:
+            try:
+                test_context = await self._build_test_context(session)
+                if test_context:
+                    system_prompt = f"{system_prompt}\n\n{test_context}"
+                    logger.warning(f"[TEST_CONTEXT] Enriched system prompt with test context for session {session.id}, len={len(test_context)}")
+                else:
+                    logger.warning(f"[TEST_CONTEXT] No test context built for session {session.id}, test_id={session.test_id}")
+            except Exception as e:
+                logger.error(f"[TEST_CONTEXT] Failed to build test context for session {session.id}: {e}", exc_info=True)
+        elif session.session_type in ("reading_help", "post_paragraph") and session.paragraph_id:
+            try:
+                para_context = await self._build_paragraph_context(session)
+                if para_context:
+                    system_prompt = f"{system_prompt}\n\n{para_context}"
+            except Exception as e:
+                logger.error(f"[PARA_CONTEXT] Failed to build paragraph context for session {session.id}: {e}", exc_info=True)
+
         messages = [{"role": "system", "content": system_prompt}]
 
-        # 2. Add conversation history (last N messages)
+        # 3. Add conversation history (last N messages)
         history_messages = [
             m for m in session.messages
             if not m.is_deleted
@@ -466,10 +491,242 @@ class ChatService:
                 "content": msg.content
             })
 
-        # 3. Add current user message
+        # 4. Add current user message
         messages.append({"role": "user", "content": current_message})
 
         return messages
+
+    async def _build_paragraph_context(self, session: ChatSession) -> Optional[str]:
+        """Build paragraph context for reading_help and post_paragraph sessions.
+
+        Loads paragraph metadata (title, objectives, key terms, summary)
+        and latest self-assessment if available.
+        """
+        result = await self.db.execute(
+            select(Paragraph).where(Paragraph.id == session.paragraph_id)
+        )
+        para = result.scalar_one_or_none()
+        if not para:
+            return None
+
+        # Get chapter title
+        chap_title = None
+        if para.chapter_id:
+            chap_result = await self.db.execute(
+                select(Chapter.title).where(Chapter.id == para.chapter_id)
+            )
+            chap_title = chap_result.scalar_one_or_none()
+
+        lines = ["--- КОНТЕКСТ ПАРАГРАФА ---"]
+        lines.append(f"Параграф: \"{para.title}\"")
+        if chap_title:
+            lines.append(f"Глава: \"{chap_title}\"")
+
+        para_url = f"https://ai-mentor.kz/ru/paragraphs/{para.id}"
+        lines.append(f"Ссылка на параграф: {para_url}")
+
+        if para.learning_objective:
+            lines.append(f"Цель обучения: {para.learning_objective}")
+        if para.lesson_objective:
+            lines.append(f"Цель урока: {para.lesson_objective}")
+        if para.key_terms:
+            terms = ", ".join(para.key_terms) if isinstance(para.key_terms, list) else str(para.key_terms)
+            lines.append(f"Ключевые термины: {terms}")
+        if para.summary:
+            lines.append(f"Краткое содержание: {para.summary}")
+
+        # For post_paragraph: include latest self-assessment
+        if session.session_type == "post_paragraph":
+            sa_result = await self.db.execute(
+                select(ParagraphSelfAssessment)
+                .where(
+                    ParagraphSelfAssessment.student_id == session.student_id,
+                    ParagraphSelfAssessment.paragraph_id == session.paragraph_id
+                )
+                .order_by(ParagraphSelfAssessment.created_at.desc())
+                .limit(1)
+            )
+            assessment = sa_result.scalar_one_or_none()
+            if assessment:
+                rating_labels = {
+                    "understood": "Понял",
+                    "questions": "Есть вопросы",
+                    "difficult": "Сложно"
+                }
+                lines.append("")
+                lines.append("САМООЦЕНКА УЧЕНИКА:")
+                lines.append(f"  Оценка: {rating_labels.get(assessment.rating, assessment.rating)}")
+                if assessment.practice_score is not None:
+                    lines.append(f"  Результат встроенных вопросов: {int(assessment.practice_score)}%")
+                if assessment.time_spent is not None:
+                    minutes = assessment.time_spent // 60
+                    lines.append(f"  Время чтения: {minutes} мин")
+
+        lines.append("")
+        lines.append("ИНСТРУКЦИЯ: Если ученик просит ссылку на материал — используй только ссылку из этого контекста. НИКОГДА не придумывай ссылки на внешние сайты.")
+
+        return "\n".join(lines)
+
+    async def _build_test_context(self, session: ChatSession) -> Optional[str]:
+        """Build test context string for test_help sessions.
+
+        Loads the student's latest completed attempt with questions/answers
+        and formats it as context for the LLM system prompt.
+        """
+        attempt_repo = TestAttemptRepository(self.db)
+        test_repo = TestRepository(self.db)
+
+        # Find latest completed attempt for this student + test
+        latest_attempt = await attempt_repo.get_latest_attempt(
+            student_id=session.student_id,
+            test_id=session.test_id
+        )
+
+        test = None
+        attempt_with_answers = None
+
+        if latest_attempt and latest_attempt.status == AttemptStatus.COMPLETED:
+            # Load full attempt with answers, questions, and test
+            attempt_with_answers = await attempt_repo.get_with_answers(latest_attempt.id)
+
+        if attempt_with_answers:
+            test = attempt_with_answers.test
+        else:
+            # No completed attempt — load test info only
+            test = await test_repo.get_by_id(session.test_id, load_questions=True)
+
+        if not test:
+            logger.warning(f"Test {session.test_id} not found for chat session {session.id}")
+            return None
+
+        # Build context header
+        lines = ["--- РЕЗУЛЬТАТЫ ТЕСТА ---"]
+        lines.append(f"Тест: {test.title}")
+        if test.description:
+            lines.append(f"Описание: {test.description}")
+
+        # Paragraph / chapter info (direct queries — async lazy-load not supported)
+        if test.paragraph_id:
+            para_result = await self.db.execute(
+                select(Paragraph.title).where(Paragraph.id == test.paragraph_id)
+            )
+            para_title = para_result.scalar_one_or_none()
+
+            chap_title = None
+            if test.chapter_id:
+                chap_result = await self.db.execute(
+                    select(Chapter.title).where(Chapter.id == test.chapter_id)
+                )
+                chap_title = chap_result.scalar_one_or_none()
+
+            para_url = f"https://ai-mentor.kz/ru/paragraphs/{test.paragraph_id}"
+            if para_title and chap_title:
+                lines.append(f"Параграф: \"{para_title}\" (Глава: \"{chap_title}\")")
+            elif para_title:
+                lines.append(f"Параграф: \"{para_title}\"")
+            lines.append(f"Ссылка на параграф: {para_url}")
+        elif test.chapter_id:
+            chap_result = await self.db.execute(
+                select(Chapter.title).where(Chapter.id == test.chapter_id)
+            )
+            chap_title = chap_result.scalar_one_or_none()
+            if chap_title:
+                lines.append(f"Глава: \"{chap_title}\"")
+
+        passing_pct = int(test.passing_score * 100)
+
+        if attempt_with_answers:
+            a = attempt_with_answers
+            score_pct = int((a.score or 0) * 100)
+            status_text = "Пройден" if a.passed else "Не пройден"
+            lines.append(
+                f"Результат: {score_pct}% ({status_text}, проходной балл: {passing_pct}%)"
+            )
+            lines.append(
+                f"Набрано баллов: {a.points_earned or 0} из {a.total_points or 0}"
+            )
+        else:
+            lines.append(f"Проходной балл: {passing_pct}%")
+            lines.append("(Нет завершённых попыток)")
+
+        lines.append("")
+        lines.append("ВОПРОСЫ И ОТВЕТЫ УЧЕНИКА:")
+
+        # Build answer lookup: question_id -> TestAttemptAnswer
+        answer_map = {}
+        if attempt_with_answers and attempt_with_answers.answers:
+            for ans in attempt_with_answers.answers:
+                answer_map[ans.question_id] = ans
+
+        # Sort questions by sort_order
+        questions = sorted(test.questions, key=lambda q: q.sort_order)
+        option_labels = "ABCDEFGHIJ"
+
+        for i, question in enumerate(questions, 1):
+            lines.append(f"\nВопрос {i}: {question.question_text}")
+
+            # Show options
+            options = sorted(question.options, key=lambda o: o.sort_order)
+            for j, opt in enumerate(options):
+                label = option_labels[j] if j < len(option_labels) else str(j + 1)
+                lines.append(f"  {label}) {opt.option_text}")
+
+            # Show student's answer and correct answer
+            student_answer = answer_map.get(question.id)
+            if student_answer:
+                # What student selected
+                selected_ids = student_answer.selected_option_ids or []
+                selected_texts = []
+                for j, opt in enumerate(options):
+                    if opt.id in selected_ids:
+                        label = option_labels[j] if j < len(option_labels) else str(j + 1)
+                        selected_texts.append(f"{label}) {opt.option_text}")
+
+                if student_answer.answer_text:
+                    lines.append(f"  Ответ ученика: {student_answer.answer_text}")
+                elif selected_texts:
+                    lines.append(f"  Ответ ученика: {', '.join(selected_texts)}")
+                else:
+                    lines.append("  Ответ ученика: (не ответил)")
+
+                # Correct answer
+                correct_texts = []
+                for j, opt in enumerate(options):
+                    if opt.is_correct:
+                        label = option_labels[j] if j < len(option_labels) else str(j + 1)
+                        correct_texts.append(f"{label}) {opt.option_text}")
+                if correct_texts:
+                    lines.append(f"  Правильный ответ: {', '.join(correct_texts)}")
+
+                # Result
+                if student_answer.is_correct:
+                    lines.append("  Результат: ✓ Правильно")
+                else:
+                    lines.append("  Результат: ✗ Неправильно")
+            else:
+                # No attempt data — show correct answers anyway
+                correct_texts = []
+                for j, opt in enumerate(options):
+                    if opt.is_correct:
+                        label = option_labels[j] if j < len(option_labels) else str(j + 1)
+                        correct_texts.append(f"{label}) {opt.option_text}")
+                if correct_texts:
+                    lines.append(f"  Правильный ответ: {', '.join(correct_texts)}")
+
+            # Explanation
+            if question.explanation:
+                lines.append(f"  Объяснение: {question.explanation}")
+
+        lines.append("")
+        lines.append("ИНСТРУКЦИЯ: Если ученик просит ссылку на материал — используй только ссылки из этого контекста (\"Ссылка на параграф\"). НИКОГДА не придумывай ссылки на внешние сайты.")
+
+        context = "\n".join(lines)
+        logger.info(
+            f"Built test context for session {session.id}: "
+            f"test={session.test_id}, questions={len(questions)}, "
+            f"has_attempt={attempt_with_answers is not None}"
+        )
+        return context
 
     async def _get_system_prompt(
         self,
