@@ -5,7 +5,7 @@ Handles student progress tracking for teachers.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import and_, desc, func, select
@@ -100,7 +100,7 @@ class StudentProgressService:
 
         days_since = 0
         if last_activity:
-            days_since = (datetime.utcnow() - last_activity).days
+            days_since = (datetime.now(timezone.utc) - last_activity).days
 
         return StudentProgressDetailResponse(
             student=StudentBriefResponse(
@@ -258,9 +258,9 @@ class StudentProgressService:
                 id=attempt.id,
                 test_id=attempt.test_id,
                 test_title=attempt.test.title if attempt.test else "Unknown",
-                score=attempt.score * attempt.max_score,
-                max_score=attempt.max_score,
-                percentage=attempt.score * 100,
+                score=attempt.points_earned or 0,
+                max_score=attempt.total_points or 0,
+                percentage=(attempt.score or 0) * 100,
                 completed_at=attempt.completed_at
             ))
 
