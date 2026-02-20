@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.chapter import Chapter
+from app.models.learning import StudentParagraph
 from app.models.mastery import ChapterMastery, MasteryHistory, ParagraphMastery
 from app.models.school_class import SchoolClass
 from app.models.student import Student
@@ -276,10 +277,10 @@ class StudentProgressService:
         Returns:
             Tuple of (total_time_spent, last_activity_datetime)
         """
-        # Get total time spent
+        # Get total time spent (from student_paragraphs where actual learning time is recorded)
         time_result = await self.db.execute(
-            select(func.sum(ParagraphMastery.time_spent))
-            .where(ParagraphMastery.student_id == student_id)
+            select(func.sum(StudentParagraph.time_spent))
+            .where(StudentParagraph.student_id == student_id)
         )
         total_time = time_result.scalar() or 0
 

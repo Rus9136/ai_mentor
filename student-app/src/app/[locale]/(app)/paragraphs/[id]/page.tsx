@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useMemo, useCallback } from 'react';
+import { use, useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/i18n/routing';
 import {
@@ -98,30 +98,46 @@ export default function ParagraphPage({ params }: PageProps) {
   const submitAssessmentMutation = useSubmitSelfAssessment(paragraphId);
   const answerQuestionMutation = useAnswerEmbeddedQuestion(paragraphId);
 
+  // Time tracking: record when student opened the paragraph
+  const lastSentRef = useRef<number>(Date.now());
+
+  // Reset timer when paragraph changes
+  useEffect(() => {
+    lastSentRef.current = Date.now();
+  }, [paragraphId]);
+
+  // Get elapsed seconds since last send and reset timer (capped at 3600s per backend validation)
+  const getAndResetElapsed = useCallback(() => {
+    const now = Date.now();
+    const elapsed = Math.min(Math.round((now - lastSentRef.current) / 1000), 3600);
+    lastSentRef.current = now;
+    return elapsed;
+  }, []);
+
   // Handle step change
   const handleStepChange = useCallback(async (step: ParagraphStep) => {
     try {
-      await updateStepMutation.mutateAsync({ step });
+      await updateStepMutation.mutateAsync({ step, timeSpent: getAndResetElapsed() });
       // Switch to appropriate tab based on step
       if (step === 'content') setActiveTab('text');
       if (step === 'practice') setActiveTab('practice');
     } catch (error) {
       console.error('Failed to update step:', error);
     }
-  }, [updateStepMutation]);
+  }, [updateStepMutation, getAndResetElapsed]);
 
   // Handle "Завершить изучение" button click — start the learning flow
   const handleFinishStudying = useCallback(async () => {
     const hasQuestions = embeddedQuestions && embeddedQuestions.length > 0;
     if (hasQuestions) {
-      await updateStepMutation.mutateAsync({ step: 'practice' });
+      await updateStepMutation.mutateAsync({ step: 'practice', timeSpent: getAndResetElapsed() });
       setCurrentQuestionIndex(0);
       setFlowPhase('questions');
     } else {
-      await updateStepMutation.mutateAsync({ step: 'summary' });
+      await updateStepMutation.mutateAsync({ step: 'summary', timeSpent: getAndResetElapsed() });
       setFlowPhase('assessment');
     }
-  }, [embeddedQuestions, updateStepMutation]);
+  }, [embeddedQuestions, updateStepMutation, getAndResetElapsed]);
 
   // Handle self-assessment submission — branch by student's rating
   // practice_score & time_spent are sent for backend analytics (mastery_impact, teacher dashboard)
@@ -143,7 +159,7 @@ export default function ParagraphPage({ params }: PageProps) {
 
     if (rating === 'understood') {
       // Mark completed and show completion screen
-      await updateStepMutation.mutateAsync({ step: 'completed' });
+      await updateStepMutation.mutateAsync({ step: 'completed', timeSpent: getAndResetElapsed() });
       await refetchProgress();
       setFlowPhase('completed');
       setShowCompletion(true);
@@ -152,7 +168,7 @@ export default function ParagraphPage({ params }: PageProps) {
       setFlowPhase('chat');
       setShowChat(true);
     }
-  }, [submitAssessmentMutation, updateStepMutation, refetchProgress, progress]);
+  }, [submitAssessmentMutation, updateStepMutation, refetchProgress, progress, getAndResetElapsed]);
 
   // Handle embedded question answer
   const handleAnswerQuestion = useCallback(async (questionId: number, answer: string | string[]): Promise<AnswerResult> => {
@@ -175,14 +191,14 @@ export default function ParagraphPage({ params }: PageProps) {
       setCurrentQuestionIndex(prev => prev + 1);
     } else if (flowPhase === 'questions') {
       // All questions answered in flow mode → move to assessment
-      await updateStepMutation.mutateAsync({ step: 'summary' });
+      await updateStepMutation.mutateAsync({ step: 'summary', timeSpent: getAndResetElapsed() });
       await refetchProgress();
       setFlowPhase('assessment');
     } else {
       // Legacy: all questions answered outside flow mode
       handleStepChange('summary');
     }
-  }, [embeddedQuestions, currentQuestionIndex, flowPhase, updateStepMutation, refetchProgress, handleStepChange]);
+  }, [embeddedQuestions, currentQuestionIndex, flowPhase, updateStepMutation, refetchProgress, handleStepChange, getAndResetElapsed]);
 
   // Determine available tabs
   const availableTabs = useMemo(() => {
