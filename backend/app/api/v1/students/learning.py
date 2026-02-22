@@ -240,6 +240,16 @@ async def update_paragraph_progress(
         student_para.is_completed = True
         student_para.completed_at = now
 
+        # Also update paragraph_mastery so chapter/textbook lists show completion
+        mastery_repo = ParagraphMasteryRepository(db)
+        await mastery_repo.upsert(
+            student_id=student_id,
+            paragraph_id=paragraph_id,
+            school_id=school_id,
+            is_completed=True,
+            completed_at=now,
+        )
+
     await db.commit()
     await db.refresh(student_para)
 
