@@ -26,6 +26,7 @@ from .embedded import router as embedded_router
 from .stats import router as stats_router
 from .homework import router as homework_router
 from .profile import router as profile_router
+from .exercises import router as exercises_router
 
 
 router = APIRouter()
@@ -53,3 +54,6 @@ router.include_router(homework_router, tags=["Student Homework"])
 
 # Profile
 router.include_router(profile_router, tags=["Student Profile"])
+
+# Exercises (textbook exercises)
+router.include_router(exercises_router, tags=["Student Exercises"])

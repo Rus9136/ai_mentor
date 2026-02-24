@@ -190,6 +190,7 @@ app.mount(f"/{settings.UPLOAD_DIR}", StaticFiles(directory=str(upload_dir_path))
 # Include routers
 from app.api.v1 import auth, auth_oauth, admin_global, admin_school, schools, upload, students, goso
 from app.api.v1 import paragraph_contents, invitation_codes, rag, chat, teachers, teachers_homework
+from app.api.v1 import teachers_exercises
 from app.api.v1 import teacher_join_requests
 
 app.include_router(
@@ -274,6 +275,12 @@ app.include_router(
     teachers_homework.router,
     prefix=f"{settings.API_V1_PREFIX}",
     tags=["Teachers - Homework"],
+)
+
+app.include_router(
+    teachers_exercises.router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Teachers - Exercises"],
 )
 
 app.include_router(

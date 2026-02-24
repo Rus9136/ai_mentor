@@ -185,9 +185,21 @@ class HomeworkService:
         if homework.status != HomeworkStatus.DRAFT:
             raise HomeworkServiceError("Cannot add tasks to published homework")
 
+        task_data = data.model_dump()
+
+        # If exercise_id is provided, validate it and auto-fill paragraph_id
+        if task_data.get("exercise_id"):
+            from app.repositories.exercise_repo import ExerciseRepository
+            exercise_repo = ExerciseRepository(self.db)
+            exercise = await exercise_repo.get_by_id(task_data["exercise_id"])
+            if not exercise:
+                raise HomeworkServiceError("Exercise not found")
+            if not task_data.get("paragraph_id"):
+                task_data["paragraph_id"] = exercise.paragraph_id
+
         return await self.repo.add_task(
             homework_id=homework_id,
-            data=data.model_dump(),
+            data=task_data,
             school_id=school_id
         )
 

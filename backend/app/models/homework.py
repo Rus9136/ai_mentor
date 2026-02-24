@@ -206,6 +206,7 @@ class HomeworkTask(SoftDeleteModel):
     # ---- Content Links ----
     paragraph_id = Column(Integer, ForeignKey("paragraphs.id", ondelete="SET NULL"), nullable=True, index=True)
     chapter_id = Column(Integer, ForeignKey("chapters.id", ondelete="SET NULL"), nullable=True, index=True)
+    exercise_id = Column(Integer, ForeignKey("exercises.id", ondelete="SET NULL"), nullable=True, index=True)
     learning_outcome_id = Column(Integer, ForeignKey("learning_outcomes.id", ondelete="SET NULL"), nullable=True)
 
     # ---- Task Configuration ----
@@ -252,6 +253,7 @@ class HomeworkTask(SoftDeleteModel):
     school = relationship("School", backref="homework_tasks")
     paragraph = relationship("Paragraph", backref="homework_tasks")
     chapter = relationship("Chapter", backref="homework_tasks")
+    exercise = relationship("Exercise", backref="homework_tasks")
     learning_outcome = relationship("LearningOutcome", backref="homework_tasks")
     questions = relationship("HomeworkTaskQuestion", back_populates="task", cascade="all, delete-orphan")
     submissions = relationship("StudentTaskSubmission", back_populates="task", cascade="all, delete-orphan")

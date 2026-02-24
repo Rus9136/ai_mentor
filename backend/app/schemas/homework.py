@@ -204,6 +204,7 @@ class HomeworkTaskCreate(BaseModel):
 
     paragraph_id: Optional[int] = Field(None, description="Paragraph ID (for content-based tasks)")
     chapter_id: Optional[int] = Field(None, description="Chapter ID (alternative to paragraph)")
+    exercise_id: Optional[int] = Field(None, description="Exercise ID (specific textbook exercise)")
     task_type: TaskType = Field(..., description="Type of task")
     sort_order: int = Field(default=0, ge=0, description="Order in homework")
     is_required: bool = Field(default=True, description="Is task required")
@@ -339,8 +340,10 @@ class HomeworkTaskResponse(BaseModel):
     id: int
     paragraph_id: Optional[int] = None
     chapter_id: Optional[int] = None
+    exercise_id: Optional[int] = None
     paragraph_title: Optional[str] = None
     chapter_title: Optional[str] = None
+    exercise_number: Optional[str] = None
     task_type: TaskType
     sort_order: int
     is_required: bool

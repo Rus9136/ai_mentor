@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Load 'Алгебра 9 сынып, 1-бөлім' (Kazakh) into the AI Mentor database.
+Load 'Алгебра 9 сынып, 2-бөлім' (Kazakh) into the AI Mentor database.
 
 Parses the markdown file, creates textbook/chapter/paragraph records,
 copies images, and creates ParagraphContent records for language='kk'.
@@ -33,25 +33,25 @@ sys.path.insert(0, str(BACKEND_DIR))
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
-TEXTBOOK_TITLE = "Алгебра 9 сынып, 1-бөлім"
+TEXTBOOK_TITLE = "Алгебра 9 сынып, 2-бөлім"
 SUBJECT_CODE = "algebra"
 GRADE_LEVEL = 9
-AUTHORS = "А.Е. Әбілқасымова, Т.П. Кучер, В.Е. Корчевский, З.Э. Жұмағұлова"
+AUTHORS = "А.Е. Әбілқасымова, Т.П. Кучер, В.Е. Корчевский, З.Ә. Жұмағұлова"
 PUBLISHER = "Мектеп"
 YEAR = 2019
-ISBN = "978-601-07-1093-1"
+ISBN = "978-601-07-1094-8"
 LANGUAGE = "kk"
 
-MD_FILE = PROJECT_ROOT / "docs" / "archive" / "parser" / "386_with_local_images.md"
+MD_FILE = PROJECT_ROOT / "docs" / "archive" / "parser" / "387_with_local_images.md"
 IMAGES_SRC_DIR = PROJECT_ROOT / "docs" / "archive" / "parser" / "images"
-UPLOADS_BASE = BACKEND_DIR / "uploads"
+UPLOADS_BASE = PROJECT_ROOT / "uploads"
 
 # Headings that are internal content within a paragraph (NOT paragraph boundaries)
 INTERNAL_HEADINGS = {
     "МЫСАЛ", "Мысал", "Дысал", "Дмал", "Дмсал",
     "СЕНДЕР БІЛЕСІҢДЕР",
     "ТУСІНДІРІҢДЕР", "ТУСІНДІРІҢАЕР",
-    "Жаттығулар",
+    "Жаттығулар", "Жаттығудар",
     "A", "B", "C",
     "ҚАЙТАЛАУ", "Қайталау",
     "Жана білімді менгеруге дайындаламыз",
@@ -62,12 +62,20 @@ INTERNAL_HEADINGS = {
     "Жаца білімді менгеруге дайындаламыз",
     "АЛГОРИТМ", "Алгоритм",
     "?",
-    "Түйінді ұғымдар", "Түйінді уғымдар",
+    "Түйінді ұғымдар", "Түйінді уғымдар", "Туйінді уғымдар",
     "ҒАЛЫМ-МАТЕМАТИК ТУРАЛЫ ХАБАРЛАМА ДАЙЫНДАҢДАР",
+    "ҒАЛЫМДАР - МАТЕМАТИК",
+    "ҒАЛЫМ-МАТЕМАТИКТЕР ТУРАЛЫ ХАБАРЛАМА ДАЙЫНДАҢДАР",
     "АУЫЛ ШАРУАШЫЛЫҒЫНДАҒЫ МАТЕМАТИКА",
     "БИЗНЕСТЕГІ МАТЕМАТИКА",
     "МЕНІҢ ӨМІРІМДЕГІ МАТЕМАТИКА",
     "ЖАНҰЯ ӨМІРІНДЕГІ МАТЕМАТИКА",
+    "АСПАЗ МАМАНДЫғЫНДАҒЫ МАТЕМАТИКА",
+    "ҚҰРЫЛЫСТАҒЫ МАТЕМАТИКА",
+    "ЖYPгІЗУШі МАМАНДЫғЫНДАҒЫ МАТЕМАТИКА",
+    "ЕСТЕ САҚТАҢДАР",
+    "Ыктималдыктар касиеттері",
+    "Өрнекті ыкшамдан",
 }
 
 # OCR artifacts to fix in chapter titles
@@ -80,6 +88,23 @@ OCR_FIXES = {
 }
 
 # ── Data classes ─────────────────────────────────────────────────────────────
+
+
+@dataclass
+class ParsedSubExercise:
+    number: str       # "1", "2", ...
+    text: str         # text/formula
+    answer: str = ""  # answer from ЖАУАПТАРЫ
+
+
+@dataclass
+class ParsedExercise:
+    exercise_number: str           # "19.1", "20.12"
+    difficulty: str = ""           # "A", "B", "C"
+    content_lines: list[str] = field(default_factory=list)
+    sub_exercises: list[ParsedSubExercise] = field(default_factory=list)
+    answer_text: str = ""
+    is_starred: bool = False
 
 
 @dataclass
@@ -98,9 +123,9 @@ class ParsedChapter:
 
 # ── Regex patterns ───────────────────────────────────────────────────────────
 
-# Chapter heading: "I тарау", "ІІ тарау", "III тарау" (h1 or h2)
-# Handles mixed Cyrillic І and Latin I
-RE_CHAPTER = re.compile(r"^#{1,2}\s+[IІ]+\s+тарау", re.IGNORECASE)
+# Chapter heading: "I тарау", "ІІ тарау", "III тарау", "IV тарау", "V тарау" (h1 or h2)
+# Handles mixed Cyrillic І and Latin I, plus V and X for Roman numerals
+RE_CHAPTER = re.compile(r"^#{1,2}\s+([IVXІХ]+)\s+тарау", re.IGNORECASE)
 
 # Paragraph heading: "§1.", "## §2.", "## § 12."
 RE_PARAGRAPH = re.compile(r"^(?:#{1,2}\s+)?§\s*(\d+)[.\s](.+)", re.IGNORECASE)
@@ -120,11 +145,33 @@ RE_TOC = re.compile(r"^#{1,2}\s+МАЗМУНЫ")
 # Image reference in markdown
 RE_IMAGE = re.compile(r"!\[([^\]]*)\]\(\./images/([^)]+)\)")
 
+# Exercise patterns
+RE_EXERCISE_NUM = re.compile(r"^(\d+\.\d+)\.?\s*(.*)", re.DOTALL)  # "19.1. text" or "19.1 text"
+RE_SUB_EXERCISE = re.compile(r"^(\d+)\)\s+(.*)")  # "1) text"
+RE_DIFFICULTY_HEADER = re.compile(r"^(?:#{1,2}\s+)?([ABC])$")  # "## A" or "A"
+RE_EXERCISES_START = re.compile(r"^(?:#{1,2}\s+)?Жатты[гғ]у[лд]ар", re.IGNORECASE)
+# Answer patterns (in ЖАУАПТАРЫ)
+RE_ANSWER_ENTRY = re.compile(r"(\d+\.\d+)\.?\s*(.+?)(?=\d+\.\d+\.|$)", re.DOTALL)
+
 # Key terms block
 RE_KEY_TERMS = re.compile(r"Түйінді\s+[ұу]ғымдар", re.IGNORECASE)
 
 
 # ── Parser ───────────────────────────────────────────────────────────────────
+
+
+def roman_to_int(roman: str) -> int:
+    """Convert Roman numeral string to integer. Handles mixed Cyrillic/Latin."""
+    s = roman.strip().upper().replace("І", "I").replace("Х", "X")  # Cyrillic → Latin
+    values = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
+    result = 0
+    for i in range(len(s)):
+        val = values.get(s[i], 0)
+        if i + 1 < len(s) and val < values.get(s[i + 1], 0):
+            result -= val
+        else:
+            result += val
+    return result
 
 
 def fix_ocr(title: str) -> str:
@@ -146,6 +193,12 @@ def is_internal_heading(heading: str) -> bool:
             return True
     # Heading that starts with image ref
     if clean.startswith("!["):
+        return True
+    # Heading that starts with $ (math formula like $?$)
+    if clean.startswith("$"):
+        return True
+    # Heading that starts with a digit (OCR artifacts like "1 радианды..." or "89-cyper")
+    if clean and clean[0].isdigit():
         return True
     # Heading that is a definition/rule (lowercase start, long text)
     if len(clean) > 60:
@@ -170,9 +223,22 @@ def parse_textbook(md_path: Path) -> list[ParsedChapter]:
     for line_num, raw_line in enumerate(lines, 1):
         line = raw_line.rstrip("\n")
 
-        # ── Phase: preamble (skip until review section) ──────────────
+        # ── Phase: preamble (skip until first chapter or review) ─────
         if phase == "preamble":
+            m_ch = RE_CHAPTER.match(line)
+            if m_ch:
+                # Part 2 style: chapters come first
+                current_paragraph = None
+                chapter_counter = roman_to_int(m_ch.group(1))
+                title = re.sub(r"^#{1,2}\s+", "", line).strip()
+                title = fix_ocr(title)
+                title = re.sub(r"<br\s*/?>", " ", title).strip()
+                current_chapter = ParsedChapter(title=title, number=chapter_counter)
+                chapters.append(current_chapter)
+                phase = "chapters"
+                continue
             if RE_REVIEW_START.search(line):
+                # Part 1 style: review section comes first
                 phase = "review"
                 current_chapter = ParsedChapter(
                     title="7-8-сыныптардағы алгебра курсын қайталауға арналған жаттығулар",
@@ -193,11 +259,24 @@ def parse_textbook(md_path: Path) -> list[ParsedChapter]:
         if phase == "answers":
             continue
 
+        # ── Detect review section in chapters phase ──────────────────
+        if phase == "chapters" and RE_REVIEW_START.search(line):
+            current_paragraph = None
+            review_title = re.sub(r"^#{1,2}\s+", "", line).strip()
+            current_chapter = ParsedChapter(
+                title=review_title or "Қайталауға арналған жаттығулар",
+                number=0,
+            )
+            chapters.append(current_chapter)
+            phase = "review"
+            continue
+
         # ── Detect chapter heading ───────────────────────────────────
-        if RE_CHAPTER.match(line):
+        m_ch = RE_CHAPTER.match(line)
+        if m_ch:
             # Finalize previous paragraph
             current_paragraph = None
-            chapter_counter += 1
+            chapter_counter = roman_to_int(m_ch.group(1))
             title = re.sub(r"^#{1,2}\s+", "", line).strip()
             title = fix_ocr(title)
             # Clean <br> tags
@@ -521,7 +600,7 @@ def find_or_create_textbook(session, subject_id: int) -> int:
             "publisher": PUBLISHER,
             "year": YEAR,
             "isbn": ISBN,
-            "description": "Жалпы білім беретін мектептің 9-сыныбына арналған оқулық. 1-бөлім.",
+            "description": "Жалпы білім беретін мектептің 9-сыныбына арналған оқулық. 2-бөлім.",
         },
     )
     textbook_id = result.fetchone()[0]
@@ -698,6 +777,320 @@ def print_parse_stats(chapters: list[ParsedChapter]):
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 
+# ── Exercise extraction ──────────────────────────────────────────────────────
+
+
+def extract_exercises_from_paragraph(para: ParsedParagraph) -> list[ParsedExercise]:
+    """Extract structured exercises from a paragraph's content lines.
+
+    Looks for Жаттығулар section, then parses A/B/C difficulty levels
+    and individual exercises with their sub-exercises.
+    """
+    exercises: list[ParsedExercise] = []
+    in_exercises = False
+    current_difficulty = ""
+    current_exercise: ParsedExercise | None = None
+
+    for line in para.content_lines:
+        stripped = line.strip()
+
+        # Detect start of exercises section
+        if RE_EXERCISES_START.match(stripped):
+            in_exercises = True
+            continue
+
+        if not in_exercises:
+            continue
+
+        # Detect difficulty header (## A, ## B, ## C, or just A, B, C)
+        m_diff = RE_DIFFICULTY_HEADER.match(stripped)
+        if m_diff:
+            current_difficulty = m_diff.group(1)
+            continue
+
+        # Skip empty lines
+        if not stripped:
+            continue
+
+        # Detect exercise number (e.g., "19.1. text" or "19.1 text")
+        m_ex = RE_EXERCISE_NUM.match(stripped)
+        if m_ex:
+            # Save previous exercise
+            if current_exercise:
+                exercises.append(current_exercise)
+
+            ex_num = m_ex.group(1)
+            rest = m_ex.group(2).strip()
+            is_starred = "*" in rest[:5] if rest else False
+            rest = rest.lstrip("*").strip()
+
+            current_exercise = ParsedExercise(
+                exercise_number=ex_num,
+                difficulty=current_difficulty,
+                content_lines=[rest] if rest else [],
+                is_starred=is_starred,
+            )
+
+            # Check if rest starts with a sub-exercise immediately
+            if rest:
+                m_sub = RE_SUB_EXERCISE.match(rest)
+                if m_sub:
+                    current_exercise.content_lines = []
+                    current_exercise.sub_exercises.append(
+                        ParsedSubExercise(number=m_sub.group(1), text=m_sub.group(2).strip())
+                    )
+            continue
+
+        # Detect sub-exercise (e.g., "1) text")
+        if current_exercise:
+            m_sub = RE_SUB_EXERCISE.match(stripped)
+            if m_sub:
+                current_exercise.sub_exercises.append(
+                    ParsedSubExercise(number=m_sub.group(1), text=m_sub.group(2).strip())
+                )
+                continue
+
+            # Continuation of current exercise text
+            current_exercise.content_lines.append(stripped)
+
+    # Don't forget the last exercise
+    if current_exercise:
+        exercises.append(current_exercise)
+
+    return exercises
+
+
+def parse_answers_section(md_path: Path) -> dict[str, str]:
+    """Parse the ЖАУАПТАРЫ (answers) section from the MD file.
+
+    Returns a dict mapping exercise_number -> raw answer text.
+    """
+    answers: dict[str, str] = {}
+
+    with open(md_path, encoding="utf-8") as f:
+        lines = f.readlines()
+
+    in_answers = False
+    answer_text_lines: list[str] = []
+
+    for raw_line in lines:
+        line = raw_line.rstrip("\n")
+
+        if RE_ANSWERS.match(line):
+            in_answers = True
+            continue
+
+        if RE_TOC.match(line):
+            break
+
+        if not in_answers:
+            continue
+
+        answer_text_lines.append(line)
+
+    # Join all answer lines into one big string
+    full_text = " ".join(answer_text_lines)
+
+    # Parse individual answers using regex
+    # Answers look like: "19.6. 1) IV ширек; 2) I ширек; ..."
+    # We split on exercise number patterns
+    parts = re.split(r"(\d+\.\d+)\.?\s*", full_text)
+
+    # parts will be: ['preamble', '19.6', ' answer text', '19.7', ' answer text', ...]
+    i = 1  # skip preamble
+    while i + 1 < len(parts):
+        ex_num = parts[i]
+        answer = parts[i + 1].strip().rstrip(",;.")
+        if answer:
+            answers[ex_num] = answer
+        i += 2
+
+    return answers
+
+
+def merge_answers(
+    exercises_by_para: dict[int, list[ParsedExercise]],
+    answers: dict[str, str],
+):
+    """Merge parsed answers into exercises."""
+    for para_num, exs in exercises_by_para.items():
+        for ex in exs:
+            if ex.exercise_number in answers:
+                ex.answer_text = answers[ex.exercise_number]
+
+                # Try to split answers into sub-exercise answers
+                if ex.sub_exercises and ex.answer_text:
+                    sub_parts = re.split(r"(\d+)\)\s*", ex.answer_text)
+                    sub_answers: dict[str, str] = {}
+                    j = 1
+                    while j + 1 < len(sub_parts):
+                        sub_num = sub_parts[j]
+                        sub_ans = sub_parts[j + 1].strip().rstrip(";,.")
+                        sub_answers[sub_num] = sub_ans
+                        j += 2
+
+                    for sub in ex.sub_exercises:
+                        if sub.number in sub_answers:
+                            sub.answer = sub_answers[sub.number]
+
+
+def generate_exercises_sql(
+    chapters: list[ParsedChapter],
+    answers: dict[str, str],
+    output_path: Path,
+):
+    """Generate SQL INSERT statements for exercises."""
+    textbook_title_esc = escape_sql(TEXTBOOK_TITLE)
+    textbook_where = (
+        f"(SELECT id FROM textbooks WHERE title = {textbook_title_esc}"
+        f" AND grade_level = {GRADE_LEVEL} AND is_deleted = false LIMIT 1)"
+    )
+
+    lines = [
+        "-- Exercises Import for Algebra 9 (Kazakh)",
+        "-- Generated by load_algebra9_textbook.py --exercises",
+        "",
+        "BEGIN;",
+        "",
+    ]
+
+    total_exercises = 0
+    total_with_answers = 0
+    total_sub = 0
+    stats_by_difficulty: dict[str, int] = {"A": 0, "B": 0, "C": 0, "": 0}
+
+    for chapter in chapters:
+        chapter_where = (
+            f"(SELECT id FROM chapters WHERE textbook_id = {textbook_where}"
+            f" AND number = {chapter.number} AND is_deleted = false LIMIT 1)"
+        )
+
+        for para in chapter.paragraphs:
+            exercises = extract_exercises_from_paragraph(para)
+            if not exercises:
+                continue
+
+            para_number = para.number if para.number != 900 else 100
+            para_where = (
+                f"(SELECT id FROM paragraphs WHERE chapter_id = {chapter_where}"
+                f" AND number = {para_number} AND is_deleted = false LIMIT 1)"
+            )
+
+            lines.append(f"-- Paragraph {para_number}: {para.title[:50]}")
+            lines.append(f"-- {len(exercises)} exercises")
+            lines.append("")
+
+            for sort_idx, ex in enumerate(exercises, 1):
+                # Merge answer
+                answer = answers.get(ex.exercise_number, "")
+                if answer:
+                    ex.answer_text = answer
+
+                # Build content text
+                content_text = " ".join(ex.content_lines).strip()
+                if not content_text and ex.sub_exercises:
+                    # Exercise is only sub-exercises, use first line or number
+                    content_text = f"Жаттығу {ex.exercise_number}"
+
+                if not content_text:
+                    content_text = f"Жаттығу {ex.exercise_number}"
+
+                content_text_esc = escape_sql(content_text)
+
+                # Build content_html
+                html_parts = [f"<strong>{ex.exercise_number}.</strong> {content_text}"]
+                if ex.sub_exercises:
+                    for sub in ex.sub_exercises:
+                        html_parts.append(
+                            f'<div style="margin-left:1.5rem">{sub.number}) {sub.text}</div>'
+                        )
+                content_html = "\n".join(html_parts)
+                content_html_esc = escape_sql(content_html)
+
+                # Build sub_exercises JSON
+                if ex.sub_exercises:
+                    # Merge sub-answers
+                    if answer:
+                        sub_parts = re.split(r"(\d+)\)\s*", answer)
+                        sub_answers_map: dict[str, str] = {}
+                        j = 1
+                        while j + 1 < len(sub_parts):
+                            sub_answers_map[sub_parts[j]] = sub_parts[j + 1].strip().rstrip(";,.")
+                            j += 2
+                        for sub in ex.sub_exercises:
+                            if sub.number in sub_answers_map:
+                                sub.answer = sub_answers_map[sub.number]
+
+                    sub_json_items = []
+                    for sub in ex.sub_exercises:
+                        sub_text_esc = sub.text.replace("\\", "\\\\").replace('"', '\\"')
+                        sub_answer_esc = sub.answer.replace("\\", "\\\\").replace('"', '\\"') if sub.answer else ""
+                        item = f'{{"number":"{sub.number}","text":"{sub_text_esc}"'
+                        if sub_answer_esc:
+                            item += f',"answer":"{sub_answer_esc}"'
+                        item += "}"
+                        sub_json_items.append(item)
+                    sub_json = "'[" + ",".join(sub_json_items) + "]'::jsonb"
+                    total_sub += len(ex.sub_exercises)
+                else:
+                    sub_json = "NULL"
+
+                has_answer = bool(answer)
+                answer_esc = escape_sql(answer) if answer else "NULL"
+                difficulty_esc = escape_sql(ex.difficulty) if ex.difficulty else "NULL"
+
+                if has_answer:
+                    total_with_answers += 1
+
+                stats_by_difficulty[ex.difficulty] = stats_by_difficulty.get(ex.difficulty, 0) + 1
+
+                lines.append(f"-- Exercise {ex.exercise_number} (difficulty={ex.difficulty or '?'})")
+                lines.append(f"INSERT INTO exercises (")
+                lines.append(f"    paragraph_id, school_id, exercise_number, sort_order,")
+                lines.append(f"    difficulty, content_text, content_html, sub_exercises,")
+                lines.append(f"    answer_text, has_answer, is_starred, language, is_deleted")
+                lines.append(f") SELECT")
+                lines.append(f"    {para_where},")
+                lines.append(f"    NULL, {escape_sql(ex.exercise_number)}, {sort_idx},")
+                lines.append(f"    {difficulty_esc}, {content_text_esc},")
+                lines.append(f"    {content_html_esc},")
+                lines.append(f"    {sub_json},")
+                lines.append(f"    {answer_esc}, {str(has_answer).lower()}, {str(ex.is_starred).lower()}, 'kk', false")
+                lines.append(f"WHERE NOT EXISTS (")
+                lines.append(f"    SELECT 1 FROM exercises")
+                lines.append(f"    WHERE paragraph_id = {para_where}")
+                lines.append(f"    AND exercise_number = {escape_sql(ex.exercise_number)}")
+                lines.append(f"    AND is_deleted = false")
+                lines.append(f");")
+                lines.append("")
+                total_exercises += 1
+
+    lines.append("COMMIT;")
+    lines.append("")
+    lines.append(f"-- Stats: {total_exercises} exercises")
+    lines.append(f"-- A: {stats_by_difficulty.get('A', 0)}, B: {stats_by_difficulty.get('B', 0)}, C: {stats_by_difficulty.get('C', 0)}")
+    lines.append(f"-- With answers: {total_with_answers}")
+    lines.append(f"-- Sub-exercises: {total_sub}")
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+    print(f"\n  Generated Exercises SQL: {output_path}")
+    print(f"  Total exercises: {total_exercises}")
+    print(f"    A: {stats_by_difficulty.get('A', 0)}")
+    print(f"    B: {stats_by_difficulty.get('B', 0)}")
+    print(f"    C: {stats_by_difficulty.get('C', 0)}")
+    print(f"    No difficulty: {stats_by_difficulty.get('', 0)}")
+    print(f"  With answers: {total_with_answers}")
+    print(f"  Sub-exercises: {total_sub}")
+    print(f"\n  To import:")
+    print(f"    docker cp {output_path} ai_mentor_postgres_prod:/tmp/exercises.sql")
+    print(f"    docker exec ai_mentor_postgres_prod psql -U ai_mentor_user -d ai_mentor_db -f /tmp/exercises.sql")
+
+
+# ── SQL helpers ──────────────────────────────────────────────────────────────
+
+
 def escape_sql(s: str) -> str:
     """Escape string for SQL single-quote literals."""
     if s is None:
@@ -804,7 +1197,7 @@ def generate_sql(chapters: list[ParsedChapter], output_path: Path):
         ") SELECT",
         f"    NULL, 24, {textbook_title_esc}, 'Алгебра', {GRADE_LEVEL},",
         f"    {escape_sql(AUTHORS)}, {escape_sql(PUBLISHER)}, {YEAR}, {escape_sql(ISBN)},",
-        f"    {escape_sql('Жалпы білім беретін мектептің 9-сыныбына арналған оқулық. 1-бөлім.')},",
+        f"    {escape_sql('Жалпы білім беретін мектептің 9-сыныбына арналған оқулық. 2-бөлім.')},",
         "    true, false, 1, false",
         "WHERE NOT EXISTS (",
         f"    SELECT 1 FROM textbooks WHERE title = {textbook_title_esc}",
@@ -919,6 +1312,10 @@ def main():
         "--update-content", type=str, metavar="FILE",
         help="Generate SQL UPDATE file to refresh content in existing records"
     )
+    parser.add_argument(
+        "--exercises", type=str, metavar="FILE",
+        help="Generate SQL file for exercises import"
+    )
     args = parser.parse_args()
 
     print("=" * 70)
@@ -935,7 +1332,33 @@ def main():
     print_parse_stats(chapters)
 
     if args.dry_run:
+        # Also print exercise stats in dry-run mode
+        print("\n--- Exercise Parsing Preview ---")
+        total_ex = 0
+        for ch in chapters:
+            for p in ch.paragraphs:
+                exs = extract_exercises_from_paragraph(p)
+                if exs:
+                    print(f"  §{p.number}: {len(exs)} exercises")
+                    for ex in exs[:3]:
+                        sub_count = len(ex.sub_exercises)
+                        text_preview = " ".join(ex.content_lines)[:60]
+                        print(f"    {ex.exercise_number} [{ex.difficulty}] {text_preview}... ({sub_count} sub)")
+                    if len(exs) > 3:
+                        print(f"    ... and {len(exs) - 3} more")
+                    total_ex += len(exs)
+        print(f"\n  Total exercises found: {total_ex}")
         print("\n[DRY RUN] Stopping before DB operations.")
+        return
+
+    # Exercises mode — generate SQL for exercises import
+    if args.exercises:
+        print(f"\nStep 2: Parsing answers section...")
+        answers = parse_answers_section(MD_FILE)
+        print(f"  Found answers for {len(answers)} exercises")
+
+        print(f"\nStep 3: Generating Exercises SQL file...")
+        generate_exercises_sql(chapters, answers, Path(args.exercises))
         return
 
     # Update content mode — regenerate HTML and update existing records
