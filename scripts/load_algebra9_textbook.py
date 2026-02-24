@@ -264,7 +264,7 @@ def md_lines_to_html(lines: list[str], textbook_id: int) -> str:
     content = RE_IMAGE.sub(
         lambda m: (
             f'<img src="/uploads/textbook-images/{textbook_id}/{m.group(2)}" '
-            f'alt="{m.group(1)}" class="mx-auto my-4 max-w-full" />'
+            f'alt="{m.group(1)}" style="display:block;margin:1rem auto;max-width:100%" />'
         ),
         content,
     )
@@ -298,7 +298,7 @@ def md_lines_to_html(lines: list[str], textbook_id: int) -> str:
     def flush_table():
         nonlocal in_table, table_rows
         if table_rows:
-            html_parts.append("<table class='w-full border-collapse my-4'>")
+            html_parts.append("<table style='width:100%;border-collapse:collapse;margin:1rem 0'>")
             for i, row in enumerate(table_rows):
                 cells = [c.strip() for c in row.strip("|").split("|")]
                 # Skip separator rows
@@ -308,7 +308,7 @@ def md_lines_to_html(lines: list[str], textbook_id: int) -> str:
                 html_parts.append("<tr>")
                 for cell in cells:
                     html_parts.append(
-                        f"<{tag} class='border border-gray-300 px-3 py-2'>"
+                        f"<{tag} style='border:1px solid #d1d5db;padding:0.5rem 0.75rem'>"
                         f"{cell}</{tag}>"
                     )
                 html_parts.append("</tr>")
@@ -349,7 +349,7 @@ def md_lines_to_html(lines: list[str], textbook_id: int) -> str:
         if line.startswith("> "):
             flush_paragraph()
             html_parts.append(
-                f"<blockquote class='border-l-4 border-blue-300 pl-4 my-3 italic'>"
+                f"<blockquote style='border-left:4px solid #93c5fd;padding-left:1rem;margin:0.75rem 0;font-style:italic'>"
                 f"{line[2:]}</blockquote>"
             )
             continue
@@ -357,7 +357,31 @@ def md_lines_to_html(lines: list[str], textbook_id: int) -> str:
         # Image (already converted above, but just in case)
         if line.strip().startswith("<img "):
             flush_paragraph()
-            html_parts.append(f'<div class="my-4 text-center">{line.strip()}</div>')
+            html_parts.append(f'<div style="margin:1rem 0;text-align:center">{line.strip()}</div>')
+            continue
+
+        # Task line: "N. Text" (main exercise number)
+        task_match = re.match(r"^(\d+)\.\s+(.+)", line.strip())
+        if task_match:
+            flush_paragraph()
+            task_num = task_match.group(1)
+            task_text = task_match.group(2)
+            html_parts.append(
+                f'<div style="margin-top:1.5rem;margin-bottom:0.5rem">'
+                f'<strong>{task_num}.</strong> {task_text}</div>'
+            )
+            continue
+
+        # Subtask line: "N) formula/text"
+        subtask_match = re.match(r"^(\d+)\)\s+(.+)", line.strip())
+        if subtask_match:
+            flush_paragraph()
+            sub_num = subtask_match.group(1)
+            sub_text = subtask_match.group(2)
+            html_parts.append(
+                f'<div style="margin-left:1.5rem;margin-top:0.25rem;margin-bottom:0.25rem">'
+                f'{sub_num}) {sub_text}</div>'
+            )
             continue
 
         # Regular text
@@ -681,6 +705,77 @@ def escape_sql(s: str) -> str:
     return "'" + s.replace("'", "''") + "'"
 
 
+def generate_update_sql(chapters: list[ParsedChapter], output_path: Path):
+    """Generate SQL UPDATE statements to refresh content in existing records."""
+    textbook_title_esc = escape_sql(TEXTBOOK_TITLE)
+    textbook_where = (
+        f"(SELECT id FROM textbooks WHERE title = {textbook_title_esc}"
+        f" AND grade_level = {GRADE_LEVEL} AND is_deleted = false LIMIT 1)"
+    )
+
+    lines = [
+        "-- Algebra 9 Textbook Content UPDATE",
+        "-- Regenerated HTML with improved formatting",
+        "",
+        "BEGIN;",
+        "",
+    ]
+
+    # Get the real textbook_id for image paths
+    textbook_id_expr = (
+        f"(SELECT id FROM textbooks WHERE title = {textbook_title_esc}"
+        f" AND grade_level = {GRADE_LEVEL} AND is_deleted = false LIMIT 1)"
+    )
+
+    total = 0
+    for chapter in chapters:
+        chapter_where = (
+            f"(SELECT id FROM chapters WHERE textbook_id = {textbook_where}"
+            f" AND number = {chapter.number} AND is_deleted = false LIMIT 1)"
+        )
+
+        for p_order, para in enumerate(chapter.paragraphs, 1):
+            para_number = para.number if para.number != 900 else 100 + p_order
+            # Build HTML with placeholder textbook_id=0, then replace
+            html_content = md_lines_to_html(para.content_lines, 0)
+            content_esc = escape_sql(html_content)
+
+            para_where = (
+                f"(SELECT id FROM paragraphs WHERE chapter_id = {chapter_where}"
+                f" AND number = {para_number} AND is_deleted = false LIMIT 1)"
+            )
+
+            lines.append(f"-- Update paragraph {para_number}: {para.title[:50]}")
+            lines.append(f"UPDATE paragraphs SET content = {content_esc}")
+            lines.append(f"WHERE id = {para_where};")
+            lines.append("")
+            lines.append(f"UPDATE paragraph_contents SET explain_text = {content_esc}")
+            lines.append(f"WHERE paragraph_id = {para_where} AND language = 'kk';")
+            lines.append("")
+            total += 1
+
+    # Fix image paths
+    lines.append("-- Update image paths with actual textbook_id")
+    lines.append(f"UPDATE paragraphs SET content = REPLACE(content, '/textbook-images/0/', '/textbook-images/' || {textbook_id_expr} || '/')")
+    lines.append(f"WHERE chapter_id IN (SELECT id FROM chapters WHERE textbook_id = {textbook_where});")
+    lines.append("")
+    lines.append(f"UPDATE paragraph_contents SET explain_text = REPLACE(explain_text, '/textbook-images/0/', '/textbook-images/' || {textbook_id_expr} || '/')")
+    lines.append(f"WHERE paragraph_id IN (SELECT p.id FROM paragraphs p JOIN chapters c ON c.id = p.chapter_id WHERE c.textbook_id = {textbook_where});")
+    lines.append("")
+
+    lines.append("COMMIT;")
+    lines.append(f"-- Updated {total} paragraphs")
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+    print(f"\n  Generated UPDATE SQL: {output_path}")
+    print(f"  Paragraphs to update: {total}")
+    print(f"\n  To apply:")
+    print(f"    docker cp {output_path} ai_mentor_postgres_prod:/tmp/update_content.sql")
+    print(f"    docker exec ai_mentor_postgres_prod psql -U ai_mentor_user -d ai_mentor_db -f /tmp/update_content.sql")
+
+
 def generate_sql(chapters: list[ParsedChapter], output_path: Path):
     """Generate a SQL file for importing via psql.
 
@@ -820,6 +915,10 @@ def main():
         "--generate-sql", type=str, metavar="FILE",
         help="Generate SQL file instead of direct DB connection"
     )
+    parser.add_argument(
+        "--update-content", type=str, metavar="FILE",
+        help="Generate SQL UPDATE file to refresh content in existing records"
+    )
     args = parser.parse_args()
 
     print("=" * 70)
@@ -837,6 +936,12 @@ def main():
 
     if args.dry_run:
         print("\n[DRY RUN] Stopping before DB operations.")
+        return
+
+    # Update content mode — regenerate HTML and update existing records
+    if args.update_content:
+        print(f"\nStep 2: Generating UPDATE SQL file...")
+        generate_update_sql(chapters, Path(args.update_content))
         return
 
     # Generate SQL mode
