@@ -22,8 +22,10 @@ engine = create_async_engine(
     settings.async_database_url,
     echo=settings.DEBUG,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=5,       # 8 workers × 5 = 40 base connections
+    max_overflow=10,   # 8 workers × 15 = 120 max connections
+    pool_recycle=1800,
+    pool_timeout=30,
 )
 
 # Create async session maker

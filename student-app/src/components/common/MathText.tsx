@@ -79,3 +79,47 @@ function MathTextComponent({ children, className, as: Component = 'span' }: Math
 
 // Memoize to prevent unnecessary re-renders
 export const MathText = memo(MathTextComponent);
+
+/**
+ * Process an HTML string and render LaTeX math formulas via KaTeX.
+ *
+ * Use this when you have HTML content (e.g. from dangerouslySetInnerHTML)
+ * that contains $...$ or $$...$$ LaTeX patterns.
+ *
+ * @example
+ * const processed = renderMathInHtml('<p>Solve $x^2 = 4$</p>');
+ * <div dangerouslySetInnerHTML={{ __html: processed }} />
+ */
+export function renderMathInHtml(html: string): string {
+  if (!html || !html.includes('$')) return html;
+
+  let result = html;
+
+  // Replace display math $$...$$ first
+  result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_, tex) => {
+    try {
+      return katex.renderToString(tex.trim(), {
+        displayMode: true,
+        throwOnError: false,
+        strict: false,
+      });
+    } catch {
+      return `<span class="text-red-500">[Math Error: ${tex}]</span>`;
+    }
+  });
+
+  // Replace inline math $...$
+  result = result.replace(/\$([^$\n]+?)\$/g, (_, tex) => {
+    try {
+      return katex.renderToString(tex.trim(), {
+        displayMode: false,
+        throwOnError: false,
+        strict: false,
+      });
+    } catch {
+      return `<span class="text-red-500">[Math Error: ${tex}]</span>`;
+    }
+  });
+
+  return result;
+}

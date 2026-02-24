@@ -138,13 +138,15 @@ services:
       retries: 3
       start_period: 40s
 
-    # Production команда: Gunicorn с 4 workers
+    # Production команда: Gunicorn с 8 workers (8 CPU cores, ~5000 users)
     command: >
       gunicorn app.main:app
-      --workers 4
+      --workers 8
       --worker-class uvicorn.workers.UvicornWorker
       --bind 0.0.0.0:8000
       --timeout 120
+      --graceful-timeout 30
+      --keep-alive 5
       --access-logfile -
       --error-logfile -
       --log-level info

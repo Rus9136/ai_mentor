@@ -27,6 +27,7 @@ import {
   MobileSidebarSheet,
 } from '@/components/learning';
 import { ChatModal } from '@/components/chat';
+import { renderMathInHtml } from '@/components/common/MathText';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -210,10 +211,11 @@ export default function ParagraphPage({ params }: PageProps) {
   }, [richContent, paragraph, embeddedQuestions]);
 
   // Get content to display (prefer rich content explain_text, fallback to paragraph content)
+  // Process LaTeX formulas ($...$, $$...$$) via KaTeX
   const displayContent = useMemo(() => {
-    if (richContent?.explain_text) return richContent.explain_text;
-    if (paragraph?.content) return paragraph.content;
-    return null;
+    const raw = richContent?.explain_text || paragraph?.content || null;
+    if (!raw) return null;
+    return renderMathInHtml(raw);
   }, [richContent, paragraph]);
 
   // Calculate completed count for mobile trigger (must be before conditional returns!)
