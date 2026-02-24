@@ -219,6 +219,38 @@ export async function getParagraphNavigation(paragraphId: number): Promise<Parag
 }
 
 // =============================================================================
+// Exercise Types
+// =============================================================================
+
+export interface SubExercise {
+  number: string;
+  text: string;
+}
+
+export interface Exercise {
+  id: number;
+  paragraph_id: number;
+  exercise_number: string;
+  sort_order: number;
+  difficulty: string | null;
+  content_text: string;
+  content_html: string | null;
+  sub_exercises: SubExercise[] | null;
+  is_starred: boolean;
+  language: string;
+  created_at: string;
+}
+
+export interface ExerciseListResponse {
+  paragraph_id: number;
+  total: number;
+  count_a: number;
+  count_b: number;
+  count_c: number;
+  exercises: Exercise[];
+}
+
+// =============================================================================
 // Progress & Step Tracking Types
 // =============================================================================
 
@@ -357,4 +389,14 @@ export async function answerEmbeddedQuestion(
     { answer }
   );
   return response.data;
+}
+
+/**
+ * Get exercises for a paragraph.
+ */
+export async function getExercises(paragraphId: number): Promise<ExerciseListResponse> {
+  const { data } = await apiClient.get<ExerciseListResponse>(
+    `/students/paragraphs/${paragraphId}/exercises`
+  );
+  return data;
 }

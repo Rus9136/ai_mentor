@@ -13,6 +13,7 @@ import {
   useEmbeddedQuestions,
   useAnswerEmbeddedQuestion,
   useChapterParagraphs,
+  useExercises,
 } from '@/lib/hooks/use-textbooks';
 import { useParagraphTest } from '@/lib/hooks/use-tests';
 import { getMediaUrl } from '@/lib/api/client';
@@ -27,6 +28,7 @@ import {
   MobileSidebarSheet,
 } from '@/components/learning';
 import { ChatModal } from '@/components/chat';
+import ExerciseList from '@/components/learning/ExerciseList';
 import { renderMathInHtml } from '@/components/common/MathText';
 import {
   ArrowLeft,
@@ -44,11 +46,12 @@ import {
   Play,
   RotateCcw,
   Brain,
+  Dumbbell,
   Sparkles,
 } from 'lucide-react';
 
 // Content tabs
-type ContentTab = 'text' | 'audio' | 'cards' | 'practice';
+type ContentTab = 'text' | 'audio' | 'cards' | 'practice' | 'exercises';
 
 // Learning flow phases — state machine for paragraph completion
 type LearningFlowPhase =
@@ -90,6 +93,7 @@ export default function ParagraphPage({ params }: PageProps) {
   const { data: navigation } = useParagraphNavigation(paragraphId);
   const { data: progress, refetch: refetchProgress } = useParagraphProgress(paragraphId);
   const { data: embeddedQuestions } = useEmbeddedQuestions(paragraphId);
+  const { data: exercisesData } = useExercises(paragraphId);
   const { data: paragraphTest } = useParagraphTest(paragraph?.id);
 
   // Fetch all paragraphs in chapter for sidebar
@@ -208,8 +212,9 @@ export default function ParagraphPage({ params }: PageProps) {
     if (richContent?.has_audio || paragraph?.has_audio) tabs.push('audio');
     if (richContent?.has_cards || paragraph?.has_cards) tabs.push('cards');
     if (embeddedQuestions && embeddedQuestions.length > 0) tabs.push('practice');
+    if (exercisesData && exercisesData.total > 0) tabs.push('exercises');
     return tabs;
-  }, [richContent, paragraph, embeddedQuestions]);
+  }, [richContent, paragraph, embeddedQuestions, exercisesData]);
 
   // Get content to display (prefer rich content explain_text, fallback to paragraph content)
   // Process LaTeX formulas ($...$, $$...$$) via KaTeX
@@ -401,8 +406,8 @@ export default function ParagraphPage({ params }: PageProps) {
           {availableTabs.length > 1 && (
             <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
               {availableTabs.map((tab) => {
-                const TabIcon = tab === 'text' ? BookOpen : tab === 'audio' ? Headphones : tab === 'practice' ? Brain : Layers;
-                const tabLabel = tab === 'practice' ? t('steps.practice') : t(`tabs.${tab}`);
+                const TabIcon = tab === 'text' ? BookOpen : tab === 'audio' ? Headphones : tab === 'practice' ? Brain : tab === 'exercises' ? Dumbbell : Layers;
+                const tabLabel = tab === 'practice' ? t('steps.practice') : tab === 'exercises' ? t('tabs.exercises') : t(`tabs.${tab}`);
                 return (
                   <button
                     key={tab}
@@ -418,6 +423,11 @@ export default function ParagraphPage({ params }: PageProps) {
                     {tab === 'practice' && progress && progress.embedded_questions_total > 0 && (
                       <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-white/20">
                         {progress.embedded_questions_answered}/{progress.embedded_questions_total}
+                      </span>
+                    )}
+                    {tab === 'exercises' && exercisesData && (
+                      <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-white/20">
+                        {exercisesData.total}
                       </span>
                     )}
                   </button>
@@ -504,6 +514,11 @@ export default function ParagraphPage({ params }: PageProps) {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Exercises Content - Textbook exercises */}
+            {activeTab === 'exercises' && paragraphId && (
+              <ExerciseList paragraphId={paragraphId} />
             )}
           </main>
 

@@ -11,6 +11,7 @@ import {
   submitSelfAssessment,
   getEmbeddedQuestions,
   answerEmbeddedQuestion,
+  getExercises,
   StudentTextbook,
   StudentChapter,
   StudentParagraph,
@@ -23,6 +24,7 @@ import {
   SelfAssessmentRequest,
   EmbeddedQuestion,
   AnswerResult,
+  ExerciseListResponse,
 } from '@/lib/api/textbooks';
 
 // =============================================================================
@@ -43,6 +45,8 @@ export const textbookKeys = {
     ['paragraphs', paragraphId, 'progress'] as const,
   embeddedQuestions: (paragraphId: number) =>
     ['paragraphs', paragraphId, 'embedded-questions'] as const,
+  exercises: (paragraphId: number) =>
+    ['paragraphs', paragraphId, 'exercises'] as const,
 };
 
 // =============================================================================
@@ -190,5 +194,20 @@ export function useAnswerEmbeddedQuestion(paragraphId: number) {
       // Invalidate progress to update question stats
       queryClient.invalidateQueries({ queryKey: textbookKeys.paragraphProgress(paragraphId) });
     },
+  });
+}
+
+// =============================================================================
+// Exercises Hook
+// =============================================================================
+
+/**
+ * Hook to get exercises for a paragraph.
+ */
+export function useExercises(paragraphId: number | undefined) {
+  return useQuery<ExerciseListResponse, Error>({
+    queryKey: textbookKeys.exercises(paragraphId!),
+    queryFn: () => getExercises(paragraphId!),
+    enabled: !!paragraphId,
   });
 }
