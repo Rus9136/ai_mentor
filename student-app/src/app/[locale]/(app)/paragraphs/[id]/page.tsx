@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { Link, useRouter } from '@/i18n/routing';
 import {
   useParagraphDetail,
@@ -71,6 +71,7 @@ export default function ParagraphPage({ params }: PageProps) {
   const tCommon = useTranslations('common');
   const tChat = useTranslations('chat');
   const router = useRouter();
+  const locale = useLocale();
 
   // Active content tab
   const [activeTab, setActiveTab] = useState<ContentTab>('text');
@@ -85,7 +86,7 @@ export default function ParagraphPage({ params }: PageProps) {
 
   // Fetch paragraph data
   const { data: paragraph, isLoading, error } = useParagraphDetail(paragraphId);
-  const { data: richContent } = useParagraphRichContent(paragraphId, 'ru');
+  const { data: richContent } = useParagraphRichContent(paragraphId, locale as 'ru' | 'kz');
   const { data: navigation } = useParagraphNavigation(paragraphId);
   const { data: progress, refetch: refetchProgress } = useParagraphProgress(paragraphId);
   const { data: embeddedQuestions } = useEmbeddedQuestions(paragraphId);
