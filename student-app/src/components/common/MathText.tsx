@@ -91,9 +91,18 @@ export const MathText = memo(MathTextComponent);
  * <div dangerouslySetInnerHTML={{ __html: processed }} />
  */
 export function renderMathInHtml(html: string): string {
-  if (!html || !html.includes('$')) return html;
+  if (!html) return html;
 
   let result = html;
+
+  // Convert relative image URLs to absolute (backend serves from api.ai-mentor.kz)
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.ai-mentor.kz';
+  result = result.replace(
+    /src="(\/uploads\/[^"]*)"/g,
+    (_, path) => `src="${API_BASE_URL}${path}"`
+  );
+
+  if (!result.includes('$')) return result;
 
   // Replace display math $$...$$ first
   result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_, tex) => {

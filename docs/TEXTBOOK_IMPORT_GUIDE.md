@@ -81,9 +81,9 @@ IMAGES_SRC_DIR = PROJECT_ROOT / "docs" / "textbooks" / "algebra10" / "images"
 
 Если в учебнике другая структура заголовков или OCR-артефакты, может потребоваться настроить:
 
-- `INTERNAL_HEADINGS` (строка 50) — заголовки, которые НЕ являются границами параграфов (например, "Мысал", "Жаттығулар", "A", "B", "C")
-- `OCR_FIXES` (строка 74) — замены OCR-ошибок в заголовках
-- `RE_REVIEW_START` (строка 109) — маркер начала раздела повторения
+- `INTERNAL_HEADINGS` — заголовки, которые НЕ являются границами параграфов (например, "Мысал", "Жаттығулар", "A", "B", "C")
+- `OCR_FIXES` — замены OCR-ошибок в заголовках
+- `RE_REVIEW_START` — маркер начала раздела повторения
 
 ### Шаг 3. Тестовый запуск (dry-run)
 
@@ -112,7 +112,11 @@ python3 scripts/load_algebra9_textbook.py --dry-run
 ### Шаг 4. Генерация SQL
 
 ```bash
+# Генерация SQL для учебника (главы, параграфы, контент)
 python3 scripts/load_algebra9_textbook.py --generate-sql /tmp/textbook_import.sql
+
+# Генерация SQL для упражнений (задачи с уровнями A/B/C и ответами)
+python3 scripts/load_algebra9_textbook.py --exercises /tmp/textbook_exercises.sql
 ```
 
 ### Шаг 5. Импорт в базу данных
@@ -123,6 +127,10 @@ docker cp /tmp/textbook_import.sql ai_mentor_postgres_prod:/tmp/import.sql
 
 # Выполняем импорт
 docker exec ai_mentor_postgres_prod psql -U ai_mentor_user -d ai_mentor_db -f /tmp/import.sql
+
+# Импорт упражнений (после основного импорта)
+docker cp /tmp/textbook_exercises.sql ai_mentor_postgres_prod:/tmp/exercises.sql
+docker exec ai_mentor_postgres_prod psql -U ai_mentor_user -d ai_mentor_db -f /tmp/exercises.sql
 ```
 
 Ожидаемый вывод — серия `INSERT 0 1` и `UPDATE N` в конце. Если ошибки — см. раздел "Troubleshooting".
@@ -202,6 +210,9 @@ docker exec ai_mentor_postgres_prod psql -U ai_mentor_user -d ai_mentor_db -f /t
 
 ```bash
 docker exec ai_mentor_postgres_prod psql -U ai_mentor_user -d ai_mentor_db -c "
+  DELETE FROM exercises WHERE paragraph_id IN (
+    SELECT p.id FROM paragraphs p JOIN chapters c ON p.chapter_id = c.id WHERE c.textbook_id = <ID>
+  );
   DELETE FROM paragraph_contents WHERE paragraph_id IN (
     SELECT p.id FROM paragraphs p JOIN chapters c ON p.chapter_id = c.id WHERE c.textbook_id = <ID>
   );
@@ -231,11 +242,25 @@ rm -rf uploads/textbook-images/<ID>/
 - Проверьте, что файлы скопированы в `uploads/textbook-images/<ID>/`
 - Проверьте, что Docker volume `./uploads:/app/uploads` прописан в `docker-compose.infra.yml`
 - Пути в контенте должны быть `/uploads/textbook-images/<ID>/img_001.jpg`
+- Student App конвертирует относительные URL (`/uploads/...`) в абсолютные (`https://api.ai-mentor.kz/uploads/...`) через `renderMathInHtml()` в `MathText.tsx`
+- Проверьте доступность: `curl -s -o /dev/null -w "%{http_code}" http://localhost:8020/uploads/textbook-images/<ID>/img_001.jpg` (ожидаем 200)
 
 ### Параграфы определяются неправильно
 - Проверьте `--dry-run` вывод
 - Настройте `INTERNAL_HEADINGS` если внутренние заголовки (Мысал, A, B, C) определяются как границы параграфов
 - Настройте `RE_PARAGRAPH`, `RE_CHAPTER` если формат заголовков отличается
+
+---
+
+## Режимы скрипта
+
+| Флаг | Назначение |
+|------|-----------|
+| `--dry-run` | Только парсинг, показывает статистику (без записи в БД) |
+| `--generate-sql FILE` | Генерация SQL для импорта учебника (главы, параграфы, контент) |
+| `--exercises FILE` | Генерация SQL для импорта упражнений (задачи A/B/C с ответами) |
+| `--update-content FILE` | Генерация SQL UPDATE для перегенерации HTML в существующих записях |
+| без флагов | Прямой импорт через SQLAlchemy (требует доступ к БД) |
 
 ---
 
@@ -245,4 +270,4 @@ rm -rf uploads/textbook-images/<ID>/
 |------|-----------|
 | `scripts/load_algebra9_textbook.py` | Скрипт загрузки |
 | `uploads/textbook-images/<ID>/` | Изображения учебника |
-| `student-app/src/components/common/MathText.tsx` | KaTeX рендеринг (`renderMathInHtml`) |
+| `student-app/src/components/common/MathText.tsx` | KaTeX рендеринг + конвертация URL картинок (`renderMathInHtml`) |

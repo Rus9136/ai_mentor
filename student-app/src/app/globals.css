@@ -262,6 +262,11 @@
     @apply list-decimal;
   }
 
+  /* Images in textbook content */
+  .prose img {
+    @apply max-w-full h-auto rounded-lg my-4 mx-auto block;
+  }
+
   /* Headings in content */
   .prose h1 {
     @apply text-2xl font-bold mt-6 mb-3;
