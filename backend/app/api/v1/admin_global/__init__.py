@@ -27,6 +27,7 @@ from .questions import router as questions_router
 from .question_options import router as question_options_router
 from .goso import router as goso_router
 from .embedded_questions import router as embedded_questions_router
+from .app_versions import router as app_versions_router
 
 
 router = APIRouter()
@@ -46,3 +47,6 @@ router.include_router(embedded_questions_router)
 
 # GOSO Mapping
 router.include_router(goso_router)
+
+# App Versions
+router.include_router(app_versions_router)

@@ -209,6 +209,13 @@ from app.schemas.goso import (
     ParagraphOutcomeWithDetails,
 )
 
+from app.schemas.app_version import (
+    AppVersionResponse,
+    AppVersionAdminCreate,
+    AppVersionAdminResponse,
+    PlatformEnum,
+)
+
 __all__ = [
     # Pagination
     "PaginationParams",
@@ -387,4 +394,9 @@ __all__ = [
     "TeacherReviewRequest",
     "TeacherReviewResponse",
     "HomeworkAnalytics",
+    # App version
+    "AppVersionResponse",
+    "AppVersionAdminCreate",
+    "AppVersionAdminResponse",
+    "PlatformEnum",
 ]

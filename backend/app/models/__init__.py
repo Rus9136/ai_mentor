@@ -73,6 +73,9 @@ from app.models.settings import SystemSetting
 from app.models.chat import ChatSession, ChatMessage, ChatSessionType
 from app.models.system_prompt import SystemPromptTemplate
 
+# App version
+from app.models.app_version import AppVersion, Platform
+
 __all__ = [
     # Base
     "BaseModel",
@@ -166,4 +169,7 @@ __all__ = [
     "ChatMessage",
     "ChatSessionType",
     "SystemPromptTemplate",
+    # App version
+    "AppVersion",
+    "Platform",
 ]

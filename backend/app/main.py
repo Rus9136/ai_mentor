@@ -192,6 +192,7 @@ from app.api.v1 import auth, auth_oauth, admin_global, admin_school, schools, up
 from app.api.v1 import paragraph_contents, invitation_codes, rag, chat, teachers, teachers_homework
 from app.api.v1 import teachers_exercises
 from app.api.v1 import teacher_join_requests
+from app.api.v1 import app_version
 
 app.include_router(
     auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"]
@@ -287,4 +288,10 @@ app.include_router(
     teacher_join_requests.router,
     prefix=f"{settings.API_V1_PREFIX}",
     tags=["Teachers - Join Requests"],
+)
+
+app.include_router(
+    app_version.router,
+    prefix="/api",
+    tags=["App Version"],
 )
