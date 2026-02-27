@@ -357,7 +357,8 @@ class TestTakingService:
         chapter_id: Optional[int] = None,
         paragraph_id: Optional[int] = None,
         test_purpose: Optional[TestPurpose] = None,
-        difficulty: Optional[DifficultyLevel] = None
+        difficulty: Optional[DifficultyLevel] = None,
+        grade_level: Optional[int] = None,
     ) -> Tuple[List[Dict[str, Any]], int]:
         """
         Получить доступные тесты с метаданными.
@@ -371,6 +372,7 @@ class TestTakingService:
             paragraph_id: Фильтр по параграфу
             test_purpose: Фильтр по типу теста
             difficulty: Фильтр по сложности
+            grade_level: Фильтр по классу ученика
 
         Returns:
             Tuple of (список тестов с question_count, attempts_count, best_score, общее кол-во)
@@ -384,7 +386,8 @@ class TestTakingService:
             paragraph_id=paragraph_id,
             test_purpose=test_purpose,
             difficulty=difficulty,
-            is_active_only=True
+            is_active_only=True,
+            grade_level=grade_level,
         )
 
         # 2. Add metadata for each test

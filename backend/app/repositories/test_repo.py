@@ -8,6 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 
 from app.models.test import Test, Question, QuestionOption, TestPurpose, DifficultyLevel
+from app.models.textbook import Textbook
+from app.models.chapter import Chapter
+from app.models.paragraph import Paragraph
 
 
 class TestRepository:
@@ -321,12 +324,15 @@ class TestRepository:
         paragraph_id: Optional[int] = None,
         test_purpose: Optional[TestPurpose] = None,
         difficulty: Optional[DifficultyLevel] = None,
-        is_active_only: bool = True
+        is_active_only: bool = True,
+        grade_level: Optional[int] = None,
     ) -> Tuple[List[Test], int]:
         """
         Get tests available for a student with pagination.
 
         Returns both global tests (school_id = NULL) and school-specific tests.
+        When grade_level is provided, only returns tests linked to content
+        of that grade level.
 
         Args:
             school_id: School ID
@@ -337,6 +343,7 @@ class TestRepository:
             test_purpose: Filter by test purpose (optional)
             difficulty: Filter by difficulty (optional)
             is_active_only: Only return active tests (default True)
+            grade_level: Filter by student's grade level (optional)
 
         Returns:
             Tuple of (list of tests, total count)
@@ -360,6 +367,26 @@ class TestRepository:
 
         if difficulty is not None:
             filters.append(Test.difficulty == difficulty)
+
+        # Filter by grade level through textbook/chapter/paragraph relationships
+        if grade_level is not None:
+            grade_textbook_ids = select(Textbook.id).where(
+                Textbook.grade_level == grade_level,
+                Textbook.is_deleted == False,
+            )
+            grade_chapter_ids = select(Chapter.id).where(
+                Chapter.textbook_id.in_(grade_textbook_ids),
+                Chapter.is_deleted == False,
+            )
+            grade_paragraph_ids = select(Paragraph.id).where(
+                Paragraph.chapter_id.in_(grade_chapter_ids),
+                Paragraph.is_deleted == False,
+            )
+            filters.append(or_(
+                Test.textbook_id.in_(grade_textbook_ids),
+                Test.chapter_id.in_(grade_chapter_ids),
+                Test.paragraph_id.in_(grade_paragraph_ids),
+            ))
 
         base_query = select(Test).where(and_(*filters))
 

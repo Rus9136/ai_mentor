@@ -67,7 +67,8 @@ async def get_available_tests(
         chapter_id=chapter_id,
         paragraph_id=paragraph_id,
         test_purpose=test_purpose,
-        difficulty=difficulty
+        difficulty=difficulty,
+        grade_level=student.grade_level,
     )
 
     result = []

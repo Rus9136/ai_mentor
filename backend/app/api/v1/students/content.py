@@ -60,7 +60,6 @@ logger = logging.getLogger(__name__)
 async def get_student_textbooks(
     pagination: PaginationParams = Depends(get_pagination_params),
     subject_id: int = Query(None, description="Filter by subject ID"),
-    grade_level: int = Query(None, ge=1, le=11, description="Filter by grade level (1-11)"),
     current_user: User = Depends(require_student),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db),
@@ -70,6 +69,7 @@ async def get_student_textbooks(
     Get available textbooks for student with progress.
 
     Returns global textbooks (school_id = NULL) and school-specific textbooks.
+    Automatically filtered by student's grade level.
     Each textbook includes progress stats calculated from student's mastery data.
 
     Uses batch queries for performance (no N+1 problem).
@@ -77,19 +77,18 @@ async def get_student_textbooks(
 
     Filters:
     - subject_id: Filter by subject
-    - grade_level: Filter by grade level (1-11)
     """
     student = await get_student_from_user(current_user, db)
     student_id = student.id
 
-    # Get textbooks with progress using batch queries
+    # Get textbooks with progress, filtered by student's grade level
     textbooks_data, total = await service.get_textbooks_with_progress(
         student_id,
         school_id,
         page=pagination.page,
         page_size=pagination.page_size,
         subject_id=subject_id,
-        grade_level=grade_level,
+        grade_level=student.grade_level,
     )
 
     result = []
