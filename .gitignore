@@ -181,3 +181,7 @@ docs/adilet_*.json
 
 # Screenshots
 scrin/
+*.png
+
+# Node.js
+node_modules/
