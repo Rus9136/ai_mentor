@@ -40,6 +40,7 @@ from .class_members import router as class_members_router
 from .settings import router as settings_router
 from .paragraph_outcomes import router as paragraph_outcomes_router
 from .embedded_questions import router as embedded_questions_router
+from .grades import router as grades_router
 
 
 router = APIRouter()
@@ -70,3 +71,6 @@ router.include_router(class_members_router)
 # Settings & GOSO
 router.include_router(settings_router)
 router.include_router(paragraph_outcomes_router)
+
+# Grades (school gradebook)
+router.include_router(grades_router)

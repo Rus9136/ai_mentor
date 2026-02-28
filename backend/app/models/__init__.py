@@ -76,6 +76,9 @@ from app.models.system_prompt import SystemPromptTemplate
 # App version
 from app.models.app_version import AppVersion, Platform
 
+# Grades (school gradebook)
+from app.models.grade import Grade, GradeType
+
 __all__ = [
     # Base
     "BaseModel",
@@ -172,4 +175,7 @@ __all__ = [
     # App version
     "AppVersion",
     "Platform",
+    # Grades
+    "Grade",
+    "GradeType",
 ]
