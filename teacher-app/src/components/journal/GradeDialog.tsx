@@ -139,7 +139,7 @@ export function GradeDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? t('editGrade') : t('addGrade')}</DialogTitle>
           <DialogDescription className="sr-only">
@@ -224,39 +224,41 @@ export function GradeDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          {isEdit && grade && (
-            <>
-              {confirmDelete ? (
-                <div className="mr-auto flex items-center gap-2">
-                  <span className="text-sm text-destructive">{t('confirmDelete')}</span>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => onDelete(grade.id)}
-                    disabled={isSaving}
-                  >
-                    {t('deleteGrade')}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setConfirmDelete(false)}
-                  >
-                    {t('cancel')}
-                  </Button>
-                </div>
-              ) : (
+        {isEdit && grade && (
+          <div className="flex items-center gap-2 border-t pt-3">
+            {confirmDelete ? (
+              <>
+                <span className="text-sm text-destructive">{t('confirmDelete')}</span>
                 <Button
-                  variant="outline"
-                  className="mr-auto text-destructive hover:text-destructive"
-                  onClick={() => setConfirmDelete(true)}
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => onDelete(grade.id)}
+                  disabled={isSaving}
                 >
                   {t('deleteGrade')}
                 </Button>
-              )}
-            </>
-          )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  {t('cancel')}
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setConfirmDelete(true)}
+              >
+                {t('deleteGrade')}
+              </Button>
+            )}
+          </div>
+        )}
+
+        <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={onClose} disabled={isSaving}>
             {t('cancel')}
           </Button>
