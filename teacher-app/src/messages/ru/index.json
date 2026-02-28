@@ -50,6 +50,7 @@
     "classes": "Классы",
     "analytics": "Аналитика",
     "assignments": "Задания",
+    "journal": "Журнал",
     "settings": "Настройки",
     "logout": "Выйти"
   },
@@ -196,6 +197,35 @@
     "levelADescription": "Отличное владение (≥85%)",
     "levelBDescription": "Хорошее владение (60-84%)",
     "levelCDescription": "Требуется помощь (<60%)"
+  },
+  "journal": {
+    "title": "Журнал оценок",
+    "selectClass": "Выберите класс",
+    "selectSubject": "Выберите предмет",
+    "quarter": "Четверть",
+    "academicYear": "Учебный год",
+    "addGrade": "Добавить оценку",
+    "editGrade": "Редактировать оценку",
+    "deleteGrade": "Удалить оценку",
+    "confirmDelete": "Удалить эту оценку?",
+    "cancel": "Отмена",
+    "student": "Ученик",
+    "grade": "Оценка",
+    "gradeType": "Тип оценки",
+    "date": "Дата",
+    "comment": "Комментарий",
+    "average": "Средняя",
+    "noData": "Выберите класс и предмет для просмотра журнала",
+    "types": {
+      "CURRENT": "Текущая",
+      "SOR": "СОР",
+      "SOCH": "СОЧ",
+      "EXAM": "Экзамен"
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить оценки",
+      "saveFailed": "Не удалось сохранить оценку"
+    }
   },
   "homework": {
     "title": "Домашние задания",

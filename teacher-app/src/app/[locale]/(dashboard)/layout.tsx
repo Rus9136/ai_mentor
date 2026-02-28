@@ -10,6 +10,7 @@ import {
   BarChart3,
   ClipboardList,
   ClipboardCheck,
+  BookOpen,
   Settings,
   LogOut,
   GraduationCap,
@@ -35,6 +36,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: '/classes', icon: Users, label: t('classes') },
     { href: '/homework', icon: ClipboardList, label: t('assignments') },
     { href: '/homework/review', icon: ClipboardCheck, label: 'Проверка' },
+    { href: '/journal', icon: BookOpen, label: t('journal') },
     { href: '/analytics', icon: BarChart3, label: t('analytics') },
   ];
 

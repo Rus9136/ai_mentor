@@ -50,6 +50,7 @@
     "classes": "Сыныптар",
     "analytics": "Талдау",
     "assignments": "Тапсырмалар",
+    "journal": "Журнал",
     "settings": "Параметрлер",
     "logout": "Шығу"
   },
@@ -196,6 +197,35 @@
     "levelADescription": "Керемет меңгеру (≥85%)",
     "levelBDescription": "Жақсы меңгеру (60-84%)",
     "levelCDescription": "Көмек қажет (<60%)"
+  },
+  "journal": {
+    "title": "Баға журналы",
+    "selectClass": "Сыныпты таңдаңыз",
+    "selectSubject": "Пәнді таңдаңыз",
+    "quarter": "Тоқсан",
+    "academicYear": "Оқу жылы",
+    "addGrade": "Баға қою",
+    "editGrade": "Бағаны өңдеу",
+    "deleteGrade": "Бағаны жою",
+    "confirmDelete": "Бұл бағаны жою керек пе?",
+    "cancel": "Болдырмау",
+    "student": "Оқушы",
+    "grade": "Баға",
+    "gradeType": "Баға түрі",
+    "date": "Күні",
+    "comment": "Пікір",
+    "average": "Орташа",
+    "noData": "Журналды көру үшін сынып пен пәнді таңдаңыз",
+    "types": {
+      "CURRENT": "Ағымдағы",
+      "SOR": "БЖБ",
+      "SOCH": "ТЖБ",
+      "EXAM": "Емтихан"
+    },
+    "errors": {
+      "loadFailed": "Бағаларды жүктеу мүмкін болмады",
+      "saveFailed": "Бағаны сақтау мүмкін болмады"
+    }
   },
   "homework": {
     "title": "Үй тапсырмалары",
