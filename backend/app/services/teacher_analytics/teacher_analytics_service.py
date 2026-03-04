@@ -204,8 +204,8 @@ class TeacherAnalyticsService:
             return None
 
         # Get basic class info
-        class_response = await self._classes.get_classes(teacher.id)
-        class_info = next((c for c in class_response if c.id == class_id), None)
+        classes_list, _ = await self._classes.get_classes(teacher.id)
+        class_info = next((c for c in classes_list if c.id == class_id), None)
 
         if not class_info:
             return None

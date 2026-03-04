@@ -552,6 +552,26 @@ export interface ParagraphContentCardsUpdate {
   cards: CardItem[];
 }
 
+// Textbook Conversion types
+export type ConversionStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+export interface TextbookConversion {
+  id: number;
+  textbook_id: number;
+  status: ConversionStatus;
+  error_message?: string | null;
+  page_count?: number | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+}
+
+export interface ConversionUploadResponse {
+  conversion_id: number;
+  textbook_id: number;
+  status: string;
+  message: string;
+}
+
 // API types
 export interface ApiError {
   detail: string;

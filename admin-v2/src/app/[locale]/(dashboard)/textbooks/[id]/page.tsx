@@ -29,6 +29,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { RoleGuard } from '@/components/auth';
 import { useTextbook } from '@/lib/hooks/use-textbooks';
+import { ConversionSection } from '@/components/textbooks/conversion-section';
 
 export default function TextbookShowPage() {
   const t = useTranslations('textbooks');
@@ -246,6 +247,11 @@ export default function TextbookShowPage() {
                 <p className="whitespace-pre-wrap">{textbook.description}</p>
               </CardContent>
             </Card>
+          )}
+
+          {/* PDF Conversion */}
+          {textbook.school_id === null && (
+            <ConversionSection textbookId={textbook.id} />
           )}
         </div>
       </div>

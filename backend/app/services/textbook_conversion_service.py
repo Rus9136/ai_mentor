@@ -2,9 +2,12 @@
 Textbook PDF conversion orchestration service.
 
 Handles: PDF upload, Mathpix submission, background processing, status tracking.
+After conversion, automatically downloads Mathpix CDN images to local storage.
 """
 import asyncio
+import hashlib
 import logging
+import re
 from pathlib import Path
 from typing import Optional, Set
 
@@ -144,6 +147,12 @@ async def _run_conversion(conversion_id: int, pdf_path: str, textbook_id: int) -
         mmd_path = mmd_dir / f"textbook_{textbook_id}.mmd"
         mmd_path.write_text(result.mmd_text, encoding="utf-8")
 
+        # Download Mathpix CDN images before they expire
+        image_stats = await _download_mmd_images(textbook_id, str(mmd_path))
+        logger.info(
+            f"Conversion {conversion_id}: downloaded {image_stats['success']}/{image_stats['total']} images"
+        )
+
         # Update status to COMPLETED
         async with AsyncSessionLocal() as db:
             repo = TextbookConversionRepository(db)
@@ -182,3 +191,94 @@ async def _run_conversion(conversion_id: int, pdf_path: str, textbook_id: int) -
 
     finally:
         _active_conversions.discard(conversion_id)
+
+
+# =============================================================================
+# Image downloading from Mathpix CDN
+# =============================================================================
+
+async def _download_mmd_images(textbook_id: int, mmd_path: str) -> dict:
+    """
+    Download all Mathpix CDN images from MMD and update paths to local.
+    Runs blocking I/O in a thread to avoid blocking the event loop.
+    """
+    return await asyncio.to_thread(_sync_download_images, textbook_id, mmd_path)
+
+
+def _sync_download_images(textbook_id: int, mmd_path: str) -> dict:
+    """Synchronous image download — runs in a thread."""
+    import requests
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    mmd_file = Path(mmd_path)
+    content = mmd_file.read_text(encoding="utf-8")
+
+    pattern = r'!\[([^\]]*)\]\((https://cdn\.mathpix\.com/cropped/[^)]+)\)'
+    matches = list(re.finditer(pattern, content))
+
+    if not matches:
+        return {"total": 0, "success": 0, "failed": 0}
+
+    images_dir = Path(settings.UPLOAD_DIR) / "textbook-images" / str(textbook_id)
+    images_dir.mkdir(parents=True, exist_ok=True)
+
+    # Deduplicate URLs
+    url_to_filename: dict[str, str] = {}
+    download_tasks: list[tuple[str, Path]] = []
+
+    for match in matches:
+        url = match.group(2)
+        if url in url_to_filename:
+            continue
+
+        url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
+        url_path = url.split("?")[0]
+        ext = url_path.rsplit(".", 1)[-1] if "." in url_path.split("/")[-1] else "jpg"
+        filename = f"img_{len(url_to_filename)+1:03d}_{url_hash}.{ext}"
+
+        url_to_filename[url] = filename
+        filepath = images_dir / filename
+        if not filepath.exists():
+            download_tasks.append((url, filepath))
+
+    logger.info(f"Textbook {textbook_id}: {len(url_to_filename)} unique images, {len(download_tasks)} to download")
+
+    success = len(url_to_filename) - len(download_tasks)  # already existing
+    failed = 0
+
+    def _download_one(url: str, filepath: Path) -> bool:
+        try:
+            resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
+            if resp.status_code == 200:
+                filepath.write_bytes(resp.content)
+                return True
+            return False
+        except Exception:
+            return False
+
+    if download_tasks:
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = {
+                executor.submit(_download_one, url, fp): fp.name
+                for url, fp in download_tasks
+            }
+            for future in as_completed(futures):
+                if future.result():
+                    success += 1
+                else:
+                    failed += 1
+                    logger.warning(f"Failed to download image: {futures[future]}")
+
+    # Update MMD: replace CDN URLs with local paths
+    updated_content = content
+    for match in matches:
+        alt_text = match.group(1)
+        url = match.group(2)
+        filename = url_to_filename[url]
+        old_tag = match.group(0)
+        new_tag = f"![{alt_text}](images/{filename})"
+        updated_content = updated_content.replace(old_tag, new_tag, 1)
+
+    mmd_file.write_text(updated_content, encoding="utf-8")
+
+    return {"total": len(url_to_filename), "success": success, "failed": failed}
