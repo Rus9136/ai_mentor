@@ -172,6 +172,11 @@ SESSION_LOG*.md
 # Google OAuth secrets
 client_secret_*.json
 
+# Textbook source files (large MD/MMD and images from Mathpix)
+docs/textbooks/**/*.md
+docs/textbooks/**/*.mmd
+docs/textbooks/**/images/
+
 # Book parser input files (большие PDF)
 book_parser/books/input/
 book_parser/results/
