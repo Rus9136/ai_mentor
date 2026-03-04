@@ -79,6 +79,9 @@ from app.models.app_version import AppVersion, Platform
 # Grades (school gradebook)
 from app.models.grade import Grade, GradeType
 
+# Textbook conversions (Mathpix PDF → MMD)
+from app.models.textbook_conversion import TextbookConversion, ConversionStatus
+
 __all__ = [
     # Base
     "BaseModel",
@@ -178,4 +181,7 @@ __all__ = [
     # Grades
     "Grade",
     "GradeType",
+    # Textbook conversions
+    "TextbookConversion",
+    "ConversionStatus",
 ]

@@ -28,12 +28,14 @@ from .question_options import router as question_options_router
 from .goso import router as goso_router
 from .embedded_questions import router as embedded_questions_router
 from .app_versions import router as app_versions_router
+from .textbook_conversions import router as textbook_conversions_router
 
 
 router = APIRouter()
 
 # Content Management
 router.include_router(textbooks_router)
+router.include_router(textbook_conversions_router)
 router.include_router(chapters_router)
 router.include_router(paragraphs_router)
 

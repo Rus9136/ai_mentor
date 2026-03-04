@@ -169,6 +169,10 @@ class Settings(BaseSettings):
     MAX_PDF_SIZE_MB: int = 50
     ALLOWED_IMAGE_TYPES: list[str] = ["image/jpeg", "image/png", "image/webp", "image/gif"]
 
+    # Mathpix OCR (PDF → Mathpix Markdown)
+    MATHPIX_APP_ID: Optional[str] = None
+    MATHPIX_APP_KEY: Optional[str] = None
+
     model_config = ConfigDict(
         env_file=str(ENV_PATH) if ENV_PATH.exists() else None,
         case_sensitive=True,
