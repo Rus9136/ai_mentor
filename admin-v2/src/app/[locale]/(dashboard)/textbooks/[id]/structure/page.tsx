@@ -101,7 +101,12 @@ export default function TextbookStructurePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <StructureEditor textbookId={textbookId} isSchool={false} />
+            <StructureEditor
+              textbookId={textbookId}
+              isSchool={false}
+              gradeLevel={textbook.grade_level}
+              subjectId={textbook.subject_id}
+            />
           </CardContent>
         </Card>
       </div>

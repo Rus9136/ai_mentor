@@ -2,8 +2,8 @@
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Loader2, ChevronsUpDown, Check, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +22,20 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -30,6 +44,7 @@ import {
   type ParagraphCreateInput,
   type ParagraphUpdateInput,
 } from '@/lib/validations/textbook';
+import { useOutcomes } from '@/lib/hooks/use-goso';
 import type { Paragraph } from '@/types';
 import { EmbeddedQuestionsSection } from './embedded-questions-section';
 
@@ -43,6 +58,8 @@ interface ParagraphDialogProps {
   isLoading?: boolean;
   isFetchingParagraph?: boolean;
   isSchool?: boolean;
+  gradeLevel?: number;
+  subjectId?: number | null;
 }
 
 export function ParagraphDialog({
@@ -55,8 +72,17 @@ export function ParagraphDialog({
   isLoading,
   isFetchingParagraph,
   isSchool = false,
+  gradeLevel,
+  subjectId,
 }: ParagraphDialogProps) {
   const isEditing = !!paragraph;
+  const [outcomePopoverOpen, setOutcomePopoverOpen] = useState(false);
+
+  const hasGosoFilters = !!(gradeLevel && subjectId);
+  const { data: outcomes = [] } = useOutcomes(
+    hasGosoFilters ? { grade: gradeLevel, subject_id: subjectId! } : undefined,
+    hasGosoFilters && open
+  );
 
   const form = useForm<ParagraphCreateInput>({
     resolver: zodResolver(paragraphCreateSchema),
@@ -219,13 +245,86 @@ export function ParagraphDialog({
               )}
             />
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="learning_objective"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Цель обучения</FormLabel>
+            <FormField
+              control={form.control}
+              name="learning_objective"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Цель обучения</FormLabel>
+                  {hasGosoFilters && outcomes.length > 0 ? (
+                    <>
+                      <Popover open={outcomePopoverOpen} onOpenChange={setOutcomePopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={outcomePopoverOpen}
+                              className="justify-between h-auto min-h-[40px] font-normal text-left whitespace-normal"
+                            >
+                              {field.value ? (
+                                <span className="line-clamp-2 text-sm">{field.value}</span>
+                              ) : (
+                                <span className="text-muted-foreground">Выберите цель обучения...</span>
+                              )}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[500px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Поиск цели обучения..." />
+                            <CommandList>
+                              <CommandEmpty>Ничего не найдено</CommandEmpty>
+                              <CommandGroup>
+                                {outcomes.map((outcome) => (
+                                  <CommandItem
+                                    key={outcome.id}
+                                    value={`${outcome.code} ${outcome.title_ru}`}
+                                    onSelect={() => {
+                                      field.onChange(outcome.title_ru);
+                                      setOutcomePopoverOpen(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={`mr-2 h-4 w-4 shrink-0 ${
+                                        field.value === outcome.title_ru ? 'opacity-100' : 'opacity-0'
+                                      }`}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <Badge variant="outline" className="text-xs shrink-0">
+                                          {outcome.code}
+                                        </Badge>
+                                        {outcome.cognitive_level && (
+                                          <Badge variant="secondary" className="text-xs shrink-0">
+                                            {outcome.cognitive_level}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <p className="text-sm mt-1">{outcome.title_ru}</p>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      {field.value && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="self-start h-auto p-1 text-xs text-muted-foreground"
+                          onClick={() => field.onChange('')}
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          Очистить
+                        </Button>
+                      )}
+                    </>
+                  ) : (
                     <FormControl>
                       <Textarea
                         placeholder="Что ученик должен узнать..."
@@ -233,29 +332,29 @@ export function ParagraphDialog({
                         {...field}
                       />
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="lesson_objective"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Цель урока</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Цель конкретного урока..."
-                        className="min-h-[80px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="lesson_objective"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Цель урока</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Цель конкретного урока..."
+                      className="min-h-[80px]"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Embedded Questions Section (only when editing existing paragraph) */}
             {isEditing && paragraph && (

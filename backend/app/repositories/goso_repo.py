@@ -244,9 +244,11 @@ class GosoRepository:
     async def get_outcomes(
         self,
         framework_id: Optional[int] = None,
+        subject_id: Optional[int] = None,
         grade: Optional[int] = None,
         subsection_id: Optional[int] = None,
         section_id: Optional[int] = None,
+        search: Optional[str] = None,
         is_active: bool = True,
         limit: int = 100,
         offset: int = 0
@@ -256,9 +258,11 @@ class GosoRepository:
 
         Args:
             framework_id: Filter by framework
+            subject_id: Filter by subject (via framework)
             grade: Filter by grade level (5-11)
             subsection_id: Filter by subsection
             section_id: Filter by section (requires join)
+            search: Search by title (case-insensitive)
             is_active: Filter by active status
             limit: Limit results
             offset: Offset for pagination
@@ -270,6 +274,8 @@ class GosoRepository:
 
         if framework_id is not None:
             query = query.where(LearningOutcome.framework_id == framework_id)
+        if subject_id is not None:
+            query = query.join(Framework).where(Framework.subject_id == subject_id)
         if grade is not None:
             query = query.where(LearningOutcome.grade == grade)
         if subsection_id is not None:
@@ -277,6 +283,10 @@ class GosoRepository:
         if section_id is not None:
             # Need to join with subsections to filter by section
             query = query.join(GosoSubsection).where(GosoSubsection.section_id == section_id)
+        if search is not None:
+            query = query.where(
+                func.lower(LearningOutcome.title_ru).contains(search.lower())
+            )
         if is_active:
             query = query.where(LearningOutcome.is_active == True)
 

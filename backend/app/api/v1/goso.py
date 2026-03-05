@@ -242,9 +242,11 @@ async def get_framework_sections(
 @router.get("/outcomes", response_model=List[LearningOutcomeListResponse])
 async def list_outcomes(
     framework_id: Optional[int] = Query(None, description="Filter by framework ID"),
+    subject_id: Optional[int] = Query(None, description="Filter by subject ID"),
     grade: Optional[int] = Query(None, ge=1, le=11, description="Filter by grade (1-11)"),
     subsection_id: Optional[int] = Query(None, description="Filter by subsection ID"),
     section_id: Optional[int] = Query(None, description="Filter by section ID"),
+    search: Optional[str] = Query(None, min_length=3, max_length=200, description="Search by title"),
     is_active: bool = Query(True, description="Filter by active status"),
     limit: int = Query(100, ge=1, le=1000, description="Limit results"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
@@ -255,15 +257,17 @@ async def list_outcomes(
     Get list of learning outcomes.
 
     Returns list of learning outcomes (цели обучения) with optional filters.
-    Can be filtered by framework, grade, section, or subsection.
+    Can be filtered by framework, subject, grade, section, or subsection.
     Requires authentication (any role).
     """
     repo = GosoRepository(db)
     outcomes = await repo.get_outcomes(
         framework_id=framework_id,
+        subject_id=subject_id,
         grade=grade,
         subsection_id=subsection_id,
         section_id=section_id,
+        search=search,
         is_active=is_active,
         limit=limit,
         offset=offset

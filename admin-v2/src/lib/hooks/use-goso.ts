@@ -14,6 +14,7 @@ export const gosoKeys = {
     [...gosoKeys.all, 'sections', { frameworkId }] as const,
   outcomes: (params?: {
     framework_id?: number;
+    subject_id?: number;
     subsection_id?: number;
     grade?: number;
     search?: string;
@@ -69,13 +70,15 @@ export function useSections(frameworkId: number, enabled = true) {
 
 export function useOutcomes(params?: {
   framework_id?: number;
+  subject_id?: number;
   subsection_id?: number;
   grade?: number;
   search?: string;
-}) {
+}, enabled = true) {
   return useQuery({
     queryKey: gosoKeys.outcomes(params),
     queryFn: () => gosoApi.getOutcomes(params),
+    enabled,
   });
 }
 

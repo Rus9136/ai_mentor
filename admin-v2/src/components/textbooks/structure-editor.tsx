@@ -64,9 +64,11 @@ import {
 interface StructureEditorProps {
   textbookId: number;
   isSchool?: boolean;
+  gradeLevel?: number;
+  subjectId?: number | null;
 }
 
-export function StructureEditor({ textbookId, isSchool = false }: StructureEditorProps) {
+export function StructureEditor({ textbookId, isSchool = false, gradeLevel, subjectId }: StructureEditorProps) {
   const { data: chapters = [], isLoading: chaptersLoading } = useChapters(
     textbookId,
     isSchool
@@ -186,6 +188,8 @@ export function StructureEditor({ textbookId, isSchool = false }: StructureEdito
             onEdit={() => handleEditChapter(chapter)}
             onDelete={() => handleDeleteChapter(chapter)}
             isSchool={isSchool}
+            gradeLevel={gradeLevel}
+            subjectId={subjectId}
           />
         ))}
       </div>
@@ -237,6 +241,8 @@ interface ChapterItemProps {
   onEdit: () => void;
   onDelete: () => void;
   isSchool: boolean;
+  gradeLevel?: number;
+  subjectId?: number | null;
 }
 
 function ChapterItem({
@@ -246,6 +252,8 @@ function ChapterItem({
   onEdit,
   onDelete,
   isSchool,
+  gradeLevel,
+  subjectId,
 }: ChapterItemProps) {
   const { data: paragraphs = [], isLoading: paragraphsLoading } = useParagraphs(
     chapter.id,
@@ -482,6 +490,8 @@ function ChapterItem({
         isLoading={createParagraph.isPending || updateParagraph.isPending}
         isFetchingParagraph={paragraphLoading}
         isSchool={isSchool}
+        gradeLevel={gradeLevel}
+        subjectId={subjectId}
       />
 
       {/* Delete Paragraph Dialog */}
