@@ -133,6 +133,7 @@ export interface Paragraph {
   number: number;
   order: number;
   content: string;
+  audio_text?: string | null;
   summary?: string;
   learning_objective?: string;
   lesson_objective?: string;
@@ -157,7 +158,9 @@ export interface ParagraphCreate {
   questions?: ParagraphQuestion[];
 }
 
-export interface ParagraphUpdate extends Partial<Omit<ParagraphCreate, 'chapter_id'>> {}
+export interface ParagraphUpdate extends Partial<Omit<ParagraphCreate, 'chapter_id'>> {
+  audio_text?: string | null;
+}
 
 // Test types
 export type DifficultyLevel = 'easy' | 'medium' | 'hard';

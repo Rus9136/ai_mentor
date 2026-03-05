@@ -21,6 +21,7 @@ class Paragraph(SoftDeleteModel):
     number = Column(Integer, nullable=False)  # Paragraph number in chapter
     order = Column(Integer, nullable=False)  # Order in chapter
     content = Column(Text, nullable=False)  # Full text content
+    audio_text = Column(Text, nullable=True)  # Text for audio generation (language-independent)
     summary = Column(Text, nullable=True)  # Brief summary
     learning_objective = Column(Text, nullable=True)  # Learning objective for the paragraph
     lesson_objective = Column(Text, nullable=True)  # Lesson objective for the paragraph

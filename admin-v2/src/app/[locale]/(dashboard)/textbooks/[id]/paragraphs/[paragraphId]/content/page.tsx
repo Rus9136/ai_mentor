@@ -18,7 +18,7 @@ import {
   VideoSection,
   CardsSection,
 } from '@/components/paragraph-content';
-import { useTextbook, useParagraph } from '@/lib/hooks/use-textbooks';
+import { useTextbook, useParagraph, useUpdateParagraph } from '@/lib/hooks/use-textbooks';
 import {
   useParagraphContent,
   useUpdateParagraphContent,
@@ -51,6 +51,7 @@ export default function ParagraphContentPage() {
 
   // Mutations
   const updateContent = useUpdateParagraphContent(false);
+  const updateParagraph = useUpdateParagraph(false);
   const updateCards = useUpdateParagraphCards(false);
   const uploadAudio = useUploadAudio(false);
   const uploadSlides = useUploadSlides(false);
@@ -65,6 +66,13 @@ export default function ParagraphContentPage() {
       paragraphId,
       language,
       data: { explain_text: explainText },
+    });
+  };
+
+  const handleSaveAudioText = (audioText: string) => {
+    updateParagraph.mutate({
+      id: paragraphId,
+      data: { audio_text: audioText },
     });
   };
 
@@ -175,10 +183,13 @@ export default function ParagraphContentPage() {
         <div className="grid gap-6">
           <ExplainSection
             content={content}
+            paragraph={paragraph}
             paragraphId={paragraphId}
             language={language}
             onSave={handleSaveExplain}
+            onSaveAudioText={handleSaveAudioText}
             isLoading={updateContent.isPending}
+            isLoadingAudioText={updateParagraph.isPending}
           />
 
           <div className="grid gap-6 lg:grid-cols-2">

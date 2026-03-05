@@ -35,6 +35,7 @@ class ParagraphUpdate(BaseModel):
     number: Optional[int] = Field(None, ge=1, description="Paragraph number in chapter")
     order: Optional[int] = Field(None, ge=1, description="Display order in chapter")
     content: Optional[str] = Field(None, min_length=1, description="Paragraph content (HTML/Markdown)")
+    audio_text: Optional[str] = Field(None, description="Text for audio generation (language-independent)")
     summary: Optional[str] = Field(None, description="Brief summary of the paragraph")
     learning_objective: Optional[str] = Field(None, description="Learning objectives for this paragraph")
     lesson_objective: Optional[str] = Field(None, description="Lesson-specific objectives")
@@ -53,6 +54,7 @@ class ParagraphResponse(BaseModel):
     number: int
     order: int
     content: str
+    audio_text: Optional[str] = None
     summary: Optional[str]
     learning_objective: Optional[str]
     lesson_objective: Optional[str]
