@@ -55,13 +55,13 @@ class TextbookConversionService:
                 detail=f"Expected PDF file, got: {file.content_type}",
             )
 
-        # Check file size (50 MB max)
-        max_size = 50 * 1024 * 1024
+        # Check file size (100 MB max)
+        max_size = 100 * 1024 * 1024
         content = await file.read()
         if len(content) > max_size:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File too large: {len(content) / 1024 / 1024:.1f} MB (max 50 MB)",
+                detail=f"File too large: {len(content) / 1024 / 1024:.1f} MB (max 100 MB)",
             )
 
         # Check no active conversion

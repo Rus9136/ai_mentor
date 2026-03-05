@@ -25,11 +25,14 @@ export default function TextbookEditPage() {
   const textbookId = Number(params.id);
 
   const { data: textbook, isLoading } = useTextbook(textbookId, false);
-  const updateTextbook = useUpdateTextbook(false);
+  const updateGlobal = useUpdateTextbook(false);
+  const updateSchool = useUpdateTextbook(true);
 
   const handleSubmit = (data: TextbookCreateInput) => {
-    updateTextbook.mutate(
-      { id: textbookId, data },
+    const { is_school, ...payload } = data;
+    const mutation = is_school ? updateSchool : updateGlobal;
+    mutation.mutate(
+      { id: textbookId, data: payload as TextbookCreateInput },
       {
         onSuccess: () => {
           router.push(`/ru/textbooks/${textbookId}`);
@@ -97,7 +100,7 @@ export default function TextbookEditPage() {
             <TextbookForm
               textbook={textbook}
               onSubmit={handleSubmit}
-              isLoading={updateTextbook.isPending}
+              isLoading={updateGlobal.isPending || updateSchool.isPending}
             />
           </CardContent>
         </Card>

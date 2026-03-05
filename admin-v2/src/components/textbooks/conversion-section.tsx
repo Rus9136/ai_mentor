@@ -121,11 +121,11 @@ export function ConversionSection({ textbookId }: ConversionSectionProps) {
         {!isActive && (
           <MediaUploader
             accept={{ 'application/pdf': ['.pdf'] }}
-            maxSize={50 * 1024 * 1024}
+            maxSize={100 * 1024 * 1024}
             onUpload={handleUpload}
             isLoading={uploadMutation.isPending}
             label="Загрузить PDF учебника"
-            description="PDF до 50 МБ. Конвертация занимает 1-10 минут в зависимости от размера."
+            description="PDF до 100 МБ. Конвертация занимает 1-10 минут в зависимости от размера."
           />
         )}
 

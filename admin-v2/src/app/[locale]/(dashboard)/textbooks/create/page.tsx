@@ -20,10 +20,13 @@ import type { TextbookCreateInput } from '@/lib/validations/textbook';
 export default function TextbookCreatePage() {
   const t = useTranslations('textbooks');
   const router = useRouter();
-  const createTextbook = useCreateTextbook(false);
+  const createGlobal = useCreateTextbook(false);
+  const createSchool = useCreateTextbook(true);
 
   const handleSubmit = (data: TextbookCreateInput) => {
-    createTextbook.mutate(data, {
+    const { is_school, ...payload } = data;
+    const mutation = is_school ? createSchool : createGlobal;
+    mutation.mutate(payload as TextbookCreateInput, {
       onSuccess: () => {
         router.push('/ru/textbooks');
       },
@@ -55,7 +58,7 @@ export default function TextbookCreatePage() {
           <CardContent>
             <TextbookForm
               onSubmit={handleSubmit}
-              isLoading={createTextbook.isPending}
+              isLoading={createGlobal.isPending || createSchool.isPending}
             />
           </CardContent>
         </Card>

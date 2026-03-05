@@ -83,6 +83,8 @@ export default function TextbooksPage() {
       id: 'grade_level',
       title: 'Класс',
       options: [
+        { label: '5 класс', value: '5' },
+        { label: '6 класс', value: '6' },
         { label: '7 класс', value: '7' },
         { label: '8 класс', value: '8' },
         { label: '9 класс', value: '9' },

@@ -38,7 +38,7 @@ interface TextbookFormProps {
   isLoading?: boolean;
 }
 
-const GRADES = [7, 8, 9, 10, 11];
+const GRADES = [5, 6, 7, 8, 9, 10, 11];
 
 export function TextbookForm({ textbook, onSubmit, isLoading }: TextbookFormProps) {
   const t = useTranslations('textbooks');
@@ -52,6 +52,7 @@ export function TextbookForm({ textbook, onSubmit, isLoading }: TextbookFormProp
           title: textbook.title,
           subject_id: textbook.subject_id || 0,
           grade_level: textbook.grade_level,
+          is_school: textbook.school_id !== null,
           author: textbook.author || '',
           publisher: textbook.publisher || '',
           year: textbook.year || new Date().getFullYear(),
@@ -130,6 +131,31 @@ export function TextbookForm({ textbook, onSubmit, isLoading }: TextbookFormProp
                         {grade} класс
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="is_school"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Тип *</FormLabel>
+                <Select
+                  onValueChange={(v) => field.onChange(v === 'school')}
+                  defaultValue={field.value ? 'school' : 'global'}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите тип" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="global">Глобальный</SelectItem>
+                    <SelectItem value="school">Школьный</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
