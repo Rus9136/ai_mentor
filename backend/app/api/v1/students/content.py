@@ -81,6 +81,9 @@ async def get_student_textbooks(
     student = await get_student_from_user(current_user, db)
     student_id = student.id
 
+    # Admin viewer sees all textbooks without grade filter
+    grade_level = None if student.student_code == "ADMIN_VIEWER" else student.grade_level
+
     # Get textbooks with progress, filtered by student's grade level
     textbooks_data, total = await service.get_textbooks_with_progress(
         student_id,
@@ -88,7 +91,7 @@ async def get_student_textbooks(
         page=pagination.page,
         page_size=pagination.page_size,
         subject_id=subject_id,
-        grade_level=student.grade_level,
+        grade_level=grade_level,
     )
 
     result = []
