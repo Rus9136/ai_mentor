@@ -15,6 +15,7 @@ export const gosoKeys = {
   outcomes: (params?: {
     framework_id?: number;
     subject_id?: number;
+    section_id?: number;
     subsection_id?: number;
     grade?: number;
     search?: string;
@@ -71,6 +72,7 @@ export function useSections(frameworkId: number, enabled = true) {
 export function useOutcomes(params?: {
   framework_id?: number;
   subject_id?: number;
+  section_id?: number;
   subsection_id?: number;
   grade?: number;
   search?: string;

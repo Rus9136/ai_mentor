@@ -484,6 +484,7 @@ function ChapterItem({
           if (!open) setSelectedParagraphId(null);
         }}
         chapterId={chapter.id}
+        chapterNumber={chapter.number}
         paragraph={selectedParagraph}
         nextNumber={paragraphs.length + 1}
         onSubmit={handleParagraphSubmit}

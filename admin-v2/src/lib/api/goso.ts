@@ -42,6 +42,7 @@ export const gosoApi = {
   getOutcomes: async (params?: {
     framework_id?: number;
     subject_id?: number;
+    section_id?: number;
     subsection_id?: number;
     grade?: number;
     search?: string;
@@ -49,6 +50,7 @@ export const gosoApi = {
     const searchParams = new URLSearchParams();
     if (params?.framework_id) searchParams.set('framework_id', String(params.framework_id));
     if (params?.subject_id) searchParams.set('subject_id', String(params.subject_id));
+    if (params?.section_id) searchParams.set('section_id', String(params.section_id));
     if (params?.subsection_id) searchParams.set('subsection_id', String(params.subsection_id));
     if (params?.grade) searchParams.set('grade', String(params.grade));
     if (params?.search) searchParams.set('search', params.search);

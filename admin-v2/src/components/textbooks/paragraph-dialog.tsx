@@ -2,7 +2,7 @@
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Loader2, ChevronsUpDown, Check, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -44,7 +44,7 @@ import {
   type ParagraphCreateInput,
   type ParagraphUpdateInput,
 } from '@/lib/validations/textbook';
-import { useOutcomes } from '@/lib/hooks/use-goso';
+import { useOutcomes, useFrameworks, useSections } from '@/lib/hooks/use-goso';
 import type { Paragraph } from '@/types';
 import { EmbeddedQuestionsSection } from './embedded-questions-section';
 
@@ -52,6 +52,7 @@ interface ParagraphDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   chapterId: number;
+  chapterNumber?: number;
   paragraph?: Paragraph;
   nextNumber: number;
   onSubmit: (data: ParagraphCreateInput | ParagraphUpdateInput) => void;
@@ -66,6 +67,7 @@ export function ParagraphDialog({
   open,
   onOpenChange,
   chapterId,
+  chapterNumber,
   paragraph,
   nextNumber,
   onSubmit,
@@ -79,8 +81,42 @@ export function ParagraphDialog({
   const [outcomePopoverOpen, setOutcomePopoverOpen] = useState(false);
 
   const hasGosoFilters = !!(gradeLevel && subjectId);
+
+  // Load frameworks for this subject to find section_id matching chapter number
+  const { data: frameworks = [] } = useFrameworks(
+    hasGosoFilters ? subjectId! : undefined
+  );
+  const frameworkId = frameworks.length > 0 ? frameworks[0].id : undefined;
+
+  const { data: sections = [] } = useSections(
+    frameworkId ?? 0,
+    !!frameworkId && open
+  );
+
+  // Match chapter number to GOSO section by code or display_order
+  const matchedSectionId = useMemo(() => {
+    if (!chapterNumber || sections.length === 0) return undefined;
+    const byCode = sections.find((s) => s.code === String(chapterNumber));
+    if (byCode) return byCode.id;
+    const byOrder = sections.find((s) => s.display_order === chapterNumber);
+    if (byOrder) return byOrder.id;
+    return undefined;
+  }, [chapterNumber, sections]);
+
+  const outcomeParams = useMemo(() => {
+    if (!hasGosoFilters) return undefined;
+    const params: { grade: number; subject_id: number; section_id?: number } = {
+      grade: gradeLevel!,
+      subject_id: subjectId!,
+    };
+    if (matchedSectionId) {
+      params.section_id = matchedSectionId;
+    }
+    return params;
+  }, [hasGosoFilters, gradeLevel, subjectId, matchedSectionId]);
+
   const { data: outcomes = [] } = useOutcomes(
-    hasGosoFilters ? { grade: gradeLevel, subject_id: subjectId! } : undefined,
+    outcomeParams,
     hasGosoFilters && open
   );
 
@@ -274,7 +310,7 @@ export function ParagraphDialog({
                         <PopoverContent className="w-[500px] p-0" align="start">
                           <Command>
                             <CommandInput placeholder="Поиск цели обучения..." />
-                            <CommandList>
+                            <CommandList className="max-h-[300px] overflow-y-auto">
                               <CommandEmpty>Ничего не найдено</CommandEmpty>
                               <CommandGroup>
                                 {outcomes.map((outcome) => (
