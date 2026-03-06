@@ -2,7 +2,8 @@
 
 import { useState, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
-import { Loader2, FileText, RefreshCw } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Loader2, FileText, RefreshCw, Save, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -16,7 +17,8 @@ import {
 import { ContentSelector, ContentSelection } from '@/components/homework/ContentSelector';
 import { LessonPlanView } from '@/components/lesson-plan/LessonPlanView';
 import { useClasses } from '@/lib/hooks/use-teacher-data';
-import { useGenerateLessonPlan } from '@/lib/hooks/use-lesson-plans';
+import { useGenerateLessonPlan, useSaveLessonPlan } from '@/lib/hooks/use-lesson-plans';
+import { exportLessonPlanDocx } from '@/lib/api/lesson-plans';
 import type { LessonPlanGenerateResponse } from '@/types/lesson-plan';
 
 export default function LessonPlanCreatePage() {
@@ -28,8 +30,11 @@ export default function LessonPlanCreatePage() {
   const [durationMin, setDurationMin] = useState<string>('40');
   const [result, setResult] = useState<LessonPlanGenerateResponse | null>(null);
 
+  const router = useRouter();
   const { data: classes } = useClasses();
   const mutation = useGenerateLessonPlan();
+  const saveMutation = useSaveLessonPlan();
+  const [savedId, setSavedId] = useState<number | null>(null);
 
   const handleSelect = useCallback((sel: ContentSelection) => {
     setSelection(sel);
@@ -51,6 +56,28 @@ export default function LessonPlanCreatePage() {
   };
 
   const canGenerate = !!selection.paragraphId && !mutation.isPending;
+
+  const handleSave = () => {
+    if (!result || !selection.paragraphId) return;
+    saveMutation.mutate(
+      {
+        paragraph_id: selection.paragraphId,
+        class_id: classId !== 'none' ? Number(classId) : undefined,
+        language,
+        duration_min: Number(durationMin),
+        plan_data: result.lesson_plan as unknown as Record<string, unknown>,
+        context_data: result.context as unknown as Record<string, unknown>,
+      },
+      {
+        onSuccess: (data) => setSavedId(data.id),
+      }
+    );
+  };
+
+  const handleExportDocx = async () => {
+    if (!savedId) return;
+    await exportLessonPlanDocx(savedId);
+  };
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -180,7 +207,45 @@ export default function LessonPlanCreatePage() {
       )}
 
       {/* Generated plan */}
-      {result && <LessonPlanView plan={result.lesson_plan} />}
+      {result && (
+        <>
+          {/* Action buttons */}
+          <div className="flex gap-3">
+            {!savedId ? (
+              <Button
+                onClick={handleSave}
+                disabled={saveMutation.isPending}
+                variant="default"
+              >
+                {saveMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                {t('save')}
+              </Button>
+            ) : (
+              <>
+                <Button onClick={handleExportDocx} variant="default">
+                  <Download className="mr-2 h-4 w-4" />
+                  {t('exportDocx')}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/lesson-plans')}
+                >
+                  {t('myPlans')}
+                </Button>
+                <p className="flex items-center text-sm text-green-600">
+                  {t('planSaved')}
+                </p>
+              </>
+            )}
+          </div>
+
+          <LessonPlanView plan={result.lesson_plan} />
+        </>
+      )}
     </div>
   );
 }

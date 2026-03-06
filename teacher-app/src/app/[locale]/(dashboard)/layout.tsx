@@ -38,7 +38,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: '/homework', icon: ClipboardList, label: t('assignments') },
     { href: '/homework/review', icon: ClipboardCheck, label: 'Проверка' },
     { href: '/journal', icon: BookOpen, label: t('journal') },
-    { href: '/lesson-plans/create', icon: FileText, label: t('lessonPlan') },
+    { href: '/lesson-plans', icon: FileText, label: t('lessonPlan') },
     { href: '/analytics', icon: BarChart3, label: t('analytics') },
   ];
 

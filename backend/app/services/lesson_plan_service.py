@@ -10,13 +10,14 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.class_student import ClassStudent
 from app.models.class_teacher import ClassTeacher
 from app.models.goso import LearningOutcome, ParagraphOutcome
+from app.models.lesson_plan import LessonPlan
 from app.models.mastery import ParagraphMastery
 from app.models.paragraph import Paragraph
 from app.models.paragraph_content import ParagraphContent
@@ -27,6 +28,8 @@ from app.schemas.lesson_plan import (
     LessonPlanGenerateResponse,
     LessonPlanHeader,
     LessonPlanResponse,
+    LessonPlanSaveRequest,
+    LessonPlanUpdateRequest,
     LessonStage,
 )
 from app.services.homework.ai.utils.json_parser import parse_json_object
@@ -395,3 +398,91 @@ JSON ФОРМАТ (строго следуй этой структуре):
         except (ValueError, json.JSONDecodeError) as e:
             logger.error("Failed to parse lesson plan JSON: %s", e)
             raise ValueError(f"Failed to parse AI response: {e}") from e
+
+    # --- CRUD ---
+
+    async def save(
+        self,
+        teacher_id: int,
+        school_id: int,
+        data: LessonPlanSaveRequest,
+    ) -> LessonPlan:
+        title = data.title or data.context_data.get("paragraph_title", "Lesson Plan")
+        plan = LessonPlan(
+            teacher_id=teacher_id,
+            school_id=school_id,
+            paragraph_id=data.paragraph_id,
+            class_id=data.class_id,
+            language=data.language,
+            duration_min=data.duration_min,
+            title=title,
+            plan_data=data.plan_data,
+            context_data=data.context_data,
+        )
+        self.db.add(plan)
+        await self.db.commit()
+        await self.db.refresh(plan)
+        return plan
+
+    async def list_by_teacher(
+        self,
+        teacher_id: int,
+        school_id: int,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> list[LessonPlan]:
+        result = await self.db.execute(
+            select(LessonPlan)
+            .where(
+                LessonPlan.teacher_id == teacher_id,
+                LessonPlan.school_id == school_id,
+            )
+            .order_by(desc(LessonPlan.created_at))
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def get_by_id(
+        self,
+        plan_id: int,
+        teacher_id: int,
+        school_id: int,
+    ) -> LessonPlan:
+        result = await self.db.execute(
+            select(LessonPlan).where(
+                LessonPlan.id == plan_id,
+                LessonPlan.teacher_id == teacher_id,
+                LessonPlan.school_id == school_id,
+            )
+        )
+        plan = result.scalar_one_or_none()
+        if not plan:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lesson plan not found")
+        return plan
+
+    async def update(
+        self,
+        plan_id: int,
+        teacher_id: int,
+        school_id: int,
+        data: LessonPlanUpdateRequest,
+    ) -> LessonPlan:
+        plan = await self.get_by_id(plan_id, teacher_id, school_id)
+        if data.title is not None:
+            plan.title = data.title
+        if data.plan_data is not None:
+            plan.plan_data = data.plan_data
+        await self.db.commit()
+        await self.db.refresh(plan)
+        return plan
+
+    async def delete(
+        self,
+        plan_id: int,
+        teacher_id: int,
+        school_id: int,
+    ) -> None:
+        plan = await self.get_by_id(plan_id, teacher_id, school_id)
+        await self.db.delete(plan)
+        await self.db.commit()

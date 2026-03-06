@@ -82,6 +82,9 @@ from app.models.grade import Grade, GradeType
 # Textbook conversions (Mathpix PDF → MMD)
 from app.models.textbook_conversion import TextbookConversion, ConversionStatus
 
+# Lesson plans (QMJ)
+from app.models.lesson_plan import LessonPlan
+
 __all__ = [
     # Base
     "BaseModel",
@@ -184,4 +187,6 @@ __all__ = [
     # Textbook conversions
     "TextbookConversion",
     "ConversionStatus",
+    # Lesson plans
+    "LessonPlan",
 ]

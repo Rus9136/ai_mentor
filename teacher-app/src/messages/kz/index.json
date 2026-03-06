@@ -507,6 +507,23 @@
     "students": "оқушы",
     "errorGeneration": "Жоспар құру кезінде қате болды",
     "selectParagraphFirst": "Алдымен параграф таңдаңыз",
-    "score": "балл"
+    "score": "балл",
+    "save": "Сақтау",
+    "planSaved": "Жоспар сақталды!",
+    "exportDocx": "DOCX жүктеу",
+    "myPlans": "Менің жоспарларым",
+    "myPlansSubtitle": "Сақталған сабақ жоспарлары",
+    "createNew": "Жаңа жоспар",
+    "savedPlans": "Сақталған жоспарлар",
+    "noPlans": "Әзірге сақталған жоспар жоқ",
+    "subjectLabel": "Пән",
+    "date": "Күні",
+    "actions": "Әрекеттер",
+    "confirmDeleteTitle": "Жоспарды жою",
+    "confirmDeleteDesc": "Бұл жоспарды жоюға сенімдісіз бе?",
+    "cancel": "Болдырмау",
+    "delete": "Жою",
+    "planNotFound": "Жоспар табылмады",
+    "classLabel": "сынып"
   }
 }

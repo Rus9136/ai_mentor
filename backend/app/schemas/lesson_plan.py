@@ -1,6 +1,7 @@
+from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # --- REQUEST ---
@@ -83,3 +84,52 @@ class LessonPlanContext(BaseModel):
 class LessonPlanGenerateResponse(BaseModel):
     lesson_plan: LessonPlanResponse
     context: LessonPlanContext
+
+
+# --- SAVE / CRUD ---
+
+
+class LessonPlanSaveRequest(BaseModel):
+    paragraph_id: int
+    class_id: Optional[int] = None
+    language: str = Field(default="kk", pattern="^(kk|ru)$")
+    duration_min: int = Field(default=40, ge=40, le=80)
+    title: Optional[str] = None
+    plan_data: dict
+    context_data: dict
+
+
+class LessonPlanUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    plan_data: Optional[dict] = None
+
+
+class LessonPlanListItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    language: str
+    duration_min: int
+    paragraph_id: int
+    class_id: Optional[int] = None
+    subject: Optional[str] = None
+    grade_level: Optional[int] = None
+    created_at: datetime
+
+
+class LessonPlanFullResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    teacher_id: int
+    school_id: int
+    paragraph_id: int
+    class_id: Optional[int] = None
+    language: str
+    duration_min: int
+    plan_data: dict
+    context_data: dict
+    created_at: datetime
+    updated_at: datetime

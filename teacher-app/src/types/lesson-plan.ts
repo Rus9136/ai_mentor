@@ -73,3 +73,47 @@ export interface LessonPlanGenerateResponse {
   lesson_plan: LessonPlanData;
   context: LessonPlanContext;
 }
+
+// --- SAVE / CRUD ---
+
+export interface LessonPlanSaveRequest {
+  paragraph_id: number;
+  class_id?: number;
+  language: string;
+  duration_min: number;
+  title?: string;
+  plan_data: Record<string, unknown>;
+  context_data: Record<string, unknown>;
+}
+
+export interface LessonPlanUpdateRequest {
+  title?: string;
+  plan_data?: Record<string, unknown>;
+}
+
+export interface LessonPlanListItem {
+  id: number;
+  title: string;
+  language: string;
+  duration_min: number;
+  paragraph_id: number;
+  class_id: number | null;
+  subject: string | null;
+  grade_level: number | null;
+  created_at: string;
+}
+
+export interface LessonPlanFullResponse {
+  id: number;
+  title: string;
+  teacher_id: number;
+  school_id: number;
+  paragraph_id: number;
+  class_id: number | null;
+  language: string;
+  duration_min: number;
+  plan_data: LessonPlanData;
+  context_data: LessonPlanContext;
+  created_at: string;
+  updated_at: string;
+}
