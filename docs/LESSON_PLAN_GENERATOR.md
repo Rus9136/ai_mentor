@@ -545,41 +545,41 @@ export function useGenerateLessonPlan() {
 
 ## 7. План реализации по этапам
 
-### Этап 1: MVP Backend (2-3 дня)
+### Этап 1: MVP Backend ~~(2-3 дня)~~ ВЫПОЛНЕНО (2026-03-06)
 
 **Цель:** Рабочий API endpoint, генерирующий план урока.
 
-| # | Задача | Файл | Зависимости |
-|---|--------|------|-------------|
-| 1.1 | Создать Pydantic schemas | `backend/app/schemas/lesson_plan.py` | — |
-| 1.2 | Создать LessonPlanService | `backend/app/services/lesson_plan_service.py` | schemas, llm_service, paragraph_repo |
-| 1.3 | Реализовать сбор контекста параграфа | lesson_plan_service.py | paragraph_repo.get_content_metadata() |
-| 1.4 | Реализовать сбор mastery данных класса | lesson_plan_service.py | ParagraphMastery, ClassStudent |
-| 1.5 | Написать system + user промпты | lesson_plan_service.py | Шаблон QMJ |
-| 1.6 | Реализовать парсинг JSON ответа | lesson_plan_service.py | json_parser.parse_json_object() |
-| 1.7 | Создать API endpoint | `backend/app/api/v1/teachers_lesson_plans.py` | LessonPlanService |
-| 1.8 | Зарегистрировать router в main.py | `backend/app/main.py` | — |
-| 1.9 | Тестирование через curl/Postman | — | Рабочий backend |
+| # | Задача | Файл | Статус |
+|---|--------|------|--------|
+| 1.1 | Создать Pydantic schemas | `backend/app/schemas/lesson_plan.py` | DONE |
+| 1.2 | Создать LessonPlanService | `backend/app/services/lesson_plan_service.py` | DONE |
+| 1.3 | Реализовать сбор контекста параграфа | lesson_plan_service.py | DONE |
+| 1.4 | Реализовать сбор mastery данных класса | lesson_plan_service.py | DONE |
+| 1.5 | Написать system + user промпты | lesson_plan_service.py | DONE |
+| 1.6 | Реализовать парсинг JSON ответа | lesson_plan_service.py | DONE |
+| 1.7 | Создать API endpoint | `backend/app/api/v1/teachers_lesson_plans.py` | DONE |
+| 1.8 | Зарегистрировать router в main.py | `backend/app/main.py` | DONE |
+| 1.9 | Тестирование и деплой | api.ai-mentor.kz | DONE |
 
-**Критерий готовности:** `POST /api/v1/teachers/lesson-plans/generate` возвращает валидный JSON с планом урока.
+**Результат:** `POST /api/v1/teachers/lesson-plans/generate` работает. LLM provider: Cerebras (`gpt-oss-120b`), fallback: OpenRouter → OpenAI. Параметры: `temperature=0.7`, `max_tokens=4000`.
 
-### Этап 2: Frontend MVP (2-3 дня)
+### Этап 2: Frontend MVP ~~(2-3 дня)~~ ВЫПОЛНЕНО (2026-03-06)
 
 **Цель:** Страница в Teacher App для генерации и просмотра плана.
 
-| # | Задача | Файл |
-|---|--------|------|
-| 2.1 | Создать API client функцию | `teacher-app/src/lib/api/lesson-plans.ts` |
-| 2.2 | Создать TypeScript типы | `teacher-app/src/types/lesson-plan.ts` |
-| 2.3 | Создать React hook | `teacher-app/src/lib/hooks/use-lesson-plans.ts` |
-| 2.4 | Создать страницу генерации | `teacher-app/src/app/[locale]/(dashboard)/lesson-plans/create/page.tsx` |
-| 2.5 | Каскадные селекты (учебник → раздел → параграф) | Компонент в page.tsx |
-| 2.6 | Селект класса с mastery preview | Компонент в page.tsx |
-| 2.7 | Отображение плана в табличном формате | Компонент `LessonPlanView` |
-| 2.8 | Добавить в навигацию | Sidebar/menu |
-| 2.9 | Локализация (kk/ru) | `messages/kk.json`, `messages/ru.json` |
+| # | Задача | Файл | Статус |
+|---|--------|------|--------|
+| 2.1 | Создать API client функцию | `teacher-app/src/lib/api/lesson-plans.ts` | DONE |
+| 2.2 | Создать TypeScript типы | `teacher-app/src/types/lesson-plan.ts` | DONE |
+| 2.3 | Создать React hook | `teacher-app/src/lib/hooks/use-lesson-plans.ts` | DONE |
+| 2.4 | Создать страницу генерации | `teacher-app/src/app/[locale]/(dashboard)/lesson-plans/create/page.tsx` | DONE |
+| 2.5 | Каскадные селекты (учебник → раздел → параграф) | Переиспользован `ContentSelector` | DONE |
+| 2.6 | Селект класса с mastery preview | Компонент в page.tsx + MasteryBar | DONE |
+| 2.7 | Отображение плана в табличном формате | `teacher-app/src/components/lesson-plan/LessonPlanView.tsx` | DONE |
+| 2.8 | Добавить в навигацию | Sidebar layout.tsx | DONE |
+| 2.9 | Локализация (kk/ru) | `messages/kz.json`, `messages/ru.json` (~45 ключей) | DONE |
 
-**Критерий готовности:** Учитель может выбрать параграф, нажать "Генерировать", увидеть план.
+**Результат:** teacher.ai-mentor.kz/lesson-plans/create — учитель выбирает параграф, нажимает "Жоспар құру", видит план в формате QMJ.
 
 ### Этап 3: Export и сохранение (2-3 дня)
 
