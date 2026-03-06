@@ -175,11 +175,15 @@ async def export_lesson_plan_docx(
     service = _get_service(db)
     plan = await service.get_by_id(plan_id, teacher.id, school_id)
     buf = export_to_docx(plan.plan_data, plan.context_data)
-    filename = f"QMJ_{plan.title[:50].replace(' ', '_')}.docx"
+    from urllib.parse import quote
+    safe_name = f"QMJ_{plan.id}.docx"
+    utf8_name = f"QMJ_{plan.title[:50].replace(' ', '_')}.docx"
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f"attachment; filename=\"{safe_name}\"; filename*=UTF-8''{quote(utf8_name)}"
+        },
     )
 
 
