@@ -581,19 +581,32 @@ export function useGenerateLessonPlan() {
 
 **Результат:** teacher.ai-mentor.kz/lesson-plans/create — учитель выбирает параграф, нажимает "Жоспар құру", видит план в формате QMJ.
 
-### Этап 3: Export и сохранение (2-3 дня)
+### Этап 3: Export и сохранение ~~(2-3 дня)~~ ВЫПОЛНЕНО (2026-03-06)
 
 **Цель:** Экспорт в DOCX, сохранение планов в БД.
 
-| # | Задача | Описание |
-|---|--------|----------|
-| 3.1 | Создать модель `LessonPlan` | Таблица в БД для хранения сгенерированных планов |
-| 3.2 | Миграция `036_lesson_plans` | CREATE TABLE lesson_plans |
-| 3.3 | CRUD endpoints | GET list, GET by id, DELETE |
-| 3.4 | Export в DOCX | Библиотека `python-docx`, шаблон таблицы QMJ |
-| 3.5 | Export в PDF | Через `weasyprint` или `reportlab` |
-| 3.6 | Страница "Мои планы" | Список сохранённых планов с фильтрами |
-| 3.7 | Редактирование плана | Inline editing полей перед экспортом |
+| # | Задача | Файл | Статус |
+|---|--------|------|--------|
+| 3.1 | Создать модель `LessonPlan` | `backend/app/models/lesson_plan.py` | DONE |
+| 3.2 | Миграция `038_lesson_plans` | `backend/alembic/versions/038_lesson_plans.py` | DONE |
+| 3.3 | CRUD endpoints (POST/GET/PUT/DELETE) | `backend/app/api/v1/teachers_lesson_plans.py` | DONE |
+| 3.4 | Export в DOCX | `backend/app/services/lesson_plan_export.py` (python-docx) | DONE |
+| 3.5 | Export в PDF | Отложено — DOCX покрывает основную потребность | SKIP |
+| 3.6 | Страница "Мои планы" | `teacher-app/src/app/[locale]/(dashboard)/lesson-plans/page.tsx` | DONE |
+| 3.7 | Страница просмотра плана | `teacher-app/src/app/[locale]/(dashboard)/lesson-plans/[id]/page.tsx` | DONE |
+| 3.8 | Кнопки Save/Export на странице генерации | `lesson-plans/create/page.tsx` | DONE |
+| 3.9 | Локализация (15 новых ключей kk/ru) | `messages/kz.json`, `messages/ru.json` | DONE |
+
+**Результат:**
+- `POST /api/v1/teachers/lesson-plans` — сохранение плана в БД (JSONB)
+- `GET /api/v1/teachers/lesson-plans` — список сохранённых планов
+- `GET /api/v1/teachers/lesson-plans/{id}` — просмотр плана
+- `PUT /api/v1/teachers/lesson-plans/{id}` — обновление (title, plan_data)
+- `DELETE /api/v1/teachers/lesson-plans/{id}` — удаление
+- `GET /api/v1/teachers/lesson-plans/{id}/export/docx` — скачивание DOCX
+- teacher.ai-mentor.kz/lesson-plans — список сохранённых планов
+- teacher.ai-mentor.kz/lesson-plans/{id} — просмотр + экспорт + удаление
+- Inline editing (PUT endpoint) — backend готов, frontend inline editing отложен на этап 4
 
 ### Этап 4: Улучшения (3-5 дней)
 
