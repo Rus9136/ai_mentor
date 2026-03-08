@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   BookOpen,
@@ -10,10 +10,10 @@ import {
   Key,
   Brain,
   Dumbbell,
+  Sparkles,
 } from 'lucide-react';
 import { AudioPlayer } from './AudioPlayer';
 import { FlashCards } from './FlashCards';
-import { QuickPrompts } from './QuickPrompts';
 import ExerciseList from '@/components/learning/ExerciseList';
 import { renderMathInHtml } from '@/components/common/MathText';
 import type { ParagraphDetail, ParagraphRichContent, ParagraphProgress } from '@/lib/api/textbooks';
@@ -28,11 +28,11 @@ interface ParagraphContentProps {
   exercisesData?: { total: number } | null;
   paragraphId: number;
   getMediaUrl: (url?: string | null) => string | null;
-  onSendPrompt?: (text: string) => void;
   practiceContent?: React.ReactNode;
   quizContent?: React.ReactNode;
   activeTab?: ContentTab;
   onTabChange?: (tab: ContentTab) => void;
+  onExplainSelection?: (selectedText: string) => void;
 }
 
 export function ParagraphContent({
@@ -43,16 +43,74 @@ export function ParagraphContent({
   exercisesData,
   paragraphId,
   getMediaUrl,
-  onSendPrompt,
   practiceContent,
   quizContent,
   activeTab: controlledTab,
   onTabChange,
+  onExplainSelection,
 }: ParagraphContentProps) {
   const t = useTranslations('paragraph');
   const [internalTab, setInternalTab] = useState<ContentTab>('text');
   const activeTab = controlledTab ?? internalTab;
   const setActiveTab = onTabChange ?? setInternalTab;
+
+  // Text selection tooltip
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [selectionTooltip, setSelectionTooltip] = useState<{
+    text: string;
+    top: number;
+    left: number;
+  } | null>(null);
+
+  const handleMouseUp = useCallback(() => {
+    if (!onExplainSelection) return;
+
+    const selection = window.getSelection();
+    const text = selection?.toString().trim();
+
+    if (!text || text.length < 3) {
+      setSelectionTooltip(null);
+      return;
+    }
+
+    const range = selection?.getRangeAt(0);
+    if (!range || !contentRef.current) return;
+
+    // Check selection is inside our content div
+    if (!contentRef.current.contains(range.commonAncestorContainer)) {
+      setSelectionTooltip(null);
+      return;
+    }
+
+    const rect = range.getBoundingClientRect();
+    const containerRect = contentRef.current.getBoundingClientRect();
+
+    setSelectionTooltip({
+      text,
+      top: rect.top - containerRect.top - 44,
+      left: Math.min(
+        Math.max(rect.left - containerRect.left + rect.width / 2 - 60, 0),
+        containerRect.width - 120
+      ),
+    });
+  }, [onExplainSelection]);
+
+  // Hide tooltip on scroll or click outside
+  useEffect(() => {
+    const handleScroll = () => setSelectionTooltip(null);
+    const handleMouseDown = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement)?.closest('[data-explain-tooltip]')) {
+        setSelectionTooltip(null);
+      }
+    };
+    const container = contentRef.current?.closest('.overflow-y-auto');
+    container?.addEventListener('scroll', handleScroll);
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => {
+      container?.removeEventListener('scroll', handleScroll);
+      document.removeEventListener('mousedown', handleMouseDown);
+    };
+  }, []);
 
   // Available tabs
   const availableTabs = useMemo(() => {
@@ -145,9 +203,31 @@ export function ParagraphContent({
       {/* Content Area */}
       <main className="mb-8">
         {activeTab === 'text' && (
-          <>
-            <article className="card-elevated p-6">
-              {displayContent ? (
+          <article className="card-elevated p-6">
+            {displayContent ? (
+              <div ref={contentRef} className="relative" onMouseUp={handleMouseUp}>
+                {/* Selection tooltip */}
+                {selectionTooltip && onExplainSelection && (
+                  <div
+                    data-explain-tooltip
+                    className="absolute z-50 animate-in fade-in slide-in-from-bottom-1 duration-150"
+                    style={{ top: selectionTooltip.top, left: selectionTooltip.left }}
+                  >
+                    <button
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseUp={(e) => e.stopPropagation()}
+                      onClick={() => {
+                        onExplainSelection(selectionTooltip.text);
+                        setSelectionTooltip(null);
+                        window.getSelection()?.removeAllRanges();
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-success text-white text-xs font-medium rounded-lg shadow-lg hover:bg-success/90 transition-colors whitespace-nowrap"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      {t('explainSelection')}
+                    </button>
+                  </div>
+                )}
                 <div
                   className="prose prose-stone dark:prose-invert max-w-none
                     prose-headings:text-foreground prose-headings:font-bold
@@ -157,19 +237,14 @@ export function ParagraphContent({
                     prose-li:marker:text-primary"
                   dangerouslySetInnerHTML={{ __html: displayContent }}
                 />
-              ) : (
-                <div className="text-center py-8">
-                  <BookOpen className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                  <p className="mt-4 text-muted-foreground">{t('noContent')}</p>
-                </div>
-              )}
-            </article>
-
-            {/* Quick Prompts (only in text tab) */}
-            {onSendPrompt && (
-              <QuickPrompts onSendPrompt={onSendPrompt} />
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <BookOpen className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                <p className="mt-4 text-muted-foreground">{t('noContent')}</p>
+              </div>
             )}
-          </>
+          </article>
         )}
 
         {activeTab === 'audio' && (

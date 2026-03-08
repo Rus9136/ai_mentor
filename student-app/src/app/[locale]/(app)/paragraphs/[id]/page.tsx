@@ -108,6 +108,14 @@ export default function ParagraphPage({ params }: PageProps) {
     if (flowPhase === 'chat') setViewMode('split');
   }, [flowPhase]);
 
+  // Handle text selection → explain in chat
+  const handleExplainSelection = useCallback((selectedText: string) => {
+    const prompt = `Я выделил(а) этот фрагмент из параграфа:\n\n«${selectedText}»\n\nОбъясни мне это простыми словами.`;
+    setPendingPrompt(prompt);
+    setViewMode('split');
+    setShowMobileChat(true);
+  }, []);
+
   // Handle step change
   const handleStepChange = useCallback(async (step: ParagraphStep) => {
     try {
@@ -181,13 +189,6 @@ export default function ParagraphPage({ params }: PageProps) {
       handleStepChange('summary');
     }
   }, [embeddedQuestions, currentQuestionIndex, flowPhase, updateStepMutation, refetchProgress, handleStepChange, getAndResetElapsed]);
-
-  // Handle quick prompt from content area
-  const handleSendPrompt = useCallback((text: string) => {
-    setPendingPrompt(text);
-    setViewMode('split');
-    setShowMobileChat(true);
-  }, []);
 
   // Completed count for mobile trigger
   const completedCount = useMemo(() => {
@@ -264,10 +265,10 @@ export default function ParagraphPage({ params }: PageProps) {
   const showChatPanel = viewMode !== 'reading';
 
   return (
-    <>
+    <div className="flex flex-col h-full">
       {/* TopBar breadcrumbs + ViewToggle — rendered via portal-like pattern */}
       {/* We pass ViewToggle as a floating element since TopBar is in layout */}
-      <div className="hidden md:flex items-center gap-4 px-6 py-2 bg-[#FFF8F2] border-b border-[#EDE8E3]">
+      <div className="hidden md:flex items-center gap-4 px-6 py-2 bg-[#FFF8F2] border-b border-[#EDE8E3] flex-shrink-0">
         {/* Breadcrumbs */}
         <div className="flex items-center gap-1.5 text-[13px] font-semibold text-[#A09080] flex-1 min-w-0">
           {navigation && (
@@ -302,7 +303,7 @@ export default function ParagraphPage({ params }: PageProps) {
       )}
 
       {/* Main split area */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden h-full">
         {/* Left pane: Content */}
         {showContent && (
           <div className="flex-1 overflow-y-auto">
@@ -376,9 +377,9 @@ export default function ParagraphPage({ params }: PageProps) {
                   exercisesData={exercisesData}
                   paragraphId={paragraphId}
                   getMediaUrl={getMediaUrl}
-                  onSendPrompt={handleSendPrompt}
                   activeTab={activeTab}
                   onTabChange={setActiveTab}
+                  onExplainSelection={handleExplainSelection}
                   practiceContent={questionsUI}
                   quizContent={
                     paragraphTest && paragraph ? (
@@ -521,6 +522,6 @@ export default function ParagraphPage({ params }: PageProps) {
           chapterId={navigation?.chapter_id}
         />
       </div>
-    </>
+    </div>
   );
 }

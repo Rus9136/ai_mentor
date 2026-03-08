@@ -74,11 +74,14 @@ export function ChatPanel({
     setShowHistory(false);
   }, [paragraphId, sessionType]);
 
+  // Track the prompt to pass to ChatWindow
+  const [chatPrompt, setChatPrompt] = useState<string | null>(null);
+
   // Handle initial prompt after session is ready
   useEffect(() => {
-    if (initialPrompt && sessionId && onInitialPromptSent) {
-      // The ChatWindow will handle sending the message
-      onInitialPromptSent();
+    if (initialPrompt && sessionId) {
+      setChatPrompt(initialPrompt);
+      onInitialPromptSent?.();
     }
   }, [initialPrompt, sessionId, onInitialPromptSent]);
 
@@ -158,7 +161,11 @@ export function ChatPanel({
             </button>
           </div>
         ) : (
-          <ChatWindow sessionId={sessionId} />
+          <ChatWindow
+            sessionId={sessionId}
+            initialPrompt={chatPrompt}
+            onInitialPromptConsumed={() => setChatPrompt(null)}
+          />
         )}
       </div>
     </div>

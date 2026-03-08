@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { Sparkles, AlertCircle } from 'lucide-react';
+import { Sparkles, AlertCircle, BookOpen, HelpCircle, ListChecks, FileText } from 'lucide-react';
 import { useChatSession, useStreamMessage } from '@/lib/hooks/use-chat';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
@@ -10,9 +10,11 @@ import { TypingIndicator } from './TypingIndicator';
 
 interface ChatWindowProps {
   sessionId: number;
+  initialPrompt?: string | null;
+  onInitialPromptConsumed?: () => void;
 }
 
-export function ChatWindow({ sessionId }: ChatWindowProps) {
+export function ChatWindow({ sessionId, initialPrompt, onInitialPromptConsumed }: ChatWindowProps) {
   const t = useTranslations('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -27,6 +29,13 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
   const handleSend = (content: string) => {
     sendStreamingMessage(content);
   };
+
+  const suggestions = [
+    { key: 'explain', icon: BookOpen, text: t('suggestions.explain') },
+    { key: 'questions', icon: ListChecks, text: t('suggestions.questions') },
+    { key: 'summary', icon: FileText, text: t('suggestions.summary') },
+    { key: 'help', icon: HelpCircle, text: t('suggestions.help') },
+  ];
 
   // Loading state
   if (isLoadingSession) {
@@ -55,17 +64,30 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {!hasMessages ? (
-          // Empty state
-          <div className="flex flex-col items-center justify-center h-full text-center">
+          // Empty state with suggestions
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mb-4">
               <Sparkles className="w-8 h-8 text-success" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               {t('emptyTitle')}
             </h3>
-            <p className="text-gray-500 max-w-xs">
+            <p className="text-gray-500 max-w-xs mb-6">
               {t('emptyHint')}
             </p>
+            <div className="w-full max-w-sm space-y-2">
+              {suggestions.map((s) => (
+                <button
+                  key={s.key}
+                  onClick={() => handleSend(s.text)}
+                  disabled={isStreaming}
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl text-left text-sm text-gray-700 hover:bg-success/5 hover:border-success/30 transition-all disabled:opacity-50"
+                >
+                  <s.icon className="w-4 h-4 text-success flex-shrink-0" />
+                  <span>{s.text}</span>
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           // Messages list
@@ -122,6 +144,8 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
       <ChatInput
         onSend={handleSend}
         isLoading={isStreaming}
+        initialValue={initialPrompt}
+        onInitialValueConsumed={onInitialPromptConsumed}
       />
     </div>
   );

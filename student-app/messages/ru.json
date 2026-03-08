@@ -133,6 +133,7 @@
     }
   },
   "navigation": {
+    "menu": "Меню",
     "home": "Главная",
     "subjects": "Предметы",
     "tests": "Тесты",
@@ -187,6 +188,7 @@
     "learningObjective": "Цель урока",
     "keyTerms": "Ключевые термины",
     "noContent": "Контент пока не добавлен",
+    "explainSelection": "Объяснить",
     "previous": "Предыдущий",
     "backToChapter": "К главе",
     "finishChapter": "Завершить главу",
@@ -458,7 +460,13 @@
     "newChat": "Новый чат",
     "messagesCount": "{count, plural, one {# сообщение} few {# сообщения} many {# сообщений} other {# сообщений}}",
     "deleteChat": "Удалить",
-    "cancel": "Отмена"
+    "cancel": "Отмена",
+    "suggestions": {
+      "explain": "Объясни эту тему простыми словами",
+      "questions": "Составь 5 вопросов для самопроверки",
+      "summary": "Сделай краткое резюме материала",
+      "help": "Что мне нужно знать для ЕНТ по этой теме?"
+    }
   },
   "landing": {
     "hero": {

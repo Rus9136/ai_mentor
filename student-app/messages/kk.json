@@ -133,6 +133,7 @@
     }
   },
   "navigation": {
+    "menu": "Мәзір",
     "home": "Басты бет",
     "subjects": "Пәндер",
     "tests": "Тесттер",
@@ -187,6 +188,7 @@
     "learningObjective": "Сабақ мақсаты",
     "keyTerms": "Негізгі терминдер",
     "noContent": "Мазмұн әлі қосылмаған",
+    "explainSelection": "Түсіндіру",
     "previous": "Алдыңғы",
     "backToChapter": "Тарауға",
     "finishChapter": "Тарауды аяқтау",
@@ -458,7 +460,13 @@
     "newChat": "Жаңа чат",
     "messagesCount": "{count} хабарлама",
     "deleteChat": "Жою",
-    "cancel": "Болдырмау"
+    "cancel": "Болдырмау",
+    "suggestions": {
+      "explain": "Бұл тақырыпты қарапайым сөздермен түсіндір",
+      "questions": "Өзін-өзі тексеруге 5 сұрақ құрастыр",
+      "summary": "Материалдың қысқаша мазмұнын жаса",
+      "help": "Бұл тақырып бойынша ҰБТ-ға не білу керек?"
+    }
   },
   "landing": {
     "hero": {

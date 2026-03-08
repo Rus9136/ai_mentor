@@ -6,6 +6,7 @@ Integrates with:
 - LLMService for response generation
 - MasteryRepository for A/B/C personalization
 """
+import asyncio
 import json
 import logging
 import time
@@ -27,6 +28,7 @@ from app.repositories.test_attempt_repo import TestAttemptRepository
 from app.repositories.test_repo import TestRepository
 from app.services.rag_service import RAGService
 from app.services.llm_service import LLMService, LLMResponse, LLMStreamChunk, LLMUsageContext
+from app.core.database import AsyncSessionLocal
 from app.services.student_memory_service import load_memory_context, trigger_memory_extraction
 from app.schemas.chat import (
     ChatSessionResponse,
@@ -306,9 +308,14 @@ class ChatService:
         self.db.add(assistant_message)
 
         # 8. Update session stats
+        was_first_message = session.message_count == 0
         session.message_count += 2
         session.total_tokens_used += (llm_response.tokens_used or 0)
         session.last_message_at = datetime.utcnow()
+
+        # Auto-generate title from first user message
+        if was_first_message:
+            session.title = self._generate_title_from_message(content)
 
         await self.db.commit()
         await self.db.refresh(user_message)
@@ -320,8 +327,10 @@ class ChatService:
             f"chunks={len(context.chunks) if context.chunks else 0}, time={processing_time}ms"
         )
 
-        # 9. Trigger background memory extraction
+        # 9. Trigger background tasks
         trigger_memory_extraction(session_id, student_id, school_id)
+        if was_first_message:
+            _trigger_ai_title(session_id, school_id, content, llm_response.content)
 
         return ChatResponse(
             user_message=self._message_to_response(user_message),
@@ -433,9 +442,14 @@ class ChatService:
         self.db.add(assistant_message)
 
         # 8. Update session stats
+        was_first_message = session.message_count == 0
         session.message_count += 2
         session.total_tokens_used += tokens_used
         session.last_message_at = datetime.utcnow()
+
+        # Auto-generate title from first user message
+        if was_first_message:
+            session.title = self._generate_title_from_message(content)
 
         await self.db.commit()
         await self.db.refresh(user_message)
@@ -447,8 +461,10 @@ class ChatService:
             f"chunks={len(context.chunks) if context.chunks else 0}, time={processing_time}ms"
         )
 
-        # Trigger background memory extraction
+        # Trigger background tasks
         trigger_memory_extraction(session_id, student_id, school_id)
+        if was_first_message:
+            _trigger_ai_title(session_id, school_id, content, full_content)
 
         # Yield final message with metadata
         yield {
@@ -778,6 +794,16 @@ class ChatService:
             )
         )
 
+    def _generate_title_from_message(self, message: str, max_length: int = 60) -> str:
+        """Generate a session title from the first user message."""
+        # Clean up whitespace
+        title = " ".join(message.split())
+        if len(title) <= max_length:
+            return title
+        # Truncate at word boundary
+        truncated = title[:max_length].rsplit(" ", 1)[0]
+        return truncated + "..."
+
     def _generate_session_title(self, session_type: str) -> str:
         """Generate default session title."""
         type_names = {
@@ -904,3 +930,78 @@ class ChatService:
         await self.db.delete(prompt)
         await self.db.commit()
         return True
+
+
+# =========================================================================
+# Background: AI-generated session title
+# =========================================================================
+
+async def _generate_ai_title(
+    session_id: int,
+    school_id: int,
+    user_message: str,
+    ai_response: str,
+) -> None:
+    """Generate a smart session title using LLM (background task)."""
+    try:
+        async with AsyncSessionLocal() as db:
+            from sqlalchemy import text as sa_text
+            await db.execute(sa_text(f"SET app.current_tenant_id = '{school_id}'"))
+            await db.execute(sa_text(f"SET app.current_school_id = '{school_id}'"))
+
+            llm = LLMService()
+            usage_ctx = LLMUsageContext(
+                db=db,
+                feature="chat",
+                school_id=school_id,
+            )
+
+            response = await llm.generate(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Придумай очень короткий заголовок для чата (3-6 слов) "
+                            "на основе вопроса ученика. Отвечай ТОЛЬКО заголовком, "
+                            "без кавычек и пунктуации в конце. "
+                            "Язык заголовка = язык сообщения ученика."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Вопрос ученика: {user_message[:300]}\n\nОтвет ИИ: {ai_response[:300]}",
+                    },
+                ],
+                temperature=0.5,
+                max_tokens=30,
+                usage_context=usage_ctx,
+            )
+
+            title = response.content.strip().strip('"\'').strip()
+            if not title or len(title) > 120:
+                return
+
+            # Update session title
+            result = await db.execute(
+                select(ChatSession).where(ChatSession.id == session_id)
+            )
+            session = result.scalar_one_or_none()
+            if session:
+                session.title = title
+                await db.commit()
+                logger.info(f"AI title for session {session_id}: '{title}'")
+
+    except Exception:
+        logger.exception(f"AI title generation failed for session {session_id}")
+
+
+def _trigger_ai_title(
+    session_id: int,
+    school_id: int,
+    user_message: str,
+    ai_response: str,
+) -> None:
+    """Fire-and-forget trigger for AI title generation."""
+    asyncio.create_task(
+        _generate_ai_title(session_id, school_id, user_message, ai_response)
+    )

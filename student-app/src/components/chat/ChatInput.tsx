@@ -8,12 +8,24 @@ interface ChatInputProps {
   onSend: (message: string) => void;
   isLoading?: boolean;
   disabled?: boolean;
+  initialValue?: string | null;
+  onInitialValueConsumed?: () => void;
 }
 
-export function ChatInput({ onSend, isLoading, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, isLoading, disabled, initialValue, onInitialValueConsumed }: ChatInputProps) {
   const t = useTranslations('chat');
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Pre-fill input from initialValue
+  useEffect(() => {
+    if (initialValue) {
+      setInput(initialValue);
+      onInitialValueConsumed?.();
+      // Focus the textarea
+      setTimeout(() => textareaRef.current?.focus(), 100);
+    }
+  }, [initialValue, onInitialValueConsumed]);
 
   // Auto-resize textarea
   useEffect(() => {
