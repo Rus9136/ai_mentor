@@ -1,0 +1,863 @@
+#!/usr/bin/env python3
+"""
+Load 'Қазақстан тарихы 10' (Kazakh) into the AI Mentor database.
+
+Parses the Mathpix MMD file, creates chapter/paragraph records,
+and creates ParagraphContent records for language='kk'.
+
+This is a HISTORY textbook — no exercises, no A/B/C difficulty levels.
+Chapters are determined by § number ranges from the TOC (МАЗМҰНЫ).
+The textbook has 11 chapters, 35 paragraph sections (§1-2 through §60),
+many with compound numbering (§1-2, §5-6, etc.).
+
+Usage:
+    python scripts/load_textbook_28.py --dry-run           # Parse only
+    python scripts/load_textbook_28.py --generate-sql FILE  # Generate SQL
+    python scripts/load_textbook_28.py --update-content FILE # Update SQL
+"""
+import re
+import sys
+import hashlib
+import argparse
+from pathlib import Path
+from dataclasses import dataclass, field
+
+# ── Path setup ──────────────────────────────────────────────────────────────
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+
+# ── Constants ───────────────────────────────────────────────────────────────
+
+TEXTBOOK_ID = 28  # Already exists in DB
+TEXTBOOK_TITLE = "Қазақстан тарихы"
+SUBJECT_CODE = "history_kz"
+GRADE_LEVEL = 10
+AUTHORS = "Қайырбекова Р.Р., Тимченко С., Джандосова З."
+PUBLISHER = "Мектеп"
+YEAR = 2019
+ISBN = "978-601-07-1176-1"
+LANGUAGE = "kk"
+
+MD_FILE = PROJECT_ROOT / "uploads" / "textbook-mmd" / "28" / "textbook_28.mmd"
+IMAGES_SRC_DIR = PROJECT_ROOT / "uploads" / "textbook-images" / "28"
+
+# Chapter mapping: § number ranges → chapter info
+# Based on МАЗМҰНЫ (Table of Contents), 11 chapters
+# Chapters 6+7 from TOC combined into one (§27-34) to match the stated "11 тарау"
+CHAPTERS = [
+    {
+        "number": 1,
+        "title": "ОРТАЛЫҚ АЗИЯ ӨРКЕНИЕТТЕРІ: САНАЛУАНДЫЛЫҒЫ ЖӘНЕ МӘДЕНИ ОРТАҚТЫҒЫ",
+        "para_from": 1,
+        "para_to": 6,
+    },
+    {
+        "number": 2,
+        "title": "ҰЛЫ ДАЛА ӨРКЕНИЕТІ",
+        "para_from": 7,
+        "para_to": 11,
+    },
+    {
+        "number": 3,
+        "title": "ОРТАЛЫҚ АЗИЯ МЕН ӘЛЕМДІК ӨРКЕНИЕТ",
+        "para_from": 12,
+        "para_to": 16,
+    },
+    {
+        "number": 4,
+        "title": "ҚАЗАҚ ХАЛҚЫНЫҢ ШЫҒУ ТЕГІ",
+        "para_from": 17,
+        "para_to": 23,
+    },
+    {
+        "number": 5,
+        "title": "ДӘСТҮРЛІ ҚАЗАҚ ҚОҒАМЫ: ЭТНИКАЛЫҚ ҚҰРЫЛЫМЫ ЖӘНЕ ӘЛЕУМЕТТІК ҰЙЫМДАСУЫ",
+        "para_from": 24,
+        "para_to": 26,
+    },
+    {
+        "number": 6,
+        "title": "ҚАЗАҚСТАН АУМАҒЫНДАҒЫ МЕМЛЕКЕТТЕР ЖӘНЕ ҰЛЫ ДАЛА КӨШПЕЛІЛЕРІНІҢ ИМПЕРИЯЛАРЫ",
+        "para_from": 27,
+        "para_to": 34,
+    },
+    {
+        "number": 7,
+        "title": "ҚАЗАҚ ХАНДЫҒЫ — ОРТАЛЫҚ АЗИЯДАҒЫ АЛҒАШҚЫ ҰЛТТЫҚ МЕМЛЕКЕТ",
+        "para_from": 35,
+        "para_to": 40,
+    },
+    {
+        "number": 8,
+        "title": "ТӘУЕЛСІЗДІККЕ ЖОЛ ЖӘНЕ ҰЛТТЫҚ МЕМЛЕКЕТТІЛІКТІҢ ҚАЙТА ЖАҢҒЫРУЫ",
+        "para_from": 41,
+        "para_to": 52,
+    },
+    {
+        "number": 9,
+        "title": "ҚАЗАҚ ХАЛҚЫНЫҢ ДӘСТҮРЛІ МӘДЕНИЕТІ — ДАЛА ӨРКЕНИЕТІНІҢ МҰРАСЫ",
+        "para_from": 53,
+        "para_to": 57,
+    },
+    {
+        "number": 10,
+        "title": "КЕҢЕСТІК КЕЗЕҢДЕГІ ҚАЗАҚСТАН МӘДЕНИЕТІ",
+        "para_from": 58,
+        "para_to": 59,
+    },
+    {
+        "number": 11,
+        "title": "ҰЛТТЫҚ ЖАҢҒЫРУ КЕЗЕҢІНДЕГІ МӘДЕНИЕТ",
+        "para_from": 60,
+        "para_to": 60,
+    },
+]
+
+# Headings that are internal content within a paragraph (NOT paragraph boundaries)
+INTERNAL_HEADINGS = {
+    # Lesson structure
+    "Бүгінгі сабақта:", "Бүrінгі сабақта:", "Бугінгі сабақта:", "Бугінті сабақта:",
+    "Бүтінгі сабақта:", "Бүгінті сабақта:", "Бугінгі сабакта:", "Бүrінrі сабақта:",
+    "Кілт сөздер:", "Кілт сездер:", "Кілт сөздер",
+    # Self-check / review
+    "Θз білімдерінді тексеріндер.", "Өз білімдерінді тексеріндер.",
+    "Вз білімаерінаі тексеріндер.", "Вз білімдерінді тексеріндер.",
+    "Өз білімаерінді тексеріндер.", "ез білімдерінаі тексеріндер.",
+    "Θз білімдерінаі тексеріндер.", "Θз білімдерінді тексерінаер.",
+    "Өз білімцерінді тексеріндер.", "ез білімаерінаі тексеріндер.",
+    # Map work
+    "Картамен жұмыс.", "Картамен жұмыс",
+    # Regional studies
+    "Өлкетану бойынша тапсырмалар.", "Өлкетану бойынша тапсырма.",
+    "Өлкетану бойынша тапсырма (шағын топтарга арналган).",
+    # Complex tasks
+    "Курделі тапсырмалар.", "Күрделі тапсырмалар.", "Күрделі тапсырма.",
+    "Күрделі тапсырм алар.", "Күраелі тапсырмалар.", "Кураелі тапсырма.",
+    "Курделі тапсырмалар", "Күряелі тапсырмалар.",
+    # Research work
+    "Ізденімдік жұмыс.", "Іденімдік жұмыс.", "Ізенімдік жұмыс.",
+    # Creative tasks
+    "Шығармашылык тапсырма (шағыи топтар үшін).",
+    "Шағыи топтарға арналған шығармашылык тапсырма.",
+    "Шағын топтарға арналған шығармашылык тапсырмалар.",
+    # Small group tasks
+    "Шағын топтарға арналған тапсырма.", "Шагын топтарга арналган тапсырма.",
+    "Шағын топтарға арналган тапсырма.", "Шатын топтарға арналган тапсырма.",
+    "Шағын топтарға арналғаи тапсырмалар.",
+    # Section review
+    "Бөлім бойынша бакылау тапсырмасы.",
+    # Glossary work
+    "Глоссариймен жұмыс.",
+    # Table work
+    "Кестемен жұмыс.",
+    # Preamble headings
+    "А.ЛҒЫ СӨЗ", "АЛҒЫ СӨЗ",
+    # Chapter-level headings (handled by § range mapping, not boundaries)
+    "ОРТАЛЫҚ АЗИЯ ӨРКЕНИЕТТЕРІ: САНАЛУАНДЫЛЫҒЫ ЖӘНЕ МӨДЕНИ ОРТАҚТЫҒЫ",
+    "ҰЛЫ ДАЛА ӨРКЕНИЕТІ",
+    "ОРТАЛЫҚ АЗИЯ МЕН ӘЛЕМДІК ӨРКЕНИЕТ",
+    # Stop markers handled separately
+    "ГЛОССАРИЙ",
+    "ПАЙДАЛАНҒАН ӘДЕБИЕТТЕР ТЗДМ",
+    "МАЗМУНЫ",
+    "ИСТОРИЯ КАЗАХСТАНА",
+    # Author line at top
+    "3. А. Джандосова",
+    "Джандосова 3. А.",
+    "Джандосова Зарннэ Алиевна",
+    # Publishing info
+    "Жалпы білім беретін мектептін 10 -сыныбына арналған окулык",
+    "Учебник лля 10 классов общеобразовательных школ (на казахском языхе )",
+    "Редакторы Е. Жайнаков",
+    # Watermarks
+    "Все учебники Казахстана",
+}
+
+# OCR artifacts to fix in paragraph titles
+OCR_FIXES = {
+    "<br>": " ",
+    "<br/>": " ",
+    "<br />": " ",
+    "  ": " ",
+}
+
+# Lines/headings to skip entirely (watermarks, ads)
+SKIP_PATTERNS = [
+    "Все учебники Казахстана",
+    "се учебники Казахстана",
+    "OKULYK",
+]
+
+
+# ── Data classes ────────────────────────────────────────────────────────────
+
+
+@dataclass
+class ParsedParagraph:
+    title: str
+    number: int       # First § number (e.g., 1 for "§ 1-2")
+    raw_number: str   # Original string (e.g., "1-2")
+    content_lines: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ParsedChapter:
+    title: str
+    number: int
+    paragraphs: list[ParsedParagraph] = field(default_factory=list)
+
+
+# ── Regex patterns ──────────────────────────────────────────────────────────
+
+# Paragraph heading: "## §1-2. Title", "## § 42-43. Title", "## §17. Title"
+RE_PARAGRAPH = re.compile(
+    r"^#{1,2}\s+§\s*(\d+(?:-\d+)?)[.\s]+(.+)", re.IGNORECASE
+)
+
+# Stop markers — everything after these is skipped
+# Use \b to avoid matching "Глоссариймен жұмыс" (internal heading)
+RE_STOP = re.compile(
+    r"^#{1,2}\s+(ГЛОССАРИЙ\b|ПАЙДАЛАНҒАН|МАЗМУНЫ)",
+    re.IGNORECASE,
+)
+
+# Image reference in markdown
+RE_IMAGE = re.compile(r"!\[([^\]]*)\]\(images/([^)]+)\)")
+
+# Footnote references [^N]
+RE_FOOTNOTE_REF = re.compile(r"\[\^(\d+)\]")
+
+# Abstract block (Mathpix artifact)
+RE_ABSTRACT = re.compile(r"^#{1,4}\s+Abstract", re.IGNORECASE)
+
+
+# ── Helper functions ────────────────────────────────────────────────────────
+
+
+def should_skip_line(line: str) -> bool:
+    """Check if a line should be skipped entirely (watermark/ad)."""
+    for pattern in SKIP_PATTERNS:
+        if pattern in line:
+            return True
+    return False
+
+
+def fix_ocr(text: str) -> str:
+    """Fix known OCR artifacts in text."""
+    for wrong, correct in OCR_FIXES.items():
+        text = text.replace(wrong, correct)
+    # Collapse multiple spaces
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    return text
+
+
+def is_internal_heading(heading: str) -> bool:
+    """Check if a heading is internal content (not a paragraph boundary)."""
+    clean = heading.strip()
+
+    # Exact match
+    if clean in INTERNAL_HEADINGS:
+        return True
+
+    # Starts with known prefix
+    for prefix in INTERNAL_HEADINGS:
+        if clean.startswith(prefix):
+            return True
+
+    # Skip watermarks
+    if should_skip_line(clean):
+        return True
+
+    # Heading that starts with image ref
+    if clean.startswith("!["):
+        return True
+
+    # Heading that starts with $ (math formula)
+    if clean.startswith("$"):
+        return True
+
+    # Heading that starts with a digit (task numbers, dates)
+    if clean and clean[0].isdigit():
+        return True
+
+    # Heading starting with 0 (icon marker)
+    if clean.startswith("0 ") or clean.startswith("0«"):
+        return True
+
+    # Very long headings are usually content, not boundaries
+    if len(clean) > 80:
+        return True
+
+    # Questions (contain ?)
+    if "?" in clean:
+        return True
+
+    # Single word or very short headings that are just formatting
+    if len(clean) <= 3:
+        return True
+
+    # OCR junk — CJK characters
+    if any(ord(c) > 0x3000 for c in clean):
+        return True
+
+    return False
+
+
+def get_chapter_for_para(para_number: int) -> dict | None:
+    """Find which chapter a paragraph belongs to based on § number."""
+    for ch in CHAPTERS:
+        if ch["para_from"] <= para_number <= ch["para_to"]:
+            return ch
+    return None
+
+
+# ── Parser ──────────────────────────────────────────────────────────────────
+
+
+def parse_textbook(md_path: Path) -> list[ParsedChapter]:
+    """Parse the MMD file into chapters and paragraphs."""
+    with open(md_path, encoding="utf-8") as f:
+        lines = f.readlines()
+
+    paragraphs: list[ParsedParagraph] = []
+    current_paragraph: ParsedParagraph | None = None
+    in_abstract = False
+
+    for line_num, raw_line in enumerate(lines, 1):
+        line = raw_line.rstrip("\n")
+
+        # Skip watermark lines
+        if should_skip_line(line):
+            continue
+
+        # Stop markers — everything after this is appendix
+        if RE_STOP.match(line):
+            break
+
+        # Skip Abstract blocks (Mathpix artifact)
+        if RE_ABSTRACT.match(line):
+            in_abstract = True
+            continue
+        if in_abstract:
+            if line.strip() == "" or line.startswith("#"):
+                in_abstract = False
+                if line.startswith("#"):
+                    pass  # Fall through to heading detection
+                else:
+                    continue
+            else:
+                # Abstract content — add to current paragraph
+                if current_paragraph is not None:
+                    current_paragraph.content_lines.append(line)
+                continue
+
+        # Detect § paragraph heading
+        m = RE_PARAGRAPH.match(line)
+        if m:
+            raw_num = m.group(1)  # e.g., "1-2", "17", "42-43"
+            para_num = int(raw_num.split("-")[0])  # First number
+            para_title = m.group(2).strip()
+            para_title = fix_ocr(para_title)
+
+            current_paragraph = ParsedParagraph(
+                title=para_title,
+                number=para_num,
+                raw_number=raw_num,
+            )
+            paragraphs.append(current_paragraph)
+            continue
+
+        # All other headings — check if internal
+        heading_match = re.match(r"^(#{1,4})\s+(.+)", line)
+        if heading_match:
+            heading_text = heading_match.group(2).strip()
+            if is_internal_heading(heading_text):
+                # Internal heading — include as content
+                if current_paragraph is not None:
+                    current_paragraph.content_lines.append(line)
+                continue
+            else:
+                # Unknown heading before any § — skip (preamble)
+                if current_paragraph is None:
+                    continue
+                # Unknown heading after a § — include as content
+                current_paragraph.content_lines.append(line)
+                continue
+
+        # Accumulate content lines
+        if current_paragraph is not None:
+            current_paragraph.content_lines.append(line)
+
+    # Organize paragraphs into chapters
+    chapter_map: dict[int, ParsedChapter] = {}
+    for ch_info in CHAPTERS:
+        chapter_map[ch_info["number"]] = ParsedChapter(
+            title=ch_info["title"],
+            number=ch_info["number"],
+        )
+
+    for para in paragraphs:
+        ch_info = get_chapter_for_para(para.number)
+        if ch_info:
+            chapter_map[ch_info["number"]].paragraphs.append(para)
+        else:
+            print(f"  WARNING: §{para.number} ({para.title[:40]}) doesn't belong to any chapter!")
+
+    # Return only chapters that have paragraphs, sorted by number
+    return [ch for ch in sorted(chapter_map.values(), key=lambda c: c.number) if ch.paragraphs]
+
+
+# ── Content conversion ──────────────────────────────────────────────────────
+
+
+def md_lines_to_html(lines: list[str], textbook_id: int) -> str:
+    """Convert markdown content lines to HTML with embedded LaTeX."""
+    if not lines:
+        return ""
+
+    content = "\n".join(lines)
+
+    # Replace image references
+    content = RE_IMAGE.sub(
+        lambda m: (
+            f'<img src="/uploads/textbook-images/{textbook_id}/{m.group(2)}" '
+            f'alt="{m.group(1)}" style="display:block;margin:1rem auto;max-width:100%" />'
+        ),
+        content,
+    )
+
+    # Remove footnote markers [^0], [^1] etc.
+    content = RE_FOOTNOTE_REF.sub("", content)
+
+    # Protect LaTeX from processing
+    latex_blocks: list[str] = []
+
+    def save_latex(match):
+        idx = len(latex_blocks)
+        latex_blocks.append(match.group(0))
+        return f"__LATEX_{idx}__"
+
+    content = re.sub(r"\$\$[\s\S]*?\$\$", save_latex, content)
+    content = re.sub(r"\$[^$\n]+?\$", save_latex, content)
+
+    # Simple markdown to HTML conversion
+    html_parts: list[str] = []
+    in_table = False
+    table_rows: list[str] = []
+    paragraph_lines: list[str] = []
+    in_list = False
+    list_items: list[str] = []
+
+    def flush_paragraph():
+        nonlocal paragraph_lines
+        if paragraph_lines:
+            text = " ".join(paragraph_lines)
+            if text.strip():
+                html_parts.append(f"<p>{text.strip()}</p>")
+            paragraph_lines = []
+
+    def flush_table():
+        nonlocal in_table, table_rows
+        if table_rows:
+            html_parts.append(
+                "<table style='width:100%;border-collapse:collapse;margin:1rem 0'>"
+            )
+            for i, row in enumerate(table_rows):
+                cells = [c.strip() for c in row.strip("|").split("|")]
+                if all(re.match(r"^:?-+:?$", c) for c in cells):
+                    continue
+                tag = "th" if i == 0 else "td"
+                html_parts.append("<tr>")
+                for cell in cells:
+                    html_parts.append(
+                        f"<{tag} style='border:1px solid #d1d5db;padding:0.5rem 0.75rem'>"
+                        f"{cell}</{tag}>"
+                    )
+                html_parts.append("</tr>")
+            html_parts.append("</table>")
+            table_rows = []
+        in_table = False
+
+    def flush_list():
+        nonlocal in_list, list_items
+        if list_items:
+            html_parts.append("<ul style='margin:0.5rem 0;padding-left:1.5rem'>")
+            for item in list_items:
+                html_parts.append(f"<li>{item}</li>")
+            html_parts.append("</ul>")
+            list_items = []
+        in_list = False
+
+    for raw_line in content.split("\n"):
+        line = raw_line.rstrip()
+
+        # Skip watermark lines in content
+        if should_skip_line(line):
+            continue
+
+        # Blank line → flush
+        if not line.strip():
+            if in_table:
+                flush_table()
+            if in_list:
+                flush_list()
+            flush_paragraph()
+            continue
+
+        # Table row
+        if line.strip().startswith("|"):
+            if not in_table:
+                flush_paragraph()
+                if in_list:
+                    flush_list()
+                in_table = True
+            table_rows.append(line)
+            continue
+        elif in_table:
+            flush_table()
+
+        # List item (- item or * item)
+        list_match = re.match(r"^\s*[-*]\s+(.+)", line)
+        if list_match:
+            if not in_list:
+                flush_paragraph()
+                in_list = True
+            list_items.append(list_match.group(1))
+            continue
+        elif in_list:
+            flush_list()
+
+        # Heading (## → h3, ### → h4)
+        heading_match = re.match(r"^(#{1,4})\s+(.+)", line)
+        if heading_match:
+            flush_paragraph()
+            level = min(len(heading_match.group(1)) + 1, 6)
+            heading_text = heading_match.group(2).strip()
+            html_parts.append(f"<h{level}>{heading_text}</h{level}>")
+            continue
+
+        # Blockquote
+        if line.startswith("> "):
+            flush_paragraph()
+            html_parts.append(
+                f"<blockquote style='border-left:4px solid #93c5fd;padding-left:1rem;"
+                f"margin:0.75rem 0;font-style:italic'>{line[2:]}</blockquote>"
+            )
+            continue
+
+        # Image (already converted above)
+        if line.strip().startswith("<img "):
+            flush_paragraph()
+            html_parts.append(
+                f'<div style="margin:1rem 0;text-align:center">{line.strip()}</div>'
+            )
+            continue
+
+        # Task line: "N. Text" (numbered items in review questions)
+        task_match = re.match(r"^(\d+)\.\s+(.+)", line.strip())
+        if task_match:
+            flush_paragraph()
+            task_num = task_match.group(1)
+            task_text = task_match.group(2)
+            html_parts.append(
+                f'<div style="margin-top:0.75rem;margin-bottom:0.25rem">'
+                f'<strong>{task_num}.</strong> {task_text}</div>'
+            )
+            continue
+
+        # Subtask line: "N) Text"
+        subtask_match = re.match(r"^(\d+)\)\s+(.+)", line.strip())
+        if subtask_match:
+            flush_paragraph()
+            html_parts.append(
+                f'<div style="margin-left:1.5rem">{subtask_match.group(1)}) {subtask_match.group(2)}</div>'
+            )
+            continue
+
+        # Regular text
+        paragraph_lines.append(line)
+
+    # Flush remaining
+    if in_table:
+        flush_table()
+    if in_list:
+        flush_list()
+    flush_paragraph()
+
+    html = "\n".join(html_parts)
+
+    # Apply inline formatting
+    html = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", html)
+    html = re.sub(r"(?<!\*)\*([^*]+?)\*(?!\*)", r"<em>\1</em>", html)
+
+    # Restore LaTeX
+    for idx, latex in enumerate(latex_blocks):
+        html = html.replace(f"__LATEX_{idx}__", latex)
+
+    return html.strip()
+
+
+# ── SQL helpers ─────────────────────────────────────────────────────────────
+
+
+def escape_sql(s: str) -> str:
+    """Escape string for SQL single-quote literals."""
+    if s is None:
+        return "NULL"
+    return "'" + s.replace("'", "''") + "'"
+
+
+# ── Statistics ──────────────────────────────────────────────────────────────
+
+
+def print_parse_stats(chapters: list[ParsedChapter]):
+    """Print parsing statistics."""
+    total_paragraphs = 0
+    total_lines = 0
+    print("\n--- Parsing Results ---")
+    for ch in chapters:
+        ch_lines = sum(len(p.content_lines) for p in ch.paragraphs)
+        total_paragraphs += len(ch.paragraphs)
+        total_lines += ch_lines
+        ch_title = ch.title[:70] + ("..." if len(ch.title) > 70 else "")
+        print(f"\n  Chapter {ch.number}: {ch_title}")
+        print(f"    Paragraphs: {len(ch.paragraphs)}, Content lines: {ch_lines}")
+        for p in ch.paragraphs:
+            p_title = p.title[:55] + ("..." if len(p.title) > 55 else "")
+            print(
+                f"      §{p.raw_number:>5}. {p_title:<58} "
+                f"({len(p.content_lines):>4} lines)"
+            )
+    print(
+        f"\n  Total: {len(chapters)} chapters, {total_paragraphs} paragraphs, "
+        f"{total_lines} content lines"
+    )
+    print("---")
+
+
+# ── SQL generation ──────────────────────────────────────────────────────────
+
+
+def generate_sql(chapters: list[ParsedChapter], output_path: Path):
+    """Generate a SQL file for importing via psql."""
+    textbook_where = (
+        f"(SELECT id FROM textbooks WHERE id = {TEXTBOOK_ID} AND is_deleted = false)"
+    )
+
+    lines = [
+        f"-- Қазақстан тарихы 10 Textbook Import (Kazakh)",
+        f"-- Generated by load_textbook_28.py",
+        "",
+        "BEGIN;",
+        "",
+    ]
+
+    total_paragraphs = 0
+
+    for ch_order, chapter in enumerate(chapters, 1):
+        chapter_title_esc = escape_sql(chapter.title)
+        chapter_where = (
+            f"(SELECT id FROM chapters WHERE textbook_id = {textbook_where}"
+            f" AND number = {chapter.number} AND is_deleted = false LIMIT 1)"
+        )
+
+        lines.append(f"-- Chapter {chapter.number}: {chapter.title[:60]}")
+        lines.append(
+            f'INSERT INTO chapters (textbook_id, title, number, "order", is_deleted)'
+        )
+        lines.append(
+            f"SELECT {textbook_where}, {chapter_title_esc}, {chapter.number}, {ch_order}, false"
+        )
+        lines.append(f"WHERE NOT EXISTS (")
+        lines.append(
+            f"    SELECT 1 FROM chapters WHERE textbook_id = {textbook_where}"
+        )
+        lines.append(
+            f"    AND number = {chapter.number} AND is_deleted = false"
+        )
+        lines.append(f");")
+        lines.append("")
+
+        for p_order, para in enumerate(chapter.paragraphs, 1):
+            html_content = md_lines_to_html(para.content_lines, TEXTBOOK_ID)
+            source_hash = hashlib.sha256(html_content.encode()).hexdigest()[:64]
+
+            content_esc = escape_sql(html_content)
+            title_esc = escape_sql(para.title)
+
+            para_where = (
+                f"(SELECT id FROM paragraphs WHERE chapter_id = {chapter_where}"
+                f" AND number = {para.number} AND is_deleted = false LIMIT 1)"
+            )
+
+            lines.append(f"-- §{para.raw_number}: {para.title[:50]}")
+            lines.append(
+                f'INSERT INTO paragraphs (chapter_id, title, number, "order", content, is_deleted)'
+            )
+            lines.append(
+                f"SELECT {chapter_where}, {title_esc}, {para.number}, {p_order},"
+            )
+            lines.append(f"{content_esc}, false")
+            lines.append(f"WHERE NOT EXISTS (")
+            lines.append(
+                f"    SELECT 1 FROM paragraphs WHERE chapter_id = {chapter_where}"
+            )
+            lines.append(
+                f"    AND number = {para.number} AND is_deleted = false"
+            )
+            lines.append(f");")
+            lines.append("")
+
+            # ParagraphContent for 'kk'
+            lines.append(f"INSERT INTO paragraph_contents (")
+            lines.append(f"    paragraph_id, language, explain_text,")
+            lines.append(f"    source_hash, status_explain,")
+            lines.append(f"    status_audio, status_slides, status_video, status_cards")
+            lines.append(f") SELECT")
+            lines.append(f"    {para_where}, '{LANGUAGE}',")
+            lines.append(f"{content_esc},")
+            lines.append(f"    {escape_sql(source_hash)}, 'ready',")
+            lines.append(f"    'empty', 'empty', 'empty', 'empty'")
+            lines.append(f"WHERE NOT EXISTS (")
+            lines.append(f"    SELECT 1 FROM paragraph_contents")
+            lines.append(
+                f"    WHERE paragraph_id = {para_where} AND language = '{LANGUAGE}'"
+            )
+            lines.append(f");")
+            lines.append("")
+            total_paragraphs += 1
+
+    lines.append("COMMIT;")
+    lines.append(f"-- Stats: {len(chapters)} chapters, {total_paragraphs} paragraphs")
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+    print(f"\n  Generated SQL: {output_path}")
+    print(f"  Chapters: {len(chapters)}, Paragraphs: {total_paragraphs}")
+    print(f"\n  To import:")
+    print(
+        f"    docker cp {output_path} ai_mentor_postgres_prod:/tmp/import.sql"
+    )
+    print(
+        f"    docker exec ai_mentor_postgres_prod psql -U ai_mentor_user -d ai_mentor_db -f /tmp/import.sql"
+    )
+
+
+def generate_update_sql(chapters: list[ParsedChapter], output_path: Path):
+    """Generate SQL UPDATE statements to refresh content in existing records."""
+    textbook_where = (
+        f"(SELECT id FROM textbooks WHERE id = {TEXTBOOK_ID} AND is_deleted = false)"
+    )
+
+    lines = [
+        "-- Қазақстан тарихы 10 Content UPDATE",
+        "-- Regenerated HTML with improved formatting",
+        "",
+        "BEGIN;",
+        "",
+    ]
+
+    total = 0
+    for chapter in chapters:
+        chapter_where = (
+            f"(SELECT id FROM chapters WHERE textbook_id = {textbook_where}"
+            f" AND number = {chapter.number} AND is_deleted = false LIMIT 1)"
+        )
+
+        for para in chapter.paragraphs:
+            html_content = md_lines_to_html(para.content_lines, TEXTBOOK_ID)
+            content_esc = escape_sql(html_content)
+            source_hash = hashlib.sha256(html_content.encode()).hexdigest()[:64]
+
+            para_where = (
+                f"(SELECT id FROM paragraphs WHERE chapter_id = {chapter_where}"
+                f" AND number = {para.number} AND is_deleted = false LIMIT 1)"
+            )
+
+            lines.append(f"-- Update §{para.raw_number}: {para.title[:50]}")
+            lines.append(f"UPDATE paragraphs SET content = {content_esc}")
+            lines.append(f"WHERE id = {para_where};")
+            lines.append("")
+            lines.append(
+                f"UPDATE paragraph_contents SET explain_text = {content_esc},"
+            )
+            lines.append(f"    source_hash = {escape_sql(source_hash)}")
+            lines.append(
+                f"WHERE paragraph_id = {para_where} AND language = '{LANGUAGE}';"
+            )
+            lines.append("")
+            total += 1
+
+    lines.append("COMMIT;")
+    lines.append(f"-- Updated {total} paragraphs")
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+    print(f"\n  Generated UPDATE SQL: {output_path}")
+    print(f"  Paragraphs to update: {total}")
+    print(f"\n  To apply:")
+    print(
+        f"    docker cp {output_path} ai_mentor_postgres_prod:/tmp/update.sql"
+    )
+    print(
+        f"    docker exec ai_mentor_postgres_prod psql -U ai_mentor_user -d ai_mentor_db -f /tmp/update.sql"
+    )
+
+
+# ── Main ────────────────────────────────────────────────────────────────────
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Load Қазақстан тарихы 10 textbook into AI Mentor database"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Parse only, no output"
+    )
+    parser.add_argument(
+        "--generate-sql",
+        type=str,
+        metavar="FILE",
+        help="Generate SQL file for import",
+    )
+    parser.add_argument(
+        "--update-content",
+        type=str,
+        metavar="FILE",
+        help="Generate SQL UPDATE file to refresh content",
+    )
+    args = parser.parse_args()
+
+    print("=" * 70)
+    print("  Қазақстан тарихы 10 — Textbook Import")
+    print("=" * 70)
+
+    # 1. Parse MMD file
+    print(f"\nStep 1: Parsing {MD_FILE.name}...")
+    if not MD_FILE.exists():
+        print(f"  ERROR: File not found: {MD_FILE}")
+        sys.exit(1)
+
+    chapters = parse_textbook(MD_FILE)
+    print_parse_stats(chapters)
+
+    if args.dry_run:
+        print("\n[DRY RUN] Stopping before output generation.")
+        return
+
+    if args.update_content:
+        generate_update_sql(chapters, Path(args.update_content))
+        return
+
+    if args.generate_sql:
+        generate_sql(chapters, Path(args.generate_sql))
+        return
+
+    print("\nNo action specified. Use --dry-run, --generate-sql, or --update-content.")
+
+
+if __name__ == "__main__":
+    main()
