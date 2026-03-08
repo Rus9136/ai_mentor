@@ -23,6 +23,7 @@ const FEATURE_LABELS: Record<string, string> = {
   homework_generation: 'Генерация ДЗ',
   homework_grading: 'Проверка ДЗ',
   audio_text: 'Аудио текст',
+  memory: 'Память (чат)',
   system: 'Системные',
 };
 

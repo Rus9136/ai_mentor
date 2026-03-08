@@ -307,10 +307,16 @@ export function ParagraphDialog({
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[500px] p-0" align="start">
+                        <PopoverContent
+                          className="w-[500px] p-0"
+                          align="start"
+                          side="bottom"
+                          sideOffset={4}
+                          onOpenAutoFocus={(e) => e.preventDefault()}
+                        >
                           <Command>
                             <CommandInput placeholder="Поиск цели обучения..." />
-                            <CommandList className="max-h-[300px] overflow-y-auto">
+                            <CommandList style={{ maxHeight: '250px', overflowY: 'auto' }}>
                               <CommandEmpty>Ничего не найдено</CommandEmpty>
                               <CommandGroup>
                                 {outcomes.map((outcome) => (

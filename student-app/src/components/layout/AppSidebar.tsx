@@ -9,6 +9,7 @@ import {
   FileCheck,
   ClipboardList,
   GraduationCap,
+  User,
 } from 'lucide-react';
 import { SidebarChapterProgress } from './SidebarChapterProgress';
 import { useChapterParagraphs, useParagraphNavigation } from '@/lib/hooks/use-textbooks';
@@ -78,7 +79,7 @@ function DefaultNav() {
   ];
 
   const isActive = (href: string) => {
-    if (href === '/home') return pathname.includes('/home');
+    if (href === '/home') return pathname.includes('/home') && !pathname.includes('/homework');
     return pathname.includes(href);
   };
 
@@ -86,7 +87,7 @@ function DefaultNav() {
     <nav className="flex-1 overflow-y-auto px-[10px] py-3">
       <div className="mb-5">
         <div className="px-[10px] mb-1.5 text-[10px] font-bold text-[#A09080] uppercase tracking-[1px]">
-          {t('home')}
+          {t('menu')}
         </div>
         <ul className="space-y-0.5">
           {navItems.map((item) => (
@@ -104,6 +105,28 @@ function DefaultNav() {
               </Link>
             </li>
           ))}
+        </ul>
+      </div>
+
+      {/* Profile */}
+      <div>
+        <div className="px-[10px] mb-1.5 text-[10px] font-bold text-[#A09080] uppercase tracking-[1px]">
+          {t('profile')}
+        </div>
+        <ul className="space-y-0.5">
+          <li>
+            <Link
+              href="/profile"
+              className={`flex items-center gap-[10px] px-[10px] py-[9px] rounded-[10px] text-[13px] font-semibold transition-all ${
+                pathname.includes('/profile')
+                  ? 'bg-primary text-white'
+                  : 'text-[#6B5B4E] hover:bg-[#F0E8E0] hover:text-foreground'
+              }`}
+            >
+              <User className={`h-4 w-4 ${pathname.includes('/profile') ? 'text-white' : ''}`} />
+              {t('profile')}
+            </Link>
+          </li>
         </ul>
       </div>
     </nav>

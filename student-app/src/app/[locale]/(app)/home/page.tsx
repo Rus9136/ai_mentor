@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/auth-provider';
 import { useTextbooks } from '@/lib/hooks/use-textbooks';
-import { useStudentStats } from '@/lib/hooks/use-profile';
+import { useStudentStats, useStudentProfile } from '@/lib/hooks/use-profile';
 import { Link } from '@/i18n/routing';
 import { TextbookCard } from '@/components/textbooks';
 import {
@@ -23,6 +23,12 @@ export default function HomePage() {
   const { user } = useAuth();
   const { data: textbooks, isLoading, error } = useTextbooks();
   const { data: stats } = useStudentStats();
+  const { data: profile } = useStudentProfile();
+
+  // Filter to only show textbooks matching student's grade
+  const myTextbooks = textbooks?.filter(
+    (tb) => profile?.grade_level && tb.grade_level === profile.grade_level
+  ) ?? textbooks;
 
   const greeting = () => {
     const hour = new Date().getHours();
@@ -32,7 +38,7 @@ export default function HomePage() {
   };
 
   // Find the textbook with most recent activity for "Continue Learning"
-  const continueItem = textbooks?.find((tb) => tb.last_activity && tb.progress.percentage > 0);
+  const continueItem = myTextbooks?.find((tb) => tb.last_activity && tb.progress.percentage > 0);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 md:py-8">
@@ -153,9 +159,9 @@ export default function HomePage() {
         )}
 
         {/* Textbooks Grid */}
-        {!isLoading && !error && textbooks && (
+        {!isLoading && !error && myTextbooks && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {textbooks.length === 0 ? (
+            {myTextbooks.length === 0 ? (
               <div className="col-span-full card-flat p-8 text-center">
                 <BookOpen className="mx-auto h-12 w-12 text-muted-foreground/50" />
                 <p className="mt-4 text-muted-foreground">
@@ -163,7 +169,7 @@ export default function HomePage() {
                 </p>
               </div>
             ) : (
-              textbooks.map((textbook) => (
+              myTextbooks.map((textbook) => (
                 <TextbookCard key={textbook.id} textbook={textbook} />
               ))
             )}
