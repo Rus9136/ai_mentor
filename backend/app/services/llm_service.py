@@ -86,7 +86,7 @@ class OpenRouterClient:
     ):
         self.api_key = api_key or settings.OPENROUTER_API_KEY
         self.base_url = base_url or settings.OPENROUTER_BASE_URL
-        self.model = model or settings.CEREBRAS_MODEL
+        self.model = model or settings.OPENROUTER_MODEL
 
         if not self.api_key:
             raise LLMServiceError("OPENROUTER_API_KEY is not configured")
@@ -250,11 +250,11 @@ class CerebrasClient:
         api_key: Optional[str] = None,
         model: Optional[str] = None
     ):
-        self.api_key = api_key or settings.OPENROUTER_API_KEY  # Uses same key field
+        self.api_key = api_key or settings.CEREBRAS_API_KEY
         self.model = model or settings.CEREBRAS_MODEL
 
         if not self.api_key:
-            raise LLMServiceError("CEREBRAS/OPENROUTER_API_KEY is not configured")
+            raise LLMServiceError("CEREBRAS_API_KEY is not configured")
 
         self.client = httpx.AsyncClient(
             base_url=CEREBRAS_BASE_URL,
@@ -427,6 +427,7 @@ class LLMService:
         self._cerebras_client: Optional[CerebrasClient] = None
         self._openrouter_client: Optional[OpenRouterClient] = None
         self._openai_client: Optional[OpenAIClient] = None
+        self._openrouter_fallback: Optional[OpenRouterClient] = None
 
     def _get_client(self):
         """Get or create the appropriate LLM client."""
@@ -483,23 +484,48 @@ class LLMService:
                 await self._log_usage(usage_context, response, latency_ms)
             return response
         except LLMServiceError as e:
-            if fallback_on_error and self.provider in ("cerebras", "openrouter"):
-                # Try OpenAI as fallback
-                logger.warning(f"{self.provider} failed, trying OpenAI fallback: {str(e)}")
+            if not (fallback_on_error and self.provider == "cerebras"):
+                latency_ms = int((time.monotonic() - start) * 1000)
+                if usage_context:
+                    await self._log_usage_error(usage_context, model or self.provider, latency_ms, str(e))
+                raise
+
+            # Fallback 1: Try Cerebras with gpt-oss-120b
+            cerebras_fallback_model = "gpt-oss-120b"
+            used_model = model or self._get_client().model
+            if used_model != cerebras_fallback_model:
+                logger.warning(f"Cerebras {used_model} failed, trying Cerebras {cerebras_fallback_model}: {str(e)}")
                 try:
-                    if self._openai_client is None:
-                        self._openai_client = OpenAIClient()
-                    response = await self._openai_client.generate(
+                    client = self._get_client()
+                    response = await client.generate(
                         messages=messages,
                         temperature=temperature,
-                        max_tokens=max_tokens
+                        max_tokens=max_tokens,
+                        model=cerebras_fallback_model
                     )
                     latency_ms = int((time.monotonic() - start) * 1000)
                     if usage_context:
                         await self._log_usage(usage_context, response, latency_ms)
                     return response
-                except LLMServiceError:
-                    pass  # Re-raise original error
+                except LLMServiceError as e2:
+                    logger.warning(f"Cerebras {cerebras_fallback_model} also failed: {str(e2)}")
+
+            # Fallback 2: Try OpenRouter
+            logger.warning(f"Cerebras unavailable, trying OpenRouter fallback")
+            try:
+                if self._openrouter_fallback is None:
+                    self._openrouter_fallback = OpenRouterClient()
+                response = await self._openrouter_fallback.generate(
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
+                latency_ms = int((time.monotonic() - start) * 1000)
+                if usage_context:
+                    await self._log_usage(usage_context, response, latency_ms)
+                return response
+            except LLMServiceError:
+                pass  # Re-raise original error
 
             latency_ms = int((time.monotonic() - start) * 1000)
             if usage_context:
@@ -564,6 +590,9 @@ class LLMService:
         """Log successful LLM usage to database."""
         try:
             from app.models.llm_usage_log import LLMUsageLog
+            from sqlalchemy import text as sa_text
+            if ctx.school_id:
+                await ctx.db.execute(sa_text(f"SET LOCAL app.current_school_id = '{ctx.school_id}'"))
             log = LLMUsageLog(
                 user_id=ctx.user_id,
                 school_id=ctx.school_id,
@@ -582,6 +611,8 @@ class LLMService:
             await ctx.db.flush()
         except Exception as e:
             logger.warning(f"Failed to log LLM usage: {e}")
+            # Do NOT rollback — ctx.db is shared with the caller's transaction.
+            # Rollback here would undo the caller's pending changes (e.g. chat messages).
 
     async def _log_usage_error(
         self,
@@ -593,6 +624,9 @@ class LLMService:
         """Log failed LLM usage to database."""
         try:
             from app.models.llm_usage_log import LLMUsageLog
+            from sqlalchemy import text as sa_text
+            if ctx.school_id:
+                await ctx.db.execute(sa_text(f"SET LOCAL app.current_school_id = '{ctx.school_id}'"))
             log = LLMUsageLog(
                 user_id=ctx.user_id,
                 school_id=ctx.school_id,
@@ -609,6 +643,7 @@ class LLMService:
             await ctx.db.flush()
         except Exception as e:
             logger.warning(f"Failed to log LLM usage error: {e}")
+            # Do NOT rollback — ctx.db is shared with the caller's transaction.
 
     async def close(self):
         """Close all clients."""

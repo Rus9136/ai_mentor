@@ -14,7 +14,7 @@ from typing import Optional, List, Tuple, AsyncIterator, Any, Dict
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -80,6 +80,19 @@ class ChatService:
         self.db = db
         self.rag_service = RAGService(db)
         self.llm = LLMService()
+
+    async def _ensure_rls_context(self, school_id: int) -> None:
+        """
+        Explicitly set RLS tenant context on the DB session.
+
+        Defensive measure: BaseHTTPMiddleware may clear contextvars
+        before StreamingResponse finishes, causing RLS vars set by
+        get_db() to be lost on connection pool reconnect.
+        """
+        await self.db.execute(
+            text("SELECT set_config('app.current_tenant_id', :tid, false)"),
+            {"tid": str(school_id)}
+        )
 
     # =========================================================================
     # Session Management
@@ -231,6 +244,9 @@ class ChatService:
 
         start_time = time.time()
 
+        # Ensure RLS context is set
+        await self._ensure_rls_context(school_id)
+
         # Get session with messages
         session = await self.get_session_with_messages(session_id, student_id, school_id)
         if not session:
@@ -356,9 +372,18 @@ class ChatService:
         """
         start_time = time.time()
 
+        # Ensure RLS context is set (defensive against middleware context loss
+        # during streaming — BaseHTTPMiddleware may clear contextvars before
+        # the StreamingResponse generator finishes)
+        await self._ensure_rls_context(school_id)
+
         # Get session with messages
         session = await self.get_session_with_messages(session_id, student_id, school_id)
         if not session:
+            logger.error(
+                f"Chat session {session_id} not found for student={student_id}, "
+                f"school={school_id}. Possible RLS context issue."
+            )
             yield {"type": "error", "error": f"Chat session {session_id} not found"}
             return
 
