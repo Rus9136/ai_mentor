@@ -25,6 +25,7 @@ const FEATURE_LABELS: Record<string, string> = {
   audio_text: 'Аудио текст',
   memory: 'Память (чат)',
   system: 'Системные',
+  teacher_chat: 'Чат учителя с ИИ',
 };
 
 function formatNumber(n: number): string {

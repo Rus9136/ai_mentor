@@ -527,6 +527,23 @@ class ChatService:
         )
         self.db.add(assistant_message)
 
+        # Log LLM usage for teacher_chat streaming
+        try:
+            from app.models.llm_usage_log import LLMUsageLog
+            log = LLMUsageLog(
+                school_id=school_id,
+                teacher_id=teacher_id,
+                feature="teacher_chat",
+                provider=self.llm.provider,
+                model=self.llm.provider,
+                total_tokens=tokens_used,
+                latency_ms=processing_time,
+                success=True,
+            )
+            self.db.add(log)
+        except Exception as e:
+            logger.warning(f"Failed to log teacher chat stream usage: {e}")
+
         was_first_message = session.message_count == 0
         session.message_count += 2
         session.total_tokens_used += tokens_used
@@ -556,13 +573,15 @@ class ChatService:
         current_message: str
     ) -> List[dict]:
         """Build LLM messages for teacher chat (no mastery levels, no memory)."""
-        lang_instruction = "Язык: русский." if session.language == "ru" else "Тілі: қазақша."
 
         system_prompt = (
-            f"Ты — ИИ-ассистент для учителя. Помогаешь понять и работать с учебным материалом. "
-            f"Отвечай подробно, профессионально. Можешь предлагать методические идеи, "
-            f"объяснения для учеников разных уровней, примеры заданий. {lang_instruction} "
-            f"Цитируй источники из контекста."
+            "Ты — ИИ-ассистент для учителя. Помогаешь понять и работать с учебным материалом. "
+            "Отвечай подробно, профессионально. Можешь предлагать методические идеи, "
+            "объяснения для учеников разных уровней, примеры заданий. "
+            "Цитируй источники из контекста.\n\n"
+            "ВАЖНО: Всегда отвечай на том же языке, на котором написано сообщение пользователя. "
+            "Если вопрос на казахском — отвечай на казахском. "
+            "Если вопрос на русском — отвечай на русском."
         )
 
         # Build paragraph context
