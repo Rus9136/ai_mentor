@@ -29,6 +29,7 @@
 | `docs/database_schema.md` | Схема БД |
 | `docs/TASK_SELF_ASSESSMENT_BACKEND.md` | ТЗ самооценки ученика (этапы 1-2 готовы) |
 | `docs/API_SELF_ASSESSMENT.md` | API документация самооценки для мобильных |
+| `docs/AI_MEMORY.md` | 3-слойная память ИИ-репетитора (MVP) |
 
 ---
 

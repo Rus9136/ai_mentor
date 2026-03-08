@@ -88,6 +88,9 @@ from app.models.lesson_plan import LessonPlan
 # LLM usage logs
 from app.models.llm_usage_log import LLMUsageLog, LLMFeature
 
+# Student memory (chat personalization)
+from app.models.student_memory import ChatSessionSummary, StudentMemory
+
 __all__ = [
     # Base
     "BaseModel",
@@ -195,4 +198,7 @@ __all__ = [
     # LLM usage logs
     "LLMUsageLog",
     "LLMFeature",
+    # Student memory
+    "ChatSessionSummary",
+    "StudentMemory",
 ]

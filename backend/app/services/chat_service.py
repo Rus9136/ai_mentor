@@ -27,6 +27,7 @@ from app.repositories.test_attempt_repo import TestAttemptRepository
 from app.repositories.test_repo import TestRepository
 from app.services.rag_service import RAGService
 from app.services.llm_service import LLMService, LLMResponse, LLMStreamChunk, LLMUsageContext
+from app.services.student_memory_service import load_memory_context, trigger_memory_extraction
 from app.schemas.chat import (
     ChatSessionResponse,
     ChatMessageResponse,
@@ -319,6 +320,9 @@ class ChatService:
             f"chunks={len(context.chunks) if context.chunks else 0}, time={processing_time}ms"
         )
 
+        # 9. Trigger background memory extraction
+        trigger_memory_extraction(session_id, student_id, school_id)
+
         return ChatResponse(
             user_message=self._message_to_response(user_message),
             assistant_message=self._message_to_response(assistant_message, citations),
@@ -443,6 +447,9 @@ class ChatService:
             f"chunks={len(context.chunks) if context.chunks else 0}, time={processing_time}ms"
         )
 
+        # Trigger background memory extraction
+        trigger_memory_extraction(session_id, student_id, school_id)
+
         # Yield final message with metadata
         yield {
             "type": "done",
@@ -483,6 +490,11 @@ class ChatService:
                     system_prompt = f"{system_prompt}\n\n{para_context}"
             except Exception as e:
                 logger.error(f"[PARA_CONTEXT] Failed to build paragraph context for session {session.id}: {e}", exc_info=True)
+
+        # 2b. Inject student memory context
+        memory_context = await load_memory_context(self.db, session.student_id)
+        if memory_context:
+            system_prompt = f"{system_prompt}\n\n{memory_context}"
 
         messages = [{"role": "system", "content": system_prompt}]
 
