@@ -17,6 +17,7 @@ import {
   GraduationCap,
   Menu,
   X,
+  MessageSquare,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: '/journal', icon: BookOpen, label: t('journal') },
     { href: '/lesson-plans', icon: FileText, label: t('lessonPlan') },
     { href: '/analytics', icon: BarChart3, label: t('analytics') },
+    { href: '/ai-chat', icon: MessageSquare, label: t('aiChat') },
   ];
 
   const isActive = (href: string) => {

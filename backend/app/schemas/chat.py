@@ -43,6 +43,14 @@ class ChatSessionCreate(BaseModel):
     )
 
 
+class TeacherChatSessionCreate(BaseModel):
+    """Request to create a teacher chat session."""
+    paragraph_id: int = Field(..., description="Paragraph to discuss")
+    chapter_id: int = Field(..., description="Chapter context")
+    title: Optional[str] = Field(None, max_length=255, description="Optional session title")
+    language: str = Field(default="ru", pattern="^(ru|kk)$", description="Response language")
+
+
 class ChatSessionResponse(BaseModel):
     """Response for chat session."""
     model_config = ConfigDict(from_attributes=True)
@@ -59,6 +67,7 @@ class ChatSessionResponse(BaseModel):
     total_tokens_used: int
     last_message_at: Optional[datetime]
     created_at: datetime
+    teacher_id: Optional[int] = None
 
 
 class ChatSessionListResponse(BaseModel):

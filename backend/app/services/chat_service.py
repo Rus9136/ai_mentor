@@ -230,6 +230,396 @@ class ChatService:
         return True
 
     # =========================================================================
+    # Teacher Session Management
+    # =========================================================================
+
+    async def create_teacher_session(
+        self,
+        teacher_id: int,
+        school_id: int,
+        paragraph_id: int,
+        chapter_id: int,
+        title: Optional[str] = None,
+        language: str = "ru"
+    ) -> ChatSession:
+        """Create a new chat session for a teacher."""
+        if not title:
+            almaty_time = datetime.now(ZoneInfo('Asia/Almaty'))
+            title = f"Чат с ИИ - {almaty_time.strftime('%d.%m.%Y %H:%M')}"
+
+        session = ChatSession(
+            teacher_id=teacher_id,
+            student_id=None,
+            school_id=school_id,
+            session_type="general_tutor",
+            paragraph_id=paragraph_id,
+            chapter_id=chapter_id,
+            title=title,
+            mastery_level=None,
+            language=language
+        )
+
+        self.db.add(session)
+        await self.db.commit()
+        await self.db.refresh(session)
+
+        logger.info(f"Created teacher chat session {session.id} for teacher {teacher_id}")
+        return session
+
+    async def list_teacher_sessions(
+        self,
+        teacher_id: int,
+        school_id: int,
+        page: int = 1,
+        page_size: int = 20
+    ) -> Tuple[List[ChatSession], int]:
+        """List teacher's chat sessions with pagination."""
+        query = select(ChatSession).where(
+            ChatSession.teacher_id == teacher_id,
+            ChatSession.school_id == school_id,
+            ChatSession.is_deleted == False
+        )
+
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        query = query.order_by(
+            ChatSession.last_message_at.desc().nullslast(),
+            ChatSession.created_at.desc()
+        )
+        query = query.offset((page - 1) * page_size).limit(page_size)
+
+        result = await self.db.execute(query)
+        sessions = list(result.scalars().all())
+        return sessions, total
+
+    async def get_teacher_session_with_messages(
+        self,
+        session_id: int,
+        teacher_id: int,
+        school_id: int
+    ) -> Optional[ChatSession]:
+        """Get teacher session with all messages loaded."""
+        query = (
+            select(ChatSession)
+            .options(selectinload(ChatSession.messages))
+            .where(
+                ChatSession.id == session_id,
+                ChatSession.teacher_id == teacher_id,
+                ChatSession.school_id == school_id,
+                ChatSession.is_deleted == False
+            )
+        )
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def delete_teacher_session(
+        self,
+        session_id: int,
+        teacher_id: int,
+        school_id: int
+    ) -> bool:
+        """Soft delete a teacher chat session."""
+        query = select(ChatSession).where(
+            ChatSession.id == session_id,
+            ChatSession.teacher_id == teacher_id,
+            ChatSession.school_id == school_id,
+            ChatSession.is_deleted == False
+        )
+        result = await self.db.execute(query)
+        session = result.scalar_one_or_none()
+
+        if not session:
+            return False
+
+        session.is_deleted = True
+        session.deleted_at = datetime.utcnow()
+        await self.db.commit()
+        return True
+
+    async def send_teacher_message(
+        self,
+        session_id: int,
+        teacher_id: int,
+        school_id: int,
+        content: str
+    ) -> ChatResponse:
+        """Send a teacher message and generate AI response (no mastery, no memory)."""
+        start_time = time.time()
+        await self._ensure_rls_context(school_id)
+
+        session = await self.get_teacher_session_with_messages(session_id, teacher_id, school_id)
+        if not session:
+            raise ValueError(f"Chat session {session_id} not found")
+
+        # Save user message
+        user_message = ChatMessage(
+            session_id=session_id,
+            school_id=school_id,
+            role="user",
+            content=content
+        )
+        self.db.add(user_message)
+        await self.db.flush()
+
+        # Build messages for LLM
+        messages = await self._build_teacher_llm_messages(session, content)
+
+        # Retrieve context via RAG
+        context = await self.rag_service.retrieve_context(
+            query=content,
+            chapter_id=session.chapter_id,
+            paragraph_ids=[session.paragraph_id] if session.paragraph_id else None
+        )
+
+        if context.chunks:
+            context_string = self.rag_service._build_context_string(context.chunks)
+            messages[-1]["content"] = f"""Контекст из учебника:
+---
+{context_string}
+---
+
+Вопрос учителя: {content}"""
+
+        # Generate AI response
+        try:
+            usage_ctx = LLMUsageContext(
+                db=self.db,
+                feature="teacher_chat",
+                school_id=school_id,
+            )
+            llm_response: LLMResponse = await self.llm.generate(
+                messages=messages,
+                temperature=0.7,
+                max_tokens=2000,
+                usage_context=usage_ctx,
+            )
+        except Exception as e:
+            logger.error(f"LLM generation failed for teacher chat: {str(e)}")
+            llm_response = LLMResponse(
+                content="Извините, произошла ошибка при генерации ответа. Попробуйте позже.",
+                model="error",
+                tokens_used=0
+            )
+
+        processing_time = int((time.time() - start_time) * 1000)
+        citations = self.rag_service._extract_citations(context.chunks) if context.chunks else []
+
+        assistant_message = ChatMessage(
+            session_id=session_id,
+            school_id=school_id,
+            role="assistant",
+            content=llm_response.content,
+            citations_json=json.dumps([c.model_dump() for c in citations]) if citations else None,
+            context_chunks_used=len(context.chunks) if context.chunks else 0,
+            tokens_used=llm_response.tokens_used,
+            model_used=llm_response.model,
+            processing_time_ms=processing_time
+        )
+        self.db.add(assistant_message)
+
+        was_first_message = session.message_count == 0
+        session.message_count += 2
+        session.total_tokens_used += (llm_response.tokens_used or 0)
+        session.last_message_at = datetime.utcnow()
+
+        if was_first_message:
+            session.title = self._generate_title_from_message(content)
+
+        await self.db.commit()
+        await self.db.refresh(user_message)
+        await self.db.refresh(assistant_message)
+        await self.db.refresh(session)
+
+        logger.info(
+            f"Teacher chat response: session={session_id}, tokens={llm_response.tokens_used}, "
+            f"chunks={len(context.chunks) if context.chunks else 0}, time={processing_time}ms"
+        )
+
+        if was_first_message:
+            _trigger_ai_title(session_id, school_id, content, llm_response.content)
+
+        return ChatResponse(
+            user_message=self._message_to_response(user_message),
+            assistant_message=self._message_to_response(assistant_message, citations),
+            session=self._session_to_response(session)
+        )
+
+    async def send_teacher_message_stream(
+        self,
+        session_id: int,
+        teacher_id: int,
+        school_id: int,
+        content: str
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """Send a teacher message and stream AI response via SSE."""
+        start_time = time.time()
+        await self._ensure_rls_context(school_id)
+
+        session = await self.get_teacher_session_with_messages(session_id, teacher_id, school_id)
+        if not session:
+            yield {"type": "error", "error": f"Chat session {session_id} not found"}
+            return
+
+        user_message = ChatMessage(
+            session_id=session_id,
+            school_id=school_id,
+            role="user",
+            content=content
+        )
+        self.db.add(user_message)
+        await self.db.flush()
+
+        yield {
+            "type": "user_message",
+            "message": self._message_to_response(user_message).model_dump(mode="json")
+        }
+
+        messages = await self._build_teacher_llm_messages(session, content)
+
+        context = await self.rag_service.retrieve_context(
+            query=content,
+            chapter_id=session.chapter_id,
+            paragraph_ids=[session.paragraph_id] if session.paragraph_id else None
+        )
+
+        if context.chunks:
+            context_string = self.rag_service._build_context_string(context.chunks)
+            messages[-1]["content"] = f"""Контекст из учебника:
+---
+{context_string}
+---
+
+Вопрос учителя: {content}"""
+
+        full_content = ""
+        tokens_used = 0
+
+        try:
+            async for chunk in self.llm.stream_generate(
+                messages=messages,
+                temperature=0.7,
+                max_tokens=2000
+            ):
+                if chunk.content:
+                    full_content += chunk.content
+                    yield {"type": "delta", "content": chunk.content}
+                if chunk.is_final:
+                    tokens_used = chunk.tokens_used or 0
+        except Exception as e:
+            logger.error(f"LLM streaming failed for teacher chat: {str(e)}")
+            full_content = "Извините, произошла ошибка при генерации ответа. Попробуйте позже."
+            yield {"type": "delta", "content": full_content}
+
+        processing_time = int((time.time() - start_time) * 1000)
+        citations = self.rag_service._extract_citations(context.chunks) if context.chunks else []
+
+        assistant_message = ChatMessage(
+            session_id=session_id,
+            school_id=school_id,
+            role="assistant",
+            content=full_content,
+            citations_json=json.dumps([c.model_dump() for c in citations]) if citations else None,
+            context_chunks_used=len(context.chunks) if context.chunks else 0,
+            tokens_used=tokens_used,
+            model_used=self.llm.provider,
+            processing_time_ms=processing_time
+        )
+        self.db.add(assistant_message)
+
+        was_first_message = session.message_count == 0
+        session.message_count += 2
+        session.total_tokens_used += tokens_used
+        session.last_message_at = datetime.utcnow()
+
+        if was_first_message:
+            session.title = self._generate_title_from_message(content)
+
+        await self.db.commit()
+        await self.db.refresh(user_message)
+        await self.db.refresh(assistant_message)
+        await self.db.refresh(session)
+
+        if was_first_message:
+            _trigger_ai_title(session_id, school_id, content, full_content)
+
+        yield {
+            "type": "done",
+            "message": self._message_to_response(assistant_message, citations).model_dump(mode="json"),
+            "session": self._session_to_response(session).model_dump(mode="json"),
+            "citations": [c.model_dump(mode="json") for c in citations]
+        }
+
+    async def _build_teacher_llm_messages(
+        self,
+        session: ChatSession,
+        current_message: str
+    ) -> List[dict]:
+        """Build LLM messages for teacher chat (no mastery levels, no memory)."""
+        lang_instruction = "Язык: русский." if session.language == "ru" else "Тілі: қазақша."
+
+        system_prompt = (
+            f"Ты — ИИ-ассистент для учителя. Помогаешь понять и работать с учебным материалом. "
+            f"Отвечай подробно, профессионально. Можешь предлагать методические идеи, "
+            f"объяснения для учеников разных уровней, примеры заданий. {lang_instruction} "
+            f"Цитируй источники из контекста."
+        )
+
+        # Build paragraph context
+        if session.paragraph_id:
+            try:
+                para_context = await self._build_teacher_paragraph_context(session)
+                if para_context:
+                    system_prompt = f"{system_prompt}\n\n{para_context}"
+            except Exception as e:
+                logger.error(f"Failed to build paragraph context for teacher session {session.id}: {e}")
+
+        messages = [{"role": "system", "content": system_prompt}]
+
+        # Add conversation history
+        history_messages = [
+            m for m in session.messages if not m.is_deleted
+        ][-self.MAX_HISTORY_MESSAGES:]
+
+        for msg in history_messages:
+            messages.append({"role": msg.role, "content": msg.content})
+
+        messages.append({"role": "user", "content": current_message})
+        return messages
+
+    async def _build_teacher_paragraph_context(self, session: ChatSession) -> Optional[str]:
+        """Build paragraph context for teacher chat sessions."""
+        result = await self.db.execute(
+            select(Paragraph).where(Paragraph.id == session.paragraph_id)
+        )
+        para = result.scalar_one_or_none()
+        if not para:
+            return None
+
+        chap_title = None
+        if para.chapter_id:
+            chap_result = await self.db.execute(
+                select(Chapter.title).where(Chapter.id == para.chapter_id)
+            )
+            chap_title = chap_result.scalar_one_or_none()
+
+        lines = ["--- КОНТЕКСТ ПАРАГРАФА ---"]
+        lines.append(f"Параграф: \"{para.title}\"")
+        if chap_title:
+            lines.append(f"Глава: \"{chap_title}\"")
+        if para.learning_objective:
+            lines.append(f"Цель обучения: {para.learning_objective}")
+        if para.lesson_objective:
+            lines.append(f"Цель урока: {para.lesson_objective}")
+        if para.key_terms:
+            terms = ", ".join(para.key_terms) if isinstance(para.key_terms, list) else str(para.key_terms)
+            lines.append(f"Ключевые термины: {terms}")
+        if para.summary:
+            lines.append(f"Краткое содержание: {para.summary}")
+
+        return "\n".join(lines)
+
+    # =========================================================================
     # Message Handling
     # =========================================================================
 
@@ -872,7 +1262,8 @@ class ChatService:
             message_count=session.message_count,
             total_tokens_used=session.total_tokens_used,
             last_message_at=session.last_message_at,
-            created_at=session.created_at
+            created_at=session.created_at,
+            teacher_id=session.teacher_id,
         )
 
     # =========================================================================

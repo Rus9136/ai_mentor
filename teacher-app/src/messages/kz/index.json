@@ -53,6 +53,7 @@
     "journal": "Журнал",
     "settings": "Параметрлер",
     "lessonPlan": "Сабақ жоспары",
+    "aiChat": "ЖИ чаты",
     "logout": "Шығу"
   },
   "auth": {
@@ -463,6 +464,20 @@
       "save": "Сақтау",
       "cancel": "Болдырмау"
     }
+  },
+  "aiChat": {
+    "title": "ЖИ чаты",
+    "newChat": "Жаңа чат",
+    "selectContent": "Материалды таңдаңыз",
+    "noSessions": "Чаттар жоқ",
+    "startChat": "Чатты бастау",
+    "sendMessage": "Жіберу",
+    "placeholder": "Хабарлама жазыңыз...",
+    "thinking": "ЖИ ойлануда...",
+    "deleteConfirm": "Чатты жою керек пе?",
+    "context": "Контекст",
+    "messages": "хабар.",
+    "cancel": "Болдырмау"
   },
   "lessonPlan": {
     "title": "Сабақ жоспарын құру",

@@ -53,6 +53,7 @@
     "journal": "Журнал",
     "settings": "Настройки",
     "lessonPlan": "Сабақ жоспары",
+    "aiChat": "Чат с ИИ",
     "logout": "Выйти"
   },
   "auth": {
@@ -463,6 +464,20 @@
       "save": "Сохранить",
       "cancel": "Отмена"
     }
+  },
+  "aiChat": {
+    "title": "Чат с ИИ",
+    "newChat": "Новый чат",
+    "selectContent": "Выберите материал",
+    "noSessions": "Нет чатов",
+    "startChat": "Начать чат",
+    "sendMessage": "Отправить",
+    "placeholder": "Введите сообщение...",
+    "thinking": "ИИ думает...",
+    "deleteConfirm": "Удалить чат?",
+    "context": "Контекст",
+    "messages": "сообщ.",
+    "cancel": "Отмена"
   },
   "lessonPlan": {
     "title": "Сабақ жоспарын құру",

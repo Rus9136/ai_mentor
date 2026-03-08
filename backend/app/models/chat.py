@@ -31,7 +31,13 @@ class ChatSession(SoftDeleteModel):
     student_id = Column(
         Integer,
         ForeignKey("students.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        index=True
+    )
+    teacher_id = Column(
+        Integer,
+        ForeignKey("teachers.id", ondelete="CASCADE"),
+        nullable=True,
         index=True
     )
     school_id = Column(
@@ -79,7 +85,8 @@ class ChatSession(SoftDeleteModel):
     total_tokens_used = Column(Integer, default=0, nullable=False)
 
     # Relationships
-    student = relationship("Student", backref="chat_sessions")
+    student = relationship("Student", backref="chat_sessions", foreign_keys=[student_id])
+    teacher = relationship("Teacher", backref="chat_sessions", foreign_keys=[teacher_id])
     paragraph = relationship("Paragraph", backref="chat_sessions")
     chapter = relationship("Chapter", backref="chat_sessions")
     test = relationship("Test", backref="chat_sessions")
