@@ -150,6 +150,8 @@
     "noChapters": "Главы пока не добавлены",
     "noTextbooks": "Учебники пока не доступны",
     "errorLoading": "Не удалось загрузить учебники",
+    "myTextbooks": "Мои учебники",
+    "allTextbooks": "Все учебники",
     "hasTest": "Тест по главе",
     "status": {
       "completed": "Пройдено",
@@ -189,6 +191,18 @@
     "backToChapter": "К главе",
     "finishChapter": "Завершить главу",
     "finishStudying": "Завершить изучение",
+    "viewMode": {
+      "split": "Сплит",
+      "reading": "Чтение",
+      "chat": "Чат AI"
+    },
+    "quickPrompts": {
+      "title": "Спроси AI про эту тему",
+      "explain": "Объясни простыми словами",
+      "questions": "5 вопросов для самопроверки",
+      "ent": "Ошибки на ЕНТ",
+      "cheatsheet": "Краткая шпаргалка"
+    },
     "tabs": {
       "text": "Текст",
       "audio": "Аудио",
@@ -434,6 +448,9 @@
     "emptyTitle": "Чем могу помочь?",
     "emptyHint": "Задайте вопрос по материалу, и я постараюсь помочь",
     "floatingButton": "Помощь AI",
+    "panelTitle": "AI Помощник",
+    "panelEmpty": "Чем могу помочь?",
+    "panelEmptyHint": "Задай вопрос по теме или выбери быстрый запрос",
     "askAI": "Спросить AI",
     "history": "История",
     "selectChat": "Выберите чат",

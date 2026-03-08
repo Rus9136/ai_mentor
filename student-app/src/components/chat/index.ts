@@ -5,3 +5,4 @@ export { TypingIndicator } from './TypingIndicator';
 export { ChatWindow } from './ChatWindow';
 export { ChatModal } from './ChatModal';
 export { ChatHistory } from './ChatHistory';
+export { ChatPanel } from './ChatPanel';
