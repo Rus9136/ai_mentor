@@ -1,0 +1,14 @@
+{
+  "textbook_id": null,
+  "next_paragraph_id": null,
+  "total_paragraphs": 0,
+  "total_processed": 0,
+  "pending_review": [],
+  "quality_scores": {
+    "avg": 0,
+    "min": 0,
+    "max": 0
+  },
+  "self_improvements": 0,
+  "last_run": null
+}

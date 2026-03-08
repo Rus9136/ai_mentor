@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-Mentor — Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Nunito', sans-serif; background: #F5F0EB; color: #2D2D2D; height: 100vh; overflow: hidden; }
+
+/* Layout */
+.app { display: flex; height: 100vh; }
+
+/* Sidebar */
+.sidebar { width: 260px; background: #FFF8F2; border-right: 1px solid #EDE8E3; display: flex; flex-direction: column; flex-shrink: 0; }
+.sidebar-logo { padding: 20px 20px 16px; border-bottom: 1px solid #EDE8E3; display: flex; align-items: center; gap: 10px; }
+.logo-icon { width: 36px; height: 36px; background: #E88134; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.logo-text { font-weight: 800; font-size: 16px; color: #2D2D2D; letter-spacing: -0.5px; }
+.sidebar-nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
+.nav-section { margin-bottom: 20px; }
+.nav-section-title { font-size: 10px; font-weight: 700; color: #A09080; text-transform: uppercase; letter-spacing: 1px; padding: 0 10px; margin-bottom: 6px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: #6B5B4E; transition: all 0.15s; text-decoration: none; }
+.nav-item:hover { background: #F0E8E0; color: #2D2D2D; }
+.nav-item.active { background: #E88134; color: white; }
+.nav-item.active svg { stroke: white; }
+.chapter-item { padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; color: #6B5B4E; display: flex; align-items: flex-start; gap: 8px; transition: all 0.15s; }
+.chapter-item:hover { background: #F0E8E0; }
+.chapter-item.active { background: #FEF0E3; color: #E88134; }
+.chapter-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #D0C8C0; flex-shrink: 0; margin-top: 1px; transition: all 0.15s; }
+.chapter-item.active .chapter-dot { background: #E88134; border-color: #E88134; }
+.chapter-item.done .chapter-dot { background: #9FC969; border-color: #9FC969; }
+.progress-bar { margin: 4px 10px 12px; }
+.progress-label { font-size: 11px; color: #A09080; margin-bottom: 5px; font-weight: 600; }
+.progress-track { height: 5px; background: #EDE8E3; border-radius: 99px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #E88134, #F4A55A); border-radius: 99px; width: 22%; transition: width 0.4s; }
+
+/* Main content */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { height: 56px; background: #FFF8F2; border-bottom: 1px solid #EDE8E3; display: flex; align-items: center; padding: 0 24px; gap: 16px; flex-shrink: 0; }
+.breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #A09080; font-weight: 600; flex: 1; }
+.breadcrumb span:last-child { color: #2D2D2D; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.avatar { width: 32px; height: 32px; background: #E88134; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: white; }
+
+/* Content + Chat split */
+.content-area { display: flex; flex: 1; overflow: hidden; }
+
+/* Reading pane */
+.reading-pane { flex: 1; overflow-y: auto; padding: 32px 40px; }
+.reading-pane::-webkit-scrollbar { width: 6px; }
+.reading-pane::-webkit-scrollbar-track { background: transparent; }
+.reading-pane::-webkit-scrollbar-thumb { background: #D0C8C0; border-radius: 99px; }
+.para-number { font-size: 13px; color: #A09080; font-weight: 700; margin-bottom: 6px; }
+.para-title { font-size: 22px; font-weight: 800; color: #2D2D2D; letter-spacing: -0.5px; margin-bottom: 20px; line-height: 1.3; }
+.lesson-card { background: #FFF8F2; border: 1px solid #EDE8E3; border-radius: 14px; padding: 18px 20px; margin-bottom: 20px; }
+.lesson-card-title { font-size: 13px; font-weight: 700; color: #E88134; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+.lesson-card p { font-size: 14px; color: #4A3D33; line-height: 1.7; font-weight: 500; }
+
+.section-title { font-size: 15px; font-weight: 800; color: #2D2D2D; margin: 24px 0 12px; }
+.body-text { font-size: 14px; color: #4A3D33; line-height: 1.8; font-weight: 500; margin-bottom: 16px; }
+.keyword-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.keyword { background: #FEF0E3; color: #E88134; border: 1px solid #F4C9A0; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+.keyword:hover { background: #E88134; color: white; }
+
+/* Highlight tooltip */
+.highlight { background: #FEF0E3; border-bottom: 2px solid #E88134; cursor: pointer; border-radius: 2px; position: relative; }
+.highlight-tooltip { display: none; position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); background: #2D2D2D; color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; white-space: nowrap; font-weight: 600; z-index: 100; }
+.highlight:hover .highlight-tooltip { display: block; }
+
+/* Quick prompts in content */
+.quick-prompts { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0; }
+.quick-prompt-btn { background: white; border: 1.5px solid #EDE8E3; color: #4A3D33; padding: 8px 14px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px; font-family: 'Nunito', sans-serif; }
+.quick-prompt-btn:hover { border-color: #E88134; color: #E88134; background: #FEF8F2; }
+
+/* Chat panel */
+.chat-panel { width: 360px; border-left: 1px solid #EDE8E3; display: flex; flex-direction: column; background: white; flex-shrink: 0; transition: width 0.3s; }
+.chat-panel.collapsed { width: 0; overflow: hidden; border: none; }
+.chat-header { padding: 16px 18px; border-bottom: 1px solid #EDE8E3; display: flex; align-items: center; gap: 10px; flex-shrink: 0; background: #FFF8F2; }
+.chat-ai-icon { width: 34px; height: 34px; background: linear-gradient(135deg, #9FC969, #7AB54A); border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.chat-title { font-size: 14px; font-weight: 800; color: #2D2D2D; }
+.chat-subtitle { font-size: 11px; color: #A09080; font-weight: 600; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-thumb { background: #EDE8E3; border-radius: 99px; }
+
+/* Empty state */
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; padding: 20px; }
+.empty-icon { width: 56px; height: 56px; background: #F0F9E8; border-radius: 16px; display: flex; align-items: center; justify-content: center; }
+.empty-title { font-size: 15px; font-weight: 800; color: #2D2D2D; text-align: center; }
+.empty-sub { font-size: 12px; color: #A09080; font-weight: 600; text-align: center; line-height: 1.6; }
+.suggest-grid { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: 4px; }
+.suggest-btn { background: #F5F0EB; border: 1.5px solid #EDE8E3; border-radius: 10px; padding: 10px 12px; font-size: 12px; font-weight: 700; color: #4A3D33; cursor: pointer; text-align: left; transition: all 0.15s; font-family: 'Nunito', sans-serif; display: flex; align-items: center; gap: 8px; }
+.suggest-btn:hover { border-color: #9FC969; background: #F0F9E8; color: #2D2D2D; }
+
+/* Messages */
+.msg { display: flex; gap: 8px; }
+.msg.user { flex-direction: row-reverse; }
+.msg-bubble { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 13px; font-weight: 600; line-height: 1.6; }
+.msg.ai .msg-bubble { background: #F5F0EB; color: #2D2D2D; border-bottom-left-radius: 4px; }
+.msg.user .msg-bubble { background: #E88134; color: white; border-bottom-right-radius: 4px; }
+.msg-avatar { width: 28px; height: 28px; background: linear-gradient(135deg, #9FC969, #7AB54A); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+
+/* Typing indicator */
+.typing { display: flex; gap: 4px; align-items: center; padding: 12px 14px; }
+.typing span { width: 7px; height: 7px; background: #9FC969; border-radius: 50%; animation: bounce 1.2s infinite; }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+
+/* Chat input */
+.chat-input-area { padding: 14px 16px; border-top: 1px solid #EDE8E3; flex-shrink: 0; }
+.chat-input-row { display: flex; align-items: flex-end; gap: 8px; background: #F5F0EB; border: 1.5px solid #EDE8E3; border-radius: 14px; padding: 10px 12px; transition: border-color 0.15s; }
+.chat-input-row:focus-within { border-color: #E88134; background: white; }
+.chat-input { flex: 1; background: none; border: none; outline: none; font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 600; color: #2D2D2D; resize: none; min-height: 20px; max-height: 80px; }
+.chat-input::placeholder { color: #B0A090; }
+.send-btn { width: 32px; height: 32px; background: #E88134; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+.send-btn:hover { background: #D4732A; transform: scale(1.05); }
+.chat-limit { font-size: 11px; color: #B0A090; font-weight: 600; margin-top: 8px; text-align: center; }
+.limit-bar { height: 3px; background: #EDE8E3; border-radius: 99px; margin-top: 6px; overflow: hidden; }
+.limit-fill { height: 100%; background: #9FC969; border-radius: 99px; width: 30%; }
+
+/* Toggle chat button */
+.toggle-chat-btn { position: fixed; bottom: 24px; right: 24px; width: 52px; height: 52px; background: #E88134; border-radius: 16px; border: none; cursor: pointer; display: none; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(232,129,52,0.4); transition: all 0.2s; z-index: 50; }
+.toggle-chat-btn:hover { transform: scale(1.05); }
+
+/* View toggle tabs */
+.view-tabs { display: flex; gap: 2px; background: #EDE8E3; border-radius: 10px; padding: 3px; margin-left: auto; }
+.view-tab { padding: 5px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; color: #A09080; border: none; background: none; font-family: 'Nunito', sans-serif; transition: all 0.15s; }
+.view-tab.active { background: white; color: #2D2D2D; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+/* Badge */
+.badge { background: #E88134; color: white; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 99px; }
+.badge.green { background: #9FC969; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+      </div>
+      <span class="logo-text">AI Mentor</span>
+    </div>
+
+    <div class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">Навигация</div>
+        <a class="nav-item" href="#">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Главная
+        </a>
+        <a class="nav-item active" href="#">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+          Предметы
+        </a>
+        <a class="nav-item" href="#">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Тесты
+        </a>
+        <a class="nav-item" href="#">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Задания
+        </a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">История Казахстана · Гл. 1</div>
+        <div class="progress-bar">
+          <div class="progress-label">Прогресс: 4 / 18</div>
+          <div class="progress-track"><div class="progress-fill"></div></div>
+        </div>
+        <div class="chapter-item done">
+          <div class="chapter-dot"></div>
+          <span>Казахстанның ежелгі тарихына шолу</span>
+        </div>
+        <div class="chapter-item done">
+          <div class="chapter-dot"></div>
+          <span>Тас дәуірі</span>
+        </div>
+        <div class="chapter-item done">
+          <div class="chapter-dot"></div>
+          <span>Алғашқы адамдардың тіршілігі</span>
+        </div>
+        <div class="chapter-item active">
+          <div class="chapter-dot"></div>
+          <span>Ежелгі адамдардың дамуы мен келбеті</span>
+        </div>
+        <div class="chapter-item">
+          <div class="chapter-dot"></div>
+          <span>Казахстанның тас дәуірінің археологиялық...</span>
+        </div>
+        <div class="chapter-item">
+          <div class="chapter-dot"></div>
+          <span>Тас дәуірі тұрғындарының еңбек құралдары</span>
+        </div>
+        <div class="chapter-item">
+          <div class="chapter-dot"></div>
+          <span>Мезолит пен неолит дәуірі</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="breadcrumb">
+        <span>История Казахстана</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A09080" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        <span>Глава 1</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A09080" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        <span>§3. Ежелгі адамдардың дамуы</span>
+      </div>
+
+      <div class="view-tabs">
+        <button class="view-tab active" onclick="setView('split')">Сплит</button>
+        <button class="view-tab" onclick="setView('read')">Чтение</button>
+        <button class="view-tab" onclick="setView('chat')">Чат AI</button>
+      </div>
+
+      <div class="topbar-actions">
+        <div class="avatar">АВ</div>
+      </div>
+    </div>
+
+    <!-- Content + Chat -->
+    <div class="content-area">
+
+      <!-- Reading pane -->
+      <div class="reading-pane" id="readingPane">
+        <div class="para-number">§3</div>
+        <div class="para-title">Ежелгі адамдардың дамуы мен келбеті</div>
+
+        <div class="lesson-card">
+          <div class="lesson-card-title">🎯 Бүгінгі сабақта:</div>
+          <p>Ежелгі адамдардың пайда болу және даму сатыларын оқимыз; сүйек қалдықтары табылған жерлермен танысамыз; ежелгі адамдардың келбетінің қандай болғанын білеміз.</p>
+        </div>
+
+        <div class="section-title">Тірек сөздер</div>
+        <div class="keyword-list">
+          <span class="keyword">Австралопитек</span>
+          <span class="keyword">Архантроп</span>
+          <span class="keyword">Палеоантроп</span>
+          <span class="keyword">Homo habilis</span>
+          <span class="keyword">Homo sapiens</span>
+          <span class="keyword">Тас дәуірі</span>
+        </div>
+
+        <div class="body-text">
+          Адамдардың арғы тегінін <span class="highlight">австратотитектер<div class="highlight-tooltip">✨ Объяснить этот термин</div></span> деп аталған өкілінің сүйек қалдықтары Оңтүстік Африкадан табылған. Австралопитек латын тілінен аударғанда <span class="highlight">«оңтүстік адамы»<div class="highlight-tooltip">✨ Объяснить этот термин</div></span> деген мағынаны береді.
+        </div>
+
+        <div class="body-text">
+          Дайын табиғи тастарды, сүйекті, ағашты пайдаланған. Homo sapiens таяқты, жануарлар сүйектерін ұштап, оларды еңбек құралы және қару ретінде пайдаланған.
+        </div>
+
+        <!-- AI Quick prompts - NEW FEATURE -->
+        <div style="background: linear-gradient(135deg, #F0F9E8, #FEF8F2); border: 1.5px solid #D8EFC0; border-radius: 14px; padding: 16px 18px; margin: 20px 0;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+            <div style="width:24px; height:24px; background:#9FC969; border-radius:7px; display:flex; align-items:center; justify-content:center;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+            </div>
+            <span style="font-size:13px; font-weight:800; color:#2D2D2D;">Спроси AI про эту тему</span>
+          </div>
+          <div class="quick-prompts">
+            <button class="quick-prompt-btn" onclick="sendPrompt('Объясни эту тему простыми словами')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Объясни простыми словами
+            </button>
+            <button class="quick-prompt-btn" onclick="sendPrompt('Составь 5 вопросов для самопроверки по этой теме')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              5 вопросов для самопроверки
+            </button>
+            <button class="quick-prompt-btn" onclick="sendPrompt('Где чаще всего ошибаются на ЕНТ по этой теме?')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Ошибки на ЕНТ
+            </button>
+            <button class="quick-prompt-btn" onclick="sendPrompt('Сделай краткую шпаргалку по этой теме')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Краткая шпаргалка
+            </button>
+          </div>
+        </div>
+
+        <div class="body-text">
+          1959–1963 жылдары Шығыс Африканың Олдувай шатқалынан Homo habilis-тің сүйек қалдықтары табылған. Олар бұдан 2,5–1,5 миллион жыл бұрын өмір сүрген. Homo habilis қарапайым тас құралдарын жасаған бірінші адам болып саналады.
+        </div>
+
+        <!-- Navigation buttons -->
+        <div style="display:flex; justify-content:space-between; margin-top:32px; padding-top:20px; border-top:1px solid #EDE8E3;">
+          <button style="display:flex; align-items:center; gap:8px; background:#F5F0EB; border:none; padding:10px 18px; border-radius:10px; font-family:'Nunito',sans-serif; font-size:13px; font-weight:700; color:#6B5B4E; cursor:pointer;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Предыдущий §
+          </button>
+          <button style="display:flex; align-items:center; gap:8px; background:#E88134; border:none; padding:10px 18px; border-radius:10px; font-family:'Nunito',sans-serif; font-size:13px; font-weight:700; color:white; cursor:pointer;">
+            Следующий §
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Chat Panel (RIGHT) -->
+      <div class="chat-panel" id="chatPanel">
+        <div class="chat-header">
+          <div class="chat-ai-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+          </div>
+          <div>
+            <div class="chat-title">AI Помощник</div>
+            <div class="chat-subtitle">§3 · Ежелгі адамдардың дамуы</div>
+          </div>
+          <div style="margin-left:auto; display:flex; gap:6px;">
+            <button onclick="clearChat()" style="width:30px;height:30px;background:#F5F0EB;border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="История">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B5B4E" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+            </button>
+            <span class="badge green" style="align-self:center;">6 / 20</span>
+          </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+          <!-- Empty state shown initially -->
+          <div class="empty-state" id="emptyState">
+            <div class="empty-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#9FC969" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+            </div>
+            <div class="empty-title">Чем могу помочь?</div>
+            <div class="empty-sub">Задай вопрос по теме или выбери быстрый запрос ниже</div>
+            <div class="suggest-grid">
+              <button class="suggest-btn" onclick="sendPrompt('Объясни тему австралопитеков простыми словами')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9FC969" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                Объясни простыми словами
+              </button>
+              <button class="suggest-btn" onclick="sendPrompt('Составь 5 вопросов для самопроверки по §3')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9FC969" stroke-width="2"><path d="M9 11l3 3L22 4"/></svg>
+                5 вопросов для самопроверки
+              </button>
+              <button class="suggest-btn" onclick="sendPrompt('Где чаще всего ошибаются на ЕНТ по этой теме?')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E88134" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                Типичные ошибки на ЕНТ
+              </button>
+              <button class="suggest-btn" onclick="sendPrompt('Сделай краткую шпаргалку по §3')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9FC969" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+                Краткая шпаргалка
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <div class="chat-input-row">
+            <textarea class="chat-input" id="chatInput" placeholder="Напишите вопрос по теме..." rows="1"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"
+              oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+            <button class="send-btn" onclick="sendMessage()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+          </div>
+          <div class="chat-limit">Использовано: <strong>6 из 20</strong> запросов сегодня · <a href="#" style="color:#E88134;text-decoration:none;">Перейти на Premium</a></div>
+          <div class="limit-bar"><div class="limit-fill"></div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const responses = {
+  'Объясни эту тему простыми словами': 'Представь себе: миллионы лет назад в Африке жили существа, которые не были ни людьми, ни обезьянами. Их называли австралопитеками. Они уже ходили на двух ногах, но мозг был небольшой. Постепенно они научились использовать простые камни как инструменты — и вот так появился Homo habilis, первый «умелый человек». 🦴',
+  'Составь 5 вопросов для самопроверки по этой теме': '**5 вопросов по §3:**\n\n1️⃣ Где были найдены кости австралопитека?\n2️⃣ Что означает слово «австралопитек» в переводе с латыни?\n3️⃣ Чем Homo habilis отличался от австралопитека?\n4️⃣ В каком ущелье в 1959–1963 гг. нашли останки Homo habilis?\n5️⃣ Когда жили первые Homo habilis (сколько миллионов лет назад)?',
+  'Где чаще всего ошибаются на ЕНТ по этой теме?': '**Типичные ошибки на ЕНТ по этой теме:**\n\n⚠️ Путают «австралопитек» и «архантроп» — запомни: австралопитек первый, архантроп после.\n\n⚠️ Думают, что Homo habilis уже умел разводить огонь — нет, огонь освоил только Homo erectus.\n\n⚠️ Забывают место находки — Олдувай шатқалы (Танзания, Африка).\n\n💡 Совет: запомни хронологию: австралопитек → Homo habilis → Homo erectus → Homo sapiens',
+  'Сделай краткую шпаргалку по этой теме': '**📝 Шпаргалка §3:**\n\n🔸 **Австралопитек** — 4–1 млн лет назад, Африка, «южный человек»\n🔸 **Homo habilis** — 2.5–1.5 млн лет, первые каменные орудия\n🔸 **Архантроп** — прямоходящий, огонь, более сложные орудия\n🔸 **Палеоантроп** — неандерталец, жил в пещерах\n🔸 **Homo sapiens** — современный человек\n\n📍 Ключевые места: Олдувай (Африка), Онтүстік Африка',
+  'default': 'Отличный вопрос по этой теме! Давай разберём подробнее. Homo habilis — это переходное звено между австралопитеком и Homo erectus. Главное отличие — они уже умели изготавливать простые каменные орудия, отсюда и название «умелый человек». 🧠'
+};
+
+let msgCount = 6;
+
+function sendPrompt(text) {
+  document.getElementById('chatInput').value = text;
+  sendMessage();
+}
+
+function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const container = document.getElementById('chatMessages');
+  const empty = document.getElementById('emptyState');
+  if (empty) empty.remove();
+
+  // User message
+  const userMsg = document.createElement('div');
+  userMsg.className = 'msg user';
+  userMsg.innerHTML = `<div class="msg-bubble">${text}</div>`;
+  container.appendChild(userMsg);
+
+  input.value = '';
+  input.style.height = 'auto';
+  msgCount++;
+
+  // Update limit
+  const limitText = document.querySelector('.chat-limit');
+  limitText.innerHTML = `Использовано: <strong>${msgCount} из 20</strong> запросов сегодня · <a href="#" style="color:#E88134;text-decoration:none;">Перейти на Premium</a>`;
+  document.querySelector('.limit-fill').style.width = (msgCount/20*100)+'%';
+
+  container.scrollTop = container.scrollHeight;
+
+  // Typing indicator
+  const typing = document.createElement('div');
+  typing.className = 'msg ai';
+  typing.id = 'typing';
+  typing.innerHTML = `
+    <div class="msg-avatar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div>
+    <div class="msg-bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  container.appendChild(typing);
+  container.scrollTop = container.scrollHeight;
+
+  setTimeout(() => {
+    typing.remove();
+    const reply = responses[text] || responses['default'];
+    const aiMsg = document.createElement('div');
+    aiMsg.className = 'msg ai';
+    aiMsg.innerHTML = `
+      <div class="msg-avatar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div>
+      <div class="msg-bubble" style="white-space:pre-line;">${reply}</div>`;
+    container.appendChild(aiMsg);
+    container.scrollTop = container.scrollHeight;
+  }, 1200);
+}
+
+function clearChat() {
+  const container = document.getElementById('chatMessages');
+  container.innerHTML = '';
+  const empty = document.createElement('div');
+  empty.className = 'empty-state';
+  empty.id = 'emptyState';
+  empty.innerHTML = `
+    <div class="empty-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#9FC969" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div>
+    <div class="empty-title">Чем могу помочь?</div>
+    <div class="empty-sub">Задай вопрос по теме или выбери быстрый запрос ниже</div>
+    <div class="suggest-grid">
+      <button class="suggest-btn" onclick="sendPrompt('Объясни тему австралопитеков простыми словами')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9FC969" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Объясни простыми словами</button>
+      <button class="suggest-btn" onclick="sendPrompt('Составь 5 вопросов для самопроверки по §3')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9FC969" stroke-width="2"><path d="M9 11l3 3L22 4"/></svg>5 вопросов для самопроверки</button>
+      <button class="suggest-btn" onclick="sendPrompt('Где чаще всего ошибаются на ЕНТ по этой теме?')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E88134" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>Типичные ошибки на ЕНТ</button>
+      <button class="suggest-btn" onclick="sendPrompt('Сделай краткую шпаргалку по §3')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9FC969" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>Краткая шпаргалка</button>
+    </div>`;
+  container.appendChild(empty);
+  msgCount = 0;
+}
+
+function setView(mode) {
+  document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  const rp = document.getElementById('readingPane');
+  const cp = document.getElementById('chatPanel');
+  if (mode === 'split') { rp.style.display=''; cp.classList.remove('collapsed'); }
+  else if (mode === 'read') { rp.style.display=''; cp.classList.add('collapsed'); }
+  else { rp.style.display='none'; cp.classList.remove('collapsed'); cp.style.width='100%'; }
+  if (mode !== 'chat') cp.style.width='';
+}
+</script>
+</body>
+</html>
