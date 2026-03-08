@@ -142,11 +142,16 @@ class Settings(BaseSettings):
     EMBEDDING_PROVIDER: str = "jina"  # openai | jina
     EMBEDDING_DIMENSIONS: int = 1024  # 1024 for Jina, can be 1536 for OpenAI
 
-    # OpenRouter / Cerebras (cost-effective LLM provider)
+    # Cerebras (primary fast LLM provider)
+    CEREBRAS_API_KEY: Optional[str] = None
+    CEREBRAS_MODEL: str = "qwen-3-235b"
+
+    # OpenRouter (fallback LLM provider)
     OPENROUTER_API_KEY: Optional[str] = None
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-    LLM_PROVIDER: str = "openrouter"  # openai | openrouter
-    CEREBRAS_MODEL: str = "gpt-oss-120b"
+    OPENROUTER_MODEL: str = "deepseek/deepseek-v3.2"
+
+    LLM_PROVIDER: str = "cerebras"  # cerebras | openrouter | openai
 
     # RAG
     CHUNK_SIZE: int = 1000

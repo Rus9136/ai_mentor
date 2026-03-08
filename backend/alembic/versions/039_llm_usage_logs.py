@@ -18,7 +18,7 @@ def upgrade() -> None:
         CREATE TYPE llm_feature AS ENUM (
             'chat', 'rag', 'lesson_plan',
             'homework_generation', 'homework_grading',
-            'audio_text', 'system'
+            'audio_text', 'memory', 'system'
         )
     """)
 
@@ -62,8 +62,9 @@ def upgrade() -> None:
         CREATE POLICY llm_usage_logs_school_isolation ON llm_usage_logs
         FOR ALL
         USING (
-            school_id IS NULL
-            OR school_id = current_setting('app.current_school_id', true)::INTEGER
+            NULLIF(current_setting('app.current_school_id', true), '') IS NULL
+            OR school_id IS NULL
+            OR school_id = NULLIF(current_setting('app.current_school_id', true), '')::INTEGER
         )
     """)
 

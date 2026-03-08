@@ -27,6 +27,7 @@ class LLMFeature(str, enum.Enum):
     HOMEWORK_GENERATION = "homework_generation"
     HOMEWORK_GRADING = "homework_grading"
     AUDIO_TEXT = "audio_text"
+    MEMORY = "memory"
     SYSTEM = "system"
 
 
@@ -43,7 +44,7 @@ class LLMUsageLog(BaseModel):
 
     # What
     feature = Column(
-        Enum(LLMFeature, name="llm_feature", create_type=False),
+        Enum(LLMFeature, name="llm_feature", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         index=True,
     )
