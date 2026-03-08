@@ -19,7 +19,10 @@ const getEndpoint = (isSchool: boolean) =>
 export const textbooksApi = {
   // Textbooks - both admin/global and admin/school use PaginatedResponse
   getList: async (isSchool = false): Promise<Textbook[]> => {
-    const { data } = await apiClient.get<PaginatedResponse<Textbook>>(`${getEndpoint(isSchool)}/textbooks`);
+    const { data } = await apiClient.get<PaginatedResponse<Textbook>>(
+      `${getEndpoint(isSchool)}/textbooks`,
+      { params: { page_size: 100 } }
+    );
     return data.items;
   },
 

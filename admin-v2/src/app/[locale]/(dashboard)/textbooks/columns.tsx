@@ -66,7 +66,7 @@ export function getColumns({
           <div className="flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-muted-foreground" />
             <div>
-              <div className="max-w-[300px] truncate font-medium">
+              <div className="max-w-[300px] truncate font-medium" title={row.getValue('title') as string}>
                 {row.getValue('title')}
               </div>
               {textbook.author && (
@@ -89,6 +89,11 @@ export function getColumns({
         const subjectName = textbook.subject_rel?.name_ru || textbook.subject;
         return <Badge variant="outline">{subjectName}</Badge>;
       },
+      filterFn: (row, id, value) => {
+        const textbook = row.original;
+        const subjectName = textbook.subject_rel?.name_ru || textbook.subject;
+        return value.includes(subjectName);
+      },
     },
     {
       accessorKey: 'grade_level',
@@ -98,6 +103,9 @@ export function getColumns({
       cell: ({ row }) => (
         <Badge variant="secondary">{row.getValue('grade_level')} класс</Badge>
       ),
+      filterFn: (row, id, value) => {
+        return value.includes(String(row.getValue(id)));
+      },
     },
     {
       accessorKey: 'school_id',

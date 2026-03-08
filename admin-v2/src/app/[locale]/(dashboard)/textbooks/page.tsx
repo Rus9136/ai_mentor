@@ -70,14 +70,22 @@ export default function TextbooksPage() {
     []
   );
 
+  const subjectOptions = useMemo(() => {
+    const subjects = new Set<string>();
+    textbooks.forEach((tb) => {
+      const name = tb.subject_rel?.name_ru || tb.subject;
+      if (name) subjects.add(name);
+    });
+    return Array.from(subjects)
+      .sort()
+      .map((s) => ({ label: s, value: s }));
+  }, [textbooks]);
+
   const filterableColumns = [
     {
-      id: 'is_active',
-      title: 'Статус',
-      options: [
-        { label: 'Активные', value: 'true' },
-        { label: 'Неактивные', value: 'false' },
-      ],
+      id: 'subject',
+      title: 'Предмет',
+      options: subjectOptions,
     },
     {
       id: 'grade_level',
@@ -90,6 +98,14 @@ export default function TextbooksPage() {
         { label: '9 класс', value: '9' },
         { label: '10 класс', value: '10' },
         { label: '11 класс', value: '11' },
+      ],
+    },
+    {
+      id: 'is_active',
+      title: 'Статус',
+      options: [
+        { label: 'Активные', value: 'true' },
+        { label: 'Неактивные', value: 'false' },
       ],
     },
   ];

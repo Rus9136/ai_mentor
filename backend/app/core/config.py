@@ -144,7 +144,7 @@ class Settings(BaseSettings):
 
     # Cerebras (primary fast LLM provider)
     CEREBRAS_API_KEY: Optional[str] = None
-    CEREBRAS_MODEL: str = "qwen-3-235b"
+    CEREBRAS_MODEL: str = "qwen-3-235b-a22b-instruct-2507"
 
     # OpenRouter (fallback LLM provider)
     OPENROUTER_API_KEY: Optional[str] = None
