@@ -11,11 +11,13 @@ Streaming support:
 """
 import json
 import logging
+import time
 from typing import Optional, List, Dict, Any, AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import httpx
 from openai import AsyncOpenAI
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 
@@ -32,6 +34,8 @@ class LLMResponse:
     content: str
     model: str
     tokens_used: Optional[int] = None
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
     finish_reason: Optional[str] = None
 
 
@@ -41,7 +45,20 @@ class LLMStreamChunk:
     content: str
     is_final: bool = False
     tokens_used: Optional[int] = None
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
     finish_reason: Optional[str] = None
+
+
+@dataclass
+class LLMUsageContext:
+    """Context for automatic LLM usage logging."""
+    db: AsyncSession
+    feature: str  # LLMFeature value: chat, rag, lesson_plan, etc.
+    user_id: Optional[int] = None
+    school_id: Optional[int] = None
+    student_id: Optional[int] = None
+    teacher_id: Optional[int] = None
 
 
 class LLMServiceError(Exception):
@@ -126,13 +143,18 @@ class OpenRouterClient:
             data = response.json()
 
             content = data["choices"][0]["message"]["content"]
-            tokens_used = data.get("usage", {}).get("total_tokens")
+            usage = data.get("usage", {})
+            tokens_used = usage.get("total_tokens")
+            prompt_tokens = usage.get("prompt_tokens")
+            completion_tokens = usage.get("completion_tokens")
             finish_reason = data["choices"][0].get("finish_reason")
 
             return LLMResponse(
                 content=content,
                 model=model or self.model,
                 tokens_used=tokens_used,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
                 finish_reason=finish_reason
             )
 
@@ -284,13 +306,18 @@ class CerebrasClient:
             data = response.json()
 
             content = data["choices"][0]["message"]["content"]
-            tokens_used = data.get("usage", {}).get("total_tokens")
+            usage = data.get("usage", {})
+            tokens_used = usage.get("total_tokens")
+            prompt_tokens = usage.get("prompt_tokens")
+            completion_tokens = usage.get("completion_tokens")
             finish_reason = data["choices"][0].get("finish_reason")
 
             return LLMResponse(
                 content=content,
                 model=model or self.model,
                 tokens_used=tokens_used,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
                 finish_reason=finish_reason
             )
 
@@ -356,12 +383,16 @@ class OpenAIClient:
 
             content = response.choices[0].message.content
             tokens_used = response.usage.total_tokens if response.usage else None
+            prompt_tokens = response.usage.prompt_tokens if response.usage else None
+            completion_tokens = response.usage.completion_tokens if response.usage else None
             finish_reason = response.choices[0].finish_reason
 
             return LLMResponse(
                 content=content,
                 model=model or self.model,
                 tokens_used=tokens_used,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
                 finish_reason=finish_reason
             )
 
@@ -418,7 +449,8 @@ class LLMService:
         temperature: float = 0.7,
         max_tokens: int = 1500,
         model: Optional[str] = None,
-        fallback_on_error: bool = True
+        fallback_on_error: bool = True,
+        usage_context: Optional[LLMUsageContext] = None,
     ) -> LLMResponse:
         """
         Generate text completion.
@@ -429,6 +461,7 @@ class LLMService:
             max_tokens: Maximum tokens to generate
             model: Override default model
             fallback_on_error: If True, try fallback provider on error
+            usage_context: If provided, auto-log usage to llm_usage_logs
 
         Returns:
             LLMResponse with generated content
@@ -436,14 +469,19 @@ class LLMService:
         Raises:
             LLMServiceError: If all providers fail
         """
+        start = time.monotonic()
         try:
             client = self._get_client()
-            return await client.generate(
+            response = await client.generate(
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
                 model=model
             )
+            latency_ms = int((time.monotonic() - start) * 1000)
+            if usage_context:
+                await self._log_usage(usage_context, response, latency_ms)
+            return response
         except LLMServiceError as e:
             if fallback_on_error and self.provider in ("cerebras", "openrouter"):
                 # Try OpenAI as fallback
@@ -451,14 +489,21 @@ class LLMService:
                 try:
                     if self._openai_client is None:
                         self._openai_client = OpenAIClient()
-                    return await self._openai_client.generate(
+                    response = await self._openai_client.generate(
                         messages=messages,
                         temperature=temperature,
                         max_tokens=max_tokens
                     )
+                    latency_ms = int((time.monotonic() - start) * 1000)
+                    if usage_context:
+                        await self._log_usage(usage_context, response, latency_ms)
+                    return response
                 except LLMServiceError:
                     pass  # Re-raise original error
 
+            latency_ms = int((time.monotonic() - start) * 1000)
+            if usage_context:
+                await self._log_usage_error(usage_context, model or self.provider, latency_ms, str(e))
             raise
 
     async def stream_generate(
@@ -509,6 +554,61 @@ class LLMService:
                 tokens_used=response.tokens_used,
                 finish_reason=response.finish_reason
             )
+
+    async def _log_usage(
+        self,
+        ctx: LLMUsageContext,
+        response: LLMResponse,
+        latency_ms: int,
+    ) -> None:
+        """Log successful LLM usage to database."""
+        try:
+            from app.models.llm_usage_log import LLMUsageLog
+            log = LLMUsageLog(
+                user_id=ctx.user_id,
+                school_id=ctx.school_id,
+                student_id=ctx.student_id,
+                teacher_id=ctx.teacher_id,
+                feature=ctx.feature,
+                provider=self.provider,
+                model=response.model,
+                prompt_tokens=response.prompt_tokens,
+                completion_tokens=response.completion_tokens,
+                total_tokens=response.tokens_used,
+                latency_ms=latency_ms,
+                success=True,
+            )
+            ctx.db.add(log)
+            await ctx.db.flush()
+        except Exception as e:
+            logger.warning(f"Failed to log LLM usage: {e}")
+
+    async def _log_usage_error(
+        self,
+        ctx: LLMUsageContext,
+        model: str,
+        latency_ms: int,
+        error_message: str,
+    ) -> None:
+        """Log failed LLM usage to database."""
+        try:
+            from app.models.llm_usage_log import LLMUsageLog
+            log = LLMUsageLog(
+                user_id=ctx.user_id,
+                school_id=ctx.school_id,
+                student_id=ctx.student_id,
+                teacher_id=ctx.teacher_id,
+                feature=ctx.feature,
+                provider=self.provider,
+                model=model,
+                latency_ms=latency_ms,
+                success=False,
+                error_message=error_message[:500],
+            )
+            ctx.db.add(log)
+            await ctx.db.flush()
+        except Exception as e:
+            logger.warning(f"Failed to log LLM usage error: {e}")
 
     async def close(self):
         """Close all clients."""

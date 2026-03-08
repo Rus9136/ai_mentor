@@ -26,7 +26,7 @@ from app.models.learning import ParagraphSelfAssessment
 from app.repositories.test_attempt_repo import TestAttemptRepository
 from app.repositories.test_repo import TestRepository
 from app.services.rag_service import RAGService
-from app.services.llm_service import LLMService, LLMResponse, LLMStreamChunk
+from app.services.llm_service import LLMService, LLMResponse, LLMStreamChunk, LLMUsageContext
 from app.schemas.chat import (
     ChatSessionResponse,
     ChatMessageResponse,
@@ -265,10 +265,17 @@ class ChatService:
 
         # 5. Generate AI response
         try:
+            usage_ctx = LLMUsageContext(
+                db=self.db,
+                feature="chat",
+                student_id=student_id,
+                school_id=school_id,
+            )
             llm_response: LLMResponse = await self.llm.generate(
                 messages=messages,
                 temperature=0.7,
-                max_tokens=1500
+                max_tokens=1500,
+                usage_context=usage_ctx,
             )
         except Exception as e:
             logger.error(f"LLM generation failed: {str(e)}")

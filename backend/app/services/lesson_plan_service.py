@@ -33,7 +33,7 @@ from app.schemas.lesson_plan import (
     LessonStage,
 )
 from app.services.homework.ai.utils.json_parser import parse_json_object
-from app.services.llm_service import LLMService
+from app.services.llm_service import LLMService, LLMUsageContext
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +100,12 @@ class LessonPlanService:
         system_prompt = self._build_system_prompt(language)
         user_prompt = self._build_user_prompt(paragraph_ctx, class_ctx, language, duration_min)
 
+        usage_ctx = LLMUsageContext(
+            db=self.db,
+            feature="lesson_plan",
+            teacher_id=teacher_id,
+            school_id=school_id,
+        )
         response = await self.llm_service.generate(
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -107,6 +113,7 @@ class LessonPlanService:
             ],
             temperature=0.7,
             max_tokens=4000,
+            usage_context=usage_ctx,
         )
 
         lesson_plan = self._parse_response(response.content)

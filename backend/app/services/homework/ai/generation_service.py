@@ -27,7 +27,7 @@ from app.services.homework.ai.utils.prompt_builder import (
     get_prompt_for_task_type,
     get_system_prompt_for_task_type,
 )
-from app.services.llm_service import LLMService, LLMServiceError
+from app.services.llm_service import LLMService, LLMServiceError, LLMUsageContext
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +98,10 @@ class QuestionGenerationService:
 
         # 4. Call LLM
         start_time = datetime.utcnow()
+        usage_ctx = LLMUsageContext(
+            db=self.db,
+            feature="homework_generation",
+        )
         try:
             response = await self.llm.generate(
                 messages=[
@@ -105,7 +109,8 @@ class QuestionGenerationService:
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
-                max_tokens=3000
+                max_tokens=3000,
+                usage_context=usage_ctx,
             )
         except LLMServiceError as e:
             logger.error(f"LLM generation failed: {e}")

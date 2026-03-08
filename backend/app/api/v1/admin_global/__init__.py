@@ -29,6 +29,7 @@ from .goso import router as goso_router
 from .embedded_questions import router as embedded_questions_router
 from .app_versions import router as app_versions_router
 from .textbook_conversions import router as textbook_conversions_router
+from .llm_usage import router as llm_usage_router
 
 
 router = APIRouter()
@@ -52,3 +53,6 @@ router.include_router(goso_router)
 
 # App Versions
 router.include_router(app_versions_router)
+
+# LLM Usage Monitoring
+router.include_router(llm_usage_router)

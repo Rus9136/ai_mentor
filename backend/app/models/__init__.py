@@ -85,6 +85,9 @@ from app.models.textbook_conversion import TextbookConversion, ConversionStatus
 # Lesson plans (QMJ)
 from app.models.lesson_plan import LessonPlan
 
+# LLM usage logs
+from app.models.llm_usage_log import LLMUsageLog, LLMFeature
+
 __all__ = [
     # Base
     "BaseModel",
@@ -189,4 +192,7 @@ __all__ = [
     "ConversionStatus",
     # Lesson plans
     "LessonPlan",
+    # LLM usage logs
+    "LLMUsageLog",
+    "LLMFeature",
 ]

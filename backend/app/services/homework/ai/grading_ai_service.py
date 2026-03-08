@@ -16,7 +16,7 @@ from app.services.homework.ai.utils.prompt_builder import (
     build_grading_prompt,
     get_grading_system_prompt,
 )
-from app.services.llm_service import LLMService, LLMServiceError
+from app.services.llm_service import LLMService, LLMServiceError, LLMUsageContext
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,11 @@ class AnswerGradingService:
 
         # Call LLM
         start_time = datetime.utcnow()
+        usage_ctx = LLMUsageContext(
+            db=self.db,
+            feature="homework_grading",
+            student_id=student_id,
+        )
         try:
             response = await self.llm.generate(
                 messages=[
@@ -72,7 +77,8 @@ class AnswerGradingService:
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3,  # Lower temperature for consistency
-                max_tokens=1000
+                max_tokens=1000,
+                usage_context=usage_ctx,
             )
         except LLMServiceError as e:
             logger.error(f"LLM grading failed: {e}")

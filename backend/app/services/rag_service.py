@@ -20,7 +20,7 @@ from app.repositories.embedding_repo import EmbeddingRepository
 from app.repositories.chapter_mastery_repo import ChapterMasteryRepository
 from app.repositories.paragraph_repo import ParagraphRepository
 from app.services.embedding_service import generate_query_embedding
-from app.services.llm_service import LLMService, LLMResponse
+from app.services.llm_service import LLMService, LLMResponse, LLMUsageContext
 from app.schemas.rag import Citation, ExplanationResponse
 
 logger = logging.getLogger(__name__)
@@ -358,13 +358,20 @@ class RAGService:
 
         # 5. Call LLM
         try:
+            usage_ctx = LLMUsageContext(
+                db=self.db,
+                feature="rag",
+                student_id=student_id,
+                school_id=school_id,
+            )
             llm_response: LLMResponse = await self.llm.generate(
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.7,
-                max_tokens=1500
+                max_tokens=1500,
+                usage_context=usage_ctx,
             )
         except Exception as e:
             logger.error(f"LLM generation failed: {str(e)}")
