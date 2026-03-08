@@ -29,6 +29,7 @@ import {
   Settings,
   Scale,
   Target,
+  Activity,
 } from 'lucide-react';
 
 interface NavItem {
@@ -74,6 +75,12 @@ const navItems: NavItem[] = [
     title: 'learningOutcomes',
     href: '/goso/outcomes',
     icon: Target,
+    roles: ['super_admin'],
+  },
+  {
+    title: 'llmUsage',
+    href: '/llm-usage',
+    icon: Activity,
     roles: ['super_admin'],
   },
   // School ADMIN items

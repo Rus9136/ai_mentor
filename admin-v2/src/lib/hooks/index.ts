@@ -11,3 +11,4 @@ export * from './use-classes';
 export * from './use-school-textbooks';
 export * from './use-school-tests';
 export * from './use-settings';
+export * from './use-llm-usage';
