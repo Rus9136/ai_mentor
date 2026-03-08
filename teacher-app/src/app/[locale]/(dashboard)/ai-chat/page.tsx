@@ -30,6 +30,7 @@ import { getChatSession } from '@/lib/api/chat';
 import { streamChatMessage } from '@/lib/api/chat';
 import type { ChatMessage, ChatSession } from '@/types/chat';
 import { cn } from '@/lib/utils';
+import { MarkdownContent } from '@/components/chat/MarkdownContent';
 
 export default function AIChatPage() {
   const t = useTranslations('aiChat');
@@ -363,7 +364,11 @@ export default function AIChatPage() {
                             : 'bg-muted'
                         )}
                       >
-                        <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+                        {msg.role === 'assistant' ? (
+                          <MarkdownContent content={msg.content} />
+                        ) : (
+                          <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+                        )}
                         {msg.processing_time_ms && msg.role === 'assistant' && (
                           <div className="mt-1 text-xs opacity-60">
                             {(msg.processing_time_ms / 1000).toFixed(1)}s
@@ -378,7 +383,7 @@ export default function AIChatPage() {
                     <div className="flex justify-start">
                       <div className="max-w-[85%] rounded-2xl bg-muted px-4 py-3 text-sm">
                         {streamingContent ? (
-                          <div className="whitespace-pre-wrap break-words">{streamingContent}</div>
+                          <MarkdownContent content={streamingContent} />
                         ) : (
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <Loader2 className="h-4 w-4 animate-spin" />
