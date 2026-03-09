@@ -133,6 +133,20 @@ export function getColumns({
       },
     },
     {
+      accessorKey: 'paragraph_title',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Параграф" />
+      ),
+      cell: ({ row }) => {
+        const title = row.getValue('paragraph_title') as string | null;
+        return title ? (
+          <div className="max-w-[200px] truncate">{title}</div>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        );
+      },
+    },
+    {
       accessorKey: 'test_purpose',
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Назначение" />

@@ -72,6 +72,7 @@ class TestListResponse(BaseModel):
     school_id: Optional[int]
     textbook_id: Optional[int]
     chapter_id: Optional[int]
+    paragraph_id: Optional[int] = None
     title: str
     description: Optional[str] = None
     test_purpose: TestPurpose
@@ -82,6 +83,7 @@ class TestListResponse(BaseModel):
     created_at: datetime
     textbook_title: Optional[str] = None
     chapter_title: Optional[str] = None
+    paragraph_title: Optional[str] = None
 
     @classmethod
     def from_test(cls, test) -> "TestListResponse":
@@ -91,6 +93,7 @@ class TestListResponse(BaseModel):
             school_id=test.school_id,
             textbook_id=test.textbook_id,
             chapter_id=test.chapter_id,
+            paragraph_id=test.paragraph_id,
             title=test.title,
             description=test.description,
             test_purpose=test.test_purpose,
@@ -101,6 +104,7 @@ class TestListResponse(BaseModel):
             created_at=test.created_at,
             textbook_title=test.textbook.title if test.textbook else None,
             chapter_title=test.chapter.title if test.chapter else None,
+            paragraph_title=test.paragraph.title if test.paragraph else None,
         )
 
 

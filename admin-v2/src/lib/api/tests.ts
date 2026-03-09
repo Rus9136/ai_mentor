@@ -31,9 +31,10 @@ const transformTestFromApi = <T extends { passing_score: number }>(test: T): T =
 export const testsApi = {
   // Tests - both admin/global and admin/school use PaginatedResponse
   getList: async (isSchool = false, chapterId?: number): Promise<Test[]> => {
-    const params = chapterId ? `?chapter_id=${chapterId}` : '';
+    const params = new URLSearchParams({ page_size: '100' });
+    if (chapterId) params.set('chapter_id', String(chapterId));
     const { data } = await apiClient.get<PaginatedResponse<Test>>(
-      `${getEndpoint(isSchool)}/tests${params}`
+      `${getEndpoint(isSchool)}/tests?${params}`
     );
     return data.items.map(transformTestFromApi);
   },

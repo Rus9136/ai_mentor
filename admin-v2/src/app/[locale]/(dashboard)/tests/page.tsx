@@ -20,6 +20,7 @@ import { DataTable } from '@/components/data-table';
 import { RoleGuard } from '@/components/auth';
 import { useTests, useDeleteTest } from '@/lib/hooks/use-tests';
 import { useTextbooks, useChapters } from '@/lib/hooks/use-textbooks';
+import { useSubjects } from '@/lib/hooks/use-goso';
 import {
   Select,
   SelectContent,
@@ -30,46 +31,66 @@ import {
 import type { Test } from '@/types';
 import { getColumns } from './columns';
 
+const GRADES = [5, 6, 7, 8, 9, 10, 11];
+
 export default function TestsPage() {
   const t = useTranslations('tests');
   const router = useRouter();
   const locale = 'ru';
 
-  const { data: tests = [], isLoading } = useTests(false); // global tests
+  const { data: tests = [], isLoading } = useTests(false);
   const deleteTest = useDeleteTest(false);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [testToDelete, setTestToDelete] = useState<Test | null>(null);
 
-  // Состояние фильтров по учебнику/главе
+  // Фильтры
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
+  const [selectedGrade, setSelectedGrade] = useState<number | null>(null);
   const [selectedTextbookId, setSelectedTextbookId] = useState<number | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
 
-  // Загрузка данных для фильтров
-  const { data: textbooks = [] } = useTextbooks(false);
+  // Загрузка данных
+  const { data: subjects = [] } = useSubjects();
+  const { data: allTextbooks = [] } = useTextbooks(false);
   const { data: chapters = [] } = useChapters(
     selectedTextbookId || 0,
     false,
     !!selectedTextbookId
   );
 
-  // Каскадный сброс главы при смене учебника
+  // Фильтруем учебники по предмету и классу
+  const filteredTextbooks = useMemo(() => {
+    return allTextbooks.filter((tb) => {
+      if (selectedSubjectId !== null && tb.subject_id !== selectedSubjectId) return false;
+      if (selectedGrade !== null && tb.grade_level !== selectedGrade) return false;
+      return true;
+    });
+  }, [allTextbooks, selectedSubjectId, selectedGrade]);
+
+  // Каскадный сброс
+  useEffect(() => {
+    setSelectedTextbookId(null);
+    setSelectedChapterId(null);
+  }, [selectedSubjectId, selectedGrade]);
+
   useEffect(() => {
     setSelectedChapterId(null);
   }, [selectedTextbookId]);
 
-  // Фильтруем тесты по учебнику и главе
+  // Собираем set textbook_id из отфильтрованных учебников для фильтра тестов
   const filteredTests = useMemo(() => {
+    const textbookIds = selectedSubjectId !== null || selectedGrade !== null
+      ? new Set(filteredTextbooks.map((tb) => tb.id))
+      : null;
+
     return tests.filter((test) => {
-      if (selectedTextbookId !== null && test.textbook_id !== selectedTextbookId) {
-        return false;
-      }
-      if (selectedChapterId !== null && test.chapter_id !== selectedChapterId) {
-        return false;
-      }
+      if (textbookIds !== null && !textbookIds.has(test.textbook_id ?? 0)) return false;
+      if (selectedTextbookId !== null && test.textbook_id !== selectedTextbookId) return false;
+      if (selectedChapterId !== null && test.chapter_id !== selectedChapterId) return false;
       return true;
     });
-  }, [tests, selectedTextbookId, selectedChapterId]);
+  }, [tests, filteredTextbooks, selectedSubjectId, selectedGrade, selectedTextbookId, selectedChapterId]);
 
   const handleView = (test: Test) => {
     router.push(`/${locale}/tests/${test.id}`);
@@ -138,22 +159,54 @@ export default function TestsPage() {
     },
   ];
 
-  const textbookChapterToolbar = (
-    <div className="flex items-center gap-2">
+  const filtersToolbar = (
+    <div className="flex items-center gap-2 flex-wrap">
+      <Select
+        value={selectedSubjectId ? String(selectedSubjectId) : 'all'}
+        onValueChange={(v) => setSelectedSubjectId(v === 'all' ? null : parseInt(v))}
+      >
+        <SelectTrigger className="h-8 w-[180px]">
+          <SelectValue placeholder="Все предметы" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Все предметы</SelectItem>
+          {subjects.filter((s) => s.is_active).map((s) => (
+            <SelectItem key={s.id} value={String(s.id)}>
+              {s.name_ru}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={selectedGrade ? String(selectedGrade) : 'all'}
+        onValueChange={(v) => setSelectedGrade(v === 'all' ? null : parseInt(v))}
+      >
+        <SelectTrigger className="h-8 w-[130px]">
+          <SelectValue placeholder="Все классы" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Все классы</SelectItem>
+          {GRADES.map((g) => (
+            <SelectItem key={g} value={String(g)}>
+              {g} класс
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
       <Select
         value={selectedTextbookId ? String(selectedTextbookId) : 'all'}
-        onValueChange={(value) => {
-          setSelectedTextbookId(value === 'all' ? null : parseInt(value));
-        }}
+        onValueChange={(v) => setSelectedTextbookId(v === 'all' ? null : parseInt(v))}
       >
         <SelectTrigger className="h-8 w-[200px]">
           <SelectValue placeholder="Все учебники" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Все учебники</SelectItem>
-          {textbooks.map((textbook) => (
-            <SelectItem key={textbook.id} value={String(textbook.id)}>
-              {textbook.title}
+          {filteredTextbooks.map((tb) => (
+            <SelectItem key={tb.id} value={String(tb.id)}>
+              {tb.title}
             </SelectItem>
           ))}
         </SelectContent>
@@ -161,9 +214,7 @@ export default function TestsPage() {
 
       <Select
         value={selectedChapterId ? String(selectedChapterId) : 'all'}
-        onValueChange={(value) => {
-          setSelectedChapterId(value === 'all' ? null : parseInt(value));
-        }}
+        onValueChange={(v) => setSelectedChapterId(v === 'all' ? null : parseInt(v))}
         disabled={!selectedTextbookId}
       >
         <SelectTrigger className="h-8 w-[200px]">
@@ -171,9 +222,9 @@ export default function TestsPage() {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Все главы</SelectItem>
-          {chapters.map((chapter) => (
-            <SelectItem key={chapter.id} value={String(chapter.id)}>
-              {chapter.number}. {chapter.title}
+          {chapters.map((ch) => (
+            <SelectItem key={ch.id} value={String(ch.id)}>
+              {ch.number}. {ch.title}
             </SelectItem>
           ))}
         </SelectContent>
@@ -204,8 +255,9 @@ export default function TestsPage() {
           searchKey="title"
           searchPlaceholder="Поиск по названию..."
           filterableColumns={filterableColumns}
-          toolbar={textbookChapterToolbar}
+          toolbar={filtersToolbar}
           onRowClick={handleView}
+          defaultPageSize={50}
         />
 
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

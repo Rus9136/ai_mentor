@@ -105,11 +105,15 @@ class TestRepository:
         )
         total = (await self.db.execute(count_query)).scalar() or 0
 
-        # Main query with joins for textbook/chapter names
+        # Main query with joins for textbook/chapter/paragraph names
         query = (
             select(Test)
             .where(and_(*filters))
-            .options(joinedload(Test.textbook), joinedload(Test.chapter))
+            .options(
+                joinedload(Test.textbook),
+                joinedload(Test.chapter),
+                joinedload(Test.paragraph),
+            )
             .order_by(Test.difficulty, Test.title)
             .offset((page - 1) * page_size)
             .limit(page_size)
@@ -230,11 +234,15 @@ class TestRepository:
         )
         total = (await self.db.execute(count_query)).scalar() or 0
 
-        # Main query with joins for textbook/chapter names
+        # Main query with joins for textbook/chapter/paragraph names
         query = (
             select(Test)
             .where(and_(*filters))
-            .options(joinedload(Test.textbook), joinedload(Test.chapter))
+            .options(
+                joinedload(Test.textbook),
+                joinedload(Test.chapter),
+                joinedload(Test.paragraph),
+            )
             .order_by(Test.difficulty, Test.title)
             .offset((page - 1) * page_size)
             .limit(page_size)

@@ -40,6 +40,7 @@ interface DataTableProps<TData, TValue> {
   }[];
   toolbar?: React.ReactNode;
   onRowClick?: (row: TData) => void;
+  defaultPageSize?: number;
 }
 
 export function DataTable<TData, TValue>({
@@ -51,6 +52,7 @@ export function DataTable<TData, TValue>({
   filterableColumns,
   toolbar,
   onRowClick,
+  defaultPageSize = 10,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -60,6 +62,9 @@ export function DataTable<TData, TValue>({
   const table = useReactTable({
     data,
     columns,
+    initialState: {
+      pagination: { pageSize: defaultPageSize },
+    },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
