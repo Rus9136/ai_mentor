@@ -160,6 +160,49 @@
 
 Каждая сессия генерирует 2 дополнительных LLM-вызова (суммаризация + обновление профиля). При использовании Cerebras (~$0.50/1M токенов) это ~$0.001 за сессию.
 
+## Teacher Memory (память учительского чата)
+
+Та же 3-слойная архитектура, адаптированная для учителя.
+
+### Отличия от студенческой памяти
+
+| Аспект | Студент | Учитель |
+|--------|---------|---------|
+| **Фокус профиля** | Пробелы, стиль обучения, заблуждения | Стиль преподавания, частые темы, методические предпочтения |
+| **Сводка сессии** | knowledge_gaps, confidence_level | key_insights, session_type |
+| **Роли в диалоге** | "Ученик" / "Репетитор" | "Учитель" / "Ассистент" |
+
+### Профиль учителя (memory_data)
+
+```json
+{
+  "teaching_style": "предпочитает пошаговые объяснения с аналогиями",
+  "frequent_topics": ["квадратные уравнения", "дискриминант"],
+  "preferred_preparation_style": "ищет примеры и задачи для учеников",
+  "methodological_preferences": ["дифференцированный подход"],
+  "subject_expertise": ["алгебра", "геометрия"],
+  "common_requests": ["генерация контрольных", "объяснения для слабых"],
+  "notes": "часто готовится к урокам алгебры 9 класс"
+}
+```
+
+### Таблицы БД
+
+| Таблица | Назначение | Кардинальность |
+|---------|------------|----------------|
+| `teacher_chat_session_summaries` | Сводка каждой сессии | 1 на сессию |
+| `teacher_memory` | Профиль учителя | 1 на учителя |
+
+### Файлы
+
+| Файл | Назначение |
+|------|------------|
+| `backend/app/services/teacher_memory_service.py` | Основной сервис (загрузка, суммаризация, обновление) |
+| `backend/app/models/teacher_memory.py` | Модели `TeacherChatSessionSummary`, `TeacherMemory` |
+| `backend/alembic/versions/043_teacher_memory.py` | Миграция |
+
+---
+
 ## Что нужно доработать (roadmap)
 
 ### Приоритет 1 — Улучшение текущего MVP
@@ -201,4 +244,18 @@ docker exec ai_mentor_postgres_prod psql -U ai_mentor_user -d ai_mentor_db \
 
 # Проверить логи экстракции
 docker logs ai_mentor_backend_prod 2>&1 | grep -i "memory"
+
+# --- Teacher Memory ---
+
+# Проверить таблицы учительской памяти
+docker exec ai_mentor_postgres_prod psql -U ai_mentor_user -d ai_mentor_db \
+  -c "SELECT count(*) FROM teacher_chat_session_summaries; SELECT count(*) FROM teacher_memory;"
+
+# Посмотреть сводки сессий учителей
+docker exec ai_mentor_postgres_prod psql -U ai_mentor_user -d ai_mentor_db \
+  -c "SELECT id, teacher_id, topic, session_type, created_at FROM teacher_chat_session_summaries ORDER BY created_at DESC LIMIT 10;"
+
+# Посмотреть профили учителей
+docker exec ai_mentor_postgres_prod psql -U ai_mentor_user -d ai_mentor_db \
+  -c "SELECT teacher_id, extraction_count, memory_data FROM teacher_memory;"
 ```

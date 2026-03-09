@@ -91,6 +91,9 @@ from app.models.llm_usage_log import LLMUsageLog, LLMFeature
 # Student memory (chat personalization)
 from app.models.student_memory import ChatSessionSummary, StudentMemory
 
+# Teacher memory (chat personalization)
+from app.models.teacher_memory import TeacherChatSessionSummary, TeacherMemory
+
 __all__ = [
     # Base
     "BaseModel",
@@ -201,4 +204,7 @@ __all__ = [
     # Student memory
     "ChatSessionSummary",
     "StudentMemory",
+    # Teacher memory
+    "TeacherChatSessionSummary",
+    "TeacherMemory",
 ]

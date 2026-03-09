@@ -30,6 +30,7 @@ from app.services.rag_service import RAGService
 from app.services.llm_service import LLMService, LLMResponse, LLMStreamChunk, LLMUsageContext
 from app.core.database import AsyncSessionLocal
 from app.services.student_memory_service import load_memory_context, trigger_memory_extraction
+from app.services.teacher_memory_service import load_teacher_memory_context, trigger_teacher_memory_extraction
 from app.schemas.chat import (
     ChatSessionResponse,
     ChatMessageResponse,
@@ -439,6 +440,9 @@ class ChatService:
         if was_first_message:
             _trigger_ai_title(session_id, school_id, content, llm_response.content)
 
+        # Trigger background memory extraction for teacher
+        trigger_teacher_memory_extraction(session_id, teacher_id, school_id)
+
         return ChatResponse(
             user_message=self._message_to_response(user_message),
             assistant_message=self._message_to_response(assistant_message, citations),
@@ -560,6 +564,9 @@ class ChatService:
         if was_first_message:
             _trigger_ai_title(session_id, school_id, content, full_content)
 
+        # Trigger background memory extraction for teacher
+        trigger_teacher_memory_extraction(session_id, teacher_id, school_id)
+
         yield {
             "type": "done",
             "message": self._message_to_response(assistant_message, citations).model_dump(mode="json"),
@@ -572,7 +579,7 @@ class ChatService:
         session: ChatSession,
         current_message: str
     ) -> List[dict]:
-        """Build LLM messages for teacher chat (no mastery levels, no memory)."""
+        """Build LLM messages for teacher chat (no mastery levels)."""
 
         system_prompt = (
             "Ты — ИИ-ассистент для учителя. Помогаешь понять и работать с учебным материалом. "
@@ -592,6 +599,14 @@ class ChatService:
                     system_prompt = f"{system_prompt}\n\n{para_context}"
             except Exception as e:
                 logger.error(f"Failed to build paragraph context for teacher session {session.id}: {e}")
+
+        # Inject teacher memory context
+        try:
+            memory_context = await load_teacher_memory_context(self.db, session.teacher_id)
+            if memory_context:
+                system_prompt = f"{system_prompt}\n\n{memory_context}"
+        except Exception as e:
+            logger.error(f"Failed to load teacher memory for session {session.id}: {e}")
 
         messages = [{"role": "system", "content": system_prompt}]
 

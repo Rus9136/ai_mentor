@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.api.dependencies import require_admin, get_current_user_school_id
 from app.models.user import User
 from app.models.llm_usage_log import LLMUsageLog
+from sqlalchemy.orm import aliased
 from app.schemas.llm_usage import (
     FeatureBreakdown,
     LLMUsageDailyStats,
@@ -172,21 +173,41 @@ async def get_by_user(
     """Get LLM usage breakdown by user within the school."""
     dt_from, dt_to = _default_date_range(date_from, date_to)
 
-    q = select(
-        LLMUsageLog.user_id,
-        LLMUsageLog.student_id,
-        LLMUsageLog.teacher_id,
-        func.count().label("total_calls"),
-        func.coalesce(func.sum(LLMUsageLog.total_tokens), 0).label("total_tokens"),
-    ).where(
-        LLMUsageLog.school_id == school_id,
-        LLMUsageLog.created_at >= dt_from,
-        LLMUsageLog.created_at <= dt_to,
-    ).group_by(
-        LLMUsageLog.user_id,
-        LLMUsageLog.student_id,
-        LLMUsageLog.teacher_id,
-    ).order_by(func.sum(LLMUsageLog.total_tokens).desc())
+    UserAlias = aliased(User)
+
+    q = (
+        select(
+            LLMUsageLog.user_id,
+            LLMUsageLog.student_id,
+            LLMUsageLog.teacher_id,
+            func.count().label("total_calls"),
+            func.coalesce(func.sum(LLMUsageLog.total_tokens), 0).label("total_tokens"),
+            func.coalesce(func.sum(LLMUsageLog.prompt_tokens), 0).label("prompt_tokens"),
+            func.coalesce(func.sum(LLMUsageLog.completion_tokens), 0).label("completion_tokens"),
+            UserAlias.first_name,
+            UserAlias.last_name,
+            UserAlias.email,
+            UserAlias.role,
+        )
+        .outerjoin(UserAlias, LLMUsageLog.user_id == UserAlias.id)
+        .where(
+            LLMUsageLog.school_id == school_id,
+            LLMUsageLog.created_at >= dt_from,
+            LLMUsageLog.created_at <= dt_to,
+            LLMUsageLog.user_id.isnot(None),
+        )
+        .group_by(
+            LLMUsageLog.user_id,
+            LLMUsageLog.student_id,
+            LLMUsageLog.teacher_id,
+            UserAlias.first_name,
+            UserAlias.last_name,
+            UserAlias.email,
+            UserAlias.role,
+        )
+        .order_by(func.sum(LLMUsageLog.total_tokens).desc())
+        .limit(100)
+    )
 
     rows = (await db.execute(q)).all()
     return [
@@ -194,8 +215,14 @@ async def get_by_user(
             user_id=r.user_id,
             student_id=r.student_id,
             teacher_id=r.teacher_id,
+            user_name=f"{r.last_name} {r.first_name}" if r.last_name else None,
+            user_email=r.email,
+            user_role=r.role.value if hasattr(r.role, 'value') else str(r.role) if r.role else None,
+            school_id=school_id,
             total_calls=r.total_calls,
             total_tokens=r.total_tokens,
+            prompt_tokens=r.prompt_tokens,
+            completion_tokens=r.completion_tokens,
         )
         for r in rows
     ]

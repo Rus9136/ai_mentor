@@ -72,12 +72,18 @@ class LLMUsageDailyStats(BaseModel):
 
 
 class LLMUsageUserBreakdown(BaseModel):
-    """LLM usage breakdown by user (for school admin)."""
+    """LLM usage breakdown by user."""
     user_id: Optional[int] = None
     student_id: Optional[int] = None
     teacher_id: Optional[int] = None
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    user_role: Optional[str] = None
+    school_id: Optional[int] = None
     total_calls: int
     total_tokens: int
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
 
 
 class LLMUsageSchoolBreakdown(BaseModel):

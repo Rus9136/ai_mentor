@@ -11,6 +11,7 @@ export const llmUsageKeys = {
   stats: (params?: DateRange) => [...llmUsageKeys.all, 'stats', params] as const,
   daily: (params?: DateRange) => [...llmUsageKeys.all, 'daily', params] as const,
   bySchool: (params?: DateRange) => [...llmUsageKeys.all, 'by-school', params] as const,
+  byUser: (params?: DateRange) => [...llmUsageKeys.all, 'by-user', params] as const,
 };
 
 export function useLLMUsageStats(params?: DateRange) {
@@ -31,5 +32,12 @@ export function useLLMUsageBySchool(params?: DateRange) {
   return useQuery({
     queryKey: llmUsageKeys.bySchool(params),
     queryFn: () => llmUsageApi.getBySchool(params),
+  });
+}
+
+export function useLLMUsageByUser(params?: DateRange) {
+  return useQuery({
+    queryKey: llmUsageKeys.byUser(params),
+    queryFn: () => llmUsageApi.getByUser(params),
   });
 }

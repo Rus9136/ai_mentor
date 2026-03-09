@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { format, subDays } from 'date-fns';
-import { Activity, AlertTriangle, Clock, Zap, Hash, ArrowUpDown } from 'lucide-react';
+import { Activity, AlertTriangle, Clock, Zap, Hash, ArrowUpDown, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,8 +11,9 @@ import { RoleGuard } from '@/components/auth';
 import {
   useLLMUsageStats,
   useLLMUsageDaily,
+  useLLMUsageByUser,
 } from '@/lib/hooks/use-llm-usage';
-import type { LLMUsageDailyStats } from '@/lib/api/llm-usage';
+import type { LLMUsageDailyStats, LLMUsageUserBreakdown } from '@/lib/api/llm-usage';
 
 type Period = '7d' | '14d' | '30d';
 
@@ -47,6 +48,7 @@ export default function LLMUsagePage() {
 
   const { data: stats, isLoading: statsLoading } = useLLMUsageStats(dateRange);
   const { data: daily, isLoading: dailyLoading } = useLLMUsageDaily(dateRange);
+  const { data: byUser, isLoading: byUserLoading } = useLLMUsageByUser(dateRange);
 
   return (
     <RoleGuard allowedRoles={['super_admin']}>
@@ -256,8 +258,105 @@ export default function LLMUsagePage() {
             </CardContent>
           </Card>
         )}
+        {/* User Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              По пользователям
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {byUserLoading ? (
+              <Skeleton className="h-64 w-full" />
+            ) : byUser && byUser.length > 0 ? (
+              <UserBreakdownTable data={byUser} totalTokens={stats?.total_tokens || 0} />
+            ) : (
+              <div className="flex items-center justify-center h-32 text-muted-foreground">
+                Нет данных за выбранный период
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </RoleGuard>
+  );
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  student: 'Ученик',
+  teacher: 'Учитель',
+  admin: 'Админ',
+  super_admin: 'Супер-админ',
+  parent: 'Родитель',
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  student: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  teacher: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  admin: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  super_admin: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  parent: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+};
+
+function UserBreakdownTable({ data, totalTokens }: { data: LLMUsageUserBreakdown[]; totalTokens: number }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b">
+            <th className="text-left py-2 font-medium">#</th>
+            <th className="text-left py-2 font-medium">Пользователь</th>
+            <th className="text-left py-2 font-medium">Роль</th>
+            <th className="text-right py-2 font-medium">Вызовы</th>
+            <th className="text-right py-2 font-medium">Токены</th>
+            <th className="text-right py-2 font-medium">Prompt</th>
+            <th className="text-right py-2 font-medium">Completion</th>
+            <th className="text-right py-2 font-medium">Доля</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((u, i) => {
+            const pct = totalTokens > 0 ? (u.total_tokens / totalTokens) * 100 : 0;
+            return (
+              <tr key={`${u.user_id}-${u.student_id}-${u.teacher_id}`} className="border-b last:border-0 hover:bg-muted/50">
+                <td className="py-2 text-muted-foreground">{i + 1}</td>
+                <td className="py-2">
+                  <div>
+                    <div className="font-medium">{u.user_name || '—'}</div>
+                    <div className="text-xs text-muted-foreground">{u.user_email || `ID: ${u.user_id}`}</div>
+                  </div>
+                </td>
+                <td className="py-2">
+                  {u.user_role && (
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${ROLE_COLORS[u.user_role] || 'bg-gray-100 text-gray-800'}`}>
+                      {ROLE_LABELS[u.user_role] || u.user_role}
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 text-right">{formatNumber(u.total_calls)}</td>
+                <td className="py-2 text-right font-medium">{formatNumber(u.total_tokens)}</td>
+                <td className="py-2 text-right text-muted-foreground">{formatNumber(u.prompt_tokens)}</td>
+                <td className="py-2 text-right text-muted-foreground">{formatNumber(u.completion_tokens)}</td>
+                <td className="py-2 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full"
+                        style={{ width: `${Math.max(pct, 0.5)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground w-12 text-right">
+                      {pct.toFixed(1)}%
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
