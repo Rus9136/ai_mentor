@@ -107,6 +107,17 @@ class SelfAssessmentService:
             f"recommendation={next_recommendation}"
         )
 
+        # 6. Update metacognitive pattern (non-blocking)
+        try:
+            from app.services.metacognitive_service import MetacognitiveService
+            mc_service = MetacognitiveService(self.db)
+            await mc_service.analyze_and_update(
+                student_id=student_id,
+                school_id=school_id,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to update metacognitive pattern: {e}")
+
         return assessment, next_recommendation
 
     def _calculate_mastery_impact(

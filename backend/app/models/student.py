@@ -1,7 +1,7 @@
 """
 Student models.
 """
-from sqlalchemy import Column, String, Integer, ForeignKey, Date
+from sqlalchemy import Column, String, Integer, ForeignKey, Date, DateTime
 from sqlalchemy.orm import relationship
 
 from app.models.base import SoftDeleteModel
@@ -20,6 +20,10 @@ class Student(SoftDeleteModel):
     student_code = Column(String(50), nullable=False, index=True)
     grade_level = Column(Integer, nullable=False, index=True)  # 1-11
     birth_date = Column(Date, nullable=True)
+
+    # Metacognitive pattern (overconfident / underconfident / well_calibrated / None)
+    metacognitive_pattern = Column(String(20), nullable=True)
+    metacognitive_updated_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     school = relationship("School", back_populates="students")

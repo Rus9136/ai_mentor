@@ -6,7 +6,7 @@
 2. [Фундаментальная проблема](#2-фундаментальная-проблема)
 3. [Блок 1: Time Decay (временное затухание)](#3-блок-1-time-decay-временное-затухание) — **ВЫПОЛНЕНО**
 4. [Блок 2: Spaced Repetition (интервальное повторение)](#4-блок-2-spaced-repetition-интервальное-повторение) — **ВЫПОЛНЕНО**
-5. [Блок 3: Паттерны самооценки (Metacognitive Coaching)](#5-блок-3-паттерны-самооценки-metacognitive-coaching)
+5. [Блок 3: Паттерны самооценки (Metacognitive Coaching)](#5-блок-3-паттерны-самооценки-metacognitive-coaching) — **ВЫПОЛНЕНО**
 6. [Блок 4: Provisional статус для новых учеников](#6-блок-4-provisional-статус-для-новых-учеников) — **ВЫПОЛНЕНО**
 7. [Блок 5: Knowledge Graph (граф зависимостей)](#7-блок-5-knowledge-graph-граф-зависимостей)
 8. [Блок 6: Confidence-Weighted Mastery (BKT)](#8-блок-6-confidence-weighted-mastery-bkt)
@@ -305,9 +305,9 @@ CREATE TABLE review_schedule (
 
 ---
 
-## 5. Блок 3: Паттерны самооценки (Metacognitive Coaching)
+## 5. Блок 3: Паттерны самооценки (Metacognitive Coaching) — ВЫПОЛНЕНО
 
-### Приоритет: СРЕДНИЙ | Сложность: НИЗКАЯ
+### Приоритет: СРЕДНИЙ | Сложность: НИЗКАЯ | Статус: ВЫПОЛНЕНО
 
 ### Суть
 
@@ -369,6 +369,26 @@ ALTER TABLE students ADD COLUMN metacognitive_updated_at TIMESTAMP DEFAULT NULL;
 ```
 
 Пересчитывается после каждой самооценки, если накоплено ≥ 5 записей.
+
+### Реализация (выполнено)
+
+**Подход:** После каждой самооценки (если ≥5 записей) анализируются последние 5 оценок и соответствующие mastery-баллы. Паттерн сохраняется в `students.metacognitive_pattern`. Coaching-сообщения на ru/kk.
+
+**Файлы:**
+
+| Файл | Изменение |
+|------|-----------|
+| `backend/app/services/metacognitive_service.py` | Новый — `analyze_and_update()`, `_detect_pattern()`, `get_student_insight()` |
+| `backend/app/models/student.py` | Колонки `metacognitive_pattern`, `metacognitive_updated_at` |
+| `backend/app/services/self_assessment_service.py` | Хук: после submit → `analyze_and_update()` |
+| `backend/app/api/v1/students/learning.py` | Эндпоинт `GET /students/metacognitive` |
+| `backend/alembic/versions/046_metacognitive_pattern.py` | ALTER TABLE students ADD COLUMN |
+
+**Алгоритм детекции (по последним 5 самооценкам):**
+- **overconfident**: 4+ "understood" + avg effective_score < 60%
+- **underconfident**: 4+ "difficult" + avg effective_score > 80%
+- **well_calibrated**: ≥60% оценок совпадают с ожидаемым диапазоном
+- **null**: недостаточно данных или нет чёткого паттерна
 
 ---
 
@@ -701,7 +721,7 @@ BKT — дополнительная точность для опытных по
 |---|------|-----------|-----------|----------|------|--------|
 | 1 | Time Decay | Высокий | Низкая | Высокая | 1 | **ВЫПОЛНЕНО** |
 | 2 | Spaced Repetition | Очень высокий | Средняя | Очень высокая | 2 | **ВЫПОЛНЕНО** |
-| 3 | Паттерны самооценки | Средний | Низкая | Средняя | 3 | — |
+| 3 | Паттерны самооценки | Средний | Низкая | Средняя | 3 | **ВЫПОЛНЕНО** |
 | 4 | Provisional статус | Средний | Низкая | Средняя | 1 | **ВЫПОЛНЕНО** |
 | 5 | Knowledge Graph | Высокий | Высокая | Высокая | 4 | — |
 | 6 | Confidence-Weighted (BKT) | Средний | Средняя | Средняя | 4 | — |

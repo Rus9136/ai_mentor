@@ -40,6 +40,7 @@ from app.schemas.embedded_question import (
 )
 from app.schemas.test_attempt import StudentProgressResponse
 from app.services.self_assessment_service import SelfAssessmentService
+from app.services.metacognitive_service import MetacognitiveService
 
 
 router = APIRouter()
@@ -446,3 +447,26 @@ async def get_student_progress(
         total_attempts=total_attempts,
         paragraphs=paragraphs_data
     )
+
+
+@router.get("/metacognitive")
+async def get_metacognitive_insight(
+    lang: str = Query("ru", description="Language for coaching message (ru/kk)"),
+    current_user: User = Depends(require_student),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get student's metacognitive pattern and coaching message.
+
+    Patterns:
+    - overconfident: self-assessment is "understood" but test scores are low
+    - underconfident: self-assessment is "difficult" but test scores are high
+    - well_calibrated: self-assessment matches test performance
+    - null: insufficient data (< 5 assessments)
+    """
+    student = await get_student_from_user(current_user, db)
+
+    service = MetacognitiveService(db)
+    insight = await service.get_student_insight(student.id, lang=lang)
+
+    return insight
