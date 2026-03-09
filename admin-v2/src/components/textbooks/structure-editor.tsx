@@ -183,6 +183,7 @@ export function StructureEditor({ textbookId, isSchool = false, gradeLevel, subj
           <ChapterItem
             key={chapter.id}
             chapter={chapter}
+            textbookId={textbookId}
             isExpanded={expandedChapters.has(chapter.id)}
             onToggle={() => toggleChapter(chapter.id)}
             onEdit={() => handleEditChapter(chapter)}
@@ -236,6 +237,7 @@ export function StructureEditor({ textbookId, isSchool = false, gradeLevel, subj
 // Chapter Item Component
 interface ChapterItemProps {
   chapter: Chapter;
+  textbookId: number;
   isExpanded: boolean;
   onToggle: () => void;
   onEdit: () => void;
@@ -247,6 +249,7 @@ interface ChapterItemProps {
 
 function ChapterItem({
   chapter,
+  textbookId,
   isExpanded,
   onToggle,
   onEdit,
@@ -493,6 +496,7 @@ function ChapterItem({
         isSchool={isSchool}
         gradeLevel={gradeLevel}
         subjectId={subjectId}
+        textbookId={textbookId}
       />
 
       {/* Delete Paragraph Dialog */}

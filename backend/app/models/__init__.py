@@ -97,6 +97,9 @@ from app.models.teacher_memory import TeacherChatSessionSummary, TeacherMemory
 # Spaced repetition
 from app.models.review_schedule import ReviewSchedule
 
+# Knowledge Graph (paragraph prerequisites)
+from app.models.prerequisite import ParagraphPrerequisite
+
 __all__ = [
     # Base
     "BaseModel",
@@ -212,4 +215,6 @@ __all__ = [
     "TeacherMemory",
     # Spaced repetition
     "ReviewSchedule",
+    # Knowledge Graph
+    "ParagraphPrerequisite",
 ]

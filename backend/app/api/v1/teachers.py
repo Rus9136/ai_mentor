@@ -885,3 +885,49 @@ async def deactivate_class_invitation_code(
         )
 
     await code_repo.deactivate(code)
+
+
+# ============================================================================
+# Prerequisite Analytics
+# ============================================================================
+
+@router.get("/analytics/prerequisites/{paragraph_id}")
+async def get_prerequisite_analytics(
+    paragraph_id: int,
+    class_id: int = Query(..., description="Class ID to analyze"),
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Analyze which prerequisites students in a class are failing for a paragraph.
+
+    Helps identify root cause: "Students struggle not with §15,
+    but with §8 which §15 depends on."
+    """
+    from app.services.prerequisite_service import PrerequisiteService
+    from app.schemas.prerequisite import PrerequisiteAnalyticsResponse
+
+    # Verify teacher has access to this class
+    service = TeacherAnalyticsService(db)
+    class_detail = await service.get_class_detail(current_user.id, school_id, class_id)
+
+    if not class_detail:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Class not found or you don't have access to it"
+        )
+
+    # Get student IDs in the class
+    from app.services.teacher_analytics.teacher_access_service import TeacherAccessService
+    access_service = TeacherAccessService(db)
+    student_ids = await access_service.get_student_ids_for_classes([class_id])
+
+    if not student_ids:
+        return PrerequisiteAnalyticsResponse(paragraph_id=paragraph_id)
+
+    prereq_service = PrerequisiteService(db)
+    return await prereq_service.get_prerequisite_analytics(
+        paragraph_id=paragraph_id,
+        student_ids=student_ids,
+    )

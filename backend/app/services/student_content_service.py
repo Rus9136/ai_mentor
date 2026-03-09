@@ -11,6 +11,7 @@ The service is read-only for textbooks/chapters/paragraphs lists
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timezone
+from collections import defaultdict
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
@@ -22,6 +23,7 @@ from app.models.paragraph import Paragraph
 from app.models.mastery import ParagraphMastery, ChapterMastery
 from app.models.learning import StudentParagraph
 from app.models.test import Test, TestPurpose
+from app.models.prerequisite import ParagraphPrerequisite
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -581,6 +583,11 @@ class StudentContentService:
         # Batch: practice test availability
         has_practice = await self._get_practice_test_batch(paragraph_ids)
 
+        # Batch: prerequisite warnings
+        prereq_warnings = await self._get_prerequisite_warnings_batch(
+            student_id, paragraph_ids
+        )
+
         # Build response
         result = []
         for para in paragraphs:
@@ -599,6 +606,10 @@ class StudentContentService:
             word_count = len(para.content.split()) if para.content else 0
             estimated_time = max(3, min(15, word_count // 200 + 3))
 
+            # Prerequisite warnings
+            warnings = prereq_warnings.get(pid, [])
+            has_unmet = any(w.get("strength") == "required" for w in warnings)
+
             result.append({
                 "paragraph": para,
                 "status": para_status,
@@ -608,6 +619,8 @@ class StudentContentService:
                 "needs_review": mastery.get("needs_review", False),
                 "estimated_time": estimated_time,
                 "has_practice": has_practice.get(pid, False),
+                "prerequisite_warnings": warnings,
+                "has_unmet_prerequisites": has_unmet,
             })
 
         logger.info(
@@ -658,6 +671,80 @@ class StudentContentService:
         )
         paragraphs_with_test = {row[0] for row in result.fetchall()}
         return {pid: pid in paragraphs_with_test for pid in paragraph_ids}
+
+    async def _get_prerequisite_warnings_batch(
+        self,
+        student_id: int,
+        paragraph_ids: List[int],
+    ) -> Dict[int, List[Dict[str, Any]]]:
+        """
+        Batch query: get prerequisite warnings for multiple paragraphs.
+        Returns Dict[paragraph_id, List[warning_dict]].
+        Uses 2 queries: prerequisites (IN) + mastery (IN).
+        """
+        PREREQUISITE_THRESHOLD = 0.60
+
+        if not paragraph_ids:
+            return {}
+
+        # 1. Batch fetch all prerequisites for these paragraphs
+        prereq_result = await self.db.execute(
+            select(ParagraphPrerequisite)
+            .where(ParagraphPrerequisite.paragraph_id.in_(paragraph_ids))
+        )
+        all_prereqs = prereq_result.scalars().all()
+
+        if not all_prereqs:
+            return {}
+
+        # 2. Collect all prerequisite paragraph IDs
+        prereq_para_ids = list({p.prerequisite_paragraph_id for p in all_prereqs})
+
+        # 3. Batch fetch mastery for prerequisite paragraphs
+        mastery_result = await self.db.execute(
+            select(ParagraphMastery).where(
+                ParagraphMastery.student_id == student_id,
+                ParagraphMastery.paragraph_id.in_(prereq_para_ids),
+            )
+        )
+        mastery_map = {m.paragraph_id: m for m in mastery_result.scalars().all()}
+
+        # 4. Batch fetch prerequisite paragraph info (title, number, chapter)
+        para_result = await self.db.execute(
+            select(Paragraph)
+            .options(selectinload(Paragraph.chapter))
+            .where(Paragraph.id.in_(prereq_para_ids))
+        )
+        para_map = {p.id: p for p in para_result.scalars().all()}
+
+        # 5. Build warnings grouped by paragraph_id
+        warnings: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
+
+        for prereq in all_prereqs:
+            pid = prereq.prerequisite_paragraph_id
+            mastery = mastery_map.get(pid)
+
+            effective = 0.0
+            if mastery and mastery.best_score:
+                effective = mastery.effective_score or 0.0
+
+            if effective < PREREQUISITE_THRESHOLD:
+                para = para_map.get(pid)
+                chapter = para.chapter if para else None
+                warnings[prereq.paragraph_id].append({
+                    "paragraph_id": pid,
+                    "paragraph_title": para.title if para else None,
+                    "paragraph_number": para.number if para else None,
+                    "chapter_title": chapter.title if chapter else None,
+                    "current_score": round(effective, 4),
+                    "strength": prereq.strength,
+                    "recommendation": (
+                        "review_first" if prereq.strength == "required"
+                        else "consider_review"
+                    ),
+                })
+
+        return dict(warnings)
 
     # =========================================================================
     # Utility Methods

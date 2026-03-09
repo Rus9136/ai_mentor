@@ -47,6 +47,7 @@ import {
 import { useOutcomes, useFrameworks, useSections } from '@/lib/hooks/use-goso';
 import type { Paragraph } from '@/types';
 import { EmbeddedQuestionsSection } from './embedded-questions-section';
+import { PrerequisitesSection } from './prerequisites-section';
 
 interface ParagraphDialogProps {
   open: boolean;
@@ -61,6 +62,7 @@ interface ParagraphDialogProps {
   isSchool?: boolean;
   gradeLevel?: number;
   subjectId?: number | null;
+  textbookId?: number;
 }
 
 export function ParagraphDialog({
@@ -76,6 +78,7 @@ export function ParagraphDialog({
   isSchool = false,
   gradeLevel,
   subjectId,
+  textbookId,
 }: ParagraphDialogProps) {
   const isEditing = !!paragraph;
   const [outcomePopoverOpen, setOutcomePopoverOpen] = useState(false);
@@ -403,6 +406,14 @@ export function ParagraphDialog({
               <EmbeddedQuestionsSection
                 paragraphId={paragraph.id}
                 isSchool={isSchool}
+              />
+            )}
+
+            {/* Prerequisites Section (only when editing global paragraphs) */}
+            {isEditing && paragraph && !isSchool && textbookId && (
+              <PrerequisitesSection
+                paragraphId={paragraph.id}
+                textbookId={textbookId}
               />
             )}
 

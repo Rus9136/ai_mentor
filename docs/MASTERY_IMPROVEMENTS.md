@@ -8,7 +8,7 @@
 4. [Блок 2: Spaced Repetition (интервальное повторение)](#4-блок-2-spaced-repetition-интервальное-повторение) — **ВЫПОЛНЕНО**
 5. [Блок 3: Паттерны самооценки (Metacognitive Coaching)](#5-блок-3-паттерны-самооценки-metacognitive-coaching) — **ВЫПОЛНЕНО**
 6. [Блок 4: Provisional статус для новых учеников](#6-блок-4-provisional-статус-для-новых-учеников) — **ВЫПОЛНЕНО**
-7. [Блок 5: Knowledge Graph (граф зависимостей)](#7-блок-5-knowledge-graph-граф-зависимостей)
+7. [Блок 5: Knowledge Graph (граф зависимостей)](#7-блок-5-knowledge-graph-граф-зависимостей) — **ВЫПОЛНЕНО**
 8. [Блок 6: Confidence-Weighted Mastery (BKT)](#8-блок-6-confidence-weighted-mastery-bkt)
 9. [Блок 7: Difficulty-Weighted Scoring (Bloom's Taxonomy)](#9-блок-7-difficulty-weighted-scoring-blooms-taxonomy)
 10. [Дорожная карта внедрения](#10-дорожная-карта-внедрения)
@@ -458,9 +458,9 @@ Provisional статус показывается с пометкой: "Пред
 
 ---
 
-## 7. Блок 5: Knowledge Graph (граф зависимостей)
+## 7. Блок 5: Knowledge Graph (граф зависимостей) — ВЫПОЛНЕНО
 
-### Приоритет: ВЫСОКИЙ | Сложность: ВЫСОКАЯ
+### Приоритет: ВЫСОКИЙ | Сложность: ВЫСОКАЯ | Статус: ВЫПОЛНЕНО
 
 ### Суть
 
@@ -522,6 +522,43 @@ async def check_prerequisites(student_id: int, paragraph_id: int) -> list[dict]:
 - Начать с математики (алгебра) — там зависимости наиболее явные и линейные
 - Можно заполнять постепенно, предмет за предметом
 - В будущем: автоматическое определение зависимостей через анализ корреляций результатов тестов
+
+### Реализация (выполнено)
+
+**Подход:** Таблица `paragraph_prerequisites` хранит направленные связи между параграфами одного учебника. При запросе списка параграфов ученик видит warnings для unmet prerequisites (effective_score < 0.60). SUPER_ADMIN управляет связями. Учитель получает аналитику по prerequisite gaps класса.
+
+**Файлы:**
+
+| Файл | Изменение |
+|------|-----------|
+| `backend/alembic/versions/047_paragraph_prerequisites.py` | Новый — CREATE TABLE с UNIQUE, CHECK, индексы, GRANT (без RLS — глобальный контент) |
+| `backend/app/models/prerequisite.py` | Новый — ORM модель ParagraphPrerequisite (paragraph_id, prerequisite_paragraph_id, strength) |
+| `backend/app/repositories/prerequisite_repo.py` | Новый — CRUD + batch queries: get_prerequisites_batch, get_by_textbook, cycle detection graph |
+| `backend/app/schemas/prerequisite.py` | Новый — Admin CRUD, Student check (PrerequisiteWarning, PrerequisiteCheckResponse), Teacher analytics |
+| `backend/app/services/prerequisite_service.py` | Новый — check_prerequisites(), add_prerequisite() с валидацией (same textbook, no cycles), teacher analytics |
+| `backend/app/api/v1/admin_global/prerequisites.py` | Новый — SUPER_ADMIN CRUD: list/add/delete prerequisites, textbook graph |
+| `backend/app/api/v1/students/prerequisites.py` | Новый — GET /paragraphs/{id}/prerequisites (check before starting) |
+| `backend/app/services/student_content_service.py` | Интеграция — batch prerequisite warnings в список параграфов (2 доп. запроса) |
+| `backend/app/api/v1/teachers.py` | Новый endpoint — GET /analytics/prerequisites/{id}?class_id=X |
+| `backend/app/models/__init__.py` | Регистрация ParagraphPrerequisite |
+| `backend/app/api/v1/students/__init__.py` | Подключение prerequisites router |
+| `backend/app/api/v1/admin_global/__init__.py` | Подключение prerequisites router |
+
+**Ключевые решения:**
+- Нет school_id / RLS — prerequisites определяются на уровне учебника (глобальный контент), управляется SUPER_ADMIN
+- Валидация same-textbook на уровне сервиса (paragraph → chapter → textbook)
+- Детекция циклов через BFS (max depth 10) — при добавлении связи проверяется, не создаст ли она цикл
+- Threshold: effective_score >= 0.60 (progressing+) означает "prerequisite met"
+- Batch queries в student_content_service для N+1 prevention (prerequisites IN + mastery IN)
+- `can_proceed: false` если required prerequisite unmet, `true` для recommended
+
+**API эндпоинты:**
+- `GET /api/v1/admin/global/paragraphs/{id}/prerequisites` — список prerequisites (SUPER_ADMIN)
+- `POST /api/v1/admin/global/paragraphs/{id}/prerequisites` — добавить prerequisite (SUPER_ADMIN)
+- `DELETE /api/v1/admin/global/prerequisites/{id}` — удалить связь (SUPER_ADMIN)
+- `GET /api/v1/admin/global/textbooks/{id}/prerequisite-graph` — полный граф учебника (SUPER_ADMIN)
+- `GET /api/v1/students/paragraphs/{id}/prerequisites` — проверка prerequisites (STUDENT)
+- `GET /api/v1/teachers/analytics/prerequisites/{id}?class_id=X` — аналитика по классу (TEACHER)
 
 ---
 
@@ -723,6 +760,6 @@ BKT — дополнительная точность для опытных по
 | 2 | Spaced Repetition | Очень высокий | Средняя | Очень высокая | 2 | **ВЫПОЛНЕНО** |
 | 3 | Паттерны самооценки | Средний | Низкая | Средняя | 3 | **ВЫПОЛНЕНО** |
 | 4 | Provisional статус | Средний | Низкая | Средняя | 1 | **ВЫПОЛНЕНО** |
-| 5 | Knowledge Graph | Высокий | Высокая | Высокая | 4 | — |
+| 5 | Knowledge Graph | Высокий | Высокая | Высокая | 4 | **ВЫПОЛНЕНО** |
 | 6 | Confidence-Weighted (BKT) | Средний | Средняя | Средняя | 4 | — |
 | 7 | Bloom's Taxonomy | Низкий | Средняя | Средняя | 5 | — |
