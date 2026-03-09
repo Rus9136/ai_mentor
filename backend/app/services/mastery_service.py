@@ -19,6 +19,7 @@ from app.models.test import TestPurpose
 from app.repositories.paragraph_mastery_repo import ParagraphMasteryRepository
 from app.repositories.chapter_mastery_repo import ChapterMasteryRepository
 from app.repositories.test_attempt_repo import TestAttemptRepository
+from app.services.spaced_repetition_service import SpacedRepetitionService
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +174,21 @@ class MasteryService:
                 f"Mastery status unchanged: {new_status} "
                 f"(score: {test_score:.2f})"
             )
+
+        # 6. Activate spaced repetition when mastered
+        if new_status == "mastered":
+            try:
+                sr_service = SpacedRepetitionService(self.db)
+                await sr_service.activate_review(
+                    student_id=student_id,
+                    paragraph_id=paragraph_id,
+                    school_id=school_id,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to activate review schedule: {e}",
+                    exc_info=True,
+                )
 
         return mastery
 

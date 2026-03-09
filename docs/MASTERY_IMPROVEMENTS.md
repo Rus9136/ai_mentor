@@ -5,7 +5,7 @@
 1. [Текущая система — что работает хорошо](#1-текущая-система--что-работает-хорошо)
 2. [Фундаментальная проблема](#2-фундаментальная-проблема)
 3. [Блок 1: Time Decay (временное затухание)](#3-блок-1-time-decay-временное-затухание) — **ВЫПОЛНЕНО**
-4. [Блок 2: Spaced Repetition (интервальное повторение)](#4-блок-2-spaced-repetition-интервальное-повторение)
+4. [Блок 2: Spaced Repetition (интервальное повторение)](#4-блок-2-spaced-repetition-интервальное-повторение) — **ВЫПОЛНЕНО**
 5. [Блок 3: Паттерны самооценки (Metacognitive Coaching)](#5-блок-3-паттерны-самооценки-metacognitive-coaching)
 6. [Блок 4: Provisional статус для новых учеников](#6-блок-4-provisional-статус-для-новых-учеников)
 7. [Блок 5: Knowledge Graph (граф зависимостей)](#7-блок-5-knowledge-graph-граф-зависимостей)
@@ -167,9 +167,9 @@ def get_paragraph_status(mastery: ParagraphMastery) -> str:
 
 ---
 
-## 4. Блок 2: Spaced Repetition (интервальное повторение)
+## 4. Блок 2: Spaced Repetition (интервальное повторение) — ВЫПОЛНЕНО
 
-### Приоритет: ОЧЕНЬ ВЫСОКИЙ | Сложность: СРЕДНЯЯ
+### Приоритет: ОЧЕНЬ ВЫСОКИЙ | Сложность: СРЕДНЯЯ | Статус: ВЫПОЛНЕНО
 
 ### Суть
 
@@ -272,6 +272,36 @@ CREATE TABLE review_schedule (
 │  Завтра: 1 тема  |  На этой неделе: 5   │
 └─────────────────────────────────────────┘
 ```
+
+### Реализация (выполнено)
+
+**Подход:** Leitner system с 7 уровнями интервалов (1, 3, 7, 14, 30, 60, 120 дней). Таблица `review_schedule` хранит расписание. При достижении "mastered" автоматически создаётся запись. Успешный review (≥80%) обновляет `last_updated_at` в `paragraph_mastery`, сбрасывая time decay.
+
+**Файлы:**
+
+| Файл | Изменение |
+|------|-----------|
+| `backend/app/models/review_schedule.py` | Новый — ORM модель ReviewSchedule (student, paragraph, streak, next_review_date) |
+| `backend/app/repositories/review_schedule_repo.py` | Новый — CRUD: get_due_reviews, get_upcoming_count, get_stats |
+| `backend/app/services/spaced_repetition_service.py` | Новый — activate_review(), process_review_result(), deactivate_review() |
+| `backend/app/schemas/review_schedule.py` | Новый — DueReviewsResponse, ReviewResultRequest/Response, ReviewStatsResponse |
+| `backend/app/api/v1/students/reviews.py` | Новый — GET /reviews/due, POST /reviews/{id}/complete, GET /reviews/stats |
+| `backend/alembic/versions/044_review_schedule.py` | Новый — миграция таблицы с RLS и индексами |
+| `backend/app/services/mastery_service.py` | Хук: при status=="mastered" → activate_review() |
+| `backend/app/models/__init__.py` | Регистрация ReviewSchedule |
+| `backend/app/api/v1/students/__init__.py` | Подключение reviews router |
+
+**Ключевые решения:**
+- При успешном review (≥80%): streak+1, обновляется `last_updated_at` → decay сбрасывается
+- При неудачном review (<80%): streak-2 (min 0), `last_updated_at` не обновляется → decay продолжается
+- Review не влияет на `best_score` — только на расписание и time decay
+- Автоматическая активация при достижении mastered через хук в mastery_service
+- Partial index `idx_review_schedule_due` для быстрого поиска активных reviews
+
+**API эндпоинты:**
+- `GET /api/v1/students/reviews/due` — параграфы для повторения сегодня
+- `POST /api/v1/students/reviews/{paragraph_id}/complete` — отправить результат
+- `GET /api/v1/students/reviews/stats` — статистика повторений
 
 ---
 
@@ -651,7 +681,7 @@ BKT — дополнительная точность для опытных по
 | # | Блок | Приоритет | Сложность | Ценность | Фаза | Статус |
 |---|------|-----------|-----------|----------|------|--------|
 | 1 | Time Decay | Высокий | Низкая | Высокая | 1 | **ВЫПОЛНЕНО** |
-| 2 | Spaced Repetition | Очень высокий | Средняя | Очень высокая | 2 | — |
+| 2 | Spaced Repetition | Очень высокий | Средняя | Очень высокая | 2 | **ВЫПОЛНЕНО** |
 | 3 | Паттерны самооценки | Средний | Низкая | Средняя | 3 | — |
 | 4 | Provisional статус | Средний | Низкая | Средняя | 1 | — |
 | 5 | Knowledge Graph | Высокий | Высокая | Высокая | 4 | — |

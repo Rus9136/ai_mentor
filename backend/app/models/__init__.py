@@ -94,6 +94,9 @@ from app.models.student_memory import ChatSessionSummary, StudentMemory
 # Teacher memory (chat personalization)
 from app.models.teacher_memory import TeacherChatSessionSummary, TeacherMemory
 
+# Spaced repetition
+from app.models.review_schedule import ReviewSchedule
+
 __all__ = [
     # Base
     "BaseModel",
@@ -207,4 +210,6 @@ __all__ = [
     # Teacher memory
     "TeacherChatSessionSummary",
     "TeacherMemory",
+    # Spaced repetition
+    "ReviewSchedule",
 ]

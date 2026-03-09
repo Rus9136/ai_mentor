@@ -28,6 +28,7 @@ from .homework import router as homework_router
 from .profile import router as profile_router
 from .exercises import router as exercises_router
 from .grades import router as grades_router
+from .reviews import router as reviews_router
 
 
 router = APIRouter()
@@ -61,3 +62,6 @@ router.include_router(exercises_router, tags=["Student Exercises"])
 
 # Grades (school gradebook, read-only)
 router.include_router(grades_router, tags=["Student Grades"])
+
+# Spaced repetition (review schedule)
+router.include_router(reviews_router, tags=["Student Reviews"])
