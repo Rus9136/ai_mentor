@@ -32,7 +32,7 @@ export function DataTableRowActions({
 }: DataTableRowActionsProps) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
         <Button
           variant="ghost"
           className="flex h-8 w-8 p-0 data-[state=open]:bg-muted"

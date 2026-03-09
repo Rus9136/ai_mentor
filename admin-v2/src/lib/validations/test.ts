@@ -12,10 +12,10 @@ export const testCreateSchema = z.object({
   chapter_id: z.number().int().positive().optional().nullable(),
   paragraph_id: z.number().int().positive().optional().nullable(),
   test_purpose: z.enum(['diagnostic', 'formative', 'summative', 'practice'], {
-    required_error: 'Выберите назначение теста',
+    message: 'Выберите назначение теста',
   }),
   difficulty: z.enum(['easy', 'medium', 'hard'], {
-    required_error: 'Выберите сложность',
+    message: 'Выберите сложность',
   }),
   time_limit: z.number().int().min(1).max(180).optional(),
   passing_score: z
@@ -55,7 +55,7 @@ export const questionOptionSchema = z.object({
 export const questionCreateSchema = z.object({
   sort_order: z.number().int().min(1),
   question_type: z.enum(['single_choice', 'multiple_choice', 'true_false', 'short_answer'], {
-    required_error: 'Выберите тип вопроса',
+    message: 'Выберите тип вопроса',
   }),
   question_text: z
     .string()
