@@ -389,8 +389,8 @@ async def get_student_progress(
 
     total_paragraphs = len(mastery_records)
     completed_paragraphs = sum(1 for m in mastery_records if m.is_completed)
-    mastered_paragraphs = sum(1 for m in mastery_records if m.status == 'mastered')
-    struggling_paragraphs = sum(1 for m in mastery_records if m.status == 'struggling')
+    mastered_paragraphs = sum(1 for m in mastery_records if m.effective_status == 'mastered')
+    struggling_paragraphs = sum(1 for m in mastery_records if m.effective_status == 'struggling')
 
     if mastery_records:
         average_score = sum(m.average_score or 0.0 for m in mastery_records) / len(mastery_records)
@@ -419,12 +419,14 @@ async def get_student_progress(
             "paragraph_id": mastery.paragraph_id,
             "paragraph_title": paragraph.title if paragraph else None,
             "paragraph_number": paragraph.number if paragraph else None,
-            "status": mastery.status,
-            "average_score": mastery.average_score,
+            "status": mastery.effective_status,
+            "effective_score": mastery.effective_score,
             "best_score": mastery.best_score,
+            "average_score": mastery.average_score,
             "is_completed": mastery.is_completed,
             "attempts_count": mastery.attempts_count,
-            "time_spent": mastery.time_spent
+            "time_spent": mastery.time_spent,
+            "needs_review": mastery.needs_review,
         })
 
     logger.info(

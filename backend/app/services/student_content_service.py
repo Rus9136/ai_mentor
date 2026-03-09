@@ -20,6 +20,7 @@ from app.models.textbook import Textbook
 from app.models.chapter import Chapter
 from app.models.paragraph import Paragraph
 from app.models.mastery import ParagraphMastery, ChapterMastery
+from app.models.learning import StudentParagraph
 from app.models.test import Test, TestPurpose
 from app.core.config import settings
 
@@ -313,17 +314,21 @@ class StudentContentService:
         student_id: int,
         textbook_ids: List[int]
     ) -> Dict[int, Optional[datetime]]:
-        """Batch query: last activity timestamp per textbook."""
+        """Batch query: last activity timestamp per textbook.
+
+        Uses StudentParagraph.last_accessed_at which is updated on every
+        interaction: paragraph read, step progression, self-assessment.
+        """
         result = await self.db.execute(
             select(
                 Chapter.textbook_id,
-                func.max(ParagraphMastery.last_updated_at).label('last_activity')
+                func.max(StudentParagraph.last_accessed_at).label('last_activity')
             )
-            .join(Paragraph, ParagraphMastery.paragraph_id == Paragraph.id)
+            .join(Paragraph, StudentParagraph.paragraph_id == Paragraph.id)
             .join(Chapter, Paragraph.chapter_id == Chapter.id)
             .where(
                 Chapter.textbook_id.in_(textbook_ids),
-                ParagraphMastery.student_id == student_id
+                StudentParagraph.student_id == student_id
             )
             .group_by(Chapter.textbook_id)
         )
@@ -598,6 +603,9 @@ class StudentContentService:
                 "paragraph": para,
                 "status": para_status,
                 "practice_score": mastery.get("best_score"),
+                "effective_score": mastery.get("effective_score"),
+                "effective_status": mastery.get("effective_status"),
+                "needs_review": mastery.get("needs_review", False),
                 "estimated_time": estimated_time,
                 "has_practice": has_practice.get(pid, False),
             })
@@ -626,6 +634,9 @@ class StudentContentService:
             m.paragraph_id: {
                 "is_completed": m.is_completed,
                 "best_score": m.best_score,
+                "effective_score": m.effective_score,
+                "effective_status": m.effective_status,
+                "needs_review": m.needs_review,
             }
             for m in mastery_records
         }

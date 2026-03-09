@@ -34,8 +34,13 @@ class ParagraphMasteryResponse(BaseModel):
     is_completed: bool = Field(False, description="Whether paragraph is marked as completed")
     completed_at: Optional[datetime] = Field(None, description="When paragraph was completed")
 
-    # Status: 'struggling', 'progressing', 'mastered'
-    status: str = Field("progressing", description="Mastery status")
+    # Status: 'struggling', 'progressing', 'mastered' (set at test time)
+    status: str = Field("progressing", description="Mastery status (at test time, does not decay)")
+
+    # Time Decay fields
+    effective_score: float = Field(0.0, description="Best score with time decay (0.0-1.0). Decreases without reinforcement")
+    effective_status: str = Field("struggling", description="Mastery status based on decayed score")
+    needs_review: bool = Field(False, description="True if mastered paragraph has decayed significantly (>15%)")
 
     # Timestamps
     last_updated_at: datetime = Field(..., description="Last update timestamp")

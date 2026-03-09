@@ -44,7 +44,8 @@ class PersonalizationService:
         params = base_params.model_copy()
 
         if mastery:
-            if mastery.status == "mastered":
+            effective = mastery.effective_status
+            if effective == "mastered":
                 # High level - harder questions
                 params.bloom_levels = [
                     BloomLevel.ANALYZE,
@@ -53,7 +54,7 @@ class PersonalizationService:
                 ]
                 params.questions_count = max(3, params.questions_count - 2)
 
-            elif mastery.status == "progressing":
+            elif effective == "progressing":
                 # Medium level - standard
                 params.bloom_levels = [
                     BloomLevel.UNDERSTAND,

@@ -196,9 +196,9 @@ class LessonPlanService:
         )
         masteries = mastery_result.scalars().all()
 
-        count_a = sum(1 for m in masteries if m.status == "mastered")
-        count_b = sum(1 for m in masteries if m.status == "progressing")
-        count_c = sum(1 for m in masteries if m.status == "struggling")
+        count_a = sum(1 for m in masteries if m.effective_status == "mastered")
+        count_b = sum(1 for m in masteries if m.effective_status == "progressing")
+        count_c = sum(1 for m in masteries if m.effective_status == "struggling")
         total = len(student_ids)
 
         return {

@@ -6,6 +6,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 
 from app.models.base import BaseModel
+from app.utils.mastery_decay import calculate_effective_score, get_effective_status, needs_review
 
 
 class MasteryHistory(BaseModel):
@@ -85,11 +86,30 @@ class ParagraphMastery(BaseModel):
     is_completed = Column(Boolean, nullable=False, default=False, server_default='false')
     completed_at = Column(DateTime(timezone=True), nullable=True)
 
-    # Status: struggling, progressing, mastered
+    # Status: struggling, progressing, mastered (set at test time, does not decay)
     status = Column(String(20), nullable=False, default='progressing', server_default='progressing', index=True)
 
     # Timestamps
     last_updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, server_default='now()')
+
+    @property
+    def effective_score(self) -> float:
+        """Best score with time decay applied. Decreases without reinforcement."""
+        if not self.best_score or not self.last_updated_at:
+            return 0.0
+        return calculate_effective_score(self.best_score, self.last_updated_at)
+
+    @property
+    def effective_status(self) -> str:
+        """Mastery status based on effective (decayed) score."""
+        return get_effective_status(self.effective_score)
+
+    @property
+    def needs_review(self) -> bool:
+        """True if this mastered paragraph has decayed significantly (>15%)."""
+        if not self.best_score or not self.last_updated_at:
+            return False
+        return needs_review(self.best_score, self.last_updated_at)
 
     def __repr__(self) -> str:
         return f"<ParagraphMastery(id={self.id}, student_id={self.student_id}, paragraph_id={self.paragraph_id}, status='{self.status}')>"
