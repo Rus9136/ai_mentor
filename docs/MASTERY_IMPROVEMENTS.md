@@ -7,7 +7,7 @@
 3. [Блок 1: Time Decay (временное затухание)](#3-блок-1-time-decay-временное-затухание) — **ВЫПОЛНЕНО**
 4. [Блок 2: Spaced Repetition (интервальное повторение)](#4-блок-2-spaced-repetition-интервальное-повторение) — **ВЫПОЛНЕНО**
 5. [Блок 3: Паттерны самооценки (Metacognitive Coaching)](#5-блок-3-паттерны-самооценки-metacognitive-coaching)
-6. [Блок 4: Provisional статус для новых учеников](#6-блок-4-provisional-статус-для-новых-учеников)
+6. [Блок 4: Provisional статус для новых учеников](#6-блок-4-provisional-статус-для-новых-учеников) — **ВЫПОЛНЕНО**
 7. [Блок 5: Knowledge Graph (граф зависимостей)](#7-блок-5-knowledge-graph-граф-зависимостей)
 8. [Блок 6: Confidence-Weighted Mastery (BKT)](#8-блок-6-confidence-weighted-mastery-bkt)
 9. [Блок 7: Difficulty-Weighted Scoring (Bloom's Taxonomy)](#9-блок-7-difficulty-weighted-scoring-blooms-taxonomy)
@@ -372,9 +372,9 @@ ALTER TABLE students ADD COLUMN metacognitive_updated_at TIMESTAMP DEFAULT NULL;
 
 ---
 
-## 6. Блок 4: Provisional статус для новых учеников
+## 6. Блок 4: Provisional статус для новых учеников — ВЫПОЛНЕНО
 
-### Приоритет: СРЕДНИЙ | Сложность: НИЗКАЯ
+### Приоритет: СРЕДНИЙ | Сложность: НИЗКАЯ | Статус: ВЫПОЛНЕНО
 
 ### Проблема
 
@@ -416,6 +416,25 @@ ALTER TABLE chapter_mastery ADD COLUMN is_provisional BOOLEAN DEFAULT FALSE;
 ### UI-индикация
 
 Provisional статус показывается с пометкой: "Предварительная оценка (нужно ещё N тестов для точного определения)".
+
+### Реализация (выполнено)
+
+**Подход:** Вместо дефолтного C/0.0 для <3 попыток, вычисляется provisional оценка по среднему баллу имеющихся попыток. Никогда не назначается уровень A (недостаточно данных для уверенности). Помечается флагом `is_provisional=True`.
+
+**Файлы:**
+
+| Файл | Изменение |
+|------|-----------|
+| `backend/app/models/mastery.py` | Новая колонка `is_provisional` в ChapterMastery |
+| `backend/app/services/mastery_service.py` | Новый метод `_determine_provisional_level()`, передача `is_provisional` в update |
+| `backend/app/schemas/mastery.py` | Поле `is_provisional` в ChapterMasteryResponse и ChapterMasteryDetailResponse |
+| `backend/alembic/versions/045_provisional_mastery.py` | ALTER TABLE chapter_mastery ADD COLUMN is_provisional |
+
+**Логика:**
+- 0 попыток → C/0.0 (provisional)
+- 1-2 попытки, avg ≥ 60% → B/avg (provisional)
+- 1-2 попытки, avg < 60% → C/avg (provisional)
+- ≥ 3 попыток → полный A/B/C алгоритм (not provisional)
 
 ---
 
@@ -683,7 +702,7 @@ BKT — дополнительная точность для опытных по
 | 1 | Time Decay | Высокий | Низкая | Высокая | 1 | **ВЫПОЛНЕНО** |
 | 2 | Spaced Repetition | Очень высокий | Средняя | Очень высокая | 2 | **ВЫПОЛНЕНО** |
 | 3 | Паттерны самооценки | Средний | Низкая | Средняя | 3 | — |
-| 4 | Provisional статус | Средний | Низкая | Средняя | 1 | — |
+| 4 | Provisional статус | Средний | Низкая | Средняя | 1 | **ВЫПОЛНЕНО** |
 | 5 | Knowledge Graph | Высокий | Высокая | Высокая | 4 | — |
 | 6 | Confidence-Weighted (BKT) | Средний | Средняя | Средняя | 4 | — |
 | 7 | Bloom's Taxonomy | Низкий | Средняя | Средняя | 5 | — |

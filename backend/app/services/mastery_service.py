@@ -314,6 +314,36 @@ class MasteryService:
         variance = sum((s - avg) ** 2 for s in scores) / len(scores)
         return variance ** 0.5
 
+    def _determine_provisional_level(
+        self,
+        attempts: List[TestAttempt],
+    ) -> Tuple[str, float]:
+        """
+        Determine provisional mastery level for < 3 attempts.
+
+        Instead of defaulting to C, estimate based on available data:
+        - avg >= 85 → B (not A, insufficient confidence)
+        - avg >= 60 → B
+        - avg < 60  → C
+
+        Never assigns A with < 3 attempts (insufficient data for confidence).
+
+        Args:
+            attempts: List of test attempts (1-2 items)
+
+        Returns:
+            Tuple of (mastery_level, mastery_score)
+        """
+        if not attempts:
+            return ('C', 0.0)
+
+        avg = sum(a.score * 100 for a in attempts) / len(attempts)
+
+        if avg >= 60:
+            return ('B', round(avg, 2))
+        else:
+            return ('C', round(avg, 2))
+
     def _determine_mastery_level(
         self,
         weighted_avg: float,
@@ -393,20 +423,23 @@ class MasteryService:
 
         logger.info(f"Found {len(attempts)} completed attempts for chapter {chapter_id}")
 
-        # 2. Insufficient data → default to C
+        # 2. Insufficient data → provisional estimate
         if len(attempts) < 3:
+            level, score = self._determine_provisional_level(attempts)
             logger.info(
-                f"Insufficient data ({len(attempts)} attempts), defaulting to C, 0.0"
+                f"Provisional estimate ({len(attempts)} attempts): "
+                f"level={level}, score={score:.2f}"
             )
             await self._update_chapter_mastery_record(
                 student_id=student_id,
                 chapter_id=chapter_id,
                 school_id=school_id,
-                mastery_level='C',
-                mastery_score=0.0,
-                test_attempt=test_attempt
+                mastery_level=level,
+                mastery_score=score,
+                test_attempt=test_attempt,
+                is_provisional=True,
             )
-            return ('C', 0.0)
+            return (level, score)
 
         # 3. Calculate metrics
         weighted_avg = self._calculate_weighted_average(attempts)
@@ -430,7 +463,8 @@ class MasteryService:
             school_id=school_id,
             mastery_level=level,
             mastery_score=score,
-            test_attempt=test_attempt
+            test_attempt=test_attempt,
+            is_provisional=False,
         )
 
         # 6. Create history if changed
@@ -451,7 +485,8 @@ class MasteryService:
         school_id: int,
         mastery_level: str,
         mastery_score: float,
-        test_attempt: Optional[TestAttempt] = None
+        test_attempt: Optional[TestAttempt] = None,
+        is_provisional: bool = False,
     ) -> ChapterMastery:
         """
         Update ChapterMastery record with all fields.
@@ -504,6 +539,7 @@ class MasteryService:
         update_fields = {
             "mastery_level": mastery_level,
             "mastery_score": mastery_score,
+            "is_provisional": is_provisional,
             "progress_percentage": progress_pct,
 
             # Paragraph counters

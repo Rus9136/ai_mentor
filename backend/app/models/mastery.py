@@ -142,6 +142,7 @@ class ChapterMastery(BaseModel):
     # A/B/C Group
     mastery_level = Column(String(1), nullable=False, default='C', server_default='C', index=True)  # A, B, or C
     mastery_score = Column(Float, nullable=False, default=0.0, server_default='0.0')  # 0-100
+    is_provisional = Column(Boolean, nullable=False, default=False, server_default='false')  # True if < 3 attempts
 
     # Progress tracking
     progress_percentage = Column(Integer, nullable=False, default=0, server_default='0')  # 0-100

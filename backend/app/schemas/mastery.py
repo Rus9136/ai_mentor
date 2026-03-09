@@ -77,6 +77,7 @@ class ChapterMasteryResponse(BaseModel):
     # A/B/C Mastery Level (Iteration 8 algorithm)
     mastery_level: str = Field("C", description="Mastery level (A, B, or C)")
     mastery_score: float = Field(0.0, description="Mastery score (0.0-100.0)")
+    is_provisional: bool = Field(False, description="True if < 3 attempts (preliminary estimate)")
 
     # Progress tracking
     progress_percentage: int = Field(0, description="Progress percentage (0-100)")
@@ -112,6 +113,7 @@ class ChapterMasteryDetailResponse(BaseModel):
     # A/B/C Mastery Level
     mastery_level: str = Field("C", description="Mastery level (A, B, or C)")
     mastery_score: float = Field(0.0, description="Mastery score (0.0-100.0)")
+    is_provisional: bool = Field(False, description="True if < 3 attempts (preliminary estimate)")
 
     # Progress tracking
     progress_percentage: int = Field(0, description="Progress percentage (0-100)")
