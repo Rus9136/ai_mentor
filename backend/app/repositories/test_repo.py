@@ -99,20 +99,24 @@ class TestRepository:
         if chapter_id is not None:
             filters.append(Test.chapter_id == chapter_id)
 
-        # Base query
-        query = select(Test).where(and_(*filters))
-
         # Count total before pagination
-        count_query = select(func.count()).select_from(query.subquery())
+        count_query = select(func.count()).select_from(
+            select(Test).where(and_(*filters)).subquery()
+        )
         total = (await self.db.execute(count_query)).scalar() or 0
 
-        # Apply ordering and pagination
-        query = query.order_by(Test.difficulty, Test.title)
-        offset = (page - 1) * page_size
-        query = query.offset(offset).limit(page_size)
+        # Main query with joins for textbook/chapter names
+        query = (
+            select(Test)
+            .where(and_(*filters))
+            .options(joinedload(Test.textbook), joinedload(Test.chapter))
+            .order_by(Test.difficulty, Test.title)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
 
         result = await self.db.execute(query)
-        tests = list(result.scalars().all())
+        tests = list(result.unique().scalars().all())
 
         return tests, total
 
@@ -220,20 +224,24 @@ class TestRepository:
         if chapter_id is not None:
             filters.append(Test.chapter_id == chapter_id)
 
-        # Base query
-        query = select(Test).where(and_(*filters))
-
         # Count total before pagination
-        count_query = select(func.count()).select_from(query.subquery())
+        count_query = select(func.count()).select_from(
+            select(Test).where(and_(*filters)).subquery()
+        )
         total = (await self.db.execute(count_query)).scalar() or 0
 
-        # Apply ordering and pagination
-        query = query.order_by(Test.difficulty, Test.title)
-        offset = (page - 1) * page_size
-        query = query.offset(offset).limit(page_size)
+        # Main query with joins for textbook/chapter names
+        query = (
+            select(Test)
+            .where(and_(*filters))
+            .options(joinedload(Test.textbook), joinedload(Test.chapter))
+            .order_by(Test.difficulty, Test.title)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
 
         result = await self.db.execute(query)
-        tests = list(result.scalars().all())
+        tests = list(result.unique().scalars().all())
 
         return tests, total
 

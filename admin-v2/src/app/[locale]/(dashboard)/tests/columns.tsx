@@ -105,39 +105,31 @@ export function getColumns({
       },
     },
     {
-      accessorKey: 'textbook_id',
+      accessorKey: 'textbook_title',
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Учебник" />
       ),
       cell: ({ row }) => {
-        const textbookId = row.getValue('textbook_id') as number | null;
-        return textbookId ? (
-          <Badge variant="outline">ID: {textbookId}</Badge>
+        const title = row.getValue('textbook_title') as string | null;
+        return title ? (
+          <div className="max-w-[200px] truncate">{title}</div>
         ) : (
           <span className="text-muted-foreground">—</span>
         );
       },
-      filterFn: (row, id, value) => {
-        if (!value) return true;
-        return row.getValue(id) === value;
-      },
     },
     {
-      accessorKey: 'chapter_id',
+      accessorKey: 'chapter_title',
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Глава" />
       ),
       cell: ({ row }) => {
-        const chapterId = row.getValue('chapter_id') as number | null;
-        return chapterId ? (
-          <Badge variant="outline">ID: {chapterId}</Badge>
+        const title = row.getValue('chapter_title') as string | null;
+        return title ? (
+          <div className="max-w-[200px] truncate">{title}</div>
         ) : (
           <span className="text-muted-foreground">—</span>
         );
-      },
-      filterFn: (row, id, value) => {
-        if (!value) return true;
-        return row.getValue(id) === value;
       },
     },
     {

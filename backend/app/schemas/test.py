@@ -73,10 +73,35 @@ class TestListResponse(BaseModel):
     textbook_id: Optional[int]
     chapter_id: Optional[int]
     title: str
+    description: Optional[str] = None
     test_purpose: TestPurpose
     difficulty: DifficultyLevel
+    time_limit: Optional[int] = None
+    passing_score: float
     is_active: bool
     created_at: datetime
+    textbook_title: Optional[str] = None
+    chapter_title: Optional[str] = None
+
+    @classmethod
+    def from_test(cls, test) -> "TestListResponse":
+        """Build from ORM Test object with loaded relationships."""
+        return cls(
+            id=test.id,
+            school_id=test.school_id,
+            textbook_id=test.textbook_id,
+            chapter_id=test.chapter_id,
+            title=test.title,
+            description=test.description,
+            test_purpose=test.test_purpose,
+            difficulty=test.difficulty,
+            time_limit=test.time_limit,
+            passing_score=test.passing_score,
+            is_active=test.is_active,
+            created_at=test.created_at,
+            textbook_title=test.textbook.title if test.textbook else None,
+            chapter_title=test.chapter.title if test.chapter else None,
+        )
 
 
 # =============================================================================

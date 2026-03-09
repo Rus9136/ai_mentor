@@ -54,8 +54,9 @@ async def list_school_tests(
         chapter_id=chapter_id,
     )
 
+    items = [TestListResponse.from_test(t) for t in tests]
     return PaginatedResponse.create(
-        items=tests,
+        items=items,
         total=total,
         page=pagination.page,
         page_size=pagination.page_size,

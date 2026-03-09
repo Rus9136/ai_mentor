@@ -128,7 +128,8 @@ async def list_global_tests(
         page_size=pagination.page_size,
         chapter_id=chapter_id,
     )
-    return PaginatedResponse.create(tests, total, pagination.page, pagination.page_size)
+    items = [TestListResponse.from_test(t) for t in tests]
+    return PaginatedResponse.create(items, total, pagination.page, pagination.page_size)
 
 
 @router.get("/tests/{test_id}", response_model=TestResponse)

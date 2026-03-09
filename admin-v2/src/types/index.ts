@@ -180,9 +180,11 @@ export interface Test {
   passing_score: number;
   is_active: boolean;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
   deleted_at?: string | null;
-  is_deleted: boolean;
+  is_deleted?: boolean;
+  textbook_title?: string | null;
+  chapter_title?: string | null;
 }
 
 export interface TestCreate {
