@@ -709,10 +709,13 @@ class StudentContentService:
         )
         mastery_map = {m.paragraph_id: m for m in mastery_result.scalars().all()}
 
-        # 4. Batch fetch prerequisite paragraph info (title, number, chapter)
+        # 4. Batch fetch prerequisite paragraph info (title, number, chapter, textbook)
         para_result = await self.db.execute(
             select(Paragraph)
-            .options(selectinload(Paragraph.chapter))
+            .options(
+                selectinload(Paragraph.chapter)
+                .selectinload(Chapter.textbook)
+            )
             .where(Paragraph.id.in_(prereq_para_ids))
         )
         para_map = {p.id: p for p in para_result.scalars().all()}
@@ -731,11 +734,14 @@ class StudentContentService:
             if effective < PREREQUISITE_THRESHOLD:
                 para = para_map.get(pid)
                 chapter = para.chapter if para else None
+                textbook = chapter.textbook if chapter else None
                 warnings[prereq.paragraph_id].append({
                     "paragraph_id": pid,
                     "paragraph_title": para.title if para else None,
                     "paragraph_number": para.number if para else None,
                     "chapter_title": chapter.title if chapter else None,
+                    "textbook_title": textbook.title if textbook else None,
+                    "grade_level": textbook.grade_level if textbook else None,
                     "current_score": round(effective, 4),
                     "strength": prereq.strength,
                     "recommendation": (

@@ -12,6 +12,7 @@
 8. [Блок 6: Confidence-Weighted Mastery (BKT)](#8-блок-6-confidence-weighted-mastery-bkt)
 9. [Блок 7: Difficulty-Weighted Scoring (Bloom's Taxonomy)](#9-блок-7-difficulty-weighted-scoring-blooms-taxonomy)
 10. [Дорожная карта внедрения](#10-дорожная-карта-внедрения)
+11. [Frontend: Student App — блоки 1-5](#11-frontend-student-app--задачи-по-блокам-1-5) — **ВЫПОЛНЕНО**
 
 ---
 
@@ -525,7 +526,7 @@ async def check_prerequisites(student_id: int, paragraph_id: int) -> list[dict]:
 
 ### Реализация (выполнено)
 
-**Подход:** Таблица `paragraph_prerequisites` хранит направленные связи между параграфами одного учебника. При запросе списка параграфов ученик видит warnings для unmet prerequisites (effective_score < 0.60). SUPER_ADMIN управляет связями. Учитель получает аналитику по prerequisite gaps класса.
+**Подход:** Таблица `paragraph_prerequisites` хранит направленные связи между параграфами **в рамках одного предмета** (кросс-учебниковые связи разрешены). Например, параграф из Алгебры 9 может зависеть от параграфа из Алгебры 7. При запросе списка параграфов ученик видит warnings для unmet prerequisites (effective_score < 0.60). SUPER_ADMIN управляет связями. Учитель получает аналитику по prerequisite gaps класса.
 
 **Файлы:**
 
@@ -533,24 +534,30 @@ async def check_prerequisites(student_id: int, paragraph_id: int) -> list[dict]:
 |------|-----------|
 | `backend/alembic/versions/047_paragraph_prerequisites.py` | Новый — CREATE TABLE с UNIQUE, CHECK, индексы, GRANT (без RLS — глобальный контент) |
 | `backend/app/models/prerequisite.py` | Новый — ORM модель ParagraphPrerequisite (paragraph_id, prerequisite_paragraph_id, strength) |
-| `backend/app/repositories/prerequisite_repo.py` | Новый — CRUD + batch queries: get_prerequisites_batch, get_by_textbook, cycle detection graph |
-| `backend/app/schemas/prerequisite.py` | Новый — Admin CRUD, Student check (PrerequisiteWarning, PrerequisiteCheckResponse), Teacher analytics |
-| `backend/app/services/prerequisite_service.py` | Новый — check_prerequisites(), add_prerequisite() с валидацией (same textbook, no cycles), teacher analytics |
+| `backend/app/repositories/prerequisite_repo.py` | Новый — CRUD + batch queries: get_prerequisites_batch, get_by_textbook, `get_all_prerequisites_for_subject()` для cycle detection по всем учебникам предмета |
+| `backend/app/schemas/prerequisite.py` | Новый — Admin CRUD, Student check (PrerequisiteWarning, PrerequisiteCheckResponse), Teacher analytics. Поля `textbook_title`, `grade_level` для кросс-учебниковых связей |
+| `backend/app/services/prerequisite_service.py` | Новый — check_prerequisites(), add_prerequisite() с валидацией (**same subject**, no cycles), teacher analytics |
 | `backend/app/api/v1/admin_global/prerequisites.py` | Новый — SUPER_ADMIN CRUD: list/add/delete prerequisites, textbook graph |
 | `backend/app/api/v1/students/prerequisites.py` | Новый — GET /paragraphs/{id}/prerequisites (check before starting) |
-| `backend/app/services/student_content_service.py` | Интеграция — batch prerequisite warnings в список параграфов (2 доп. запроса) |
+| `backend/app/services/student_content_service.py` | Интеграция — batch prerequisite warnings в список параграфов (3 доп. запроса: prerequisites, mastery, paragraph info с textbook) |
 | `backend/app/api/v1/teachers.py` | Новый endpoint — GET /analytics/prerequisites/{id}?class_id=X |
 | `backend/app/models/__init__.py` | Регистрация ParagraphPrerequisite |
 | `backend/app/api/v1/students/__init__.py` | Подключение prerequisites router |
 | `backend/app/api/v1/admin_global/__init__.py` | Подключение prerequisites router |
+| `admin-v2/src/lib/api/prerequisites.ts` | Новый — API клиент: getList, create, delete, getTextbookGraph. Интерфейс с `prerequisite_textbook_title`, `prerequisite_grade_level` |
+| `admin-v2/src/lib/hooks/use-prerequisites.ts` | Новый — React Query хуки: usePrerequisites, useCreatePrerequisite, useDeletePrerequisite |
+| `admin-v2/src/components/textbooks/prerequisites-section.tsx` | Новый — Card компонент: picker загружает параграфы из **всех учебников предмета**, группирует по учебнику; кросс-учебниковые связи показывают название учебника и класс |
+| `admin-v2/src/components/textbooks/paragraph-dialog.tsx` | Интеграция — PrerequisitesSection при редактировании глобальных параграфов, проброс `subjectId` |
+| `admin-v2/src/components/textbooks/structure-editor.tsx` | Проброс textbookId через ChapterItem → ParagraphDialog |
 
 **Ключевые решения:**
-- Нет school_id / RLS — prerequisites определяются на уровне учебника (глобальный контент), управляется SUPER_ADMIN
-- Валидация same-textbook на уровне сервиса (paragraph → chapter → textbook)
-- Детекция циклов через BFS (max depth 10) — при добавлении связи проверяется, не создаст ли она цикл
+- Нет school_id / RLS — prerequisites определяются на уровне предмета (глобальный контент), управляется SUPER_ADMIN
+- **Валидация same-subject** на уровне сервиса (paragraph → chapter → textbook → subject_id). Кросс-учебниковые связи разрешены в рамках одного предмета (например, Алгебра 7 → Алгебра 9)
+- Детекция циклов через BFS (max depth 10) **по всем учебникам предмета** — при добавлении связи проверяется, не создаст ли она цикл даже через другие учебники
 - Threshold: effective_score >= 0.60 (progressing+) означает "prerequisite met"
-- Batch queries в student_content_service для N+1 prevention (prerequisites IN + mastery IN)
+- Batch queries в student_content_service для N+1 prevention (prerequisites IN + mastery IN + paragraph info IN)
 - `can_proceed: false` если required prerequisite unmet, `true` для recommended
+- Ответы API включают `textbook_title` / `grade_level` для отображения кросс-учебниковых связей
 
 **API эндпоинты:**
 - `GET /api/v1/admin/global/paragraphs/{id}/prerequisites` — список prerequisites (SUPER_ADMIN)
@@ -752,14 +759,331 @@ BKT — дополнительная точность для опытных по
 
 ---
 
+## 11. Frontend: Student App — задачи по блокам 1-5 — ВЫПОЛНЕНО
+
+Все 5 блоков реализованы на бэкенде и фронтенде. Ниже — описание реализованных задач.
+
+### Общие файлы student-app (для ориентации)
+
+| Файл / Папка | Назначение |
+|--------------|------------|
+| `student-app/src/app/[locale]/(app)/home/page.tsx` | Главная страница ученика |
+| `student-app/src/app/[locale]/(app)/paragraphs/[id]/page.tsx` | Страница параграфа (learning flow) |
+| `student-app/src/components/profile/MasteryOverview.tsx` | Компонент A/B/C бейджей |
+| `student-app/src/components/learning/SelfAssessment.tsx` | Самооценка (understood/questions/difficult) |
+| `student-app/src/components/learning/CompletionScreen.tsx` | Экран завершения параграфа |
+| `student-app/src/lib/api/textbooks.ts` | API клиент для учебников/параграфов |
+| `student-app/src/lib/api/profile.ts` | API клиент для профиля/mastery |
+| `student-app/src/lib/hooks/use-textbooks.ts` | React Query хуки |
+| `student-app/src/lib/hooks/use-profile.ts` | React Query хуки для профиля |
+| `student-app/messages/ru.json`, `kk.json` | Локализации (ru, kk) |
+
+---
+
+### 11.1 Frontend: Time Decay (Блок 1) — ВЫПОЛНЕНО
+
+**Приоритет: ВЫСОКИЙ | Сложность: НИЗКАЯ | Статус: ВЫПОЛНЕНО**
+
+**Что сделано:** API теперь возвращает `effective_score`, `effective_status`, `needs_review` в `StudentParagraphResponse`, фронтенд использует эти поля.
+
+**Задачи:**
+
+#### 11.1.1 Использовать `effective_score` вместо `best_score` во всех student-facing отображениях
+
+Везде, где показывается прогресс/балл по параграфу, использовать `effective_score` (с decay) вместо `best_score` (исторический максимум).
+
+#### 11.1.2 Индикатор "нужно повторение" на параграфах
+
+На списке параграфов (`paragraphs/[id]`, хлебные крошки, карточки) показывать значок если `needs_review = true`:
+
+```
+Параграф §5. Квадратные уравнения  🔄 Нужно повторение
+Последний тест: 3 месяца назад
+```
+
+**UI-поведение:**
+- Параграфы с `needs_review = true` получают badge / иконку (например, `RefreshCw` из lucide)
+- Tooltip: "Последний тест N дней/месяцев назад. Повтори, чтобы закрепить знания"
+- Цвет прогресс-бара может тускнеть пропорционально decay
+
+#### 11.1.3 Прогресс-сводка по effective_status
+
+На странице textbook/chapter считать `mastered`/`progressing`/`struggling` по `effective_status`, а не по историческому `status`.
+
+**Backend API (уже готов):**
+- `GET /api/v1/students/paragraphs/{id}` → `ParagraphMasteryResponse` с полями `effective_score`, `effective_status`, `needs_review`
+
+---
+
+### 11.2 Frontend: Spaced Repetition (Блок 2) — ВЫПОЛНЕНО
+
+**Приоритет: ОЧЕНЬ ВЫСОКИЙ | Сложность: ВЫСОКАЯ | Статус: ВЫПОЛНЕНО**
+
+**Что сделано:** Секция "Повторение" на главной странице, API клиент и React Query хуки.
+
+**Задачи:**
+
+#### 11.2.1 Секция "Повторение" на главной странице
+
+На `home/page.tsx` добавить карточку между приветствием и списком учебников:
+
+```
+┌─────────────────────────────────────────┐
+│  🔄 Повторение (3 темы на сегодня)      │
+│                                         │
+│  ● §5. Квадратные уравнения    [2 мин]  │
+│  ● §8. Неравенства             [2 мин]  │
+│  ● §12. Системы уравнений      [3 мин]  │
+│                                         │
+│  На этой неделе: 5 тем                  │
+│  [Начать повторение →]                  │
+└─────────────────────────────────────────┘
+```
+
+Данные: `GET /api/v1/students/reviews/due` → `DueReviewsResponse`
+
+```typescript
+interface DueReviewsResponse {
+  due_today: ReviewItemResponse[];    // параграфы на сегодня
+  due_today_count: number;
+  upcoming_week_count: number;
+  total_active: number;
+}
+
+interface ReviewItemResponse {
+  id: number;
+  paragraph_id: number;
+  paragraph_title: string | null;
+  paragraph_number: string | null;
+  chapter_title: string | null;
+  textbook_title: string | null;
+  streak: number;               // Leitner level 0-6
+  next_review_date: string;
+  best_score: number | null;
+  effective_score: number | null;
+}
+```
+
+#### 11.2.2 Страница/модал мини-теста (Review Quiz)
+
+При нажатии на параграф в секции "Повторение" — открыть мини-тест (3-5 вопросов).
+
+**Вариант А:** Отдельная страница `/reviews/[paragraphId]`
+**Вариант Б:** Модальное окно поверх главной
+
+После завершения отправить результат:
+- `POST /api/v1/students/reviews/{paragraph_id}/complete` → `{ score: 0.85 }`
+
+Ответ `ReviewResultResponse`:
+```typescript
+interface ReviewResultResponse {
+  paragraph_id: number;
+  passed: boolean;           // score >= 0.80
+  score: number;
+  new_streak: number;        // Leitner level после обновления
+  next_review_date: string;  // когда следующее повторение
+  message: string;           // "Отлично! Следующее повторение через 7 дней"
+}
+```
+
+UI после завершения:
+- ✅ Passed: "Отлично! Следующее повторение через N дней" (зелёный)
+- ❌ Failed: "Нужно повторить. Следующая попытка через N дней" (оранжевый)
+
+#### 11.2.3 Статистика повторений
+
+На странице профиля или отдельная секция:
+- `GET /api/v1/students/reviews/stats` → `ReviewStatsResponse`
+
+```
+Активных тем: 12
+На сегодня: 3
+На этой неделе: 7
+Всего повторений: 45
+Успешность: 82%
+Средний streak: 3.2
+```
+
+#### 11.2.4 Новые файлы
+
+| Файл | Назначение |
+|------|------------|
+| `student-app/src/lib/api/reviews.ts` | API клиент: getDueReviews, completeReview, getReviewStats |
+| `student-app/src/lib/hooks/use-reviews.ts` | React Query хуки: useDueReviews, useCompleteReview, useReviewStats |
+| `student-app/src/components/reviews/ReviewCard.tsx` | Карточка секции "Повторение" на главной |
+| `student-app/src/components/reviews/ReviewQuiz.tsx` | Мини-тест (модал или страница) |
+| `student-app/src/components/reviews/ReviewResult.tsx` | Экран результата после мини-теста |
+| `student-app/messages/ru.json` → `reviews.*` | Локализация ru |
+| `student-app/messages/kk.json` → `reviews.*` | Локализация kk |
+
+---
+
+### 11.3 Frontend: Metacognitive Coaching (Блок 3) — ВЫПОЛНЕНО
+
+**Приоритет: СРЕДНИЙ | Сложность: НИЗКАЯ | Статус: ВЫПОЛНЕНО**
+
+**Что сделано:** Coaching-сообщение на экране завершения параграфа. API клиент и хук для `/students/metacognitive`.
+
+**Задачи:**
+
+#### 11.3.1 Coaching-сообщение после самооценки
+
+На `CompletionScreen.tsx` после отправки самооценки показать coaching-сообщение, если `metacognitive_pattern` определён:
+
+```
+Паттерн              | Сообщение ученику
+---------------------|-------------------------------------------
+overconfident        | "Ты часто оцениваешь себя выше тестов.
+                     |  Попробуй ответить на контрольный вопрос
+                     |  перед самооценкой."
+underconfident       | "Ты знаешь больше, чем думаешь!
+                     |  Результаты стабильно выше 80%.
+                     |  Доверяй себе 💪"
+well_calibrated      | "Отличная самооценка! Ты хорошо
+                     |  понимаешь свой уровень знаний 🎯"
+```
+
+**Backend API:**
+- `GET /api/v1/students/metacognitive` → `{ pattern: "overconfident" | "underconfident" | "well_calibrated" | null, message_ru: string, message_kk: string }`
+
+#### 11.3.2 Карточка в профиле
+
+На странице профиля ученика — мини-карточка "Навык самооценки":
+- Иконка паттерна (🎯 / ⚠️ / 💪)
+- Краткое описание
+- Опционально: прогресс-бар калибровки
+
+---
+
+### 11.4 Frontend: Provisional Status (Блок 4) — ВЫПОЛНЕНО
+
+**Приоритет: СРЕДНИЙ | Сложность: ОЧЕНЬ НИЗКАЯ | Статус: ВЫПОЛНЕНО**
+
+**Что сделано:** `is_provisional` отображается на бейджах A/B/C с пометкой `*` и подписью "Предварительная оценка".
+
+**Задачи:**
+
+#### 11.4.1 Пометка "(предварительная оценка)" на A/B/C бейджах
+
+В `MasteryOverview.tsx` (`MasteryBadge`, `ChapterMasteryItem`):
+
+```tsx
+// Было:
+<span className="rounded-full px-2 py-0.5 text-xs font-bold ...">
+  {level}
+</span>
+
+// Стало (если is_provisional):
+<span className="rounded-full px-2 py-0.5 text-xs font-bold ... opacity-70 border-dashed">
+  {level}*
+</span>
+<span className="text-xs text-muted-foreground">
+  (предварительная оценка — нужно ещё {3 - attempts_count} тестов)
+</span>
+```
+
+**Минимальные изменения:**
+1. `MasteryOverview.tsx` — проверить `chapter.is_provisional` и показать пометку
+2. Локализации — ключ `mastery.provisional_hint`
+
+---
+
+### 11.5 Frontend: Knowledge Graph / Prerequisites (Блок 5) — ВЫПОЛНЕНО
+
+**Приоритет: ВЫСОКИЙ | Сложность: СРЕДНЯЯ | Статус: ВЫПОЛНЕНО**
+
+**Что сделано:** Баннер предупреждения перед параграфом, индикаторы в списке параграфов, API клиент и хук.
+
+**Задачи:**
+
+#### 11.5.1 Проверка prerequisites перед началом параграфа
+
+На странице параграфа (`paragraphs/[id]/page.tsx`) перед началом обучения вызвать:
+- `GET /api/v1/students/paragraphs/{id}/prerequisites` → `PrerequisiteCheckResponse`
+
+```typescript
+interface PrerequisiteCheckResponse {
+  paragraph_id: number;
+  has_warnings: boolean;
+  warnings: PrerequisiteWarning[];
+  can_proceed: boolean;   // false если required prerequisite unmet
+}
+
+interface PrerequisiteWarning {
+  paragraph_id: number;
+  paragraph_title: string | null;
+  paragraph_number: number | null;
+  chapter_title: string | null;
+  textbook_title: string | null;
+  grade_level: number | null;
+  current_score: number;    // effective_score ученика
+  strength: 'required' | 'recommended';
+  recommendation: 'review_first' | 'consider_review';
+}
+```
+
+#### 11.5.2 Модал/баннер предупреждения
+
+Если `has_warnings = true`:
+
+**Для `required` (can_proceed = false):**
+```
+┌──────────────────────────────────────────────┐
+│  ⚠️ Сначала повтори предыдущие темы          │
+│                                              │
+│  Для этого параграфа нужно знание:           │
+│                                              │
+│  🔴 §8. Линейные уравнения (Алгебра 7)      │
+│     Твой уровень: 45% — нужно 60%+          │
+│     [Перейти к §8 →]                         │
+│                                              │
+│  🟡 §11. Неравенства (рекомендуется)         │
+│     Твой уровень: 55%                        │
+│     [Перейти к §11 →]                        │
+│                                              │
+│  [Всё равно продолжить]  [Повторить §8]      │
+└──────────────────────────────────────────────┘
+```
+
+**Для `recommended` (can_proceed = true):**
+- Жёлтый баннер сверху (не блокирующий): "Рекомендуем повторить §11 (55%)"
+
+#### 11.5.3 Иконки на списке параграфов
+
+В списке параграфов главы показывать мини-индикатор если есть unmet prerequisites:
+- 🔒 — required prerequisite не пройден
+- ⚠️ — recommended prerequisite не пройден
+
+#### 11.5.4 Новые файлы
+
+| Файл | Назначение |
+|------|------------|
+| `student-app/src/lib/api/prerequisites.ts` | API клиент: checkPrerequisites(paragraphId) |
+| `student-app/src/lib/hooks/use-prerequisites.ts` | React Query хук: usePrerequisiteCheck(paragraphId) |
+| `student-app/src/components/learning/PrerequisiteWarning.tsx` | Модал/баннер предупреждения |
+
+---
+
+### Порядок реализации (выполнено)
+
+| Этап | Блок | Статус |
+|------|------|--------|
+| 1 | **11.4 Provisional** | **ВЫПОЛНЕНО** |
+| 2 | **11.1 Time Decay** | **ВЫПОЛНЕНО** |
+| 3 | **11.5 Prerequisites** | **ВЫПОЛНЕНО** |
+| 4 | **11.2 Spaced Repetition** | **ВЫПОЛНЕНО** |
+| 5 | **11.3 Metacognitive** | **ВЫПОЛНЕНО** |
+
+---
+
 ## Сводная таблица
 
-| # | Блок | Приоритет | Сложность | Ценность | Фаза | Статус |
-|---|------|-----------|-----------|----------|------|--------|
-| 1 | Time Decay | Высокий | Низкая | Высокая | 1 | **ВЫПОЛНЕНО** |
-| 2 | Spaced Repetition | Очень высокий | Средняя | Очень высокая | 2 | **ВЫПОЛНЕНО** |
-| 3 | Паттерны самооценки | Средний | Низкая | Средняя | 3 | **ВЫПОЛНЕНО** |
-| 4 | Provisional статус | Средний | Низкая | Средняя | 1 | **ВЫПОЛНЕНО** |
-| 5 | Knowledge Graph | Высокий | Высокая | Высокая | 4 | **ВЫПОЛНЕНО** |
-| 6 | Confidence-Weighted (BKT) | Средний | Средняя | Средняя | 4 | — |
-| 7 | Bloom's Taxonomy | Низкий | Средняя | Средняя | 5 | — |
+| # | Блок | Приоритет | Сложность | Ценность | Backend | Frontend (student-app) |
+|---|------|-----------|-----------|----------|---------|------------------------|
+| 1 | Time Decay | Высокий | Низкая | Высокая | **ВЫПОЛНЕНО** | **ВЫПОЛНЕНО** §11.1 |
+| 2 | Spaced Repetition | Очень высокий | Средняя | Очень высокая | **ВЫПОЛНЕНО** | **ВЫПОЛНЕНО** §11.2 |
+| 3 | Паттерны самооценки | Средний | Низкая | Средняя | **ВЫПОЛНЕНО** | **ВЫПОЛНЕНО** §11.3 |
+| 4 | Provisional статус | Средний | Низкая | Средняя | **ВЫПОЛНЕНО** | **ВЫПОЛНЕНО** §11.4 |
+| 5 | Knowledge Graph | Высокий | Высокая | Высокая | **ВЫПОЛНЕНО** | **ВЫПОЛНЕНО** §11.5 |
+| 6 | Confidence-Weighted (BKT) | Средний | Средняя | Средняя | — | — |
+| 7 | Bloom's Taxonomy | Низкий | Средняя | Средняя | — | — |

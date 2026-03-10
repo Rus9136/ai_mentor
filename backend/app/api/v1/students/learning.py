@@ -252,7 +252,6 @@ async def update_paragraph_progress(
         )
 
     await db.commit()
-    await db.refresh(student_para)
 
     # Determine available steps
     available_steps = ["intro", "content"]

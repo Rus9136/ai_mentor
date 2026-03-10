@@ -24,6 +24,25 @@ from ._dependencies import require_global_paragraph, require_global_textbook
 router = APIRouter()
 
 
+def _build_prereq_response(p: "ParagraphPrerequisite") -> PrerequisiteResponse:
+    """Build PrerequisiteResponse from ORM object with loaded relationships."""
+    prereq_para = p.prerequisite
+    chapter = prereq_para.chapter if prereq_para else None
+    textbook = chapter.textbook if chapter else None
+    return PrerequisiteResponse(
+        id=p.id,
+        paragraph_id=p.paragraph_id,
+        prerequisite_paragraph_id=p.prerequisite_paragraph_id,
+        strength=p.strength,
+        created_at=p.created_at,
+        prerequisite_title=prereq_para.title if prereq_para else None,
+        prerequisite_number=prereq_para.number if prereq_para else None,
+        prerequisite_chapter_title=chapter.title if chapter else None,
+        prerequisite_textbook_title=textbook.title if textbook else None,
+        prerequisite_grade_level=textbook.grade_level if textbook else None,
+    )
+
+
 @router.get(
     "/paragraphs/{paragraph_id}/prerequisites",
     response_model=List[PrerequisiteResponse],
@@ -39,22 +58,7 @@ async def list_prerequisites(
     service = PrerequisiteService(db)
     prereqs = await service.prereq_repo.get_prerequisites(paragraph.id)
 
-    return [
-        PrerequisiteResponse(
-            id=p.id,
-            paragraph_id=p.paragraph_id,
-            prerequisite_paragraph_id=p.prerequisite_paragraph_id,
-            strength=p.strength,
-            created_at=p.created_at,
-            prerequisite_title=p.prerequisite.title if p.prerequisite else None,
-            prerequisite_number=p.prerequisite.number if p.prerequisite else None,
-            prerequisite_chapter_title=(
-                p.prerequisite.chapter.title
-                if p.prerequisite and p.prerequisite.chapter else None
-            ),
-        )
-        for p in prereqs
-    ]
+    return [_build_prereq_response(p) for p in prereqs]
 
 
 @router.post(
@@ -70,7 +74,7 @@ async def add_prerequisite(
 ):
     """
     Add a prerequisite to a global paragraph.
-    Validates: same textbook, no circular dependency, no duplicate.
+    Validates: same subject, no circular dependency, no duplicate.
     """
     paragraph, chapter, textbook = paragraph_data
 
@@ -85,19 +89,7 @@ async def add_prerequisite(
     prereqs = await service.prereq_repo.get_prerequisites(paragraph.id)
     created = next((p for p in prereqs if p.id == prereq.id), prereq)
 
-    return PrerequisiteResponse(
-        id=created.id,
-        paragraph_id=created.paragraph_id,
-        prerequisite_paragraph_id=created.prerequisite_paragraph_id,
-        strength=created.strength,
-        created_at=created.created_at,
-        prerequisite_title=created.prerequisite.title if created.prerequisite else None,
-        prerequisite_number=created.prerequisite.number if created.prerequisite else None,
-        prerequisite_chapter_title=(
-            created.prerequisite.chapter.title
-            if created.prerequisite and created.prerequisite.chapter else None
-        ),
-    )
+    return _build_prereq_response(created)
 
 
 @router.delete(

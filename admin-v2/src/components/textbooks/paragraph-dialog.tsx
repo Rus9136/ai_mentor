@@ -414,6 +414,7 @@ export function ParagraphDialog({
               <PrerequisitesSection
                 paragraphId={paragraph.id}
                 textbookId={textbookId}
+                subjectId={subjectId}
               />
             )}
 

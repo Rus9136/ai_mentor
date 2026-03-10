@@ -37,6 +37,8 @@ class PrerequisiteResponse(BaseModel):
     prerequisite_title: Optional[str] = None
     prerequisite_number: Optional[int] = None
     prerequisite_chapter_title: Optional[str] = None
+    prerequisite_textbook_title: Optional[str] = None
+    prerequisite_grade_level: Optional[int] = None
 
 
 # =============================================================================
@@ -71,6 +73,8 @@ class PrerequisiteWarning(BaseModel):
     paragraph_title: Optional[str] = None
     paragraph_number: Optional[int] = None
     chapter_title: Optional[str] = None
+    textbook_title: Optional[str] = None
+    grade_level: Optional[int] = None
     current_score: float = Field(0.0, description="Student's effective_score for the prerequisite")
     strength: str = Field(description="'required' or 'recommended'")
     recommendation: str = Field(description="'review_first' or 'consider_review'")
@@ -96,6 +100,8 @@ class PrerequisiteAnalyticsItem(BaseModel):
     prerequisite_title: Optional[str] = None
     prerequisite_number: Optional[int] = None
     chapter_title: Optional[str] = None
+    textbook_title: Optional[str] = None
+    grade_level: Optional[int] = None
     strength: str
     struggling_count: int = Field(0, description="Students with effective_score < 0.60")
     total_students: int = 0

@@ -9,6 +9,8 @@ export interface PrerequisiteResponse {
   prerequisite_title: string | null;
   prerequisite_number: number | null;
   prerequisite_chapter_title: string | null;
+  prerequisite_textbook_title: string | null;
+  prerequisite_grade_level: number | null;
 }
 
 export interface PrerequisiteCreate {

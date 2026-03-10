@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.models.prerequisite import ParagraphPrerequisite
 from app.models.paragraph import Paragraph
 from app.models.chapter import Chapter
+from app.models.textbook import Textbook
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class PrerequisiteRepository:
             .options(
                 selectinload(ParagraphPrerequisite.prerequisite)
                 .selectinload(Paragraph.chapter)
+                .selectinload(Chapter.textbook)
             )
             .where(ParagraphPrerequisite.paragraph_id == paragraph_id)
             .order_by(ParagraphPrerequisite.id)
@@ -73,6 +75,7 @@ class PrerequisiteRepository:
             .options(
                 selectinload(ParagraphPrerequisite.prerequisite)
                 .selectinload(Paragraph.chapter)
+                .selectinload(Chapter.textbook)
             )
             .where(ParagraphPrerequisite.paragraph_id.in_(paragraph_ids))
         )
@@ -123,6 +126,32 @@ class PrerequisiteRepository:
             .join(Paragraph, ParagraphPrerequisite.paragraph_id == Paragraph.id)
             .join(Chapter, Paragraph.chapter_id == Chapter.id)
             .where(Chapter.textbook_id == textbook_id)
+        )
+        rows = result.fetchall()
+
+        graph: Dict[int, List[int]] = defaultdict(list)
+        for row in rows:
+            graph[row.paragraph_id].append(row.prerequisite_paragraph_id)
+
+        return dict(graph)
+
+    async def get_all_prerequisites_for_subject(
+        self, subject_id: int
+    ) -> Dict[int, List[int]]:
+        """
+        Get prerequisite graph as adjacency list for all textbooks of a subject.
+        Returns Dict[paragraph_id, List[prerequisite_paragraph_id]].
+        Used for cycle detection across textbooks within the same subject.
+        """
+        result = await self.db.execute(
+            select(
+                ParagraphPrerequisite.paragraph_id,
+                ParagraphPrerequisite.prerequisite_paragraph_id,
+            )
+            .join(Paragraph, ParagraphPrerequisite.paragraph_id == Paragraph.id)
+            .join(Chapter, Paragraph.chapter_id == Chapter.id)
+            .join(Textbook, Chapter.textbook_id == Textbook.id)
+            .where(Textbook.subject_id == subject_id)
         )
         rows = result.fetchall()
 

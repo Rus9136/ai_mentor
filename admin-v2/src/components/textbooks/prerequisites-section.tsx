@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Plus, Trash2, Loader2, GitBranch, Check, ChevronsUpDown, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, Loader2, GitBranch, ArrowRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,12 +41,21 @@ import {
   useCreatePrerequisite,
   useDeletePrerequisite,
 } from '@/lib/hooks/use-prerequisites';
-import { useChapters, useParagraphs } from '@/lib/hooks/use-textbooks';
-import type { Paragraph } from '@/types';
+import { useTextbooks } from '@/lib/hooks/use-textbooks';
+import type { Paragraph, Textbook } from '@/types';
 import type { PrerequisiteResponse } from '@/lib/api/prerequisites';
 
 interface PrerequisitesSectionProps {
   paragraphId: number;
+  textbookId: number;
+  subjectId?: number | null;
+}
+
+interface ParagraphEntry {
+  paragraph: Paragraph;
+  chapterTitle: string;
+  textbookTitle: string;
+  gradeLevel: number;
   textbookId: number;
 }
 
@@ -63,45 +72,61 @@ const STRENGTH_VARIANTS: Record<string, 'default' | 'secondary' | 'outline'> = {
 export function PrerequisitesSection({
   paragraphId,
   textbookId,
+  subjectId,
 }: PrerequisitesSectionProps) {
   const { data: prerequisites = [], isLoading } = usePrerequisites(paragraphId);
   const createMutation = useCreatePrerequisite();
   const deleteMutation = useDeletePrerequisite();
 
-  // Load all chapters and their paragraphs for the picker
-  const { data: chapters = [] } = useChapters(textbookId, false);
+  // Load all global textbooks (to filter by subject)
+  const { data: allTextbooks = [] } = useTextbooks(false);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [strength, setStrength] = useState<string>('required');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [prereqToDelete, setPrereqToDelete] = useState<PrerequisiteResponse | null>(null);
 
-  // Build flat list of all paragraphs across all chapters for the picker
-  // We need to load paragraphs for each chapter
-  const [allParagraphs, setAllParagraphs] = useState<
-    Array<{ paragraph: Paragraph; chapterTitle: string }>
-  >([]);
+  const [allParagraphs, setAllParagraphs] = useState<ParagraphEntry[]>([]);
   const [paragraphsLoaded, setParagraphsLoaded] = useState(false);
 
-  // Load paragraphs when picker opens
+  // Get textbooks of the same subject (or just current textbook if no subjectId)
+  const subjectTextbooks = useMemo(() => {
+    if (!subjectId) {
+      return allTextbooks.filter((t) => t.id === textbookId);
+    }
+    return allTextbooks
+      .filter((t) => t.subject_id === subjectId)
+      .sort((a, b) => (a.grade_level || 0) - (b.grade_level || 0));
+  }, [allTextbooks, subjectId, textbookId]);
+
+  // Load paragraphs from all textbooks of the subject when picker opens
   const loadAllParagraphs = async () => {
-    if (paragraphsLoaded || chapters.length === 0) return;
+    if (paragraphsLoaded || subjectTextbooks.length === 0) return;
 
-    // Use the textbooks API directly to get paragraphs per chapter
     const { textbooksApi } = await import('@/lib/api/textbooks');
-    const allParas: Array<{ paragraph: Paragraph; chapterTitle: string }> = [];
+    const allParas: ParagraphEntry[] = [];
 
-    for (const chapter of chapters) {
+    for (const tb of subjectTextbooks) {
       try {
-        const paragraphs = await textbooksApi.getParagraphs(chapter.id, false);
-        for (const p of paragraphs) {
-          allParas.push({
-            paragraph: p,
-            chapterTitle: chapter.title || `Глава ${chapter.number}`,
-          });
+        const chapters = await textbooksApi.getChapters(tb.id, false);
+        for (const chapter of chapters) {
+          try {
+            const paragraphs = await textbooksApi.getParagraphs(chapter.id, false);
+            for (const p of paragraphs) {
+              allParas.push({
+                paragraph: p,
+                chapterTitle: chapter.title || `Глава ${chapter.number}`,
+                textbookTitle: tb.title,
+                gradeLevel: tb.grade_level || 0,
+                textbookId: tb.id,
+              });
+            }
+          } catch {
+            // Skip chapters with errors
+          }
         }
       } catch {
-        // Skip chapters with errors
+        // Skip textbooks with errors
       }
     }
 
@@ -123,6 +148,23 @@ export function PrerequisitesSection({
       ),
     [allParagraphs, paragraphId, existingPrereqIds]
   );
+
+  // Group available paragraphs by textbook for the picker
+  const groupedByTextbook = useMemo(() => {
+    const groups: Record<number, { textbook: { title: string; gradeLevel: number }; items: ParagraphEntry[] }> = {};
+    for (const entry of availableParagraphs) {
+      if (!groups[entry.textbookId]) {
+        groups[entry.textbookId] = {
+          textbook: { title: entry.textbookTitle, gradeLevel: entry.gradeLevel },
+          items: [],
+        };
+      }
+      groups[entry.textbookId].items.push(entry);
+    }
+    return groups;
+  }, [availableParagraphs]);
+
+  const hasMultipleTextbooks = Object.keys(groupedByTextbook).length > 1;
 
   const handleAdd = (prereqParagraphId: number) => {
     createMutation.mutate(
@@ -153,6 +195,11 @@ export function PrerequisitesSection({
     }
     setDeleteDialogOpen(false);
     setPrereqToDelete(null);
+  };
+
+  // Check if a prerequisite is from a different textbook
+  const isCrossTextbook = (prereq: PrerequisiteResponse) => {
+    return prereq.prerequisite_textbook_title && prereq.prerequisite_grade_level != null;
   };
 
   return (
@@ -188,7 +235,7 @@ export function PrerequisitesSection({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent
-                  className="w-[450px] p-0"
+                  className="w-[500px] p-0"
                   align="end"
                   side="bottom"
                   sideOffset={4}
@@ -196,7 +243,7 @@ export function PrerequisitesSection({
                 >
                   <Command>
                     <CommandInput placeholder="Поиск параграфа..." />
-                    <CommandList style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                    <CommandList style={{ maxHeight: '350px', overflowY: 'auto' }}>
                       {!paragraphsLoaded ? (
                         <div className="flex items-center justify-center py-6">
                           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -204,28 +251,37 @@ export function PrerequisitesSection({
                       ) : availableParagraphs.length === 0 ? (
                         <CommandEmpty>Нет доступных параграфов</CommandEmpty>
                       ) : (
-                        <CommandGroup>
-                          {availableParagraphs.map(({ paragraph: p, chapterTitle }) => (
-                            <CommandItem
-                              key={p.id}
-                              value={`§${p.number} ${p.title} ${chapterTitle}`}
-                              onSelect={() => handleAdd(p.id)}
-                              disabled={createMutation.isPending}
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <Badge variant="outline" className="text-xs shrink-0">
-                                    §{p.number}
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground truncate">
-                                    {chapterTitle}
-                                  </span>
+                        Object.entries(groupedByTextbook).map(([tbId, group]) => (
+                          <CommandGroup
+                            key={tbId}
+                            heading={
+                              hasMultipleTextbooks
+                                ? `${group.textbook.title} (${group.textbook.gradeLevel} класс)`
+                                : undefined
+                            }
+                          >
+                            {group.items.map(({ paragraph: p, chapterTitle }) => (
+                              <CommandItem
+                                key={p.id}
+                                value={`§${p.number} ${p.title} ${chapterTitle} ${group.textbook.title}`}
+                                onSelect={() => handleAdd(p.id)}
+                                disabled={createMutation.isPending}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <Badge variant="outline" className="text-xs shrink-0">
+                                      §{p.number}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground truncate">
+                                      {chapterTitle}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm mt-0.5 truncate">{p.title}</p>
                                 </div>
-                                <p className="text-sm mt-0.5 truncate">{p.title}</p>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        ))
                       )}
                     </CommandList>
                   </Command>
@@ -265,6 +321,11 @@ export function PrerequisitesSection({
                     <p className="text-sm mt-0.5 truncate">
                       {prereq.prerequisite_title || `Параграф ${prereq.prerequisite_paragraph_id}`}
                     </p>
+                    {isCrossTextbook(prereq) && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {prereq.prerequisite_textbook_title} ({prereq.prerequisite_grade_level} класс)
+                      </p>
+                    )}
                   </div>
                   <Badge
                     variant={STRENGTH_VARIANTS[prereq.strength] || 'outline'}

@@ -17,6 +17,7 @@ from fastapi import HTTPException, status
 from app.models.prerequisite import ParagraphPrerequisite
 from app.models.paragraph import Paragraph
 from app.models.chapter import Chapter
+from app.models.textbook import Textbook
 from app.models.mastery import ParagraphMastery
 from app.repositories.prerequisite_repo import PrerequisiteRepository
 from app.repositories.paragraph_mastery_repo import ParagraphMasteryRepository
@@ -84,11 +85,14 @@ class PrerequisiteService:
             if effective < PREREQUISITE_THRESHOLD:
                 para = prereq.prerequisite
                 chapter = para.chapter if para else None
+                textbook = chapter.textbook if chapter else None
                 warnings.append(PrerequisiteWarning(
                     paragraph_id=pid,
                     paragraph_title=para.title if para else None,
                     paragraph_number=para.number if para else None,
                     chapter_title=chapter.title if chapter else None,
+                    textbook_title=textbook.title if textbook else None,
+                    grade_level=textbook.grade_level if textbook else None,
                     current_score=round(effective, 4),
                     strength=prereq.strength,
                     recommendation="review_first" if prereq.strength == "required" else "consider_review",
@@ -144,11 +148,14 @@ class PrerequisiteService:
                 if effective < PREREQUISITE_THRESHOLD:
                     para = prereq.prerequisite
                     chapter = para.chapter if para else None
+                    textbook = chapter.textbook if chapter else None
                     warnings.append(PrerequisiteWarning(
                         paragraph_id=pid,
                         paragraph_title=para.title if para else None,
                         paragraph_number=para.number if para else None,
                         chapter_title=chapter.title if chapter else None,
+                        textbook_title=textbook.title if textbook else None,
+                        grade_level=textbook.grade_level if textbook else None,
                         current_score=round(effective, 4),
                         strength=prereq.strength,
                         recommendation="review_first" if prereq.strength == "required" else "consider_review",
@@ -182,26 +189,35 @@ class PrerequisiteService:
                 detail="This prerequisite link already exists",
             )
 
-        # Load both paragraphs with chapters
+        # Load both paragraphs with chapters and textbooks
         para = await self._get_paragraph_with_chapter(paragraph_id)
         prereq_para = await self._get_paragraph_with_chapter(prerequisite_paragraph_id)
 
-        # Validate same textbook
-        textbook_id = para.chapter.textbook_id
-        prereq_textbook_id = prereq_para.chapter.textbook_id
-        if textbook_id != prereq_textbook_id:
+        # Validate same subject (allows cross-textbook within same subject)
+        para_textbook = para.chapter.textbook if para.chapter else None
+        prereq_textbook = prereq_para.chapter.textbook if prereq_para.chapter else None
+        para_subject_id = para_textbook.subject_id if para_textbook else None
+        prereq_subject_id = prereq_textbook.subject_id if prereq_textbook else None
+
+        if para_subject_id is None or prereq_subject_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Both paragraphs must belong to textbooks with a subject assigned.",
+            )
+
+        if para_subject_id != prereq_subject_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
-                    f"Paragraphs must be in the same textbook. "
-                    f"Paragraph {paragraph_id} is in textbook {textbook_id}, "
-                    f"prerequisite {prerequisite_paragraph_id} is in textbook {prereq_textbook_id}."
+                    f"Paragraphs must be in textbooks of the same subject. "
+                    f"Paragraph {paragraph_id} is in subject {para_subject_id}, "
+                    f"prerequisite {prerequisite_paragraph_id} is in subject {prereq_subject_id}."
                 ),
             )
 
-        # Check for circular dependency
+        # Check for circular dependency (across all textbooks of the subject)
         await self._check_circular_dependency(
-            paragraph_id, prerequisite_paragraph_id, textbook_id
+            paragraph_id, prerequisite_paragraph_id, para_subject_id
         )
 
         prereq = ParagraphPrerequisite(
@@ -284,6 +300,7 @@ class PrerequisiteService:
             pid = prereq.prerequisite_paragraph_id
             prereq_para = prereq.prerequisite
             chapter = prereq_para.chapter if prereq_para else None
+            textbook = chapter.textbook if chapter else None
 
             # Get mastery records for all students
             mastery_records = await self._get_mastery_for_students(
@@ -310,6 +327,8 @@ class PrerequisiteService:
                 prerequisite_title=prereq_para.title if prereq_para else None,
                 prerequisite_number=prereq_para.number if prereq_para else None,
                 chapter_title=chapter.title if chapter else None,
+                textbook_title=textbook.title if textbook else None,
+                grade_level=textbook.grade_level if textbook else None,
                 strength=prereq.strength,
                 struggling_count=struggling,
                 total_students=total,
@@ -330,10 +349,13 @@ class PrerequisiteService:
     # =========================================================================
 
     async def _get_paragraph_with_chapter(self, paragraph_id: int) -> Paragraph:
-        """Load paragraph with its chapter (for textbook_id check)."""
+        """Load paragraph with its chapter and textbook (for subject check)."""
         result = await self.db.execute(
             select(Paragraph)
-            .options(selectinload(Paragraph.chapter))
+            .options(
+                selectinload(Paragraph.chapter)
+                .selectinload(Chapter.textbook)
+            )
             .where(Paragraph.id == paragraph_id, Paragraph.is_deleted == False)
         )
         para = result.scalar_one_or_none()
@@ -380,14 +402,15 @@ class PrerequisiteService:
         self,
         paragraph_id: int,
         prerequisite_paragraph_id: int,
-        textbook_id: int,
+        subject_id: int,
     ) -> None:
         """
         Check if adding paragraph_id → prerequisite_paragraph_id would create a cycle.
-        Uses BFS from prerequisite_paragraph_id following the prerequisite chain.
+        Uses BFS from prerequisite_paragraph_id following the prerequisite chain
+        across all textbooks of the subject.
         If paragraph_id is reachable, adding this edge creates a cycle.
         """
-        graph = await self.prereq_repo.get_all_prerequisites_for_textbook(textbook_id)
+        graph = await self.prereq_repo.get_all_prerequisites_for_subject(subject_id)
 
         # BFS from prerequisite_paragraph_id
         visited = set()

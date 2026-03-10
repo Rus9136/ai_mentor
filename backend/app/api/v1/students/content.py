@@ -219,6 +219,11 @@ async def get_chapter_paragraphs(
                 estimated_time=item["estimated_time"],
                 has_practice=item["has_practice"],
                 practice_score=item["practice_score"],
+                effective_score=item.get("effective_score"),
+                effective_status=item.get("effective_status"),
+                needs_review=item.get("needs_review", False),
+                has_unmet_prerequisites=item.get("has_unmet_prerequisites", False),
+                prerequisite_warnings=item.get("prerequisite_warnings"),
                 learning_objective=para.learning_objective,
                 key_terms=para.key_terms,
             )

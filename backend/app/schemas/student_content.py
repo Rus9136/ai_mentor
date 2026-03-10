@@ -120,6 +120,15 @@ class StudentParagraphResponse(BaseModel):
     has_practice: bool = Field(default=False, description="Has practice test")
     practice_score: Optional[float] = Field(None, description="Best practice score 0-1")
 
+    # Effective mastery (with time decay)
+    effective_score: Optional[float] = Field(None, description="Score with time decay applied")
+    effective_status: Optional[str] = Field(None, description="Status based on effective_score: struggling|progressing|mastered")
+    needs_review: bool = Field(default=False, description="True if significant time decay detected")
+
+    # Prerequisites
+    has_unmet_prerequisites: bool = Field(default=False, description="Has unmet required prerequisites")
+    prerequisite_warnings: Optional[List[Any]] = Field(None, description="List of prerequisite warnings")
+
     # Learning objectives preview
     learning_objective: Optional[str] = None
     key_terms: Optional[List[str]] = None
