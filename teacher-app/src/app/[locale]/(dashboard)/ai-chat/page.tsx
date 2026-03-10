@@ -10,6 +10,9 @@ import {
   MessageSquare,
   BookOpen,
   X,
+  Copy,
+  Check,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -46,6 +49,7 @@ export default function AIChatPage() {
   const [loadingSession, setLoadingSession] = useState(false);
   const [sessionContext, setSessionContext] = useState<string>('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -219,6 +223,12 @@ export default function AIChatPage() {
     setMobileSidebarOpen(false);
   };
 
+  const handleCopy = async (content: string, msgId: number) => {
+    await navigator.clipboard.writeText(content);
+    setCopiedId(msgId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   return (
     <div className="flex h-[calc(100vh-7rem)] gap-4 lg:h-[calc(100vh-5rem)]">
       {/* Mobile sidebar toggle */}
@@ -343,8 +353,25 @@ export default function AIChatPage() {
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : messages.length === 0 && !isStreaming ? (
-                <div className="flex flex-col items-center justify-center gap-2 p-8 text-center text-sm text-muted-foreground">
-                  <p>{t('startChat')}</p>
+                <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+                    <Sparkles className="h-6 w-6 text-primary" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">{t('startChat')}</p>
+                  <div className="grid w-full max-w-lg grid-cols-1 gap-2 sm:grid-cols-2">
+                    {(['prompt1', 'prompt2', 'prompt3', 'prompt4'] as const).map((key) => (
+                      <button
+                        key={key}
+                        onClick={() => {
+                          setInput(t(key));
+                          inputRef.current?.focus();
+                        }}
+                        className="rounded-xl border bg-card px-4 py-3 text-left text-sm text-foreground transition-colors hover:bg-muted"
+                      >
+                        {t(key)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <div className="mx-auto max-w-3xl space-y-4">
@@ -352,7 +379,7 @@ export default function AIChatPage() {
                     <div
                       key={msg.id}
                       className={cn(
-                        'flex',
+                        'group flex',
                         msg.role === 'user' ? 'justify-end' : 'justify-start'
                       )}
                     >
@@ -375,6 +402,19 @@ export default function AIChatPage() {
                           </div>
                         )}
                       </div>
+                      {msg.role === 'assistant' && (
+                        <button
+                          onClick={() => handleCopy(msg.content, msg.id)}
+                          className="mt-1 self-start rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+                          title={copiedId === msg.id ? 'Скопировано!' : 'Копировать'}
+                        >
+                          {copiedId === msg.id ? (
+                            <Check className="h-3.5 w-3.5 text-green-500" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      )}
                     </div>
                   ))}
 

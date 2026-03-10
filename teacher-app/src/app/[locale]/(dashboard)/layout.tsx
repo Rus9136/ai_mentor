@@ -1,9 +1,9 @@
 'use client';
 
 import { useAuth } from '@/providers/auth-provider';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { usePathname } from 'next/navigation';
-import { Link } from '@/i18n/routing';
+import { Link, useRouter as useLocaleRouter, usePathname as useLocalePath } from '@/i18n/routing';
 import {
   LayoutDashboard,
   Users,
@@ -31,13 +31,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout, isLoading } = useAuth();
   const t = useTranslations('navigation');
   const pathname = usePathname();
+  const locale = useLocale();
+  const localeRouter = useLocaleRouter();
+  const localePath = useLocalePath();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const switchLocale = (newLocale: 'ru' | 'kz') => {
+    if (locale !== newLocale) {
+      localeRouter.replace(localePath, { locale: newLocale });
+    }
+  };
 
   const navItems = [
     { href: '/', icon: LayoutDashboard, label: t('dashboard') },
     { href: '/classes', icon: Users, label: t('classes') },
     { href: '/homework', icon: ClipboardList, label: t('assignments') },
-    { href: '/homework/review', icon: ClipboardCheck, label: 'Проверка' },
+    { href: '/homework/review', icon: ClipboardCheck, label: t('review') },
     { href: '/journal', icon: BookOpen, label: t('journal') },
     { href: '/lesson-plans', icon: FileText, label: t('lessonPlan') },
     { href: '/analytics', icon: BarChart3, label: t('analytics') },
@@ -48,7 +57,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     if (href === '/') {
       return pathname.endsWith('/ru') || pathname.endsWith('/kz') || pathname === '/';
     }
-    return pathname.includes(href);
+    // Strip locale prefix to get the path segment
+    const path = pathname.replace(/^\/(ru|kz)/, '') || '/';
+    if (href === '/homework') {
+      return path === '/homework' || (path.startsWith('/homework/') && !path.startsWith('/homework/review'));
+    }
+    return path === href || path.startsWith(href + '/');
   };
 
   if (isLoading) {
@@ -90,6 +104,32 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </Link>
           ))}
         </nav>
+
+        {/* Language switcher */}
+        <div className="mx-4 mb-2 flex rounded-lg bg-muted p-1">
+          <button
+            className={cn(
+              'flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+              locale === 'ru'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            onClick={() => switchLocale('ru')}
+          >
+            RU
+          </button>
+          <button
+            className={cn(
+              'flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+              locale === 'kz'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            onClick={() => switchLocale('kz')}
+          >
+            KZ
+          </button>
+        </div>
 
         {/* User section */}
         <div className="border-t p-4">
@@ -169,6 +209,31 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </Link>
           ))}
         </nav>
+        {/* Language switcher - mobile */}
+        <div className="mx-4 mt-2 flex rounded-lg bg-muted p-1">
+          <button
+            className={cn(
+              'flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+              locale === 'ru'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            onClick={() => switchLocale('ru')}
+          >
+            RU
+          </button>
+          <button
+            className={cn(
+              'flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+              locale === 'kz'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            onClick={() => switchLocale('kz')}
+          >
+            KZ
+          </button>
+        </div>
       </aside>
 
       {/* Main content */}
