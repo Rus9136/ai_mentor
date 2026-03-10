@@ -173,6 +173,8 @@
     "start": "Оқуды бастау",
     "minutes": "мин",
     "hasPractice": "Тәжірибе",
+    "needsReview": "Қайтала",
+    "prerequisitesNeeded": "Алдымен өт",
     "status": {
       "completed": "Өтілді",
       "in_progress": "Орындалуда",
@@ -420,7 +422,8 @@
       "levelCDesc": "Тәжірибе керек",
       "noData": "Деңгейіңізді көру үшін оқуды бастаңыз",
       "overall": "Жалпы деңгей",
-      "bySubject": "Тараулар бойынша"
+      "bySubject": "Тараулар бойынша",
+      "provisionalHint": "Алдын ала баға — көбірек тест қажет"
     },
     "language": {
       "title": "Қолданба тілі",
@@ -464,8 +467,7 @@
     "suggestions": {
       "explain": "Бұл тақырыпты қарапайым сөздермен түсіндір",
       "questions": "Өзін-өзі тексеруге 5 сұрақ құрастыр",
-      "summary": "Материалдың қысқаша мазмұнын жаса",
-      "help": "Бұл тақырып бойынша ҰБТ-ға не білу керек?"
+      "summary": "Материалдың қысқаша мазмұнын жаса"
     }
   },
   "landing": {
@@ -702,5 +704,33 @@
       "attempt": "Әрекет #{number}",
       "needsReview": "тексеруді күтуде"
     }
+  },
+  "reviews": {
+    "title": "Қайталау ({count})",
+    "weekCount": "Осы аптада: {count}",
+    "minutes": "мин",
+    "untitled": "Атаусыз",
+    "moreReviews": "Тағы {count} тақырып қайталау үшін",
+    "resultPassed": "Тамаша! Келесі қайталау {days} күннен кейін",
+    "resultFailed": "Қайталау керек. Келесі әрекет {days} күннен кейін",
+    "stats": {
+      "title": "Қайталау статистикасы",
+      "activeTopics": "Белсенді тақырыптар",
+      "dueToday": "Бүгінге",
+      "dueThisWeek": "Осы аптада",
+      "totalReviews": "Барлық қайталаулар",
+      "successRate": "Сәттілік",
+      "avgStreak": "Орташа streak"
+    }
+  },
+  "prerequisites": {
+    "requiredTitle": "Алдымен алдыңғы тақырыптарды қайтала",
+    "recommendedTitle": "Қайталауды ұсынамыз",
+    "yourLevel": "Сенің деңгейің",
+    "needed": "Қажет",
+    "grade": "сынып",
+    "untitled": "Атаусыз",
+    "goToPrerequisite": "Тақырыпқа өту",
+    "proceedAnyway": "Бәрібір жалғастыру"
   }
 }

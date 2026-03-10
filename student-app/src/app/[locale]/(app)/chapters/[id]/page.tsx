@@ -15,6 +15,8 @@ import {
   PlayCircle,
   FileText,
   Trophy,
+  RefreshCw,
+  Lock,
 } from 'lucide-react';
 
 // Paragraph status config
@@ -235,14 +237,32 @@ export default function ChapterPage({ params }: PageProps) {
                             {t(`status.${paragraph.status}`)}
                           </span>
 
-                          {/* Practice indicator */}
+                          {/* Practice indicator — show effective_score if available */}
                           {paragraph.has_practice && (
                             <span className="flex items-center gap-1">
                               <Trophy className={`h-3 w-3 ${paragraph.practice_score ? 'text-success' : 'text-muted-foreground'}`} />
-                              {paragraph.practice_score
+                              {paragraph.effective_score != null
+                                ? `${Math.round(paragraph.effective_score * 100)}%`
+                                : paragraph.practice_score
                                 ? `${Math.round(paragraph.practice_score * 100)}%`
                                 : t('hasPractice')
                               }
+                            </span>
+                          )}
+
+                          {/* Needs review indicator */}
+                          {paragraph.needs_review && (
+                            <span className="flex items-center gap-1 text-amber-500">
+                              <RefreshCw className="h-3 w-3" />
+                              {t('needsReview')}
+                            </span>
+                          )}
+
+                          {/* Unmet prerequisites */}
+                          {paragraph.has_unmet_prerequisites && (
+                            <span className="flex items-center gap-1 text-destructive">
+                              <Lock className="h-3 w-3" />
+                              {t('prerequisitesNeeded')}
                             </span>
                           )}
                         </div>

@@ -3,9 +3,11 @@ import {
   getStudentStats,
   getMasteryOverview,
   getStudentProfile,
+  getMetacognitiveInsight,
   StudentStats,
   MasteryOverview,
   StudentProfile,
+  MetacognitiveInsight,
 } from '@/lib/api/profile';
 
 // =============================================================================
@@ -17,6 +19,7 @@ export const profileKeys = {
   stats: () => [...profileKeys.all, 'stats'] as const,
   mastery: () => [...profileKeys.all, 'mastery'] as const,
   student: () => [...profileKeys.all, 'student'] as const,
+  metacognitive: (lang: string) => [...profileKeys.all, 'metacognitive', lang] as const,
 };
 
 // =============================================================================
@@ -52,6 +55,17 @@ export function useStudentProfile() {
   return useQuery<StudentProfile, Error>({
     queryKey: profileKeys.student(),
     queryFn: getStudentProfile,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
+}
+
+/**
+ * Hook to get student's metacognitive pattern and coaching message.
+ */
+export function useMetacognitiveInsight(lang: string = 'ru') {
+  return useQuery<MetacognitiveInsight, Error>({
+    queryKey: profileKeys.metacognitive(lang),
+    queryFn: () => getMetacognitiveInsight(lang),
     staleTime: 1000 * 60 * 10, // 10 minutes
   });
 }

@@ -40,6 +40,7 @@ export interface ChapterMasteryDetail {
   summative_passed: boolean | null;
   mastery_level: 'A' | 'B' | 'C';
   mastery_score: number;
+  is_provisional: boolean;
   progress_percentage: number;
   estimated_completion_date: string | null;
   last_updated_at: string;
@@ -55,6 +56,18 @@ export interface MasteryOverview {
   level_a_count: number;
   level_b_count: number;
   level_c_count: number;
+}
+
+export interface MetacognitiveInsight {
+  pattern: 'overconfident' | 'underconfident' | 'well_calibrated' | null;
+  message: string | null;
+  updated_at: string | null;
+  recent_assessments: number;
+  rating_breakdown: {
+    understood: number;
+    questions: number;
+    difficult: number;
+  };
 }
 
 // =============================================================================
@@ -82,5 +95,15 @@ export async function getMasteryOverview(): Promise<MasteryOverview> {
  */
 export async function getStudentProfile(): Promise<StudentProfile> {
   const response = await apiClient.get<StudentProfile>('/students/profile');
+  return response.data;
+}
+
+/**
+ * Get student's metacognitive pattern and coaching message.
+ */
+export async function getMetacognitiveInsight(lang: string = 'ru'): Promise<MetacognitiveInsight> {
+  const response = await apiClient.get<MetacognitiveInsight>('/students/metacognitive', {
+    params: { lang },
+  });
   return response.data;
 }

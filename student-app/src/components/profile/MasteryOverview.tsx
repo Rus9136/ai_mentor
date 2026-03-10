@@ -15,18 +15,19 @@ const LEVEL_COLORS = {
   C: { bg: 'bg-orange-100', text: 'text-orange-700', bar: 'bg-orange-500' },
 };
 
-function MasteryBadge({ level }: { level: 'A' | 'B' | 'C' }) {
+function MasteryBadge({ level, isProvisional }: { level: 'A' | 'B' | 'C'; isProvisional?: boolean }) {
   const colors = LEVEL_COLORS[level];
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-xs font-bold ${colors.bg} ${colors.text}`}
+      className={`rounded-full px-2 py-0.5 text-xs font-bold ${colors.bg} ${colors.text} ${isProvisional ? 'opacity-70 border border-dashed border-current' : ''}`}
     >
-      {level}
+      {level}{isProvisional ? '*' : ''}
     </span>
   );
 }
 
 function ChapterMasteryItem({ chapter }: { chapter: ChapterMasteryDetail }) {
+  const t = useTranslations('profile');
   const colors = LEVEL_COLORS[chapter.mastery_level];
 
   return (
@@ -46,8 +47,13 @@ function ChapterMasteryItem({ chapter }: { chapter: ChapterMasteryDetail }) {
             {Math.round(chapter.mastery_score)}%
           </span>
         </div>
+        {chapter.is_provisional && (
+          <p className="mt-1 text-xs text-muted-foreground italic">
+            {t('mastery.provisionalHint')}
+          </p>
+        )}
       </div>
-      <MasteryBadge level={chapter.mastery_level} />
+      <MasteryBadge level={chapter.mastery_level} isProvisional={chapter.is_provisional} />
     </div>
   );
 }

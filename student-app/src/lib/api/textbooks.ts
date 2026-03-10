@@ -73,6 +73,18 @@ export interface StudentChapter {
   summative_passed: boolean | null;
 }
 
+export interface PrerequisiteWarning {
+  paragraph_id: number;
+  paragraph_title: string | null;
+  paragraph_number: number | null;
+  chapter_title: string | null;
+  textbook_title: string | null;
+  grade_level: number | null;
+  current_score: number;
+  strength: 'required' | 'recommended';
+  recommendation: 'review_first' | 'consider_review';
+}
+
 export interface StudentParagraph {
   id: number;
   chapter_id: number;
@@ -84,6 +96,11 @@ export interface StudentParagraph {
   estimated_time: number;
   has_practice: boolean;
   practice_score: number | null;
+  effective_score: number | null;
+  effective_status: 'struggling' | 'progressing' | 'mastered' | null;
+  needs_review: boolean;
+  has_unmet_prerequisites: boolean;
+  prerequisite_warnings: PrerequisiteWarning[] | null;
   learning_objective: string | null;
   key_terms: string[] | null;
 }

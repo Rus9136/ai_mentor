@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { Sparkles, AlertCircle, BookOpen, HelpCircle, ListChecks, FileText } from 'lucide-react';
+import { Sparkles, AlertCircle, BookOpen, ListChecks, FileText } from 'lucide-react';
 import { useChatSession, useStreamMessage } from '@/lib/hooks/use-chat';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
@@ -34,7 +34,6 @@ export function ChatWindow({ sessionId, initialPrompt, onInitialPromptConsumed }
     { key: 'explain', icon: BookOpen, text: t('suggestions.explain') },
     { key: 'questions', icon: ListChecks, text: t('suggestions.questions') },
     { key: 'summary', icon: FileText, text: t('suggestions.summary') },
-    { key: 'help', icon: HelpCircle, text: t('suggestions.help') },
   ];
 
   // Loading state

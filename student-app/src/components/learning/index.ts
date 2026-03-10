@@ -7,3 +7,4 @@ export { QuizResult } from './QuizResult';
 export { QuizModal } from './QuizModal';
 export { ParagraphQuiz } from './ParagraphQuiz';
 export { ChapterSidebar, MobileSidebarTrigger, MobileSidebarSheet } from './ChapterSidebar';
+export { PrerequisiteWarning } from './PrerequisiteWarning';

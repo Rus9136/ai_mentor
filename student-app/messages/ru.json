@@ -173,6 +173,8 @@
     "start": "Начать изучение",
     "minutes": "мин",
     "hasPractice": "Практика",
+    "needsReview": "Повтори",
+    "prerequisitesNeeded": "Сначала пройди",
     "status": {
       "completed": "Пройдено",
       "in_progress": "В процессе",
@@ -420,7 +422,8 @@
       "levelCDesc": "Нужна практика",
       "noData": "Начните изучение, чтобы увидеть ваш уровень",
       "overall": "Общий уровень",
-      "bySubject": "По главам"
+      "bySubject": "По главам",
+      "provisionalHint": "Предварительная оценка — нужно больше тестов"
     },
     "language": {
       "title": "Язык приложения",
@@ -464,8 +467,7 @@
     "suggestions": {
       "explain": "Объясни эту тему простыми словами",
       "questions": "Составь 5 вопросов для самопроверки",
-      "summary": "Сделай краткое резюме материала",
-      "help": "Что мне нужно знать для ЕНТ по этой теме?"
+      "summary": "Сделай краткое резюме материала"
     }
   },
   "landing": {
@@ -702,5 +704,33 @@
       "attempt": "Попытка #{number}",
       "needsReview": "ожидают проверки"
     }
+  },
+  "reviews": {
+    "title": "Повторение ({count})",
+    "weekCount": "На этой неделе: {count}",
+    "minutes": "мин",
+    "untitled": "Без названия",
+    "moreReviews": "Ещё {count} тем для повторения",
+    "resultPassed": "Отлично! Следующее повторение через {days} дней",
+    "resultFailed": "Нужно повторить. Следующая попытка через {days} дней",
+    "stats": {
+      "title": "Статистика повторений",
+      "activeTopics": "Активных тем",
+      "dueToday": "На сегодня",
+      "dueThisWeek": "На этой неделе",
+      "totalReviews": "Всего повторений",
+      "successRate": "Успешность",
+      "avgStreak": "Средний streak"
+    }
+  },
+  "prerequisites": {
+    "requiredTitle": "Сначала повтори предыдущие темы",
+    "recommendedTitle": "Рекомендуем повторить",
+    "yourLevel": "Твой уровень",
+    "needed": "Нужно",
+    "grade": "класс",
+    "untitled": "Без названия",
+    "goToPrerequisite": "Перейти к теме",
+    "proceedAnyway": "Всё равно продолжить"
   }
 }

@@ -6,6 +6,7 @@ import { useTextbooks } from '@/lib/hooks/use-textbooks';
 import { useStudentStats, useStudentProfile } from '@/lib/hooks/use-profile';
 import { Link } from '@/i18n/routing';
 import { TextbookCard } from '@/components/textbooks';
+import { ReviewCard } from '@/components/reviews/ReviewCard';
 import {
   BookOpen,
   Play,
@@ -95,6 +96,9 @@ export default function HomePage() {
           </Link>
         </div>
       )}
+
+      {/* Spaced Repetition — Reviews Due Today */}
+      <ReviewCard />
 
       {/* Stats Row */}
       <div className="mb-8 grid grid-cols-3 gap-3 md:gap-4">

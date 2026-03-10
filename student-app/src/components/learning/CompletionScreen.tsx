@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
 import {
@@ -13,9 +13,11 @@ import {
   AlertTriangle,
   ArrowRight,
   BookOpen,
-  Trophy
+  Trophy,
+  Brain,
 } from 'lucide-react';
 import { SelfAssessmentRating } from '@/lib/api/textbooks';
+import { useMetacognitiveInsight } from '@/lib/hooks/use-profile';
 
 interface CompletionScreenProps {
   paragraphTitle: string | null;
@@ -169,6 +171,8 @@ export function CompletionScreen({
   className,
 }: CompletionScreenProps) {
   const t = useTranslations('paragraph');
+  const locale = useLocale();
+  const { data: metacognitive } = useMetacognitiveInsight(locale === 'kz' ? 'kk' : locale);
   const hasTriggeredRef = useRef(false);
 
   // Trigger confetti and sound on mount (only once)
@@ -276,6 +280,31 @@ export function CompletionScreen({
           </div>
         </div>
       </div>
+
+      {/* Metacognitive Coaching Message */}
+      {metacognitive?.pattern && metacognitive.message && (
+        <div className={cn(
+          'rounded-xl px-4 py-3 mb-6 text-center max-w-md w-full flex items-center gap-3',
+          metacognitive.pattern === 'overconfident' && 'bg-amber-50 border border-amber-200',
+          metacognitive.pattern === 'underconfident' && 'bg-blue-50 border border-blue-200',
+          metacognitive.pattern === 'well_calibrated' && 'bg-green-50 border border-green-200',
+        )}>
+          <Brain className={cn(
+            'h-5 w-5 flex-shrink-0',
+            metacognitive.pattern === 'overconfident' && 'text-amber-600',
+            metacognitive.pattern === 'underconfident' && 'text-blue-600',
+            metacognitive.pattern === 'well_calibrated' && 'text-green-600',
+          )} />
+          <p className={cn(
+            'text-sm text-left',
+            metacognitive.pattern === 'overconfident' && 'text-amber-800',
+            metacognitive.pattern === 'underconfident' && 'text-blue-800',
+            metacognitive.pattern === 'well_calibrated' && 'text-green-800',
+          )}>
+            {metacognitive.message}
+          </p>
+        </div>
+      )}
 
       {/* Chapter Complete Message */}
       {isLastInChapter && (

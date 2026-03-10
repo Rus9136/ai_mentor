@@ -279,4 +279,16 @@
   .prose h3 {
     @apply text-lg font-semibold mt-4 mb-2;
   }
+
+  /* Force app font in prose content — override inline font-family from WYSIWYG editor */
+  .prose,
+  .prose * {
+    font-family: var(--font-nunito), system-ui, sans-serif !important;
+  }
+
+  /* Preserve KaTeX math fonts */
+  .prose .katex,
+  .prose .katex * {
+    font-family: KaTeX_Main, KaTeX_Math, "Times New Roman", serif !important;
+  }
 }

@@ -25,7 +25,9 @@ import {
   ParagraphQuiz,
   MobileSidebarTrigger,
   MobileSidebarSheet,
+  PrerequisiteWarning,
 } from '@/components/learning';
+import { usePrerequisiteCheck } from '@/lib/hooks/use-prerequisites';
 import { ChatModal } from '@/components/chat';
 import { ChatPanel } from '@/components/chat/ChatPanel';
 import { ParagraphContent } from '@/components/paragraph/ParagraphContent';
@@ -76,6 +78,7 @@ export default function ParagraphPage({ params }: PageProps) {
   // Learning flow state machine
   const [flowPhase, setFlowPhase] = useState<LearningFlowPhase>('reading');
   const [assessmentRound, setAssessmentRound] = useState(0);
+  const [prerequisiteDismissed, setPrerequisiteDismissed] = useState(false);
 
   // Fetch paragraph data
   const { data: paragraph, isLoading, error } = useParagraphDetail(paragraphId);
@@ -86,6 +89,7 @@ export default function ParagraphPage({ params }: PageProps) {
   const { data: exercisesData } = useExercises(paragraphId);
   const { data: paragraphTest } = useParagraphTest(paragraph?.id);
   const { data: chapterParagraphs } = useChapterParagraphs(navigation?.chapter_id);
+  const { data: prerequisiteCheck } = usePrerequisiteCheck(paragraphId);
 
   // Mutations
   const updateStepMutation = useUpdateParagraphStep(paragraphId);
@@ -340,6 +344,15 @@ export default function ParagraphPage({ params }: PageProps) {
                   </nav>
                 )}
               </header>
+
+              {/* Prerequisite Warning */}
+              {prerequisiteCheck?.has_warnings && !prerequisiteDismissed && (
+                <PrerequisiteWarning
+                  warnings={prerequisiteCheck.warnings}
+                  canProceed={prerequisiteCheck.can_proceed}
+                  onProceedAnyway={() => setPrerequisiteDismissed(true)}
+                />
+              )}
 
               {/* Title */}
               <h1 className="text-2xl font-bold text-foreground md:text-3xl mb-6">
