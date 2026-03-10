@@ -30,6 +30,7 @@ from .exercises import router as exercises_router
 from .grades import router as grades_router
 from .reviews import router as reviews_router
 from .prerequisites import router as prerequisites_router
+from .usage import router as usage_router
 
 
 router = APIRouter()
@@ -69,3 +70,6 @@ router.include_router(reviews_router, tags=["Student Reviews"])
 
 # Knowledge Graph (prerequisite checks)
 router.include_router(prerequisites_router, tags=["Student Prerequisites"])
+
+# Usage counters (rate limiting info)
+router.include_router(usage_router, tags=["Student Usage"])

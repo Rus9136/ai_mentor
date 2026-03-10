@@ -545,6 +545,21 @@ class ChatService:
                 success=True,
             )
             self.db.add(log)
+            # Increment daily usage counter
+            from app.repositories.usage_repo import UsageRepository
+            from app.models.teacher import Teacher
+            teacher_row = await self.db.execute(
+                select(Teacher.user_id).where(Teacher.id == teacher_id)
+            )
+            t_user_id = teacher_row.scalar_one_or_none()
+            if t_user_id:
+                usage_repo = UsageRepository(self.db)
+                await usage_repo.increment_counter(
+                    user_id=t_user_id,
+                    school_id=school_id,
+                    feature="teacher_chat",
+                    tokens=tokens_used,
+                )
         except Exception as e:
             logger.warning(f"Failed to log teacher chat stream usage: {e}")
 

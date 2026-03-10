@@ -30,6 +30,7 @@ import {
   Scale,
   Target,
   Activity,
+  CreditCard,
 } from 'lucide-react';
 
 interface NavItem {
@@ -81,6 +82,12 @@ const navItems: NavItem[] = [
     title: 'llmUsage',
     href: '/llm-usage',
     icon: Activity,
+    roles: ['super_admin'],
+  },
+  {
+    title: 'subscriptions',
+    href: '/subscriptions',
+    icon: CreditCard,
     roles: ['super_admin'],
   },
   // School ADMIN items

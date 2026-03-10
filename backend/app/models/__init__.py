@@ -100,6 +100,9 @@ from app.models.review_schedule import ReviewSchedule
 # Knowledge Graph (paragraph prerequisites)
 from app.models.prerequisite import ParagraphPrerequisite
 
+# Subscriptions & Usage
+from app.models.subscription import SubscriptionPlan, SchoolSubscription, DailyUsageCounter
+
 __all__ = [
     # Base
     "BaseModel",
@@ -217,4 +220,8 @@ __all__ = [
     "ReviewSchedule",
     # Knowledge Graph
     "ParagraphPrerequisite",
+    # Subscriptions & Usage
+    "SubscriptionPlan",
+    "SchoolSubscription",
+    "DailyUsageCounter",
 ]

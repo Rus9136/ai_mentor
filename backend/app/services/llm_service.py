@@ -609,6 +609,15 @@ class LLMService:
             )
             ctx.db.add(log)
             await ctx.db.flush()
+            # Increment daily usage counter
+            from app.repositories.usage_repo import UsageRepository
+            usage_repo = UsageRepository(ctx.db)
+            await usage_repo.increment_counter(
+                user_id=ctx.user_id,
+                school_id=ctx.school_id,
+                feature=ctx.feature,
+                tokens=response.tokens_used or 0,
+            )
         except Exception as e:
             logger.warning(f"Failed to log LLM usage: {e}")
             # Do NOT rollback — ctx.db is shared with the caller's transaction.

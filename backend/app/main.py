@@ -193,6 +193,7 @@ from app.api.v1 import paragraph_contents, invitation_codes, rag, chat, teachers
 from app.api.v1 import teachers_exercises, teachers_grades, teachers_lesson_plans
 from app.api.v1 import teacher_join_requests
 from app.api.v1 import teacher_chat
+from app.api.v1 import teachers_usage
 from app.api.v1 import app_version
 
 app.include_router(
@@ -307,6 +308,12 @@ app.include_router(
     teacher_chat.router,
     prefix=f"{settings.API_V1_PREFIX}/teachers/chat",
     tags=["Teachers - AI Chat"],
+)
+
+app.include_router(
+    teachers_usage.router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Teachers - Usage"],
 )
 
 app.include_router(

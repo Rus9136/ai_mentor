@@ -31,6 +31,7 @@ from .app_versions import router as app_versions_router
 from .textbook_conversions import router as textbook_conversions_router
 from .llm_usage import router as llm_usage_router
 from .prerequisites import router as prerequisites_router
+from .subscriptions import router as subscriptions_router
 
 
 router = APIRouter()
@@ -60,3 +61,6 @@ router.include_router(llm_usage_router)
 
 # Knowledge Graph (prerequisite dependencies)
 router.include_router(prerequisites_router)
+
+# Subscriptions & Usage Limits
+router.include_router(subscriptions_router)
