@@ -237,6 +237,146 @@ class OpenRouterClient:
         await self.client.aclose()
 
 
+class DashScopeClient:
+    """
+    Client for DashScope API (Alibaba Cloud / Qwen).
+
+    OpenAI-compatible API for direct access to Qwen models.
+    """
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        model: Optional[str] = None
+    ):
+        self.api_key = api_key or settings.DASHSCOPE_API_KEY
+        self.base_url = base_url or settings.DASHSCOPE_BASE_URL
+        self.model = model or settings.DASHSCOPE_MODEL
+
+        if not self.api_key:
+            raise LLMServiceError("DASHSCOPE_API_KEY is not configured")
+
+        self.client = httpx.AsyncClient(
+            base_url=self.base_url,
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            },
+            timeout=120.0
+        )
+
+    async def generate(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: int = 1500,
+        model: Optional[str] = None
+    ) -> LLMResponse:
+        try:
+            payload = {
+                "model": model or self.model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "enable_thinking": False
+            }
+            response = await self.client.post(
+                "/chat/completions",
+                json=payload
+            )
+
+            if response.status_code != 200:
+                error_msg = f"DashScope API error: {response.status_code} - {response.text}"
+                logger.error(error_msg)
+                raise LLMServiceError(error_msg)
+
+            data = response.json()
+
+            content = data["choices"][0]["message"]["content"]
+            usage = data.get("usage", {})
+            tokens_used = usage.get("total_tokens")
+            prompt_tokens = usage.get("prompt_tokens")
+            completion_tokens = usage.get("completion_tokens")
+            finish_reason = data["choices"][0].get("finish_reason")
+
+            return LLMResponse(
+                content=content,
+                model=model or self.model,
+                tokens_used=tokens_used,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                finish_reason=finish_reason
+            )
+
+        except httpx.HTTPError as e:
+            error_msg = f"DashScope request failed: {str(e)}"
+            logger.error(error_msg)
+            raise LLMServiceError(error_msg)
+
+    async def stream_generate(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: int = 1500,
+        model: Optional[str] = None
+    ) -> AsyncIterator[LLMStreamChunk]:
+        try:
+            async with self.client.stream(
+                "POST",
+                "/chat/completions",
+                json={
+                    "model": model or self.model,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "stream": True,
+                    "stream_options": {"include_usage": True}
+                }
+            ) as response:
+                if response.status_code != 200:
+                    content = await response.aread()
+                    error_msg = f"DashScope API error: {response.status_code} - {content.decode()}"
+                    logger.error(error_msg)
+                    raise LLMServiceError(error_msg)
+
+                async for line in response.aiter_lines():
+                    if not line or not line.startswith("data: "):
+                        continue
+
+                    data_str = line[6:]
+                    if data_str == "[DONE]":
+                        break
+
+                    try:
+                        data = json.loads(data_str)
+                        choice = data.get("choices", [{}])[0]
+                        delta = choice.get("delta", {})
+                        content = delta.get("content", "")
+                        finish_reason = choice.get("finish_reason")
+
+                        if content or finish_reason:
+                            usage = data.get("usage")
+                            yield LLMStreamChunk(
+                                content=content,
+                                is_final=finish_reason is not None,
+                                tokens_used=usage.get("total_tokens") if usage else None,
+                                prompt_tokens=usage.get("prompt_tokens") if usage else None,
+                                completion_tokens=usage.get("completion_tokens") if usage else None,
+                                finish_reason=finish_reason
+                            )
+                    except json.JSONDecodeError:
+                        continue
+
+        except httpx.HTTPError as e:
+            error_msg = f"DashScope stream request failed: {str(e)}"
+            logger.error(error_msg)
+            raise LLMServiceError(error_msg)
+
+    async def close(self):
+        await self.client.aclose()
+
+
 class CerebrasClient:
     """
     Client for Cerebras API (direct access).
@@ -420,10 +560,11 @@ class LLMService:
         Initialize LLM service.
 
         Args:
-            provider: LLM provider to use ('cerebras', 'openrouter', or 'openai')
+            provider: LLM provider to use ('dashscope', 'cerebras', 'openrouter', or 'openai')
                      Defaults to settings.LLM_PROVIDER
         """
         self.provider = provider or settings.LLM_PROVIDER
+        self._dashscope_client: Optional[DashScopeClient] = None
         self._cerebras_client: Optional[CerebrasClient] = None
         self._openrouter_client: Optional[OpenRouterClient] = None
         self._openai_client: Optional[OpenAIClient] = None
@@ -431,7 +572,11 @@ class LLMService:
 
     def _get_client(self):
         """Get or create the appropriate LLM client."""
-        if self.provider == "cerebras":
+        if self.provider == "dashscope":
+            if self._dashscope_client is None:
+                self._dashscope_client = DashScopeClient()
+            return self._dashscope_client
+        elif self.provider == "cerebras":
             if self._cerebras_client is None:
                 self._cerebras_client = CerebrasClient()
             return self._cerebras_client
@@ -484,34 +629,35 @@ class LLMService:
                 await self._log_usage(usage_context, response, latency_ms)
             return response
         except LLMServiceError as e:
-            if not (fallback_on_error and self.provider == "cerebras"):
+            if not (fallback_on_error and self.provider in ("dashscope", "cerebras")):
                 latency_ms = int((time.monotonic() - start) * 1000)
                 if usage_context:
                     await self._log_usage_error(usage_context, model or self.provider, latency_ms, str(e))
                 raise
 
-            # Fallback 1: Try Cerebras with gpt-oss-120b
-            cerebras_fallback_model = "gpt-oss-120b"
-            used_model = model or self._get_client().model
-            if used_model != cerebras_fallback_model:
-                logger.warning(f"Cerebras {used_model} failed, trying Cerebras {cerebras_fallback_model}: {str(e)}")
-                try:
-                    client = self._get_client()
-                    response = await client.generate(
-                        messages=messages,
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                        model=cerebras_fallback_model
-                    )
-                    latency_ms = int((time.monotonic() - start) * 1000)
-                    if usage_context:
-                        await self._log_usage(usage_context, response, latency_ms)
-                    return response
-                except LLMServiceError as e2:
-                    logger.warning(f"Cerebras {cerebras_fallback_model} also failed: {str(e2)}")
+            # Fallback 1 (cerebras only): Try Cerebras with gpt-oss-120b
+            if self.provider == "cerebras":
+                cerebras_fallback_model = "gpt-oss-120b"
+                used_model = model or self._get_client().model
+                if used_model != cerebras_fallback_model:
+                    logger.warning(f"Cerebras {used_model} failed, trying Cerebras {cerebras_fallback_model}: {str(e)}")
+                    try:
+                        client = self._get_client()
+                        response = await client.generate(
+                            messages=messages,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            model=cerebras_fallback_model
+                        )
+                        latency_ms = int((time.monotonic() - start) * 1000)
+                        if usage_context:
+                            await self._log_usage(usage_context, response, latency_ms)
+                        return response
+                    except LLMServiceError as e2:
+                        logger.warning(f"Cerebras {cerebras_fallback_model} also failed: {str(e2)}")
 
             # Fallback 2: Try OpenRouter
-            logger.warning(f"Cerebras unavailable, trying OpenRouter fallback")
+            logger.warning(f"{self.provider} unavailable, trying OpenRouter fallback")
             try:
                 if self._openrouter_fallback is None:
                     self._openrouter_fallback = OpenRouterClient()
@@ -554,11 +700,10 @@ class LLMService:
         Raises:
             LLMServiceError: If provider fails or doesn't support streaming
         """
-        # Currently only OpenRouter supports streaming in our implementation
-        if self.provider == "openrouter":
-            if self._openrouter_client is None:
-                self._openrouter_client = OpenRouterClient()
-            async for chunk in self._openrouter_client.stream_generate(
+        # DashScope and OpenRouter support streaming
+        if self.provider in ("openrouter", "dashscope"):
+            client = self._get_client()
+            async for chunk in client.stream_generate(
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
@@ -656,6 +801,8 @@ class LLMService:
 
     async def close(self):
         """Close all clients."""
+        if self._dashscope_client:
+            await self._dashscope_client.close()
         if self._cerebras_client:
             await self._cerebras_client.close()
         if self._openrouter_client:

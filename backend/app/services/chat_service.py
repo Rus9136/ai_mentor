@@ -387,6 +387,8 @@ class ChatService:
             usage_ctx = LLMUsageContext(
                 db=self.db,
                 feature="teacher_chat",
+                user_id=teacher_id,
+                teacher_id=teacher_id,
                 school_id=school_id,
             )
             llm_response: LLMResponse = await self.llm.generate(
@@ -726,6 +728,7 @@ class ChatService:
             usage_ctx = LLMUsageContext(
                 db=self.db,
                 feature="chat",
+                user_id=student_id,
                 student_id=student_id,
                 school_id=school_id,
             )
@@ -1415,11 +1418,6 @@ async def _generate_ai_title(
             await db.execute(sa_text(f"SET app.current_school_id = '{school_id}'"))
 
             llm = LLMService()
-            usage_ctx = LLMUsageContext(
-                db=db,
-                feature="chat",
-                school_id=school_id,
-            )
 
             response = await llm.generate(
                 messages=[
@@ -1439,7 +1437,6 @@ async def _generate_ai_title(
                 ],
                 temperature=0.5,
                 max_tokens=30,
-                usage_context=usage_ctx,
             )
 
             title = response.content.strip().strip('"\'').strip()

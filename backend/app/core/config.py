@@ -142,16 +142,21 @@ class Settings(BaseSettings):
     EMBEDDING_PROVIDER: str = "jina"  # openai | jina
     EMBEDDING_DIMENSIONS: int = 1024  # 1024 for Jina, can be 1536 for OpenAI
 
-    # Cerebras (primary fast LLM provider)
+    # Cerebras (fast LLM provider)
     CEREBRAS_API_KEY: Optional[str] = None
     CEREBRAS_MODEL: str = "qwen-3-235b-a22b-instruct-2507"
+
+    # DashScope / Qwen (primary LLM provider)
+    DASHSCOPE_API_KEY: Optional[str] = None
+    DASHSCOPE_BASE_URL: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    DASHSCOPE_MODEL: str = "qwen3-235b-a22b"
 
     # OpenRouter (fallback LLM provider)
     OPENROUTER_API_KEY: Optional[str] = None
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_MODEL: str = "deepseek/deepseek-v3.2"
 
-    LLM_PROVIDER: str = "cerebras"  # cerebras | openrouter | openai
+    LLM_PROVIDER: str = "dashscope"  # dashscope | cerebras | openrouter | openai
 
     # RAG
     CHUNK_SIZE: int = 1000
