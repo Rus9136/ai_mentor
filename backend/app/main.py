@@ -195,6 +195,7 @@ from app.api.v1 import teacher_join_requests
 from app.api.v1 import teacher_chat
 from app.api.v1 import teachers_usage
 from app.api.v1 import app_version
+from app.api.v1 import shared_files, file_browser
 
 app.include_router(
     auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"]
@@ -320,4 +321,16 @@ app.include_router(
     app_version.router,
     prefix="/api",
     tags=["App Version"],
+)
+
+app.include_router(
+    shared_files.router,
+    prefix=f"{settings.API_V1_PREFIX}/shared-files",
+    tags=["Shared Files"],
+)
+
+app.include_router(
+    file_browser.router,
+    prefix="/files",
+    tags=["File Browser"],
 )

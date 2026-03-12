@@ -118,6 +118,8 @@ services:
     volumes:
       # Загруженные файлы (persistent)
       - ./uploads:/app/uploads
+      # Общие файлы для скачивания
+      - ./shared-files:/app/shared-files
 
     ports:
       # Доступен ТОЛЬКО локально на хосте для Nginx
