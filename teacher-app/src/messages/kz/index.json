@@ -139,7 +139,11 @@
     "createSuccess": "Шақыру коды жасалды",
     "createError": "Код жасау сәтсіз болды",
     "deactivateSuccess": "Код өшірілді",
-    "deactivateError": "Кодты өшіру сәтсіз болды"
+    "deactivateError": "Кодты өшіру сәтсіз болды",
+    "showQr": "QR-кодты көрсету",
+    "qrTitle": "Шақыру QR-коды",
+    "qrDescription": "Оқушы QR-кодты сканерлеп, мектеп пен сыныпқа автоматты түрде қосылады",
+    "downloadQr": "PNG жүктеу"
   },
   "student": {
     "progress": "Оқушы прогресі",

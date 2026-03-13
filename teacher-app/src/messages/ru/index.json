@@ -139,7 +139,11 @@
     "createSuccess": "Код приглашения создан",
     "createError": "Не удалось создать код",
     "deactivateSuccess": "Код деактивирован",
-    "deactivateError": "Не удалось деактивировать код"
+    "deactivateError": "Не удалось деактивировать код",
+    "showQr": "Показать QR-код",
+    "qrTitle": "QR-код приглашения",
+    "qrDescription": "Ученик сканирует QR-код и автоматически привязывается к школе и классу",
+    "downloadQr": "Скачать PNG"
   },
   "student": {
     "progress": "Прогресс ученика",
