@@ -191,7 +191,8 @@ async def send_teacher_message_stream(
                 session_id=session_id,
                 teacher_id=teacher.id,
                 school_id=school_id,
-                content=request.content
+                content=request.content,
+                model=request.model
             ):
                 yield f"data: {json.dumps(event)}\n\n"
         except ValueError as e:

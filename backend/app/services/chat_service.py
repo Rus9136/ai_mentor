@@ -456,7 +456,8 @@ class ChatService:
         session_id: int,
         teacher_id: int,
         school_id: int,
-        content: str
+        content: str,
+        model: Optional[str] = None
     ) -> AsyncIterator[Dict[str, Any]]:
         """Send a teacher message and stream AI response via SSE."""
         start_time = time.time()
@@ -501,12 +502,18 @@ class ChatService:
         full_content = ""
         tokens_used = 0
 
+        # Validate and apply model override
+        llm_model = None
+        if model and model in self.ALLOWED_MODELS:
+            llm_model = model
+
         generation_error = False
         try:
             async for chunk in self.llm.stream_generate(
                 messages=messages,
                 temperature=0.7,
-                max_tokens=2000
+                max_tokens=2000,
+                model=llm_model
             ):
                 if chunk.content:
                     full_content += chunk.content
@@ -532,7 +539,7 @@ class ChatService:
             citations_json=json.dumps([c.model_dump() for c in citations]) if citations else None,
             context_chunks_used=len(context.chunks) if context.chunks else 0,
             tokens_used=tokens_used,
-            model_used=self.llm.provider,
+            model_used=llm_model or self.llm.provider,
             processing_time_ms=processing_time
         )
         self.db.add(assistant_message)

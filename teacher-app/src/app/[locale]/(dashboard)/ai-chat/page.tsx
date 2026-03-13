@@ -13,6 +13,8 @@ import {
   Copy,
   Check,
   Sparkles,
+  Zap,
+  Brain,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -35,6 +37,12 @@ import type { ChatMessage, ChatSession } from '@/types/chat';
 import { cn } from '@/lib/utils';
 import { MarkdownContent } from '@/components/chat/MarkdownContent';
 
+type ChatMode = 'fast' | 'deep';
+const MODE_TO_MODEL: Record<ChatMode, string | undefined> = {
+  fast: undefined,
+  deep: 'qwen3.5-397b-a17b',
+};
+
 export default function AIChatPage() {
   const t = useTranslations('aiChat');
   const tNav = useTranslations('navigation');
@@ -42,6 +50,7 @@ export default function AIChatPage() {
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  const [mode, setMode] = useState<ChatMode>('fast');
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [showNewChat, setShowNewChat] = useState(false);
@@ -135,7 +144,7 @@ export default function AIChatPage() {
       let finalAssistantMessage: ChatMessage | null = null;
       let finalSession: ChatSession | null = null;
 
-      for await (const event of streamChatMessage(activeSessionId, userContent)) {
+      for await (const event of streamChatMessage(activeSessionId, userContent, MODE_TO_MODEL[mode])) {
         switch (event.type) {
           case 'user_message':
             // Replace temp message with real one
@@ -441,6 +450,35 @@ export default function AIChatPage() {
 
             {/* Input area */}
             <div className="border-t p-4">
+              {/* Mode selector */}
+              <div className="mx-auto mb-2 flex max-w-3xl items-center gap-1.5">
+                <button
+                  onClick={() => setMode('fast')}
+                  disabled={isStreaming}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50',
+                    mode === 'fast'
+                      ? 'bg-primary/15 text-primary ring-1 ring-primary/30'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  )}
+                >
+                  <Zap className="h-3 w-3" />
+                  {t('modeFast')}
+                </button>
+                <button
+                  onClick={() => setMode('deep')}
+                  disabled={isStreaming}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50',
+                    mode === 'deep'
+                      ? 'bg-violet-100 text-violet-700 ring-1 ring-violet-300 dark:bg-violet-900/30 dark:text-violet-400 dark:ring-violet-700'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  )}
+                >
+                  <Brain className="h-3 w-3" />
+                  {t('modeDeep')}
+                </button>
+              </div>
               <div className="mx-auto flex max-w-3xl gap-2">
                 <textarea
                   ref={inputRef}
@@ -456,7 +494,10 @@ export default function AIChatPage() {
                   size="icon"
                   onClick={handleSendMessage}
                   disabled={!input.trim() || isStreaming}
-                  className="h-11 w-11 rounded-xl"
+                  className={cn(
+                    'h-11 w-11 rounded-xl',
+                    mode === 'deep' && 'bg-violet-600 hover:bg-violet-700'
+                  )}
                 >
                   {isStreaming ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

@@ -42,10 +42,14 @@ export async function deleteChatSession(sessionId: number): Promise<void> {
  */
 export async function* streamChatMessage(
   sessionId: number,
-  content: string
+  content: string,
+  model?: string
 ): AsyncGenerator<{ type: string; content?: string; message?: any; session?: any; citations?: any[]; error?: string }> {
   const token = getAccessToken();
   const url = `${API_BASE_URL}/api/v1/teachers/chat/sessions/${sessionId}/messages/stream`;
+
+  const body: Record<string, string> = { content };
+  if (model) body.model = model;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -53,7 +57,7 @@ export async function* streamChatMessage(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
