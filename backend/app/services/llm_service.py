@@ -213,7 +213,10 @@ class OpenRouterClient:
 
                     try:
                         data = json.loads(data_str)
-                        choice = data.get("choices", [{}])[0]
+                        choices = data.get("choices") or []
+                        if not choices:
+                            continue
+                        choice = choices[0]
                         delta = choice.get("delta", {})
                         content = delta.get("content", "")
                         finish_reason = choice.get("finish_reason")
@@ -224,7 +227,7 @@ class OpenRouterClient:
                                 is_final=finish_reason is not None,
                                 finish_reason=finish_reason
                             )
-                    except json.JSONDecodeError:
+                    except (json.JSONDecodeError, IndexError, KeyError):
                         continue
 
         except httpx.HTTPError as e:
@@ -351,7 +354,10 @@ class DashScopeClient:
 
                     try:
                         data = json.loads(data_str)
-                        choice = data.get("choices", [{}])[0]
+                        choices = data.get("choices") or []
+                        if not choices:
+                            continue
+                        choice = choices[0]
                         delta = choice.get("delta", {})
                         content = delta.get("content", "")
                         finish_reason = choice.get("finish_reason")
@@ -366,7 +372,7 @@ class DashScopeClient:
                                 completion_tokens=usage.get("completion_tokens") if usage else None,
                                 finish_reason=finish_reason
                             )
-                    except json.JSONDecodeError:
+                    except (json.JSONDecodeError, IndexError, KeyError):
                         continue
 
         except httpx.HTTPError as e:
