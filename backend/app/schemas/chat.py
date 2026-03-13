@@ -95,6 +95,10 @@ class ChatMessageCreate(BaseModel):
         max_length=4000,
         description="User message content"
     )
+    model: Optional[str] = Field(
+        None,
+        description="LLM model override (e.g. 'qwen3.5-397b-a17b' for deep mode)"
+    )
 
 
 class ChatMessageResponse(BaseModel):

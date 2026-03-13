@@ -501,6 +501,7 @@ class ChatService:
         full_content = ""
         tokens_used = 0
 
+        generation_error = False
         try:
             async for chunk in self.llm.stream_generate(
                 messages=messages,
@@ -514,8 +515,11 @@ class ChatService:
                     tokens_used = chunk.tokens_used or 0
         except Exception as e:
             logger.error(f"LLM streaming failed for teacher chat: {str(e)}")
-            full_content = "Извините, произошла ошибка при генерации ответа. Попробуйте позже."
-            yield {"type": "delta", "content": full_content}
+            generation_error = True
+            error_msg = "Извините, произошла ошибка при генерации ответа. Попробуйте позже."
+            yield {"type": "error", "error": error_msg, "partial_content": bool(full_content)}
+            if not full_content:
+                full_content = error_msg
 
         processing_time = int((time.time() - start_time) * 1000)
         citations = self.rag_service._extract_citations(context.chunks) if context.chunks else []
@@ -584,12 +588,15 @@ class ChatService:
         # Trigger background memory extraction for teacher
         trigger_teacher_memory_extraction(session_id, teacher_id, school_id)
 
-        yield {
+        done_event = {
             "type": "done",
             "message": self._message_to_response(assistant_message, citations).model_dump(mode="json"),
             "session": self._session_to_response(session).model_dump(mode="json"),
             "citations": [c.model_dump(mode="json") for c in citations]
         }
+        if generation_error:
+            done_event["generation_error"] = True
+        yield done_event
 
     async def _build_teacher_llm_messages(
         self,
@@ -796,12 +803,16 @@ class ChatService:
             session=self._session_to_response(session)
         )
 
+    # Allowed model overrides for student chat
+    ALLOWED_MODELS = {"qwen3.5-plus", "qwen3.5-397b-a17b"}
+
     async def send_message_stream(
         self,
         session_id: int,
         student_id: int,
         school_id: int,
-        content: str
+        content: str,
+        model: Optional[str] = None
     ) -> AsyncIterator[Dict[str, Any]]:
         """
         Send a user message and stream AI response.
@@ -870,11 +881,18 @@ class ChatService:
         tokens_used = 0
         finish_reason = None
 
+        # Validate and apply model override
+        llm_model = None
+        if model and model in self.ALLOWED_MODELS:
+            llm_model = model
+
+        generation_error = False
         try:
             async for chunk in self.llm.stream_generate(
                 messages=messages,
                 temperature=0.7,
-                max_tokens=1500
+                max_tokens=1500,
+                model=llm_model
             ):
                 if chunk.content:
                     full_content += chunk.content
@@ -886,8 +904,11 @@ class ChatService:
 
         except Exception as e:
             logger.error(f"LLM streaming failed: {str(e)}")
-            full_content = "Извините, произошла ошибка при генерации ответа. Попробуйте позже."
-            yield {"type": "delta", "content": full_content}
+            generation_error = True
+            error_msg = "Извините, произошла ошибка при генерации ответа. Попробуйте позже."
+            yield {"type": "error", "error": error_msg, "partial_content": bool(full_content)}
+            if not full_content:
+                full_content = error_msg
 
         processing_time = int((time.time() - start_time) * 1000)
 
@@ -903,7 +924,7 @@ class ChatService:
             citations_json=json.dumps([c.model_dump() for c in citations]) if citations else None,
             context_chunks_used=len(context.chunks) if context.chunks else 0,
             tokens_used=tokens_used,
-            model_used=self.llm.provider,
+            model_used=llm_model or self.llm.provider,
             processing_time_ms=processing_time
         )
         self.db.add(assistant_message)
@@ -934,12 +955,15 @@ class ChatService:
             _trigger_ai_title(session_id, school_id, content, full_content)
 
         # Yield final message with metadata
-        yield {
+        done_event = {
             "type": "done",
             "message": self._message_to_response(assistant_message, citations).model_dump(mode="json"),
             "session": self._session_to_response(session).model_dump(mode="json"),
             "citations": [c.model_dump(mode="json") for c in citations]
         }
+        if generation_error:
+            done_event["generation_error"] = True
+        yield done_event
 
     async def _build_llm_messages(
         self,

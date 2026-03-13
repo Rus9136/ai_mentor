@@ -129,13 +129,13 @@ export function useStreamMessage(sessionId: number) {
   const [error, setError] = useState<string | null>(null);
 
   const sendStreamingMessage = useCallback(
-    async (content: string) => {
+    async (content: string, model?: string) => {
       setIsStreaming(true);
       setStreamingContent('');
       setError(null);
 
       try {
-        await streamChatMessage(sessionId, content, {
+        await streamChatMessage(sessionId, content, model, {
           onUserMessage: (message: ChatMessage) => {
             // Add user message to cache immediately
             queryClient.setQueryData<ChatSessionDetail>(

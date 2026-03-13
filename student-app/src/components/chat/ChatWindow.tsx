@@ -5,8 +5,13 @@ import { useTranslations } from 'next-intl';
 import { Sparkles, AlertCircle, BookOpen, ListChecks, FileText } from 'lucide-react';
 import { useChatSession, useStreamMessage } from '@/lib/hooks/use-chat';
 import { ChatMessage } from './ChatMessage';
-import { ChatInput } from './ChatInput';
+import { ChatInput, ChatMode } from './ChatInput';
 import { TypingIndicator } from './TypingIndicator';
+
+const MODE_TO_MODEL: Record<ChatMode, string | undefined> = {
+  fast: undefined,        // uses default (qwen3.5-plus)
+  deep: 'qwen3.5-397b-a17b',
+};
 
 interface ChatWindowProps {
   sessionId: number;
@@ -26,8 +31,8 @@ export function ChatWindow({ sessionId, initialPrompt, onInitialPromptConsumed }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [session?.messages, streamingContent]);
 
-  const handleSend = (content: string) => {
-    sendStreamingMessage(content);
+  const handleSend = (content: string, mode: ChatMode = 'fast') => {
+    sendStreamingMessage(content, MODE_TO_MODEL[mode]);
   };
 
   const suggestions = [

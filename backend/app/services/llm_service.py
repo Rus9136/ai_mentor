@@ -331,7 +331,8 @@ class DashScopeClient:
                     "temperature": temperature,
                     "max_tokens": max_tokens,
                     "stream": True,
-                    "stream_options": {"include_usage": True}
+                    "stream_options": {"include_usage": True},
+                    "enable_thinking": False
                 }
             ) as response:
                 if response.status_code != 200:
@@ -703,13 +704,32 @@ class LLMService:
         # DashScope and OpenRouter support streaming
         if self.provider in ("openrouter", "dashscope"):
             client = self._get_client()
-            async for chunk in client.stream_generate(
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model=model
-            ):
-                yield chunk
+            yielded_any = False
+            try:
+                async for chunk in client.stream_generate(
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    model=model
+                ):
+                    yielded_any = True
+                    yield chunk
+            except (LLMServiceError, Exception) as e:
+                if yielded_any or self.provider == "openrouter":
+                    raise  # Can't fallback mid-stream or for openrouter
+                # Fallback to OpenRouter streaming
+                logger.warning(f"{self.provider} stream failed, trying OpenRouter fallback: {e}")
+                try:
+                    if self._openrouter_fallback is None:
+                        self._openrouter_fallback = OpenRouterClient()
+                    async for chunk in self._openrouter_fallback.stream_generate(
+                        messages=messages,
+                        temperature=temperature,
+                        max_tokens=max_tokens
+                    ):
+                        yield chunk
+                except LLMServiceError:
+                    raise  # Both providers failed
         else:
             # Fallback: generate full response and yield as single chunk
             response = await self.generate(

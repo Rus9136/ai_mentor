@@ -149,7 +149,7 @@ class Settings(BaseSettings):
     # DashScope / Qwen (primary LLM provider)
     DASHSCOPE_API_KEY: Optional[str] = None
     DASHSCOPE_BASE_URL: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-    DASHSCOPE_MODEL: str = "qwen3-235b-a22b"
+    DASHSCOPE_MODEL: str = "qwen3.5-plus"
 
     # OpenRouter (fallback LLM provider)
     OPENROUTER_API_KEY: Optional[str] = None

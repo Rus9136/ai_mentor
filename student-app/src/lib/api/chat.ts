@@ -55,6 +55,7 @@ export interface CreateSessionRequest {
 
 export interface SendMessageRequest {
   content: string;
+  model?: string;
 }
 
 export interface ChatResponse {
@@ -206,6 +207,7 @@ async function ensureValidToken(): Promise<string | null> {
 export async function streamChatMessage(
   sessionId: number,
   content: string,
+  model: string | undefined,
   callbacks: {
     onUserMessage?: (message: ChatMessage) => void;
     onDelta?: (content: string) => void;
@@ -216,6 +218,9 @@ export async function streamChatMessage(
   const baseURL = process.env.NEXT_PUBLIC_API_URL || '';
   let token = getAccessToken();
 
+  const body: SendMessageRequest = { content };
+  if (model) body.model = model;
+
   const makeRequest = async (authToken: string | null) => {
     return fetch(`${baseURL}/chat/sessions/${sessionId}/messages/stream`, {
       method: 'POST',
@@ -223,7 +228,7 @@ export async function streamChatMessage(
         'Content-Type': 'application/json',
         'Authorization': authToken ? `Bearer ${authToken}` : '',
       },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(body),
     });
   };
 
