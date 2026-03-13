@@ -266,7 +266,7 @@ class DashScopeClient:
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json"
             },
-            timeout=120.0
+            timeout=60.0
         )
 
     async def generate(

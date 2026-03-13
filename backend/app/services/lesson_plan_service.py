@@ -88,6 +88,7 @@ class LessonPlanService:
         paragraph_id: int,
         school_id: int,
         teacher_id: int,
+        user_id: int,
         class_id: Optional[int],
         language: str,
         duration_min: int,
@@ -103,6 +104,7 @@ class LessonPlanService:
         usage_ctx = LLMUsageContext(
             db=self.db,
             feature="lesson_plan",
+            user_id=user_id,
             teacher_id=teacher_id,
             school_id=school_id,
         )
@@ -311,7 +313,7 @@ class LessonPlanService:
 {outcomes_str}
 
 МАЗМҰНЫ (кратко):
-{(p.content or '')[:3000]}
+{(p.content or '')[:1500]}
 {explain_text}
 
 НЕГІЗГІ ҰҒЫМДАР:

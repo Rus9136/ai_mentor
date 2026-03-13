@@ -52,6 +52,7 @@ async def generate_lesson_plan(
             paragraph_id=request.paragraph_id,
             school_id=school_id,
             teacher_id=teacher.id,
+            user_id=teacher.user_id,
             class_id=request.class_id,
             language=request.language,
             duration_min=request.duration_min,
