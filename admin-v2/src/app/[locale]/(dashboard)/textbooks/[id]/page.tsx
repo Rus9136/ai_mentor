@@ -14,6 +14,7 @@ import {
   User,
   Building2,
   Globe,
+  GitBranch,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -118,6 +119,13 @@ export default function TextbookShowPage() {
           </div>
 
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/ru/textbooks/${textbook.id}/graph`)}
+            >
+              <GitBranch className="mr-2 h-4 w-4" />
+              Граф
+            </Button>
             <Button
               variant="outline"
               onClick={() => router.push(`/ru/textbooks/${textbook.id}/structure`)}

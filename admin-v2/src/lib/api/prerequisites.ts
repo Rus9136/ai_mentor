@@ -25,8 +25,19 @@ export interface PrerequisiteEdge {
   strength: string;
 }
 
+export interface GraphNode {
+  id: number;
+  title: string | null;
+  number: number | null;
+  chapter_id: number;
+  chapter_title: string | null;
+  chapter_number: number | null;
+  order: number;
+}
+
 export interface TextbookGraphResponse {
   textbook_id: number;
+  nodes: GraphNode[];
   edges: PrerequisiteEdge[];
   total_edges: number;
 }

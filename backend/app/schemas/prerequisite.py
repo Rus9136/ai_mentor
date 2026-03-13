@@ -54,10 +54,23 @@ class PrerequisiteEdge(BaseModel):
     strength: str
 
 
+class GraphNode(BaseModel):
+    """A node (paragraph) in the prerequisite graph."""
+
+    id: int
+    title: Optional[str] = None
+    number: Optional[int] = None
+    chapter_id: int
+    chapter_title: Optional[str] = None
+    chapter_number: Optional[int] = None
+    order: int = 0
+
+
 class TextbookGraphResponse(BaseModel):
     """Full prerequisite graph for a textbook."""
 
     textbook_id: int
+    nodes: List[GraphNode] = Field(default_factory=list)
     edges: List[PrerequisiteEdge] = Field(default_factory=list)
     total_edges: int = 0
 

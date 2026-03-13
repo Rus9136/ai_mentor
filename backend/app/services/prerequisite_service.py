@@ -27,6 +27,7 @@ from app.schemas.prerequisite import (
     PrerequisiteWarning,
     PrerequisiteResponse,
     PrerequisiteEdge,
+    GraphNode,
     TextbookGraphResponse,
     PrerequisiteAnalyticsItem,
     PrerequisiteAnalyticsResponse,
@@ -252,7 +253,23 @@ class PrerequisiteService:
         )
 
     async def get_textbook_graph(self, textbook_id: int) -> TextbookGraphResponse:
-        """Get full prerequisite graph for a textbook."""
+        """Get full prerequisite graph for a textbook (nodes + edges).
+        Includes cross-textbook prerequisite nodes if they exist."""
+        # Load all paragraphs for this textbook (nodes)
+        result = await self.db.execute(
+            select(Paragraph)
+            .join(Chapter, Paragraph.chapter_id == Chapter.id)
+            .where(
+                Chapter.textbook_id == textbook_id,
+                Paragraph.is_deleted == False,
+            )
+            .options(selectinload(Paragraph.chapter))
+            .order_by(Chapter.order, Paragraph.order)
+        )
+        paragraphs = list(result.scalars().all())
+        node_ids = {p.id for p in paragraphs}
+
+        # Load edges
         prereqs = await self.prereq_repo.get_by_textbook(textbook_id)
 
         edges = [
@@ -265,8 +282,38 @@ class PrerequisiteService:
             for p in prereqs
         ]
 
+        # Find cross-textbook prerequisite paragraph IDs
+        cross_ids = {
+            e.from_paragraph_id for e in edges
+            if e.from_paragraph_id not in node_ids
+        }
+
+        # Load cross-textbook paragraphs
+        if cross_ids:
+            result = await self.db.execute(
+                select(Paragraph)
+                .where(Paragraph.id.in_(cross_ids), Paragraph.is_deleted == False)
+                .options(selectinload(Paragraph.chapter))
+            )
+            cross_paragraphs = list(result.scalars().all())
+            paragraphs.extend(cross_paragraphs)
+
+        nodes = [
+            GraphNode(
+                id=p.id,
+                title=p.title,
+                number=p.number,
+                chapter_id=p.chapter_id,
+                chapter_title=p.chapter.title if p.chapter else None,
+                chapter_number=p.chapter.number if p.chapter else None,
+                order=p.order or 0,
+            )
+            for p in paragraphs
+        ]
+
         return TextbookGraphResponse(
             textbook_id=textbook_id,
+            nodes=nodes,
             edges=edges,
             total_edges=len(edges),
         )
