@@ -55,9 +55,9 @@ class XpTransaction(BaseModel):
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
     school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
     amount = Column(Integer, nullable=False)
-    source_type = Column(Enum(XpSourceType, name="xp_source_type", create_type=False), nullable=False)
+    source_type = Column(Enum(XpSourceType, name="xp_source_type", create_type=False, values_callable=lambda x: [e.value for e in x]), nullable=False)
     source_id = Column(Integer, nullable=True)
-    metadata = Column(JSONB, default=dict)
+    extra_data = Column("metadata", JSONB, default=dict)
 
     student = relationship("Student", back_populates="xp_transactions")
 
@@ -76,10 +76,10 @@ class Achievement(BaseModel):
     description_kk = Column(String, nullable=True)
     description_ru = Column(String, nullable=True)
     icon = Column(String(100), nullable=False, default="star")
-    category = Column(Enum(AchievementCategory, name="achievement_category", create_type=False), nullable=False)
+    category = Column(Enum(AchievementCategory, name="achievement_category", create_type=False, values_callable=lambda x: [e.value for e in x]), nullable=False)
     criteria = Column(JSONB, nullable=False, default=dict)
     xp_reward = Column(Integer, nullable=False, default=0)
-    rarity = Column(Enum(AchievementRarity, name="achievement_rarity", create_type=False), nullable=False, default=AchievementRarity.COMMON)
+    rarity = Column(Enum(AchievementRarity, name="achievement_rarity", create_type=False, values_callable=lambda x: [e.value for e in x]), nullable=False, default=AchievementRarity.COMMON)
     sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
 
@@ -119,7 +119,7 @@ class DailyQuest(BaseModel):
     name_ru = Column(String(200), nullable=False)
     description_kk = Column(String, nullable=True)
     description_ru = Column(String, nullable=True)
-    quest_type = Column(Enum(QuestType, name="quest_type", create_type=False), nullable=False)
+    quest_type = Column(Enum(QuestType, name="quest_type", create_type=False, values_callable=lambda x: [e.value for e in x]), nullable=False)
     target_value = Column(Integer, nullable=False)
     xp_reward = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)

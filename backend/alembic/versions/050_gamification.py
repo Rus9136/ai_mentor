@@ -43,7 +43,8 @@ def upgrade() -> None:
             source_type xp_source_type NOT NULL,
             source_id INTEGER,
             metadata JSONB DEFAULT '{}',
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
     """)
     op.execute("CREATE INDEX ix_xp_transactions_student ON xp_transactions(student_id, created_at DESC);")
@@ -91,7 +92,8 @@ def upgrade() -> None:
             is_earned BOOLEAN NOT NULL DEFAULT false,
             earned_at TIMESTAMPTZ,
             notified BOOLEAN NOT NULL DEFAULT false,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
     """)
     op.execute("CREATE UNIQUE INDEX uix_student_achievement ON student_achievements(student_id, achievement_id);")
@@ -132,7 +134,8 @@ def upgrade() -> None:
             current_value INTEGER NOT NULL DEFAULT 0,
             is_completed BOOLEAN NOT NULL DEFAULT false,
             completed_at TIMESTAMPTZ,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
     """)
     op.execute("CREATE UNIQUE INDEX uix_student_daily_quest ON student_daily_quests(student_id, quest_id, quest_date);")

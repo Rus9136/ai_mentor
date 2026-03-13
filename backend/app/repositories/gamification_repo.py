@@ -35,7 +35,7 @@ class GamificationRepository:
         amount: int,
         source_type: XpSourceType,
         source_id: Optional[int] = None,
-        metadata: Optional[dict] = None,
+        extra_data: Optional[dict] = None,
     ) -> XpTransaction:
         """Create XP transaction and update student total_xp atomically."""
         txn = XpTransaction(
@@ -44,7 +44,7 @@ class GamificationRepository:
             amount=amount,
             source_type=source_type,
             source_id=source_id,
-            metadata=metadata or {},
+            extra_data=extra_data or {},
         )
         self.db.add(txn)
 

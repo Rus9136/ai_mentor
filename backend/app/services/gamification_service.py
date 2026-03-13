@@ -83,7 +83,7 @@ class GamificationService:
         amount: int,
         source_type: XpSourceType,
         source_id: Optional[int] = None,
-        metadata: Optional[dict] = None,
+        extra_data: Optional[dict] = None,
     ) -> dict:
         """
         Award XP to a student. Returns summary with level-up info.
@@ -104,7 +104,7 @@ class GamificationService:
             amount=amount,
             source_type=source_type,
             source_id=source_id,
-            metadata=metadata,
+            extra_data=extra_data,
         )
 
         # Check level up
@@ -160,7 +160,7 @@ class GamificationService:
             amount=xp,
             source_type=XpSourceType.TEST_PASSED,
             source_id=test_attempt_id,
-            metadata={"score": test_score, "purpose": test_purpose, "attempt": attempt_number},
+            extra_data={"score": test_score, "purpose": test_purpose, "attempt": attempt_number},
         )
 
         # Update streak
@@ -201,7 +201,7 @@ class GamificationService:
                 amount=xp,
                 source_type=XpSourceType.MASTERY_UP,
                 source_id=paragraph_id,
-                metadata={"old_status": old_status, "new_status": new_status},
+                extra_data={"old_status": old_status, "new_status": new_status},
             )
 
         # Check mastery-related achievements
@@ -238,7 +238,7 @@ class GamificationService:
                 amount=xp,
                 source_type=XpSourceType.CHAPTER_COMPLETE,
                 source_id=chapter_id,
-                metadata={"old_level": old_level, "new_level": new_level},
+                extra_data={"old_level": old_level, "new_level": new_level},
             )
             await self.check_achievements(student_id, school_id)
 
@@ -287,7 +287,7 @@ class GamificationService:
             school_id=school_id,
             amount=streak_xp,
             source_type=XpSourceType.STREAK_BONUS,
-            metadata={"streak_day": new_streak},
+            extra_data={"streak_day": new_streak},
         )
 
         logger.info(f"Student {student_id} streak: {new_streak} days (XP: +{streak_xp})")
@@ -343,7 +343,7 @@ class GamificationService:
                             amount=achievement.xp_reward,
                             source_type=XpSourceType.MASTERY_UP,
                             source_id=achievement.id,
-                            metadata={"achievement_code": achievement.code},
+                            extra_data={"achievement_code": achievement.code},
                         )
 
                 newly_earned.append(achievement)
