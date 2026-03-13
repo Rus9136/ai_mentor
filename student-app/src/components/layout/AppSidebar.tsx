@@ -10,6 +10,7 @@ import {
   ClipboardList,
   GraduationCap,
   User,
+  Trophy,
 } from 'lucide-react';
 import { SidebarChapterProgress } from './SidebarChapterProgress';
 import { useChapterParagraphs, useParagraphNavigation } from '@/lib/hooks/use-textbooks';
@@ -74,6 +75,7 @@ function DefaultNav() {
   const navItems = [
     { href: '/home', icon: Home, label: t('home') },
     { href: '/subjects', icon: BookOpen, label: t('subjects') },
+    { href: '/gamification', icon: Trophy, label: t('gamification') },
     { href: '/tests', icon: FileCheck, label: t('tests') },
     { href: '/homework', icon: ClipboardList, label: t('homework') },
   ];

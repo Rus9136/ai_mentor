@@ -139,6 +139,7 @@
     "tests": "Тесты",
     "homework": "Задания",
     "profile": "Профиль",
+    "gamification": "Достижения",
     "logout": "Выйти"
   },
   "textbook": {
@@ -734,5 +735,28 @@
     "untitled": "Без названия",
     "goToPrerequisite": "Перейти к теме",
     "proceedAnyway": "Всё равно продолжить"
+  },
+  "gamification": {
+    "title": "Геймификация",
+    "level": "Уровень",
+    "xpProgress": "{current} / {total} XP",
+    "streak": "{days} дней подряд",
+    "streakRecord": "Рекорд",
+    "achievements": "Достижения",
+    "leaderboard": "Рейтинг",
+    "dailyQuests": "Задания",
+    "school": "Школа",
+    "class": "Класс",
+    "earned": "Получено",
+    "locked": "Заблокировано",
+    "xpAwarded": "+{amount} XP",
+    "levelUp": "Уровень {level}!",
+    "questComplete": "Выполнено!",
+    "yourRank": "Твоё место: #{rank}",
+    "profile": "Профиль",
+    "noAchievements": "Пока нет достижений",
+    "keepLearning": "Продолжай учиться!",
+    "noQuests": "Нет заданий на сегодня",
+    "awesome": "Круто!"
   }
 }

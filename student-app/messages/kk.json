@@ -139,6 +139,7 @@
     "tests": "Тесттер",
     "homework": "Тапсырмалар",
     "profile": "Профиль",
+    "gamification": "Жетістіктер",
     "logout": "Шығу"
   },
   "textbook": {
@@ -734,5 +735,28 @@
     "untitled": "Атаусыз",
     "goToPrerequisite": "Тақырыпқа өту",
     "proceedAnyway": "Бәрібір жалғастыру"
+  },
+  "gamification": {
+    "title": "Геймификация",
+    "level": "Деңгей",
+    "xpProgress": "{current} / {total} XP",
+    "streak": "{days} күн қатарынан",
+    "streakRecord": "Рекорд",
+    "achievements": "Жетістіктер",
+    "leaderboard": "Рейтинг",
+    "dailyQuests": "Тапсырмалар",
+    "school": "Мектеп",
+    "class": "Сынып",
+    "earned": "Алынды",
+    "locked": "Құлыпталған",
+    "xpAwarded": "+{amount} XP",
+    "levelUp": "Деңгей {level}!",
+    "questComplete": "Орындалды!",
+    "yourRank": "Сенің орның: #{rank}",
+    "profile": "Профиль",
+    "noAchievements": "Әзірше жетістіктер жоқ",
+    "keepLearning": "Оқуды жалғастыр!",
+    "noQuests": "Бүгінге тапсырмалар жоқ",
+    "awesome": "Керемет!"
   }
 }

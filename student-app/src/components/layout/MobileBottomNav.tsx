@@ -8,7 +8,7 @@ import {
   BookOpen,
   User,
   FileCheck,
-  ClipboardList,
+  Trophy,
 } from 'lucide-react';
 
 export function MobileBottomNav() {
@@ -18,8 +18,8 @@ export function MobileBottomNav() {
   const navItems = [
     { href: '/home', icon: Home, label: t('home') },
     { href: '/subjects', icon: BookOpen, label: t('subjects') },
+    { href: '/gamification', icon: Trophy, label: t('gamification') },
     { href: '/tests', icon: FileCheck, label: t('tests') },
-    { href: '/homework', icon: ClipboardList, label: t('homework') },
     { href: '/profile', icon: User, label: t('profile') },
   ];
 

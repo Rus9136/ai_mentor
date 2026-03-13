@@ -17,6 +17,7 @@ import {
   Loader2,
   AlertCircle,
 } from 'lucide-react';
+import { XpLevelWidget } from '@/components/gamification/XpLevelWidget';
 
 export default function HomePage() {
   const t = useTranslations('home');
@@ -50,6 +51,9 @@ export default function HomePage() {
         </h1>
         <p className="mt-1 text-muted-foreground">{t('subtitle')}</p>
       </div>
+
+      {/* XP Level Widget */}
+      <XpLevelWidget />
 
       {/* Continue Learning Card */}
       {continueItem && (
