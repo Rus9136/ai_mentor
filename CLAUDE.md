@@ -258,6 +258,25 @@ class StudentResponse(BaseModel):
 
 Весь проект async — все запросы к БД через `await`.
 
+### КРИТИЧНО — RLS-политики при миграциях
+
+При создании или изменении RLS-политик **обязательно проверяй консистентность** всех 4 операций (SELECT, INSERT, UPDATE, DELETE):
+
+**Правило:** если SELECT-политика разрешает доступ по `user_id`, то UPDATE и DELETE тоже **обязаны** включать `user_id`. Иначе пользователь сможет прочитать запись, но не сможет её изменить → `StaleDataError`.
+
+**Проверочный запрос после каждой RLS-миграции:**
+```sql
+-- Таблицы, где SELECT имеет user_id, а UPDATE — нет (баг!)
+SELECT tablename FROM pg_policies WHERE schemaname='public' AND cmd='r'
+  AND qual LIKE '%current_user_id%'
+EXCEPT
+SELECT tablename FROM pg_policies WHERE schemaname='public' AND cmd='w'
+  AND qual LIKE '%current_user_id%';
+-- Результат должен быть пустым (0 rows)
+```
+
+**Автотест:** `backend/tests/test_rls_policy_audit.py` — запускать перед деплоем.
+
 ---
 
 ## Git Conventions
