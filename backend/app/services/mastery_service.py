@@ -169,6 +169,21 @@ class MasteryService:
                 f"Mastery status changed for student {student_id}, "
                 f"paragraph {paragraph_id}: {old_status} -> {new_status}"
             )
+
+            # Gamification hook: award XP for mastery change
+            try:
+                from app.services.gamification_service import GamificationService
+                gamification = GamificationService(self.db)
+                await gamification.on_mastery_change(
+                    student_id=student_id,
+                    school_id=school_id,
+                    old_status=old_status,
+                    new_status=new_status,
+                    paragraph_id=paragraph_id,
+                    test_attempt_id=test_attempt_id,
+                )
+            except Exception as e:
+                logger.warning(f"Gamification hook failed (mastery_change): {e}")
         else:
             logger.info(
                 f"Mastery status unchanged: {new_status} "
@@ -627,6 +642,20 @@ class MasteryService:
                 f"MasteryHistory created: {old_level} → {new_level} "
                 f"(score: {old_score:.2f} → {new_score:.2f})"
             )
+
+            # Gamification hook: award XP for chapter level change
+            try:
+                from app.services.gamification_service import GamificationService
+                gamification = GamificationService(self.db)
+                await gamification.on_chapter_level_change(
+                    student_id=mastery.student_id,
+                    school_id=school_id,
+                    old_level=old_level,
+                    new_level=new_level,
+                    chapter_id=mastery.chapter_id,
+                )
+            except Exception as e:
+                logger.warning(f"Gamification hook failed (chapter_level_change): {e}")
         else:
             logger.info(
                 f"MasteryHistory NOT created: level unchanged ({new_level}) "

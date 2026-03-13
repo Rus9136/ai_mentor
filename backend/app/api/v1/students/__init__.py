@@ -31,6 +31,7 @@ from .grades import router as grades_router
 from .reviews import router as reviews_router
 from .prerequisites import router as prerequisites_router
 from .usage import router as usage_router
+from .gamification import router as gamification_router
 
 
 router = APIRouter()
@@ -73,3 +74,6 @@ router.include_router(prerequisites_router, tags=["Student Prerequisites"])
 
 # Usage counters (rate limiting info)
 router.include_router(usage_router, tags=["Student Usage"])
+
+# Gamification (XP, achievements, leaderboard)
+router.include_router(gamification_router, tags=["Student Gamification"])

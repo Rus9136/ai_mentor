@@ -291,4 +291,20 @@ class GradingService:
                 "(only FORMATIVE and SUMMATIVE affect mastery)"
             )
 
+        # 9. Gamification hook: award XP for test passed
+        if attempt.passed:
+            try:
+                from app.services.gamification_service import GamificationService
+                gamification = GamificationService(self.db)
+                await gamification.on_test_passed(
+                    student_id=attempt.student_id,
+                    school_id=attempt.school_id,
+                    test_score=attempt.score,
+                    test_purpose=test_purpose.value if hasattr(test_purpose, 'value') else str(test_purpose),
+                    attempt_number=attempt.attempt_number,
+                    test_attempt_id=attempt.id,
+                )
+            except Exception as e:
+                logger.warning(f"Gamification hook failed (test_passed): {e}")
+
         return attempt

@@ -118,6 +118,17 @@ class SelfAssessmentService:
         except Exception as e:
             logger.warning(f"Failed to update metacognitive pattern: {e}")
 
+        # 7. Gamification hook: award XP for self-assessment
+        try:
+            from app.services.gamification_service import GamificationService
+            gamification = GamificationService(self.db)
+            await gamification.on_self_assessment(
+                student_id=student_id,
+                school_id=school_id,
+            )
+        except Exception as e:
+            logger.warning(f"Gamification hook failed (self_assessment): {e}")
+
         return assessment, next_recommendation
 
     def _calculate_mastery_impact(

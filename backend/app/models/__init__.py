@@ -103,6 +103,19 @@ from app.models.prerequisite import ParagraphPrerequisite
 # Subscriptions & Usage
 from app.models.subscription import SubscriptionPlan, SchoolSubscription, DailyUsageCounter
 
+# Gamification
+from app.models.gamification import (
+    XpTransaction,
+    Achievement,
+    StudentAchievement,
+    DailyQuest,
+    StudentDailyQuest,
+    XpSourceType,
+    AchievementCategory,
+    AchievementRarity,
+    QuestType,
+)
+
 __all__ = [
     # Base
     "BaseModel",
@@ -224,4 +237,14 @@ __all__ = [
     "SubscriptionPlan",
     "SchoolSubscription",
     "DailyUsageCounter",
+    # Gamification
+    "XpTransaction",
+    "Achievement",
+    "StudentAchievement",
+    "DailyQuest",
+    "StudentDailyQuest",
+    "XpSourceType",
+    "AchievementCategory",
+    "AchievementRarity",
+    "QuestType",
 ]

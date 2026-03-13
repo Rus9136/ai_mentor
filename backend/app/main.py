@@ -194,6 +194,7 @@ from app.api.v1 import teachers_exercises, teachers_grades, teachers_lesson_plan
 from app.api.v1 import teacher_join_requests
 from app.api.v1 import teacher_chat
 from app.api.v1 import teachers_usage
+from app.api.v1 import teachers_gamification
 from app.api.v1 import app_version
 from app.api.v1 import shared_files, file_browser
 
@@ -315,6 +316,12 @@ app.include_router(
     teachers_usage.router,
     prefix=f"{settings.API_V1_PREFIX}",
     tags=["Teachers - Usage"],
+)
+
+app.include_router(
+    teachers_gamification.router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Teachers - Gamification"],
 )
 
 app.include_router(

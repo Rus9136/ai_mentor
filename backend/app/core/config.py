@@ -164,6 +164,9 @@ class Settings(BaseSettings):
     TOP_K_RESULTS: int = 5
     MIN_SIMILARITY: float = 0.5  # Minimum cosine similarity for vector search
 
+    # Gamification
+    GAMIFICATION_ENABLED: bool = True
+
     # Adaptive Learning
     MASTERY_THRESHOLD: float = 0.7
     DAYS_TO_TRACK: int = 30

@@ -1,7 +1,7 @@
 """
 Student models.
 """
-from sqlalchemy import Column, String, Integer, ForeignKey, Date, DateTime
+from sqlalchemy import Column, String, Integer, ForeignKey, Date, DateTime, Boolean
 from sqlalchemy.orm import relationship
 
 from app.models.base import SoftDeleteModel
@@ -24,6 +24,13 @@ class Student(SoftDeleteModel):
     # Metacognitive pattern (overconfident / underconfident / well_calibrated / None)
     metacognitive_pattern = Column(String(20), nullable=True)
     metacognitive_updated_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Gamification
+    total_xp = Column(Integer, nullable=False, default=0, server_default='0')
+    level = Column(Integer, nullable=False, default=1, server_default='1')
+    current_streak = Column(Integer, nullable=False, default=0, server_default='0')
+    longest_streak = Column(Integer, nullable=False, default=0, server_default='0')
+    last_activity_date = Column(Date, nullable=True)
 
     # Relationships
     school = relationship("School", back_populates="students")
@@ -51,6 +58,9 @@ class Student(SoftDeleteModel):
     paragraph_progress = relationship("StudentParagraph", back_populates="student", cascade="all, delete-orphan")
     learning_sessions = relationship("LearningSession", back_populates="student", cascade="all, delete-orphan")
     embedded_answers = relationship("StudentEmbeddedAnswer", back_populates="student", cascade="all, delete-orphan")
+    xp_transactions = relationship("XpTransaction", back_populates="student", cascade="all, delete-orphan")
+    achievements = relationship("StudentAchievement", back_populates="student", cascade="all, delete-orphan")
+    daily_quests = relationship("StudentDailyQuest", back_populates="student", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Student(id={self.id}, student_code='{self.student_code}', grade={self.grade_level})>"

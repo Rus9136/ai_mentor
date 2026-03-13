@@ -1,0 +1,413 @@
+"""
+Gamification Service: XP awards, level-up, achievement checks, streaks.
+
+This is the core service that other services call via hooks when
+gamification-relevant events occur (test passed, mastery changed, etc.).
+"""
+import logging
+import math
+from datetime import date, datetime, timezone
+from typing import Optional, List
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+
+from app.models.gamification import XpSourceType, Achievement, StudentAchievement
+from app.models.mastery import ParagraphMastery
+from app.models.test_attempt import TestAttempt, AttemptStatus
+from app.repositories.gamification_repo import GamificationRepository
+
+logger = logging.getLogger(__name__)
+
+# ── XP Reward Constants ──
+XP_FORMATIVE_BASE = 10
+XP_FORMATIVE_SCORE_MULT = 20
+XP_SUMMATIVE_BASE = 25
+XP_SUMMATIVE_SCORE_MULT = 50
+XP_PERFECT_BONUS = 15
+XP_FIRST_ATTEMPT_BONUS = 10
+XP_MASTERY_STRUGGLING_TO_PROGRESSING = 15
+XP_MASTERY_PROGRESSING_TO_MASTERED = 30
+XP_CHAPTER_C_TO_B = 50
+XP_CHAPTER_B_TO_A = 100
+XP_STREAK_PER_DAY = 5
+XP_STREAK_CAP = 30  # max streak multiplier
+XP_SELF_ASSESSMENT = 5
+XP_SPACED_REVIEW = 10
+XP_PARAGRAPH_COMPLETE = 5
+
+
+class GamificationService:
+    """Service for awarding XP, checking levels, achievements, and streaks."""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self.repo = GamificationRepository(db)
+
+    # ══════════════════════════════════════════════════════════════════════
+    # LEVEL CALCULATION
+    # ══════════════════════════════════════════════════════════════════════
+
+    @staticmethod
+    def xp_for_level(level: int) -> int:
+        """XP required to go FROM level to level+1."""
+        return int(100 * level ** 1.5)
+
+    @staticmethod
+    def calculate_level(total_xp: int) -> tuple[int, int, int]:
+        """
+        Calculate level from total XP.
+
+        Returns:
+            (level, xp_in_current_level, xp_to_next_level)
+        """
+        level = 1
+        cumulative = 0
+        while True:
+            needed = int(100 * (level + 1) ** 1.5)
+            if cumulative + needed > total_xp:
+                xp_in_current = total_xp - cumulative
+                xp_to_next = needed - xp_in_current
+                return level, xp_in_current, xp_to_next
+            cumulative += needed
+            level += 1
+
+    # ══════════════════════════════════════════════════════════════════════
+    # CORE: AWARD XP
+    # ══════════════════════════════════════════════════════════════════════
+
+    async def award_xp(
+        self,
+        student_id: int,
+        school_id: int,
+        amount: int,
+        source_type: XpSourceType,
+        source_id: Optional[int] = None,
+        metadata: Optional[dict] = None,
+    ) -> dict:
+        """
+        Award XP to a student. Returns summary with level-up info.
+
+        This is the single point of XP entry — all hooks call this.
+        """
+        from app.core.config import settings
+        if not settings.GAMIFICATION_ENABLED:
+            return {"amount": 0, "level_up": False}
+
+        if amount <= 0:
+            return {"amount": 0, "level_up": False}
+
+        # Record transaction + atomic increment
+        await self.repo.add_xp_transaction(
+            student_id=student_id,
+            school_id=school_id,
+            amount=amount,
+            source_type=source_type,
+            source_id=source_id,
+            metadata=metadata,
+        )
+
+        # Check level up
+        new_total_xp, old_level = await self.repo.get_student_xp(student_id)
+        new_level, _, _ = self.calculate_level(new_total_xp)
+        level_up = new_level > old_level
+
+        if level_up:
+            await self.repo.update_student_level(student_id, new_level)
+            logger.info(f"Student {student_id} leveled up: {old_level} -> {new_level}")
+
+        logger.info(
+            f"Awarded {amount} XP to student {student_id} "
+            f"(source={source_type.value}, total={new_total_xp})"
+        )
+
+        return {
+            "amount": amount,
+            "new_total_xp": new_total_xp,
+            "new_level": new_level,
+            "level_up": level_up,
+        }
+
+    # ══════════════════════════════════════════════════════════════════════
+    # HOOKS (called from other services)
+    # ══════════════════════════════════════════════════════════════════════
+
+    async def on_test_passed(
+        self,
+        student_id: int,
+        school_id: int,
+        test_score: float,
+        test_purpose: str,
+        attempt_number: int,
+        test_attempt_id: int,
+    ) -> None:
+        """Hook: called when a student passes a test."""
+        # Calculate base XP
+        if test_purpose == "summative":
+            xp = XP_SUMMATIVE_BASE + round(test_score * XP_SUMMATIVE_SCORE_MULT)
+        else:
+            xp = XP_FORMATIVE_BASE + round(test_score * XP_FORMATIVE_SCORE_MULT)
+
+        # Bonuses
+        if test_score >= 1.0:
+            xp += XP_PERFECT_BONUS
+        if attempt_number == 1:
+            xp += XP_FIRST_ATTEMPT_BONUS
+
+        await self.award_xp(
+            student_id=student_id,
+            school_id=school_id,
+            amount=xp,
+            source_type=XpSourceType.TEST_PASSED,
+            source_id=test_attempt_id,
+            metadata={"score": test_score, "purpose": test_purpose, "attempt": attempt_number},
+        )
+
+        # Update streak
+        await self.update_streak(student_id, school_id)
+
+        # Check achievements
+        await self.check_achievements(student_id, school_id)
+
+        # Increment daily quest (complete_tests)
+        today = date.today()
+        await self.repo.increment_daily_quest(
+            student_id, school_id, "complete_tests", today
+        )
+
+    async def on_mastery_change(
+        self,
+        student_id: int,
+        school_id: int,
+        old_status: Optional[str],
+        new_status: str,
+        paragraph_id: int,
+        test_attempt_id: Optional[int] = None,
+    ) -> None:
+        """Hook: called when paragraph mastery status changes."""
+        xp = 0
+        if old_status == "struggling" and new_status == "progressing":
+            xp = XP_MASTERY_STRUGGLING_TO_PROGRESSING
+        elif old_status == "progressing" and new_status == "mastered":
+            xp = XP_MASTERY_PROGRESSING_TO_MASTERED
+        elif old_status == "struggling" and new_status == "mastered":
+            # struggling -> mastered directly = both bonuses
+            xp = XP_MASTERY_STRUGGLING_TO_PROGRESSING + XP_MASTERY_PROGRESSING_TO_MASTERED
+
+        if xp > 0:
+            await self.award_xp(
+                student_id=student_id,
+                school_id=school_id,
+                amount=xp,
+                source_type=XpSourceType.MASTERY_UP,
+                source_id=paragraph_id,
+                metadata={"old_status": old_status, "new_status": new_status},
+            )
+
+        # Check mastery-related achievements
+        await self.check_achievements(student_id, school_id)
+
+        # Daily quest: master_paragraph
+        if new_status == "mastered":
+            today = date.today()
+            await self.repo.increment_daily_quest(
+                student_id, school_id, "master_paragraph", today
+            )
+
+    async def on_chapter_level_change(
+        self,
+        student_id: int,
+        school_id: int,
+        old_level: str,
+        new_level: str,
+        chapter_id: int,
+    ) -> None:
+        """Hook: called when chapter mastery level changes (A/B/C)."""
+        xp = 0
+        if old_level == "C" and new_level == "B":
+            xp = XP_CHAPTER_C_TO_B
+        elif old_level == "B" and new_level == "A":
+            xp = XP_CHAPTER_B_TO_A
+        elif old_level == "C" and new_level == "A":
+            xp = XP_CHAPTER_C_TO_B + XP_CHAPTER_B_TO_A
+
+        if xp > 0:
+            await self.award_xp(
+                student_id=student_id,
+                school_id=school_id,
+                amount=xp,
+                source_type=XpSourceType.CHAPTER_COMPLETE,
+                source_id=chapter_id,
+                metadata={"old_level": old_level, "new_level": new_level},
+            )
+            await self.check_achievements(student_id, school_id)
+
+    async def on_self_assessment(
+        self, student_id: int, school_id: int
+    ) -> None:
+        """Hook: called when student submits a self-assessment."""
+        await self.award_xp(
+            student_id=student_id,
+            school_id=school_id,
+            amount=XP_SELF_ASSESSMENT,
+            source_type=XpSourceType.SELF_ASSESSMENT,
+        )
+
+    # ══════════════════════════════════════════════════════════════════════
+    # STREAK
+    # ══════════════════════════════════════════════════════════════════════
+
+    async def update_streak(self, student_id: int, school_id: int) -> None:
+        """Update daily streak. Called on any significant learning activity."""
+        today = date.today()
+        current_streak, longest_streak, last_activity = await self.repo.get_student_streak_info(student_id)
+
+        if last_activity == today:
+            return  # Already counted today
+
+        from datetime import timedelta
+
+        if last_activity == today - timedelta(days=1):
+            # Consecutive day
+            new_streak = current_streak + 1
+        elif last_activity is None or last_activity < today - timedelta(days=1):
+            # Streak broken or first activity
+            new_streak = 1
+        else:
+            new_streak = current_streak
+
+        new_longest = max(longest_streak, new_streak)
+
+        await self.repo.update_streak(student_id, new_streak, new_longest, today)
+
+        # Award streak XP
+        streak_xp = XP_STREAK_PER_DAY * min(new_streak, XP_STREAK_CAP)
+        await self.award_xp(
+            student_id=student_id,
+            school_id=school_id,
+            amount=streak_xp,
+            source_type=XpSourceType.STREAK_BONUS,
+            metadata={"streak_day": new_streak},
+        )
+
+        logger.info(f"Student {student_id} streak: {new_streak} days (XP: +{streak_xp})")
+
+    # ══════════════════════════════════════════════════════════════════════
+    # ACHIEVEMENTS
+    # ══════════════════════════════════════════════════════════════════════
+
+    async def check_achievements(self, student_id: int, school_id: int) -> List[Achievement]:
+        """
+        Check all achievements and update progress. Returns newly earned achievements.
+        """
+        achievements = await self.repo.get_all_active_achievements()
+        newly_earned = []
+
+        for achievement in achievements:
+            criteria = achievement.criteria
+            criteria_type = criteria.get("type")
+            threshold = criteria.get("threshold", 0)
+
+            progress = await self._get_achievement_progress(
+                student_id, criteria_type, school_id
+            )
+
+            normalized = min(progress / threshold, 1.0) if threshold > 0 else 0.0
+            is_earned = progress >= threshold
+
+            sa = await self.repo.upsert_student_achievement(
+                student_id=student_id,
+                achievement_id=achievement.id,
+                school_id=school_id,
+                progress=normalized,
+                is_earned=is_earned,
+            )
+
+            if is_earned and sa.earned_at and not sa.notified:
+                # Award XP for newly earned achievement
+                if achievement.xp_reward > 0:
+                    # Check if we already awarded XP for this achievement
+                    # (by checking if there's an xp_transaction with this source_id)
+                    from app.models.gamification import XpTransaction
+                    existing = await self.db.execute(
+                        select(XpTransaction).where(
+                            XpTransaction.student_id == student_id,
+                            XpTransaction.source_type == XpSourceType.DAILY_QUEST,
+                            XpTransaction.source_id == achievement.id,
+                        ).limit(1)
+                    )
+                    if not existing.scalar_one_or_none():
+                        await self.repo.add_xp_transaction(
+                            student_id=student_id,
+                            school_id=school_id,
+                            amount=achievement.xp_reward,
+                            source_type=XpSourceType.MASTERY_UP,
+                            source_id=achievement.id,
+                            metadata={"achievement_code": achievement.code},
+                        )
+
+                newly_earned.append(achievement)
+
+        return newly_earned
+
+    async def _get_achievement_progress(
+        self, student_id: int, criteria_type: str, school_id: int
+    ) -> float:
+        """Get numeric progress for a specific achievement criteria type."""
+
+        if criteria_type == "tests_passed":
+            result = await self.db.execute(
+                select(func.count(TestAttempt.id)).where(
+                    TestAttempt.student_id == student_id,
+                    TestAttempt.status == AttemptStatus.COMPLETED,
+                    TestAttempt.passed == True,
+                )
+            )
+            return float(result.scalar() or 0)
+
+        elif criteria_type == "perfect_test":
+            result = await self.db.execute(
+                select(func.count(TestAttempt.id)).where(
+                    TestAttempt.student_id == student_id,
+                    TestAttempt.status == AttemptStatus.COMPLETED,
+                    TestAttempt.score >= 1.0,
+                )
+            )
+            return float(result.scalar() or 0)
+
+        elif criteria_type == "streak_days":
+            _, longest, _ = await self.repo.get_student_streak_info(student_id)
+            return float(longest)
+
+        elif criteria_type == "paragraphs_mastered":
+            result = await self.db.execute(
+                select(func.count(ParagraphMastery.id)).where(
+                    ParagraphMastery.student_id == student_id,
+                    ParagraphMastery.status == "mastered",
+                )
+            )
+            return float(result.scalar() or 0)
+
+        elif criteria_type == "chapter_a":
+            from app.models.mastery import ChapterMastery
+            result = await self.db.execute(
+                select(func.count(ChapterMastery.id)).where(
+                    ChapterMastery.student_id == student_id,
+                    ChapterMastery.mastery_level == "A",
+                )
+            )
+            return float(result.scalar() or 0)
+
+        elif criteria_type == "struggling_to_mastered":
+            from app.models.mastery import MasteryHistory
+            result = await self.db.execute(
+                select(func.count(MasteryHistory.id)).where(
+                    MasteryHistory.student_id == student_id,
+                    MasteryHistory.previous_level == "struggling",
+                    MasteryHistory.new_level == "mastered",
+                    MasteryHistory.paragraph_id.isnot(None),
+                )
+            )
+            return float(result.scalar() or 0)
+
+        return 0.0
