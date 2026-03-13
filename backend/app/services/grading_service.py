@@ -303,6 +303,7 @@ class GradingService:
                     test_purpose=test_purpose.value if hasattr(test_purpose, 'value') else str(test_purpose),
                     attempt_number=attempt.attempt_number,
                     test_attempt_id=attempt.id,
+                    paragraph_id=paragraph_id,
                 )
             except Exception as e:
                 logger.warning(f"Gamification hook failed (test_passed): {e}")

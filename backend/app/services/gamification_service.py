@@ -129,6 +129,26 @@ class GamificationService:
         }
 
     # ══════════════════════════════════════════════════════════════════════
+    # CONTENT CHAIN RESOLUTION
+    # ══════════════════════════════════════════════════════════════════════
+
+    async def _resolve_content_chain(self, paragraph_id: int) -> tuple[Optional[int], Optional[int]]:
+        """Resolve paragraph -> textbook -> subject chain. Returns (subject_id, textbook_id)."""
+        from app.models.paragraph import Paragraph
+        from app.models.chapter import Chapter
+        from app.models.textbook import Textbook
+        result = await self.db.execute(
+            select(Textbook.subject_id, Textbook.id)
+            .join(Chapter, Chapter.textbook_id == Textbook.id)
+            .join(Paragraph, Paragraph.chapter_id == Chapter.id)
+            .where(Paragraph.id == paragraph_id)
+        )
+        row = result.one_or_none()
+        if row:
+            return row[0], row[1]
+        return None, None
+
+    # ══════════════════════════════════════════════════════════════════════
     # HOOKS (called from other services)
     # ══════════════════════════════════════════════════════════════════════
 
@@ -140,6 +160,9 @@ class GamificationService:
         test_purpose: str,
         attempt_number: int,
         test_attempt_id: int,
+        paragraph_id: Optional[int] = None,
+        textbook_id: Optional[int] = None,
+        subject_id: Optional[int] = None,
     ) -> None:
         """Hook: called when a student passes a test."""
         # Calculate base XP
@@ -169,11 +192,27 @@ class GamificationService:
         # Check achievements
         await self.check_achievements(student_id, school_id)
 
+        # Resolve content chain if we have paragraph_id but not subject/textbook
+        if paragraph_id and not subject_id:
+            subject_id, textbook_id = await self._resolve_content_chain(paragraph_id)
+
         # Increment daily quest (complete_tests)
         today = date.today()
-        await self.repo.increment_daily_quest(
-            student_id, school_id, "complete_tests", today
+        completed_quests = await self.repo.increment_daily_quest(
+            student_id, school_id, "complete_tests", today,
+            subject_id=subject_id, textbook_id=textbook_id, paragraph_id=paragraph_id,
         )
+        # Award XP for completed quests
+        for cq in completed_quests:
+            quest = cq.quest
+            if quest and quest.xp_reward > 0:
+                await self.award_xp(
+                    student_id=student_id,
+                    school_id=school_id,
+                    amount=quest.xp_reward,
+                    source_type=XpSourceType.DAILY_QUEST,
+                    source_id=cq.id,
+                )
 
     async def on_mastery_change(
         self,
@@ -210,9 +249,23 @@ class GamificationService:
         # Daily quest: master_paragraph
         if new_status == "mastered":
             today = date.today()
-            await self.repo.increment_daily_quest(
-                student_id, school_id, "master_paragraph", today
+            # Resolve content chain
+            subject_id_resolved, textbook_id_resolved = await self._resolve_content_chain(paragraph_id)
+            completed_quests = await self.repo.increment_daily_quest(
+                student_id, school_id, "master_paragraph", today,
+                subject_id=subject_id_resolved, textbook_id=textbook_id_resolved,
+                paragraph_id=paragraph_id,
             )
+            for cq in completed_quests:
+                quest = cq.quest
+                if quest and quest.xp_reward > 0:
+                    await self.award_xp(
+                        student_id=student_id,
+                        school_id=school_id,
+                        amount=quest.xp_reward,
+                        source_type=XpSourceType.DAILY_QUEST,
+                        source_id=cq.id,
+                    )
 
     async def on_chapter_level_change(
         self,

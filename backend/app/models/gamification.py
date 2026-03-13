@@ -114,7 +114,7 @@ class DailyQuest(BaseModel):
 
     __tablename__ = "daily_quests"
 
-    code = Column(String(50), nullable=False, unique=True)
+    code = Column(String(50), nullable=False)
     name_kk = Column(String(200), nullable=False)
     name_ru = Column(String(200), nullable=False)
     description_kk = Column(String, nullable=True)
@@ -123,7 +123,15 @@ class DailyQuest(BaseModel):
     target_value = Column(Integer, nullable=False)
     xp_reward = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=True, index=True)
+    subject_id = Column(Integer, ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True)
+    textbook_id = Column(Integer, ForeignKey("textbooks.id", ondelete="SET NULL"), nullable=True)
+    paragraph_id = Column(Integer, ForeignKey("paragraphs.id", ondelete="SET NULL"), nullable=True)
 
+    school = relationship("School")
+    subject = relationship("Subject")
+    textbook = relationship("Textbook")
+    paragraph = relationship("Paragraph")
     student_quests = relationship("StudentDailyQuest", back_populates="quest")
 
     def __repr__(self) -> str:

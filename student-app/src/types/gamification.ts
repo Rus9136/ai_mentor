@@ -61,6 +61,8 @@ export interface DailyQuest {
   current_value: number;
   is_completed: boolean;
   completed_at: string | null;
+  subject_name_kk?: string | null;
+  subject_name_ru?: string | null;
 }
 
 export interface XpHistoryEntry {

@@ -32,6 +32,7 @@ from .textbook_conversions import router as textbook_conversions_router
 from .llm_usage import router as llm_usage_router
 from .prerequisites import router as prerequisites_router
 from .subscriptions import router as subscriptions_router
+from .daily_quests import router as daily_quests_router
 
 
 router = APIRouter()
@@ -64,3 +65,6 @@ router.include_router(prerequisites_router)
 
 # Subscriptions & Usage Limits
 router.include_router(subscriptions_router)
+
+# Gamification: Daily Quest management
+router.include_router(daily_quests_router)

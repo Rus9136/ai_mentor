@@ -156,7 +156,7 @@ async def get_daily_quests(
     await repo.ensure_daily_quests_assigned(student.id, school_id, today)
     await db.commit()
 
-    pairs = await repo.get_student_daily_quests(student.id, today)
+    pairs = await repo.get_student_daily_quests(student.id, today, school_id=school_id)
 
     return [
         DailyQuestResponse(
@@ -172,6 +172,8 @@ async def get_daily_quests(
             current_value=sdq.current_value if sdq else 0,
             is_completed=sdq.is_completed if sdq else False,
             completed_at=sdq.completed_at if sdq else None,
+            subject_name_kk=quest.subject.name_kz if quest.subject else None,
+            subject_name_ru=quest.subject.name_ru if quest.subject else None,
         )
         for quest, sdq in pairs
     ]

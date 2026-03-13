@@ -42,6 +42,7 @@ from .paragraph_outcomes import router as paragraph_outcomes_router
 from .embedded_questions import router as embedded_questions_router
 from .grades import router as grades_router
 from .llm_usage import router as llm_usage_router
+from .daily_quests import router as daily_quests_router
 
 
 router = APIRouter()
@@ -78,3 +79,6 @@ router.include_router(grades_router)
 
 # LLM Usage Monitoring
 router.include_router(llm_usage_router)
+
+# Gamification: Daily Quest management
+router.include_router(daily_quests_router)

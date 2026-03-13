@@ -301,19 +301,23 @@ class GamificationRepository:
 
     # ── Daily Quests ──
 
-    async def get_active_quests(self) -> List[DailyQuest]:
-        """Get all active quest templates."""
-        result = await self.db.execute(
-            select(DailyQuest).where(DailyQuest.is_active == True)
-        )
+    async def get_active_quests(self, school_id: Optional[int] = None) -> List[DailyQuest]:
+        """Get all active quest templates for a given school scope."""
+        query = select(DailyQuest).where(DailyQuest.is_active == True)
+        if school_id is not None:
+            query = query.where(
+                (DailyQuest.school_id.is_(None)) | (DailyQuest.school_id == school_id)
+            )
+        result = await self.db.execute(query)
         return list(result.scalars().all())
 
     async def get_student_daily_quests(
-        self, student_id: int, quest_date: date
+        self, student_id: int, quest_date: date, school_id: Optional[int] = None
     ) -> List[Tuple[DailyQuest, Optional[StudentDailyQuest]]]:
         """Get daily quests with student progress for a given date."""
-        result = await self.db.execute(
+        query = (
             select(DailyQuest, StudentDailyQuest)
+            .options(selectinload(DailyQuest.subject))
             .outerjoin(
                 StudentDailyQuest,
                 and_(
@@ -324,13 +328,18 @@ class GamificationRepository:
             )
             .where(DailyQuest.is_active == True)
         )
+        if school_id is not None:
+            query = query.where(
+                (DailyQuest.school_id.is_(None)) | (DailyQuest.school_id == school_id)
+            )
+        result = await self.db.execute(query)
         return list(result.all())
 
     async def ensure_daily_quests_assigned(
         self, student_id: int, school_id: int, quest_date: date
     ) -> None:
         """Ensure all active quests are assigned for today (lazy init)."""
-        quests = await self.get_active_quests()
+        quests = await self.get_active_quests(school_id)
         for quest in quests:
             result = await self.db.execute(
                 select(StudentDailyQuest).where(
@@ -355,12 +364,15 @@ class GamificationRepository:
         quest_type: str,
         quest_date: date,
         increment: int = 1,
-    ) -> Optional[StudentDailyQuest]:
-        """Increment progress on matching daily quests. Returns completed quest if any."""
-        # Find matching quest
+        subject_id: Optional[int] = None,
+        textbook_id: Optional[int] = None,
+        paragraph_id: Optional[int] = None,
+    ) -> List[StudentDailyQuest]:
+        """Increment progress on matching daily quests. Returns list of completed quests."""
         result = await self.db.execute(
             select(StudentDailyQuest)
             .join(DailyQuest, DailyQuest.id == StudentDailyQuest.quest_id)
+            .options(selectinload(StudentDailyQuest.quest))
             .where(
                 StudentDailyQuest.student_id == student_id,
                 StudentDailyQuest.quest_date == quest_date,
@@ -368,26 +380,85 @@ class GamificationRepository:
                 DailyQuest.quest_type == quest_type,
             )
         )
-        sdq = result.scalar_one_or_none()
-        if not sdq:
-            return None
+        student_quests = list(result.scalars().all())
 
-        sdq.current_value = sdq.current_value + increment
+        completed = []
+        for sdq in student_quests:
+            quest = sdq.quest
+            # Content filtering: quest filter must match or be NULL
+            if quest.subject_id is not None and quest.subject_id != subject_id:
+                continue
+            if quest.textbook_id is not None and quest.textbook_id != textbook_id:
+                continue
+            if quest.paragraph_id is not None and quest.paragraph_id != paragraph_id:
+                continue
 
-        # Check if quest target is met
-        quest_result = await self.db.execute(
-            select(DailyQuest).where(DailyQuest.id == sdq.quest_id)
-        )
-        quest = quest_result.scalar_one()
+            sdq.current_value = sdq.current_value + increment
 
-        if sdq.current_value >= quest.target_value and not sdq.is_completed:
-            sdq.is_completed = True
-            sdq.completed_at = datetime.now(timezone.utc)
-            await self.db.flush()
-            return sdq
+            if sdq.current_value >= quest.target_value and not sdq.is_completed:
+                sdq.is_completed = True
+                sdq.completed_at = datetime.now(timezone.utc)
+                completed.append(sdq)
 
         await self.db.flush()
-        return None
+        return completed
+
+    # ── Admin Daily Quest CRUD ──
+
+    async def list_daily_quests(self, school_id: Optional[int] = None) -> List[DailyQuest]:
+        """List daily quests for admin. school_id=None for global quests only."""
+        query = select(DailyQuest).options(
+            selectinload(DailyQuest.subject),
+            selectinload(DailyQuest.textbook),
+            selectinload(DailyQuest.paragraph),
+        )
+        if school_id is not None:
+            # School admin sees global + own school quests
+            query = query.where(
+                (DailyQuest.school_id.is_(None)) | (DailyQuest.school_id == school_id)
+            )
+        else:
+            # Super admin: global quests
+            query = query.where(DailyQuest.school_id.is_(None))
+        query = query.order_by(DailyQuest.id)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_daily_quest_by_id(self, quest_id: int) -> Optional[DailyQuest]:
+        """Get single daily quest with relationships loaded."""
+        result = await self.db.execute(
+            select(DailyQuest)
+            .options(
+                selectinload(DailyQuest.subject),
+                selectinload(DailyQuest.textbook),
+                selectinload(DailyQuest.paragraph),
+            )
+            .where(DailyQuest.id == quest_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def create_daily_quest(self, quest: DailyQuest) -> DailyQuest:
+        """Create a new daily quest."""
+        self.db.add(quest)
+        await self.db.flush()
+        return quest
+
+    async def update_daily_quest(self, quest: DailyQuest) -> DailyQuest:
+        """Update an existing daily quest."""
+        await self.db.flush()
+        return quest
+
+    async def delete_daily_quest(self, quest_id: int) -> bool:
+        """Deactivate a daily quest (soft delete)."""
+        result = await self.db.execute(
+            select(DailyQuest).where(DailyQuest.id == quest_id)
+        )
+        quest = result.scalar_one_or_none()
+        if not quest:
+            return False
+        quest.is_active = False
+        await self.db.flush()
+        return True
 
     # ── Streak ──
 
