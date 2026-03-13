@@ -3,13 +3,18 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLeaderboard } from '@/lib/hooks/use-gamification';
+import { useStudentProfile } from '@/lib/hooks/use-profile';
 import { LeaderboardTopThree } from './LeaderboardTopThree';
 import { Loader2 } from 'lucide-react';
 
 export function Leaderboard() {
   const t = useTranslations('gamification');
+  const { data: profile } = useStudentProfile();
+  const classId = profile?.classes?.[0]?.id;
+  const hasClass = !!classId;
+
   const [scope, setScope] = useState<'school' | 'class'>('school');
-  const { data, isLoading } = useLeaderboard(scope);
+  const { data, isLoading } = useLeaderboard(scope, scope === 'class' ? classId : undefined);
 
   return (
     <div>
@@ -18,9 +23,11 @@ export function Leaderboard() {
         <ScopeButton active={scope === 'school'} onClick={() => setScope('school')}>
           {t('school')}
         </ScopeButton>
-        <ScopeButton active={scope === 'class'} onClick={() => setScope('class')}>
-          {t('class')}
-        </ScopeButton>
+        {hasClass && (
+          <ScopeButton active={scope === 'class'} onClick={() => setScope('class')}>
+            {t('class')}
+          </ScopeButton>
+        )}
       </div>
 
       {isLoading && (

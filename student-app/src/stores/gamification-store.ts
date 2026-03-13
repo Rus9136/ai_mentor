@@ -7,7 +7,8 @@ interface XpToastData {
 
 interface GamificationStore {
   prevXp: number;
-  setPrevXp: (xp: number) => void;
+  prevLevel: number;
+  setPrev: (xp: number, level: number) => void;
   xpToast: XpToastData | null;
   showXpToast: (amount: number, levelUp?: number) => void;
   hideXpToast: () => void;
@@ -17,7 +18,8 @@ interface GamificationStore {
 
 export const useGamificationStore = create<GamificationStore>((set) => ({
   prevXp: 0,
-  setPrevXp: (xp) => set({ prevXp: xp }),
+  prevLevel: 0,
+  setPrev: (xp, level) => set({ prevXp: xp, prevLevel: level }),
   xpToast: null,
   showXpToast: (amount, levelUp) => set({ xpToast: { amount, levelUp } }),
   hideXpToast: () => set({ xpToast: null }),

@@ -12,19 +12,18 @@ import { StreakBadge } from './StreakBadge';
 export function XpLevelWidget() {
   const t = useTranslations('gamification');
   const { data: profile } = useGamificationProfile();
-  const { prevXp, setPrevXp, showXpToast } = useGamificationStore();
+  const { prevXp, prevLevel, setPrev, showXpToast } = useGamificationStore();
 
   // XP toast detection
   useEffect(() => {
     if (!profile) return;
     if (prevXp > 0 && profile.total_xp > prevXp) {
       const diff = profile.total_xp - prevXp;
-      // Simple level-up detection: if xp_in_current_level < diff, likely leveled up
-      const levelUp = profile.xp_in_current_level < diff ? profile.level : undefined;
+      const levelUp = prevLevel > 0 && profile.level > prevLevel ? profile.level : undefined;
       showXpToast(diff, levelUp);
     }
-    setPrevXp(profile.total_xp);
-  }, [profile?.total_xp]); // eslint-disable-line react-hooks/exhaustive-deps
+    setPrev(profile.total_xp, profile.level);
+  }, [profile?.total_xp, profile?.level]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!profile) return null;
 

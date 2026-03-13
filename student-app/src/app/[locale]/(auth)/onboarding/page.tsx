@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/auth-provider';
 import { useRouter } from '@/i18n/routing';
@@ -36,10 +37,24 @@ interface CodeValidation {
 }
 
 export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <OnboardingContent />
+    </Suspense>
+  );
+}
+
+function OnboardingContent() {
   const t = useTranslations('auth.onboarding');
   const commonT = useTranslations('common');
   const { user, refreshUser } = useAuth();
   const router = useRouter();
+
+  const searchParams = useSearchParams();
 
   // Step management
   const [step, setStep] = useState<OnboardingStep>('grade-select');
@@ -65,6 +80,40 @@ export default function OnboardingPage() {
   const [lastName, setLastName] = useState(user?.last_name || '');
   const [middleName, setMiddleName] = useState('');
   const [birthDate, setBirthDate] = useState('');
+
+  // Auto-validate code from URL query parameter (e.g. from QR code scan)
+  useEffect(() => {
+    const codeFromUrl = searchParams.get('code');
+    if (!codeFromUrl) return;
+
+    const autoValidate = async () => {
+      setIsLoading(true);
+      setError(null);
+      const upperCode = codeFromUrl.trim().toUpperCase();
+
+      try {
+        const response = await validateCode(upperCode);
+        if (response.valid) {
+          setActiveCode(upperCode);
+          setCodeValidation({
+            schoolName: response.school?.name || '',
+            className: response.school_class?.name || null,
+            gradeLevel: response.grade_level || 0,
+            isPublic: false,
+          });
+          setStep('profile');
+        } else {
+          setError(response.error || t('codeInvalid'));
+        }
+      } catch {
+        setError(t('codeInvalid'));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    autoValidate();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle grade selection and auto-validate public code
   const handleGradeSelect = async (grade: number) => {
