@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useTranslations, useLocale } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -20,7 +20,6 @@ interface QuizTest {
 
 export default function QuizCreateForm() {
   const t = useTranslations('quiz');
-  const locale = useLocale();
   const router = useRouter();
 
   const [classId, setClassId] = useState<number | undefined>();
@@ -76,8 +75,8 @@ export default function QuizCreateForm() {
           onChange={(e) => setClassId(e.target.value ? Number(e.target.value) : undefined)}
         >
           <option value="">— {t('selectClass')} —</option>
-          {(classes || []).map((c: Record<string, unknown>) => (
-            <option key={c.id as number} value={c.id as number}>{c.name as string}</option>
+          {(classes || []).map((c: { id: number; name: string }) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
       </div>
@@ -91,8 +90,8 @@ export default function QuizCreateForm() {
           onChange={(e) => { setTextbookId(Number(e.target.value) || undefined); setChapterId(undefined); setParagraphId(undefined); setTestId(undefined); }}
         >
           <option value="">—</option>
-          {(textbooks || []).map((tb: Record<string, unknown>) => (
-            <option key={tb.id as number} value={tb.id as number}>{tb.title as string}</option>
+          {(textbooks || []).map((tb: { id: number; title: string }) => (
+            <option key={tb.id} value={tb.id}>{tb.title}</option>
           ))}
         </select>
       </div>
@@ -107,8 +106,8 @@ export default function QuizCreateForm() {
             onChange={(e) => { setChapterId(Number(e.target.value) || undefined); setParagraphId(undefined); setTestId(undefined); }}
           >
             <option value="">—</option>
-            {(chapters || []).map((ch: Record<string, unknown>) => (
-              <option key={ch.id as number} value={ch.id as number}>{ch.title as string}</option>
+            {(chapters || []).map((ch: { id: number; title: string }) => (
+              <option key={ch.id} value={ch.id}>{ch.title}</option>
             ))}
           </select>
         </div>
@@ -124,9 +123,9 @@ export default function QuizCreateForm() {
             onChange={(e) => { setParagraphId(Number(e.target.value) || undefined); setTestId(undefined); }}
           >
             <option value="">— {t('allChapter')} —</option>
-            {(paragraphs || []).map((p: Record<string, unknown>) => (
-              <option key={p.id as number} value={p.id as number}>
-                §{p.paragraph_number as number}. {(locale === 'kz' ? p.title_kk : p.title_ru) as string}
+            {(paragraphs || []).map((p: { id: number; number: number; title: string }) => (
+              <option key={p.id} value={p.id}>
+                §{p.number}. {p.title}
               </option>
             ))}
           </select>

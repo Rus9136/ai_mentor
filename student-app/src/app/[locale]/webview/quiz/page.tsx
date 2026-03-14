@@ -1,6 +1,6 @@
 'use client';
 
-import { useReducer, useEffect, useCallback } from 'react';
+import { useReducer, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { joinQuiz } from '@/lib/api/quiz';
 import { useQuizWebSocket } from '@/lib/hooks/use-quiz-websocket';
@@ -137,6 +137,14 @@ function reducer(state: QuizPageState, action: QuizAction): QuizPageState {
 // ── Component ──
 
 export default function QuizPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-dvh items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+      <QuizPageInner />
+    </Suspense>
+  );
+}
+
+function QuizPageInner() {
   const searchParams = useSearchParams();
   const initialCode = searchParams.get('code') || undefined;
 

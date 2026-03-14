@@ -74,7 +74,7 @@ export default function QuizListPage() {
                 <div>
                   <h3 className="font-semibold">{(s.test_title as string) || `Quiz #${s.id}`}</h3>
                   <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
-                    {s.class_name && <span>{s.class_name as string}</span>}
+                    {s.class_name ? <span>{String(s.class_name)}</span> : null}
                     <span className="flex items-center gap-1">
                       <Users className="h-3.5 w-3.5" />
                       {s.participant_count as number}

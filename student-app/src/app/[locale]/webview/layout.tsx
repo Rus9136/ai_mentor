@@ -1,9 +1,9 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 
-export default function WebViewLayout({ children }: { children: React.ReactNode }) {
+function TokenExtractor({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -13,9 +13,15 @@ export default function WebViewLayout({ children }: { children: React.ReactNode 
     }
   }, [searchParams]);
 
+  return <>{children}</>;
+}
+
+export default function WebViewLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-background">
-      {children}
+      <Suspense>
+        <TokenExtractor>{children}</TokenExtractor>
+      </Suspense>
     </div>
   );
 }
