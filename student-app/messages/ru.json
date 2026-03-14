@@ -312,6 +312,8 @@
       "correct": "Верно!",
       "incorrect": "Это неверно.",
       "correctAnswer": "Правильный ответ",
+      "selectMultiple": "Выберите несколько ответов",
+      "confirmAnswer": "Ответить",
       "result": {
         "title": "Результат",
         "passed": "Тест пройден!",

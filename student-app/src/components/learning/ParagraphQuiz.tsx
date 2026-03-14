@@ -10,7 +10,7 @@ import {
   QuestionOption,
 } from '@/lib/api/tests';
 import { useStartTest, useAnswerTestQuestion } from '@/lib/hooks/use-tests';
-import { Loader2, Brain, CheckCircle2, XCircle, SkipForward } from 'lucide-react';
+import { Loader2, Brain, CheckCircle2, XCircle, SkipForward, Check, Send } from 'lucide-react';
 
 interface ParagraphQuizProps {
   test: AvailableTest;
@@ -44,6 +44,7 @@ export function ParagraphQuiz({
   const [answeredQuestions, setAnsweredQuestions] = useState<AnsweredQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnswering, setIsAnswering] = useState(false);
+  const [selectedOptions, setSelectedOptions] = useState<number[]>([]);
 
   // Refs for auto-scroll
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -83,9 +84,9 @@ export function ParagraphQuiz({
     }
   }, [answeredQuestions]);
 
-  // Handle option click - immediate answer
-  const handleOptionClick = useCallback(
-    async (optionId: number) => {
+  // Submit answer (used for both single and multiple choice)
+  const submitAnswer = useCallback(
+    async (optionIds: number[]) => {
       if (!attempt || isAnswering || quizState !== 'in_progress') return;
 
       const currentQuestion = attempt.test.questions[currentIndex];
@@ -97,13 +98,13 @@ export function ParagraphQuiz({
         const result = await answerMutation.mutateAsync({
           attemptId: attempt.id,
           questionId: currentQuestion.id,
-          selectedOptionIds: [optionId],
+          selectedOptionIds: optionIds,
         });
 
         // Add to answered questions
         const answered: AnsweredQuestion = {
           question: currentQuestion,
-          selectedOptionIds: [optionId],
+          selectedOptionIds: optionIds,
           isCorrect: result.is_correct,
           correctOptionIds: result.correct_option_ids,
           explanation: result.explanation,
@@ -111,17 +112,16 @@ export function ParagraphQuiz({
         };
 
         setAnsweredQuestions((prev) => [...prev, answered]);
+        setSelectedOptions([]);
 
         // Check if test was auto-completed by the backend
         if (result.is_test_complete) {
-          // Test is complete - backend already graded and updated mastery
           setQuizState('completed');
           onComplete?.(
             result.test_passed ?? false,
             result.test_score ?? 0
           );
         } else if (currentIndex < attempt.test.questions.length - 1) {
-          // Move to next question
           setCurrentIndex((prev) => prev + 1);
         }
       } catch (error) {
@@ -139,6 +139,37 @@ export function ParagraphQuiz({
       onComplete,
     ]
   );
+
+  // Handle option click - immediate for single, toggle for multiple
+  const handleOptionClick = useCallback(
+    (optionId: number) => {
+      if (!attempt || isAnswering || quizState !== 'in_progress') return;
+
+      const currentQuestion = attempt.test.questions[currentIndex];
+      if (!currentQuestion) return;
+
+      const isMultipleChoice = currentQuestion.question_type === 'multiple_choice';
+
+      if (isMultipleChoice) {
+        // Toggle selection
+        setSelectedOptions((prev) =>
+          prev.includes(optionId)
+            ? prev.filter((id) => id !== optionId)
+            : [...prev, optionId]
+        );
+      } else {
+        // Single choice - submit immediately
+        submitAnswer([optionId]);
+      }
+    },
+    [attempt, currentIndex, isAnswering, quizState, submitAnswer]
+  );
+
+  // Handle submit for multiple choice
+  const handleMultipleChoiceSubmit = useCallback(() => {
+    if (selectedOptions.length === 0) return;
+    submitAnswer(selectedOptions);
+  }, [selectedOptions, submitAnswer]);
 
   // Handle skip
   const handleSkip = useCallback(() => {
@@ -236,17 +267,20 @@ export function ParagraphQuiz({
                         : 'bg-red-100 text-red-800'
                     )}
                   >
-                    {(() => {
-                      const selectedOption = answered.question.options.find(
-                        (o) => o.id === answered.selectedOptionIds[0]
-                      );
-                      const optionIndex = answered.question.options.findIndex(
-                        (o) => o.id === answered.selectedOptionIds[0]
-                      );
-                      return selectedOption
-                        ? `${getOptionLetter(optionIndex)}. ${selectedOption.option_text}`
-                        : '';
-                    })()}
+                    {answered.selectedOptionIds
+                      .map((selectedId) => {
+                        const opt = answered.question.options.find(
+                          (o) => o.id === selectedId
+                        );
+                        const idx = answered.question.options.findIndex(
+                          (o) => o.id === selectedId
+                        );
+                        return opt
+                          ? `${getOptionLetter(idx)}. ${opt.option_text}`
+                          : '';
+                      })
+                      .filter(Boolean)
+                      .join(', ')}
                   </div>
                 </div>
 
@@ -318,29 +352,73 @@ export function ParagraphQuiz({
                     {attempt.test.questions[currentIndex].question_text}
                   </p>
 
+                  {/* Multiple choice hint */}
+                  {attempt.test.questions[currentIndex].question_type === 'multiple_choice' && (
+                    <p className="text-sm text-amber-600 mb-2">
+                      {t('selectMultiple')}
+                    </p>
+                  )}
+
                   {/* Options */}
                   <div className="space-y-3">
                     {attempt.test.questions[currentIndex].options.map(
-                      (option, optIdx) => (
-                        <button
-                          key={option.id}
-                          onClick={() => handleOptionClick(option.id)}
-                          disabled={isAnswering}
-                          className={cn(
-                            'w-full p-4 rounded-xl border-2 text-left flex items-center gap-3 transition-all',
-                            isAnswering
-                              ? 'opacity-50 cursor-not-allowed border-gray-200'
-                              : 'border-gray-200 hover:border-amber-400 hover:bg-amber-50/50 cursor-pointer'
-                          )}
-                        >
-                          <span className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-semibold text-gray-600">
-                            {getOptionLetter(optIdx)}
-                          </span>
-                          <span className="flex-1">{option.option_text}</span>
-                        </button>
-                      )
+                      (option, optIdx) => {
+                        const isMultiple = attempt.test.questions[currentIndex].question_type === 'multiple_choice';
+                        const isSelected = selectedOptions.includes(option.id);
+
+                        return (
+                          <button
+                            key={option.id}
+                            onClick={() => handleOptionClick(option.id)}
+                            disabled={isAnswering}
+                            className={cn(
+                              'w-full p-4 rounded-xl border-2 text-left flex items-center gap-3 transition-all',
+                              isAnswering
+                                ? 'opacity-50 cursor-not-allowed border-gray-200'
+                                : isSelected
+                                  ? 'border-amber-400 bg-amber-50'
+                                  : 'border-gray-200 hover:border-amber-400 hover:bg-amber-50/50 cursor-pointer'
+                            )}
+                          >
+                            {isMultiple ? (
+                              <span
+                                className={cn(
+                                  'w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all',
+                                  isSelected
+                                    ? 'bg-amber-500 border-amber-500 text-white'
+                                    : 'border-gray-300 bg-white'
+                                )}
+                              >
+                                {isSelected && <Check className="w-4 h-4" />}
+                              </span>
+                            ) : (
+                              <span className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-semibold text-gray-600">
+                                {getOptionLetter(optIdx)}
+                              </span>
+                            )}
+                            <span className="flex-1">{option.option_text}</span>
+                          </button>
+                        );
+                      }
                     )}
                   </div>
+
+                  {/* Submit button for multiple choice */}
+                  {attempt.test.questions[currentIndex].question_type === 'multiple_choice' && (
+                    <button
+                      onClick={handleMultipleChoiceSubmit}
+                      disabled={isAnswering || selectedOptions.length === 0}
+                      className={cn(
+                        'mt-4 w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all',
+                        selectedOptions.length > 0
+                          ? 'bg-amber-500 text-white hover:bg-amber-600'
+                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      )}
+                    >
+                      <Send className="w-4 h-4" />
+                      {t('confirmAnswer')}
+                    </button>
+                  )}
                 </div>
               </div>
             )}

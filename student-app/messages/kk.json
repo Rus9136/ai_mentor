@@ -312,6 +312,8 @@
       "correct": "Дұрыс!",
       "incorrect": "Бұл дұрыс емес.",
       "correctAnswer": "Дұрыс жауап",
+      "selectMultiple": "Бірнеше жауап таңдаңыз",
+      "confirmAnswer": "Жауап беру",
       "result": {
         "title": "Нәтиже",
         "passed": "Тест өтті!",
