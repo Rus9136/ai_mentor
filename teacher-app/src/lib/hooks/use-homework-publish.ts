@@ -13,7 +13,7 @@ import {
 } from '@/lib/hooks/use-homework';
 import type { QuickTaskDraft } from '@/components/homework/QuickTaskCard';
 import type { TemplateTaskDef } from '@/components/homework/HomeworkTemplates';
-import type { GenerationParams } from '@/types/homework';
+import type { GenerationParams, BloomLevel } from '@/types/homework';
 
 export type PublishStep = 'idle' | 'creating' | 'tasks' | 'generating' | 'publishing' | 'done';
 
@@ -24,6 +24,7 @@ interface HomeworkFormData {
   targetDifficulty: string;
   aiGenerationEnabled: boolean;
   aiCheckEnabled: boolean;
+  bloomLevels: BloomLevel[];
 }
 
 interface UseHomeworkPublishReturn {
@@ -107,9 +108,13 @@ export function useHomeworkPublish(): UseHomeworkPublishReturn {
         setPublishStep('generating');
         for (const { clientId, serverId } of taskIds) {
           const def = templateDefs.get(clientId);
-          const params: GenerationParams = def?.generationParams || {
+          const baseParams = def?.generationParams || {
             questions_count: 5,
             include_explanation: true,
+          };
+          const params: GenerationParams = {
+            ...baseParams,
+            bloom_levels: formData.bloomLevels.length > 0 ? formData.bloomLevels : baseParams.bloom_levels,
           };
           try {
             await generateQuestions.mutateAsync({

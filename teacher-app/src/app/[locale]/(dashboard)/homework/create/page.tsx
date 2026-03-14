@@ -23,7 +23,7 @@ import type { HomeworkTemplate, TemplateTaskDef } from '@/components/homework/Ho
 import { useClasses } from '@/lib/hooks/use-teacher-data';
 import { useHomeworkPublish } from '@/lib/hooks/use-homework-publish';
 import type { PublishStep } from '@/lib/hooks/use-homework-publish';
-import { TaskType } from '@/types/homework';
+import { TaskType, BloomLevel } from '@/types/homework';
 
 export default function CreateHomeworkPage() {
   const locale = useLocale();
@@ -45,6 +45,9 @@ export default function CreateHomeworkPage() {
   const [targetDifficulty, setTargetDifficulty] = useState('auto');
   const [aiGenerationEnabled, setAiGenerationEnabled] = useState(true);
   const [aiCheckEnabled, setAiCheckEnabled] = useState(true);
+  const [bloomLevels, setBloomLevels] = useState<BloomLevel[]>([
+    BloomLevel.REMEMBER, BloomLevel.UNDERSTAND, BloomLevel.APPLY,
+  ]);
 
   // Hooks
   const { data: classes } = useClasses();
@@ -139,7 +142,7 @@ export default function CreateHomeworkPage() {
   );
 
   const formData = {
-    title, classId: classId!, dueDate, targetDifficulty, aiGenerationEnabled, aiCheckEnabled,
+    title, classId: classId!, dueDate, targetDifficulty, aiGenerationEnabled, aiCheckEnabled, bloomLevels,
   };
 
   const onPublish = async () => {
@@ -307,6 +310,31 @@ export default function CreateHomeworkPage() {
                       <p className="text-xs text-muted-foreground">{t('ai.checkingDesc')}</p>
                     </div>
                   </label>
+
+                  {/* Bloom's Taxonomy Levels */}
+                  {aiGenerationEnabled && (
+                    <div className="space-y-2 pt-2">
+                      <Label className="text-sm">{t('question.bloomLevels.title')}</Label>
+                      <div className="flex flex-wrap gap-3">
+                        {Object.values(BloomLevel).map((level) => (
+                          <label key={level} className="flex items-center gap-2 text-sm cursor-pointer">
+                            <Checkbox
+                              checked={bloomLevels.includes(level)}
+                              onCheckedChange={(checked) => {
+                                setBloomLevels((prev) =>
+                                  checked
+                                    ? [...prev, level]
+                                    : prev.filter((l) => l !== level)
+                                );
+                              }}
+                              disabled={isSubmitting}
+                            />
+                            {t(`question.bloomLevels.${level}`)}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
