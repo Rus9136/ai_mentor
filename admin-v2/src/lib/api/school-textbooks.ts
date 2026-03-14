@@ -5,7 +5,7 @@ export const schoolTextbooksApi = {
   // Get both global and school textbooks
   getList: async (includeGlobal = true): Promise<Textbook[]> => {
     const { data } = await apiClient.get<PaginatedResponse<Textbook>>('/admin/school/textbooks', {
-      params: { include_global: includeGlobal },
+      params: { include_global: includeGlobal, page_size: 100 },
     });
     return data.items;
   },
