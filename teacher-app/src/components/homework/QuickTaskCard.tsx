@@ -13,13 +13,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TaskType } from '@/types/homework';
-import type { ParagraphSearchResult } from '@/types/content';
-import { ParagraphSearchCombobox } from './ParagraphSearchCombobox';
+import { ContentSelector, type ContentSelection } from './ContentSelector';
 
 export interface QuickTaskDraft {
   id: string;
   taskType: TaskType;
-  paragraph: ParagraphSearchResult | null;
+  // Content selection from ContentSelector
+  paragraphId?: number;
+  paragraphTitle?: string;
+  chapterId?: number;
+  chapterTitle?: string;
+  textbookId?: number;
+  textbookTitle?: string;
+  subject?: string;
+  gradeLevel?: number;
+  // Task settings
   points: number;
   maxAttempts: number;
 }
@@ -44,8 +52,21 @@ const TASK_TYPES = [
 export function QuickTaskCard({ task, index, onChange, onDelete, disabled }: QuickTaskCardProps) {
   const t = useTranslations('homework.task');
 
+  const handleContentSelect = (selection: ContentSelection) => {
+    onChange(task.id, {
+      paragraphId: selection.paragraphId,
+      paragraphTitle: selection.paragraphTitle,
+      chapterId: selection.chapterId,
+      chapterTitle: selection.chapterTitle,
+      textbookId: selection.textbookId,
+      textbookTitle: selection.textbookTitle,
+      subject: selection.subject,
+      gradeLevel: selection.gradeLevel,
+    });
+  };
+
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-3">
+    <div className="rounded-lg border bg-card p-4 space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-muted-foreground">
           {t('title')} {index + 1}
@@ -62,7 +83,8 @@ export function QuickTaskCard({ task, index, onChange, onDelete, disabled }: Qui
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-3">
+      {/* Task type + points + attempts */}
+      <div className="grid grid-cols-[1fr_80px_80px] gap-3 items-end">
         <div className="space-y-1.5">
           <Label className="text-xs">{t('type')}</Label>
           <Select
@@ -84,17 +106,6 @@ export function QuickTaskCard({ task, index, onChange, onDelete, disabled }: Qui
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('paragraph')}</Label>
-          <ParagraphSearchCombobox
-            value={task.paragraph}
-            onSelect={(p) => onChange(task.id, { paragraph: p })}
-            disabled={disabled}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 max-w-xs">
-        <div className="space-y-1.5">
           <Label className="text-xs">{t('points')}</Label>
           <Input
             type="number"
@@ -106,6 +117,7 @@ export function QuickTaskCard({ task, index, onChange, onDelete, disabled }: Qui
             className="h-9"
           />
         </div>
+
         <div className="space-y-1.5">
           <Label className="text-xs">{t('maxAttempts')}</Label>
           <Input
@@ -119,6 +131,9 @@ export function QuickTaskCard({ task, index, onChange, onDelete, disabled }: Qui
           />
         </div>
       </div>
+
+      {/* Content selector: textbook → chapter → paragraph */}
+      <ContentSelector onSelect={handleContentSelect} disabled={disabled} />
     </div>
   );
 }

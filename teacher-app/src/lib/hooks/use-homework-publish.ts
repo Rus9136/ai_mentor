@@ -75,12 +75,11 @@ export function useHomeworkPublish(): UseHomeworkPublishReturn {
     setPublishStep('tasks');
     const taskIds: { clientId: string; serverId: number }[] = [];
     for (const task of tasks) {
-      if (!task.paragraph) continue;
       const result = await addTask.mutateAsync({
         homeworkId: homework.id,
         data: {
-          paragraph_id: task.paragraph.id,
-          chapter_id: task.paragraph.chapter_id,
+          paragraph_id: task.paragraphId,
+          chapter_id: task.chapterId,
           task_type: task.taskType,
           points: task.points,
           max_attempts: task.maxAttempts,

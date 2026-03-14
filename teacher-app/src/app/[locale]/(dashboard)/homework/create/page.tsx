@@ -65,7 +65,6 @@ export default function CreateHomeworkPage() {
       const task: QuickTaskDraft = {
         id: crypto.randomUUID(),
         taskType: def.taskType,
-        paragraph: null,
         points: def.points,
         maxAttempts: def.maxAttempts,
       };
@@ -88,13 +87,12 @@ export default function CreateHomeworkPage() {
       const updated = { ...task, ...updates };
 
       // Auto-title from first task's paragraph
-      if (updates.paragraph && prev.indexOf(task) === 0 && !titleManuallyEdited) {
-        const p = updates.paragraph;
+      if (updates.paragraphId && updates.paragraphTitle && prev.indexOf(task) === 0 && !titleManuallyEdited) {
         const tplName = selectedTemplate && selectedTemplate !== 'custom'
           ? HOMEWORK_TEMPLATES.find((tpl) => tpl.id === selectedTemplate)?.labelKey
           : null;
         const prefix = tplName ? t(`templates.${tplName}`) : '';
-        setTitle(`${prefix} — §${p.number}. ${p.title || ''}`.trim());
+        setTitle(`${prefix} — §${updates.paragraphId ? '' : ''}${updates.paragraphTitle}`.trim());
       }
 
       return updated;
@@ -114,7 +112,6 @@ export default function CreateHomeworkPage() {
     setTasks((prev) => [...prev, {
       id: crypto.randomUUID(),
       taskType: TaskType.QUIZ,
-      paragraph: null,
       points: 10,
       maxAttempts: 3,
     }]);
@@ -126,12 +123,20 @@ export default function CreateHomeworkPage() {
     if (!classId) return t('errors.noClass');
     if (!dueDate) return t('errors.noDueDate');
     if (tasks.length === 0) return t('errors.noTasks');
-    const tasksWithoutParagraph = tasks.some((task) => !task.paragraph);
-    if (tasksWithoutParagraph) return t('errors.noParagraph');
+    // Check paragraph/chapter for non-PRACTICE/CODE tasks
+    const needsContent = tasks.filter(
+      (task) => task.taskType !== TaskType.PRACTICE && task.taskType !== TaskType.CODE
+    );
+    if (needsContent.some((task) => !task.paragraphId && !task.chapterId)) {
+      return t('errors.noParagraph');
+    }
     return null;
   };
 
-  const hasAllParagraphs = tasks.length > 0 && tasks.every((task) => task.paragraph);
+  const hasContent = tasks.length > 0 && tasks.every(
+    (task) => task.paragraphId || task.chapterId ||
+    task.taskType === TaskType.PRACTICE || task.taskType === TaskType.CODE
+  );
 
   const formData = {
     title, classId: classId!, dueDate, targetDifficulty, aiGenerationEnabled, aiCheckEnabled,
@@ -248,7 +253,7 @@ export default function CreateHomeworkPage() {
             )}
 
             {/* AI generation info */}
-            {hasAllParagraphs && aiGenerationEnabled && (
+            {hasContent && aiGenerationEnabled && (
               <div className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/20 p-3">
                 <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                 <p className="text-sm text-muted-foreground">
