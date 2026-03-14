@@ -11,6 +11,7 @@ export const schoolKeys = {
     [...schoolKeys.lists(), filters] as const,
   details: () => [...schoolKeys.all, 'detail'] as const,
   detail: (id: number) => [...schoolKeys.details(), id] as const,
+  admins: (id: number) => [...schoolKeys.detail(id), 'admins'] as const,
 };
 
 // Get all schools
@@ -27,6 +28,15 @@ export function useSchool(id: number, enabled = true) {
     queryKey: schoolKeys.detail(id),
     queryFn: () => schoolsApi.getOne(id),
     enabled: enabled && id > 0,
+  });
+}
+
+// Get school admins
+export function useSchoolAdmins(schoolId: number, enabled = true) {
+  return useQuery({
+    queryKey: schoolKeys.admins(schoolId),
+    queryFn: () => schoolsApi.getAdmins(schoolId),
+    enabled: enabled && schoolId > 0,
   });
 }
 
@@ -157,6 +167,32 @@ export function useBulkUnblockSchools() {
     },
     onError: (error: Error) => {
       toast.error(`Ошибка разблокировки: ${error.message}`);
+    },
+  });
+}
+
+// Reset admin password mutation
+export function useResetAdminPassword() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      schoolId,
+      adminId,
+      password,
+    }: {
+      schoolId: number;
+      adminId: number;
+      password: string;
+    }) => schoolsApi.resetAdminPassword(schoolId, adminId, password),
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: schoolKeys.admins(vars.schoolId),
+      });
+      toast.success('Пароль администратора обновлён');
+    },
+    onError: (error: Error) => {
+      toast.error(`Ошибка сброса пароля: ${error.message}`);
     },
   });
 }

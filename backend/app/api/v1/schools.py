@@ -6,17 +6,23 @@ Manages schools (tenants) in the multi-tenant system.
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select
 
 from app.core.database import get_db
+from app.core.security import get_password_hash
 from app.api.dependencies import require_super_admin
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.school import School
 from app.repositories.school_repo import SchoolRepository
+from app.repositories.user_repo import UserRepository
 from app.schemas.school import (
     SchoolCreate,
     SchoolUpdate,
     SchoolResponse,
     SchoolListResponse,
+    SchoolAdminResponse,
+    AdminPasswordReset,
 )
 
 router = APIRouter()
@@ -45,12 +51,10 @@ async def create_school(
 ):
     """
     Create a new school (SUPER_ADMIN only).
-
-    Validates:
-    - Code must be unique across all schools
-    - Code format: lowercase alphanumeric with dashes/underscores
+    Optionally creates an admin user for the school in the same transaction.
     """
     school_repo = SchoolRepository(db)
+    user_repo = UserRepository(db)
 
     # Check if code already exists
     existing_school = await school_repo.get_by_code(data.code)
@@ -60,9 +64,56 @@ async def create_school(
             detail=f"School with code '{data.code}' already exists",
         )
 
-    # Create new school
-    school = School(**data.model_dump(), is_active=True)
-    return await school_repo.create(school)
+    # If admin provided, check email uniqueness
+    if data.admin:
+        existing_user = await user_repo.get_by_email(data.admin.email)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"User with email '{data.admin.email}' already exists",
+            )
+
+    # Create school
+    school_data = data.model_dump(exclude={"admin"})
+    school = School(**school_data, is_active=True)
+    db.add(school)
+
+    try:
+        await db.flush()  # Get school.id without committing
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"School with code '{data.code}' already exists",
+        )
+
+    # Create admin user if provided
+    if data.admin:
+        admin_user = User(
+            email=data.admin.email,
+            password_hash=get_password_hash(data.admin.password),
+            first_name=data.admin.first_name,
+            last_name=data.admin.last_name,
+            middle_name=data.admin.middle_name,
+            role=UserRole.ADMIN,
+            school_id=school.id,
+            is_active=True,
+            is_verified=True,
+        )
+        db.add(admin_user)
+
+        try:
+            await db.flush()
+        except IntegrityError:
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"User with email '{data.admin.email}' already exists",
+            )
+
+    await db.commit()
+    await db.refresh(school)
+    return school
 
 
 @router.get("/schools/{school_id}", response_model=SchoolResponse)
@@ -177,3 +228,69 @@ async def unblock_school(
         return school
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+
+# --- School Admin Management ---
+
+
+@router.get("/schools/{school_id}/admins", response_model=List[SchoolAdminResponse])
+async def get_school_admins(
+    school_id: int,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all admin users for a school (SUPER_ADMIN only).
+    """
+    school_repo = SchoolRepository(db)
+    school = await school_repo.get_by_id(school_id)
+    if not school:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"School {school_id} not found",
+        )
+
+    result = await db.execute(
+        select(User).where(
+            User.school_id == school_id,
+            User.role == UserRole.ADMIN.value,
+            User.is_deleted == False,  # noqa: E712
+        )
+    )
+    return list(result.scalars().all())
+
+
+@router.post(
+    "/schools/{school_id}/admins/{admin_id}/reset-password",
+    response_model=SchoolAdminResponse,
+)
+async def reset_admin_password(
+    school_id: int,
+    admin_id: int,
+    data: AdminPasswordReset,
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Reset password for a school admin (SUPER_ADMIN only).
+    """
+    result = await db.execute(
+        select(User).where(
+            User.id == admin_id,
+            User.school_id == school_id,
+            User.role == UserRole.ADMIN.value,
+            User.is_deleted == False,  # noqa: E712
+        )
+    )
+    admin_user = result.scalar_one_or_none()
+
+    if not admin_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Admin user not found for this school",
+        )
+
+    admin_user.password_hash = get_password_hash(data.password)
+    await db.commit()
+    await db.refresh(admin_user)
+    return admin_user

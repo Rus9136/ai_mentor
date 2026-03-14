@@ -36,6 +36,14 @@ export interface School {
   updated_at: string;
 }
 
+export interface AdminCredentials {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+}
+
 export interface SchoolCreate {
   name: string;
   code: string;
@@ -43,9 +51,20 @@ export interface SchoolCreate {
   email?: string;
   phone?: string;
   address?: string;
+  admin?: AdminCredentials;
 }
 
-export interface SchoolUpdate extends Partial<SchoolCreate> {}
+export interface SchoolUpdate extends Partial<Omit<SchoolCreate, 'admin'>> {}
+
+export interface SchoolAdmin {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  is_active: boolean;
+  created_at: string;
+}
 
 // Subject brief (for FK references)
 export interface SubjectBrief {

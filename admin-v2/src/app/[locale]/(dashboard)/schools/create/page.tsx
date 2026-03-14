@@ -16,6 +16,7 @@ import { RoleGuard } from '@/components/auth';
 import { SchoolForm } from '@/components/forms';
 import { useCreateSchool } from '@/lib/hooks/use-schools';
 import type { SchoolCreateInput } from '@/lib/validations/school';
+import type { SchoolCreate } from '@/types';
 
 export default function SchoolCreatePage() {
   const t = useTranslations('schools');
@@ -23,7 +24,27 @@ export default function SchoolCreatePage() {
   const createSchool = useCreateSchool();
 
   const handleSubmit = (data: SchoolCreateInput) => {
-    createSchool.mutate(data, {
+    // Build payload: include admin only if create_admin is checked
+    const payload: SchoolCreate = {
+      name: data.name,
+      code: data.code,
+      email: data.email || undefined,
+      phone: data.phone || undefined,
+      address: data.address || undefined,
+      description: data.description || undefined,
+    };
+
+    if (data.create_admin && data.admin) {
+      payload.admin = {
+        email: data.admin.email,
+        password: data.admin.password,
+        first_name: data.admin.first_name,
+        last_name: data.admin.last_name,
+        middle_name: data.admin.middle_name || undefined,
+      };
+    }
+
+    createSchool.mutate(payload, {
       onSuccess: () => {
         router.push('/ru/schools');
       },

@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { School, SchoolCreate, SchoolUpdate } from '@/types';
+import type { School, SchoolCreate, SchoolUpdate, SchoolAdmin } from '@/types';
 
 export const schoolsApi = {
   getList: async (): Promise<School[]> => {
@@ -33,6 +33,26 @@ export const schoolsApi = {
 
   unblock: async (id: number): Promise<School> => {
     const { data } = await apiClient.patch<School>(`/admin/schools/${id}/unblock`);
+    return data;
+  },
+
+  // School admin management
+  getAdmins: async (schoolId: number): Promise<SchoolAdmin[]> => {
+    const { data } = await apiClient.get<SchoolAdmin[]>(
+      `/admin/schools/${schoolId}/admins`
+    );
+    return data;
+  },
+
+  resetAdminPassword: async (
+    schoolId: number,
+    adminId: number,
+    password: string
+  ): Promise<SchoolAdmin> => {
+    const { data } = await apiClient.post<SchoolAdmin>(
+      `/admin/schools/${schoolId}/admins/${adminId}/reset-password`,
+      { password }
+    );
     return data;
   },
 };

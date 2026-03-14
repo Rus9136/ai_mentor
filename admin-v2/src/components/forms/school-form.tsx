@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import {
   schoolCreateSchema,
   schoolCreateDefaults,
@@ -32,6 +34,7 @@ interface SchoolFormProps {
 export function SchoolForm({ school, onSubmit, isLoading }: SchoolFormProps) {
   const t = useTranslations('schools');
   const tCommon = useTranslations('common');
+  const isEdit = !!school;
 
   const form = useForm<SchoolCreateInput>({
     resolver: zodResolver(schoolCreateSchema),
@@ -43,9 +46,12 @@ export function SchoolForm({ school, onSubmit, isLoading }: SchoolFormProps) {
           phone: school.phone || '',
           address: school.address || '',
           description: school.description || '',
+          create_admin: false,
         }
       : schoolCreateDefaults,
   });
+
+  const createAdmin = form.watch('create_admin');
 
   return (
     <Form {...form}>
@@ -146,6 +152,122 @@ export function SchoolForm({ school, onSubmit, isLoading }: SchoolFormProps) {
             </FormItem>
           )}
         />
+
+        {/* Admin section — only for create mode */}
+        {!isEdit && (
+          <>
+            <Separator />
+
+            <FormField
+              control={form.control}
+              name="create_admin"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="text-base font-semibold">
+                      {t('adminSection')}
+                    </FormLabel>
+                    <FormDescription>
+                      {t('adminSectionDescription')}
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            {createAdmin && (
+              <div className="rounded-lg border p-4 space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="admin.last_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('adminLastName')} *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Иванов" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="admin.first_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('adminFirstName')} *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Иван" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="admin.middle_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('adminMiddleName')}</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Иванович" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="admin.email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('adminEmail')} *</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="admin@school.com"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="admin.password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('adminPassword')} *</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="password"
+                            placeholder="Минимум 6 символов"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         <div className="flex justify-end gap-4">
           <Button type="submit" disabled={isLoading}>

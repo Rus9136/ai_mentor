@@ -15,6 +15,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { RoleGuard } from '@/components/auth';
 import { SchoolForm } from '@/components/forms';
+import { SchoolAdminsCard } from '@/components/school-admins-card';
 import { useSchool, useUpdateSchool } from '@/lib/hooks/use-schools';
 import type { SchoolCreateInput } from '@/lib/validations/school';
 
@@ -102,6 +103,8 @@ export default function SchoolEditPage() {
             />
           </CardContent>
         </Card>
+
+        <SchoolAdminsCard schoolId={schoolId} />
       </div>
     </RoleGuard>
   );

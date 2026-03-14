@@ -72,7 +72,20 @@
     "block": "Заблокировать",
     "unblock": "Разблокировать",
     "blocked": "Заблокирована",
-    "deleteConfirm": "Вы уверены, что хотите удалить эту школу?"
+    "deleteConfirm": "Вы уверены, что хотите удалить эту школу?",
+    "adminSection": "Создать администратора школы",
+    "adminSectionDescription": "Администратор сможет управлять учителями, учениками и классами",
+    "adminEmail": "Email администратора",
+    "adminPassword": "Пароль",
+    "adminFirstName": "Имя",
+    "adminLastName": "Фамилия",
+    "adminMiddleName": "Отчество",
+    "adminsTitle": "Администраторы школы",
+    "adminsDescription": "Управление аккаунтами администраторов",
+    "noAdmins": "У школы нет администраторов",
+    "resetPassword": "Сбросить пароль",
+    "newPassword": "Новый пароль",
+    "resetPasswordConfirm": "Сбросить"
   },
   "textbooks": {
     "title": "Учебники",

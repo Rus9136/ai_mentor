@@ -2,10 +2,20 @@
 Pydantic schemas for School management.
 """
 
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, EmailStr
 import re
+
+
+class AdminCredentials(BaseModel):
+    """Admin user credentials for school creation."""
+
+    email: EmailStr = Field(..., description="Admin email")
+    password: str = Field(..., min_length=6, description="Admin password")
+    first_name: str = Field(..., min_length=1, max_length=100, description="First name")
+    last_name: str = Field(..., min_length=1, max_length=100, description="Last name")
+    middle_name: Optional[str] = Field(None, max_length=100, description="Middle name")
 
 
 class SchoolCreate(BaseModel):
@@ -22,6 +32,7 @@ class SchoolCreate(BaseModel):
     email: Optional[str] = Field(None, max_length=255, description="School email")
     phone: Optional[str] = Field(None, max_length=50, description="School phone")
     address: Optional[str] = Field(None, description="School address")
+    admin: Optional[AdminCredentials] = Field(None, description="Admin user to create with the school")
 
     @field_validator("code")
     @classmethod
@@ -62,6 +73,26 @@ class SchoolResponse(BaseModel):
     address: Optional[str]
     created_at: datetime
     updated_at: datetime
+
+
+class SchoolAdminResponse(BaseModel):
+    """Schema for school admin user info."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    first_name: str
+    last_name: str
+    middle_name: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+
+
+class AdminPasswordReset(BaseModel):
+    """Schema for resetting admin password."""
+
+    password: str = Field(..., min_length=6, description="New password")
 
 
 class SchoolListResponse(BaseModel):

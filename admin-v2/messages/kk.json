@@ -72,7 +72,20 @@
     "block": "Бұғаттау",
     "unblock": "Бұғаттан шығару",
     "blocked": "Бұғатталған",
-    "deleteConfirm": "Бұл мектепті жоюға сенімдісіз бе?"
+    "deleteConfirm": "Бұл мектепті жоюға сенімдісіз бе?",
+    "adminSection": "Мектеп әкімшісін құру",
+    "adminSectionDescription": "Әкімші мұғалімдерді, оқушыларды және сыныптарды басқара алады",
+    "adminEmail": "Әкімші email",
+    "adminPassword": "Құпия сөз",
+    "adminFirstName": "Аты",
+    "adminLastName": "Тегі",
+    "adminMiddleName": "Әкесінің аты",
+    "adminsTitle": "Мектеп әкімшілері",
+    "adminsDescription": "Әкімші аккаунттарын басқару",
+    "noAdmins": "Мектепте әкімші жоқ",
+    "resetPassword": "Құпия сөзді қалпына келтіру",
+    "newPassword": "Жаңа құпия сөз",
+    "resetPasswordConfirm": "Қалпына келтіру"
   },
   "textbooks": {
     "title": "Оқулықтар",
