@@ -126,8 +126,12 @@ export default function CreateHomeworkPage() {
     if (!classId) return t('errors.noClass');
     if (!dueDate) return t('errors.noDueDate');
     if (tasks.length === 0) return t('errors.noTasks');
+    const tasksWithoutParagraph = tasks.some((task) => !task.paragraph);
+    if (tasksWithoutParagraph) return t('errors.noParagraph');
     return null;
   };
+
+  const hasAllParagraphs = tasks.length > 0 && tasks.every((task) => task.paragraph);
 
   const formData = {
     title, classId: classId!, dueDate, targetDifficulty, aiGenerationEnabled, aiCheckEnabled,
@@ -242,6 +246,16 @@ export default function CreateHomeworkPage() {
                 ))}
               </div>
             )}
+
+            {/* AI generation info */}
+            {hasAllParagraphs && aiGenerationEnabled && (
+              <div className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/20 p-3">
+                <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                <p className="text-sm text-muted-foreground">
+                  {t('publishProgress.aiHint')}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Advanced Settings */}
@@ -303,6 +317,8 @@ export default function CreateHomeworkPage() {
         <Button onClick={onPublish} disabled={isSubmitting}>
           {isSubmitting ? (
             <><Loader2 className="h-4 w-4 animate-spin mr-2" />{publishStepLabels[publishStep]}</>
+          ) : aiGenerationEnabled ? (
+            <><Sparkles className="h-4 w-4 mr-2" />{t('actions.generateAndPublish')}</>
           ) : (
             <><Check className="h-4 w-4 mr-2" />{t('actions.publish')}</>
           )}
