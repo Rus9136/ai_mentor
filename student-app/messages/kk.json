@@ -758,5 +758,23 @@
     "keepLearning": "Оқуды жалғастыр!",
     "noQuests": "Бүгінге тапсырмалар жоқ",
     "awesome": "Керемет!"
+  },
+  "quiz": {
+    "enterCode": "Квиз кодын енгізіңіз",
+    "join": "Қосылу",
+    "invalidCode": "Код дұрыс емес",
+    "waitingForStart": "Бастауды күтіңіз...",
+    "connected": "Қосылды: {count}",
+    "answerSubmitted": "Жауап қабылданды!",
+    "points": "+{score} ұпай",
+    "correctAnswer": "Дұрыс жауап",
+    "yourRank": "Сенің орның: #{rank}",
+    "score": "ұпай",
+    "xpEarned": "+{xp} XP",
+    "correctAnswers": "{total} ішінен {correct} дұрыс",
+    "leaderboard": "Рейтинг",
+    "finished": "Квиз аяқталды!",
+    "questionOf": "Сұрақ {current} / {total}",
+    "waiting": "Күтілуде..."
   }
 }

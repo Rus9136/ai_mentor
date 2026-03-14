@@ -197,6 +197,7 @@ from app.api.v1 import teachers_usage
 from app.api.v1 import teachers_gamification
 from app.api.v1 import app_version
 from app.api.v1 import shared_files, file_browser
+from app.api.v1 import teachers_quiz, students_quiz, ws_quiz
 
 app.include_router(
     auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"]
@@ -340,4 +341,22 @@ app.include_router(
     file_browser.router,
     prefix="/files",
     tags=["File Browser"],
+)
+
+app.include_router(
+    teachers_quiz.router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Teachers - Quiz Battle"],
+)
+
+app.include_router(
+    students_quiz.router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Students - Quiz Battle"],
+)
+
+app.include_router(
+    ws_quiz.router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Quiz Battle - WebSocket"],
 )

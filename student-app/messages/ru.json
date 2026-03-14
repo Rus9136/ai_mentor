@@ -758,5 +758,23 @@
     "keepLearning": "Продолжай учиться!",
     "noQuests": "Нет заданий на сегодня",
     "awesome": "Круто!"
+  },
+  "quiz": {
+    "enterCode": "Введите код квиза",
+    "join": "Присоединиться",
+    "invalidCode": "Неверный код",
+    "waitingForStart": "Ждём начала...",
+    "connected": "Подключено: {count}",
+    "answerSubmitted": "Ответ принят!",
+    "points": "+{score} очков",
+    "correctAnswer": "Правильный ответ",
+    "yourRank": "Ваше место: #{rank}",
+    "score": "очков",
+    "xpEarned": "+{xp} XP",
+    "correctAnswers": "{correct} из {total} правильных",
+    "leaderboard": "Рейтинг",
+    "finished": "Квиз завершён!",
+    "questionOf": "Вопрос {current} из {total}",
+    "waiting": "Ожидание..."
   }
 }

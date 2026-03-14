@@ -103,6 +103,9 @@ from app.models.prerequisite import ParagraphPrerequisite
 # Subscriptions & Usage
 from app.models.subscription import SubscriptionPlan, SchoolSubscription, DailyUsageCounter
 
+# Quiz Battle
+from app.models.quiz import QuizSession, QuizParticipant, QuizAnswer, QuizSessionStatus
+
 # Gamification
 from app.models.gamification import (
     XpTransaction,
@@ -247,4 +250,9 @@ __all__ = [
     "AchievementCategory",
     "AchievementRarity",
     "QuestType",
+    # Quiz Battle
+    "QuizSession",
+    "QuizParticipant",
+    "QuizAnswer",
+    "QuizSessionStatus",
 ]

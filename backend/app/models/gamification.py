@@ -21,6 +21,7 @@ class XpSourceType(str, enum.Enum):
     SELF_ASSESSMENT = "self_assessment"
     REVIEW_COMPLETED = "review_completed"
     PARAGRAPH_COMPLETE = "paragraph_complete"
+    QUIZ_BATTLE = "quiz_battle"
 
 
 class AchievementCategory(str, enum.Enum):
