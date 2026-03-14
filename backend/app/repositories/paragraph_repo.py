@@ -2,7 +2,7 @@
 Repository for Paragraph data access.
 """
 from typing import Optional, List, Tuple, TypedDict
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_, cast, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -149,6 +149,91 @@ class ParagraphRepository:
         await self.db.commit()
         await self.db.refresh(paragraph)
         return paragraph
+
+    async def search_with_context(
+        self,
+        query: str,
+        school_id: int,
+        subject_id: Optional[int] = None,
+        grade_level: Optional[int] = None,
+        limit: int = 20,
+    ) -> List[ContentMetadata]:
+        """
+        Flat search across all accessible paragraphs with textbook/chapter context.
+
+        Args:
+            query: Search string (matched against title and number)
+            school_id: Teacher's school ID for access control
+            subject_id: Optional filter by subject
+            grade_level: Optional filter by grade level
+            limit: Max results (default 20)
+
+        Returns:
+            List of ContentMetadata dicts
+        """
+        search_filter = f"%{query}%"
+
+        stmt = (
+            select(
+                Paragraph.id,
+                Paragraph.title.label("paragraph_title"),
+                Paragraph.number.label("paragraph_number"),
+                Chapter.id.label("chapter_id"),
+                Chapter.title.label("chapter_title"),
+                Chapter.number.label("chapter_number"),
+                Textbook.id.label("textbook_id"),
+                Textbook.title.label("textbook_title"),
+                Textbook.subject,
+                Textbook.grade_level,
+            )
+            .join(Chapter, Paragraph.chapter_id == Chapter.id)
+            .join(Textbook, Chapter.textbook_id == Textbook.id)
+            .where(
+                Paragraph.is_deleted == False,  # noqa: E712
+                Chapter.is_deleted == False,  # noqa: E712
+                Textbook.is_deleted == False,  # noqa: E712
+                Textbook.is_active == True,  # noqa: E712
+                or_(
+                    Textbook.school_id == school_id,
+                    Textbook.school_id.is_(None),
+                ),
+                or_(
+                    Paragraph.title.ilike(search_filter),
+                    cast(Paragraph.number, String).like(search_filter),
+                ),
+            )
+        )
+
+        if subject_id is not None:
+            stmt = stmt.where(Textbook.subject_id == subject_id)
+        if grade_level is not None:
+            stmt = stmt.where(Textbook.grade_level == grade_level)
+
+        stmt = stmt.order_by(
+            Textbook.grade_level,
+            Textbook.title,
+            Chapter.number,
+            Paragraph.number,
+        ).limit(limit)
+
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
+        return [
+            ContentMetadata(
+                paragraph_id=row.id,
+                paragraph_title=row.paragraph_title,
+                paragraph_number=row.paragraph_number,
+                chapter_id=row.chapter_id,
+                chapter_title=row.chapter_title,
+                chapter_number=row.chapter_number,
+                textbook_id=row.textbook_id,
+                textbook_title=row.textbook_title,
+                subject=row.subject,
+                grade_level=row.grade_level,
+            )
+            for row in rows
+        ]
 
     async def get_content_metadata(self, paragraph_id: int) -> Optional[ContentMetadata]:
         """

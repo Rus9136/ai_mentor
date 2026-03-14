@@ -8,3 +8,6 @@ export { AIGenerationPanel } from './AIGenerationPanel';
 export { QuestionCard } from './QuestionCard';
 export { ReviewAnswerCard } from './ReviewAnswerCard';
 export { FileUpload } from './FileUpload';
+export { ParagraphSearchCombobox } from './ParagraphSearchCombobox';
+export { HomeworkTemplates, HOMEWORK_TEMPLATES } from './HomeworkTemplates';
+export { QuickTaskCard } from './QuickTaskCard';

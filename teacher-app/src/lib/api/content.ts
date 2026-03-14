@@ -4,7 +4,7 @@
  */
 
 import { apiClient } from './client';
-import type { TextbookListItem, ChapterListItem, ParagraphListItem } from '@/types/content';
+import type { TextbookListItem, ChapterListItem, ParagraphListItem, ParagraphSearchResult } from '@/types/content';
 
 // Pagination response type
 interface PaginatedResponse<T> {
@@ -37,4 +37,20 @@ export async function getChapters(textbookId: number): Promise<ChapterListItem[]
 export async function getParagraphs(chapterId: number): Promise<ParagraphListItem[]> {
   const response = await apiClient.get<PaginatedResponse<ParagraphListItem>>(`/teachers/chapters/${chapterId}/paragraphs`);
   return response.data.items;
+}
+
+/**
+ * Search paragraphs across all accessible textbooks (flat search).
+ */
+export async function searchParagraphs(
+  query: string,
+  subjectId?: number,
+  gradeLevel?: number,
+  limit: number = 20,
+): Promise<ParagraphSearchResult[]> {
+  const params: Record<string, string | number> = { q: query, limit };
+  if (subjectId) params.subject_id = subjectId;
+  if (gradeLevel) params.grade_level = gradeLevel;
+  const response = await apiClient.get<ParagraphSearchResult[]>('/teachers/paragraphs/search', { params });
+  return response.data;
 }

@@ -1,23 +1,13 @@
 'use client';
 
-import { useState, useReducer } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useCallback } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import Link from 'next/link';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Loader2,
-  Plus,
-  Trash2,
-  Sparkles,
-  Check,
-} from 'lucide-react';
+import { ArrowLeft, Loader2, Plus, Check, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
@@ -26,783 +16,297 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  TaskTypeSelector,
-  ContentSelector,
-  AIGenerationPanel,
-  QuestionCard,
-  FileUpload,
-  type ContentSelection,
-} from '@/components/homework';
+import { HomeworkTemplates, HOMEWORK_TEMPLATES } from '@/components/homework/HomeworkTemplates';
+import { QuickTaskCard } from '@/components/homework/QuickTaskCard';
+import type { QuickTaskDraft } from '@/components/homework/QuickTaskCard';
+import type { HomeworkTemplate, TemplateTaskDef } from '@/components/homework/HomeworkTemplates';
 import { useClasses } from '@/lib/hooks/use-teacher-data';
-import {
-  useCreateHomework,
-  useAddTask,
-  useGenerateQuestions,
-  usePublishHomework,
-} from '@/lib/hooks/use-homework';
-import { TaskType, HomeworkStatus, type HomeworkTaskCreate, type GenerationParams, type Attachment } from '@/types/homework';
-
-// Wizard State
-interface WizardState {
-  step: number;
-  // Step 1: Basic Info
-  title: string;
-  description: string;
-  classId: number | null;
-  dueDate: string;
-  targetDifficulty: 'easy' | 'medium' | 'hard' | 'auto';
-  aiGenerationEnabled: boolean;
-  aiCheckEnabled: boolean;
-  attachments: Attachment[];
-  // Step 2: Tasks
-  tasks: TaskDraft[];
-  // Created homework ID
-  homeworkId: number | null;
-}
-
-interface TaskDraft {
-  id: string;
-  // Content selection
-  textbookId?: number;
-  textbookTitle?: string;
-  subject?: string;
-  gradeLevel?: number;
-  chapterId?: number;
-  chapterNumber?: number;
-  chapterTitle?: string;
-  paragraphId?: number;
-  paragraphNumber?: number;
-  paragraphTitle?: string;
-  // Task config
-  taskType: TaskType;
-  points: number;
-  maxAttempts: number;
-  instructions: string;
-  attachments: Attachment[];
-  // Server-created task ID
-  serverId?: number;
-  // Questions
-  questions: any[];
-  isGenerating?: boolean;
-}
-
-type WizardAction =
-  | { type: 'SET_FIELD'; field: keyof WizardState; value: any }
-  | { type: 'NEXT_STEP' }
-  | { type: 'PREV_STEP' }
-  | { type: 'ADD_TASK'; task: TaskDraft }
-  | { type: 'REMOVE_TASK'; id: string }
-  | { type: 'UPDATE_TASK'; id: string; updates: Partial<TaskDraft> }
-  | { type: 'SET_HOMEWORK_ID'; id: number }
-  | { type: 'SET_TASK_SERVER_ID'; taskId: string; serverId: number }
-  | { type: 'SET_TASK_QUESTIONS'; taskId: string; questions: any[] }
-  | { type: 'SET_TASK_GENERATING'; taskId: string; isGenerating: boolean };
-
-function wizardReducer(state: WizardState, action: WizardAction): WizardState {
-  switch (action.type) {
-    case 'SET_FIELD':
-      return { ...state, [action.field]: action.value };
-    case 'NEXT_STEP':
-      return { ...state, step: Math.min(state.step + 1, 4) };
-    case 'PREV_STEP':
-      return { ...state, step: Math.max(state.step - 1, 1) };
-    case 'ADD_TASK':
-      return { ...state, tasks: [...state.tasks, action.task] };
-    case 'REMOVE_TASK':
-      return { ...state, tasks: state.tasks.filter((t) => t.id !== action.id) };
-    case 'UPDATE_TASK':
-      return {
-        ...state,
-        tasks: state.tasks.map((t) =>
-          t.id === action.id ? { ...t, ...action.updates } : t
-        ),
-      };
-    case 'SET_HOMEWORK_ID':
-      return { ...state, homeworkId: action.id };
-    case 'SET_TASK_SERVER_ID':
-      return {
-        ...state,
-        tasks: state.tasks.map((t) =>
-          t.id === action.taskId ? { ...t, serverId: action.serverId } : t
-        ),
-      };
-    case 'SET_TASK_QUESTIONS':
-      return {
-        ...state,
-        tasks: state.tasks.map((t) =>
-          t.id === action.taskId ? { ...t, questions: action.questions } : t
-        ),
-      };
-    case 'SET_TASK_GENERATING':
-      return {
-        ...state,
-        tasks: state.tasks.map((t) =>
-          t.id === action.taskId ? { ...t, isGenerating: action.isGenerating } : t
-        ),
-      };
-    default:
-      return state;
-  }
-}
-
-const initialState: WizardState = {
-  step: 1,
-  title: '',
-  description: '',
-  classId: null,
-  dueDate: '',
-  targetDifficulty: 'auto',
-  aiGenerationEnabled: true,
-  aiCheckEnabled: true,
-  attachments: [],
-  tasks: [],
-  homeworkId: null,
-};
+import { useHomeworkPublish } from '@/lib/hooks/use-homework-publish';
+import type { PublishStep } from '@/lib/hooks/use-homework-publish';
+import { TaskType } from '@/types/homework';
 
 export default function CreateHomeworkPage() {
-  const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('homework');
 
-  const [state, dispatch] = useReducer(wizardReducer, initialState);
-  const [isCreating, setIsCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Template
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [templateDefs, setTemplateDefs] = useState<Map<string, TemplateTaskDef>>(new Map());
 
+  // Form fields
+  const [title, setTitle] = useState('');
+  const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
+  const [classId, setClassId] = useState<number | null>(null);
+  const [dueDate, setDueDate] = useState('');
+  const [tasks, setTasks] = useState<QuickTaskDraft[]>([]);
+
+  // Advanced settings
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [targetDifficulty, setTargetDifficulty] = useState('auto');
+  const [aiGenerationEnabled, setAiGenerationEnabled] = useState(true);
+  const [aiCheckEnabled, setAiCheckEnabled] = useState(true);
+
+  // Hooks
   const { data: classes } = useClasses();
-  const createHomework = useCreateHomework();
-  const addTask = useAddTask();
-  const generateQuestions = useGenerateQuestions();
-  const publishHomework = usePublishHomework();
+  const { publishStep, isSubmitting, error, setError, handlePublish, handleSaveDraft } = useHomeworkPublish();
 
-  // Step 1: Create homework draft
-  const handleCreateDraft = async () => {
-    if (!state.title || !state.classId || !state.dueDate) {
-      setError(t('errors.noTitle'));
+  // Template selection
+  const handleTemplateSelect = useCallback((template: HomeworkTemplate) => {
+    setSelectedTemplate(template.id);
+
+    if (template.id === 'custom') {
+      setTasks([]);
+      setTemplateDefs(new Map());
       return;
     }
 
-    setIsCreating(true);
-    setError(null);
+    const newDefs = new Map<string, TemplateTaskDef>();
+    const newTasks = template.tasks.map((def) => {
+      const task: QuickTaskDraft = {
+        id: crypto.randomUUID(),
+        taskType: def.taskType,
+        paragraph: null,
+        points: def.points,
+        maxAttempts: def.maxAttempts,
+      };
+      newDefs.set(task.id, def);
+      return task;
+    });
 
-    try {
-      const result = await createHomework.mutateAsync({
-        title: state.title,
-        description: state.description || undefined,
-        class_id: state.classId,
-        due_date: new Date(state.dueDate).toISOString(),
-        target_difficulty: state.targetDifficulty,
-        ai_generation_enabled: state.aiGenerationEnabled,
-        ai_check_enabled: state.aiCheckEnabled,
-        attachments: state.attachments.length > 0 ? state.attachments : undefined,
-      });
+    setTasks(newTasks);
+    setTemplateDefs(newDefs);
 
-      dispatch({ type: 'SET_HOMEWORK_ID', id: result.id });
-      dispatch({ type: 'NEXT_STEP' });
-    } catch (err: any) {
-      const apiError = err?.response?.data?.detail || err?.message;
-      setError(apiError || t('errors.createFailed'));
-    } finally {
-      setIsCreating(false);
+    if (!titleManuallyEdited) {
+      setTitle(t(`templates.${template.labelKey}`));
     }
-  };
+  }, [t, titleManuallyEdited]);
 
-  // Step 2: Add task
-  const handleAddTask = () => {
-    const newTask: TaskDraft = {
+  // Task CRUD
+  const handleTaskChange = useCallback((id: string, updates: Partial<QuickTaskDraft>) => {
+    setTasks((prev) => prev.map((task) => {
+      if (task.id !== id) return task;
+      const updated = { ...task, ...updates };
+
+      // Auto-title from first task's paragraph
+      if (updates.paragraph && prev.indexOf(task) === 0 && !titleManuallyEdited) {
+        const p = updates.paragraph;
+        const tplName = selectedTemplate && selectedTemplate !== 'custom'
+          ? HOMEWORK_TEMPLATES.find((tpl) => tpl.id === selectedTemplate)?.labelKey
+          : null;
+        const prefix = tplName ? t(`templates.${tplName}`) : '';
+        setTitle(`${prefix} — §${p.number}. ${p.title || ''}`.trim());
+      }
+
+      return updated;
+    }));
+  }, [titleManuallyEdited, selectedTemplate, t]);
+
+  const handleTaskDelete = useCallback((id: string) => {
+    setTasks((prev) => prev.filter((task) => task.id !== id));
+    setTemplateDefs((prev) => {
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const handleAddTask = useCallback(() => {
+    setTasks((prev) => [...prev, {
       id: crypto.randomUUID(),
       taskType: TaskType.QUIZ,
+      paragraph: null,
       points: 10,
       maxAttempts: 3,
-      instructions: '',
-      attachments: [],
-      questions: [],
-    };
-    dispatch({ type: 'ADD_TASK', task: newTask });
+    }]);
+  }, []);
+
+  // Validation
+  const validate = (): string | null => {
+    if (!title.trim()) return t('errors.noTitle');
+    if (!classId) return t('errors.noClass');
+    if (!dueDate) return t('errors.noDueDate');
+    if (tasks.length === 0) return t('errors.noTasks');
+    return null;
   };
 
-  // Step 2: Save tasks to server
-  const handleSaveTasks = async () => {
-    if (!state.homeworkId) return;
-
-    setIsCreating(true);
-    setError(null);
-
-    try {
-      for (const task of state.tasks) {
-        if (!task.serverId && (task.paragraphId || task.chapterId)) {
-          const result = await addTask.mutateAsync({
-            homeworkId: state.homeworkId,
-            data: {
-              paragraph_id: task.paragraphId,
-              chapter_id: task.chapterId,
-              task_type: task.taskType,
-              points: task.points,
-              max_attempts: task.maxAttempts,
-              instructions: task.instructions || undefined,
-              attachments: task.attachments.length > 0 ? task.attachments : undefined,
-            },
-          });
-          dispatch({ type: 'SET_TASK_SERVER_ID', taskId: task.id, serverId: result.id });
-        }
-      }
-      dispatch({ type: 'NEXT_STEP' });
-    } catch (err: any) {
-      const apiError = err?.response?.data?.detail || err?.message;
-      setError(apiError || t('errors.createFailed'));
-    } finally {
-      setIsCreating(false);
-    }
+  const formData = {
+    title, classId: classId!, dueDate, targetDifficulty, aiGenerationEnabled, aiCheckEnabled,
   };
 
-  // Step 3: Generate questions
-  const handleGenerateQuestions = async (taskId: string, params: GenerationParams) => {
-    const task = state.tasks.find((t) => t.id === taskId);
-    if (!task?.serverId || !state.homeworkId) return;
-
-    dispatch({ type: 'SET_TASK_GENERATING', taskId, isGenerating: true });
-
-    try {
-      const questions = await generateQuestions.mutateAsync({
-        taskId: task.serverId,
-        params,
-        homeworkId: state.homeworkId,
-      });
-      dispatch({ type: 'SET_TASK_QUESTIONS', taskId, questions });
-    } catch (err: any) {
-      // Show detailed error from API if available
-      const apiError = err?.response?.data?.detail || err?.message;
-      setError(apiError || t('errors.generateFailed'));
-    } finally {
-      dispatch({ type: 'SET_TASK_GENERATING', taskId, isGenerating: false });
-    }
+  const onPublish = async () => {
+    const err = validate();
+    if (err) { setError(err); return; }
+    await handlePublish(formData, tasks, templateDefs, {
+      createFailed: t('errors.createFailed'),
+      draftFallback: t('publishProgress.draftFallback'),
+    });
   };
 
-  // Step 4: Publish
-  const handlePublish = async () => {
-    if (!state.homeworkId) return;
-
-    setIsCreating(true);
-    try {
-      await publishHomework.mutateAsync({ homeworkId: state.homeworkId });
-      router.push(`/${locale}/homework`);
-    } catch (err: any) {
-      const apiError = err?.response?.data?.detail || err?.message;
-      setError(apiError || t('errors.publishFailed'));
-    } finally {
-      setIsCreating(false);
-    }
+  const onSaveDraft = async () => {
+    const err = validate();
+    if (err) { setError(err); return; }
+    await handleSaveDraft(formData, tasks, { createFailed: t('errors.createFailed') });
   };
 
-  // Save as draft and exit
-  const handleSaveDraft = () => {
-    router.push(`/${locale}/homework`);
+  const publishStepLabels: Record<PublishStep, string> = {
+    idle: '', creating: t('publishProgress.creating'),
+    tasks: t('publishProgress.addingTasks'), generating: t('publishProgress.generating'),
+    publishing: t('publishProgress.publishing'), done: '',
   };
-
-  const steps = [
-    { num: 1, label: t('wizard.step1') },
-    { num: 2, label: t('wizard.step2') },
-    { num: 3, label: t('wizard.step3') },
-    { num: 4, label: t('wizard.step4') },
-  ];
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-3xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link href={`/${locale}/homework`}>
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
         <h1 className="text-2xl font-bold">{t('create')}</h1>
       </div>
 
-      {/* Steps Indicator */}
-      <div className="flex items-center justify-center gap-2">
-        {steps.map((s, i) => (
-          <div key={s.num} className="flex items-center">
-            <div
-              className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
-                state.step >= s.num
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              {state.step > s.num ? <Check className="h-4 w-4" /> : s.num}
-            </div>
-            <span className="ml-2 text-sm hidden sm:inline">{s.label}</span>
-            {i < steps.length - 1 && (
-              <div className="w-8 h-px bg-muted mx-2" />
-            )}
-          </div>
-        ))}
-      </div>
+      {/* Templates */}
+      <HomeworkTemplates selected={selectedTemplate} onSelect={handleTemplateSelect} />
 
       {/* Error */}
       {error && (
-        <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
-          {error}
-        </div>
+        <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">{error}</div>
       )}
 
-      {/* Step 1: Basic Info */}
-      {state.step === 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('wizard.step1')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      {/* Form */}
+      <Card>
+        <CardContent className="pt-6 space-y-5">
+          {/* Title */}
+          <div className="space-y-2">
+            <Label htmlFor="title">{t('form.title')} *</Label>
+            <Input
+              id="title"
+              value={title}
+              onChange={(e) => { setTitle(e.target.value); setTitleManuallyEdited(true); }}
+              placeholder={t('form.titlePlaceholder')}
+              disabled={isSubmitting}
+            />
+          </div>
+
+          {/* Class + Due Date */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="title">{t('form.title')} *</Label>
-              <Input
-                id="title"
-                value={state.title}
-                onChange={(e) =>
-                  dispatch({ type: 'SET_FIELD', field: 'title', value: e.target.value })
-                }
-                placeholder={t('form.titlePlaceholder')}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">{t('form.description')}</Label>
-              <Textarea
-                id="description"
-                value={state.description}
-                onChange={(e) =>
-                  dispatch({ type: 'SET_FIELD', field: 'description', value: e.target.value })
-                }
-                placeholder={t('form.descriptionPlaceholder')}
-              />
-            </div>
-
-            {/* Attachments */}
-            <div className="space-y-2">
-              <Label>{t('form.attachments')}</Label>
-              <FileUpload
-                attachments={state.attachments}
-                onAttachmentsChange={(attachments) =>
-                  dispatch({ type: 'SET_FIELD', field: 'attachments', value: attachments })
-                }
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{t('form.class')} *</Label>
-                <Select
-                  value={state.classId?.toString() || ''}
-                  onValueChange={(v) =>
-                    dispatch({ type: 'SET_FIELD', field: 'classId', value: Number(v) })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('form.selectClass')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classes?.map((c) => (
-                      <SelectItem key={c.id} value={c.id.toString()}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="dueDate">{t('form.dueDate')} *</Label>
-                <Input
-                  id="dueDate"
-                  type="datetime-local"
-                  value={state.dueDate}
-                  onChange={(e) =>
-                    dispatch({ type: 'SET_FIELD', field: 'dueDate', value: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{t('form.difficulty')}</Label>
+              <Label>{t('form.class')} *</Label>
               <Select
-                value={state.targetDifficulty}
-                onValueChange={(v) =>
-                  dispatch({ type: 'SET_FIELD', field: 'targetDifficulty', value: v })
-                }
+                value={classId?.toString() || ''}
+                onValueChange={(v) => setClassId(Number(v))}
+                disabled={isSubmitting}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder={t('form.selectClass')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="auto">{t('form.difficultyAuto')}</SelectItem>
-                  <SelectItem value="easy">{t('form.difficultyEasy')}</SelectItem>
-                  <SelectItem value="medium">{t('form.difficultyMedium')}</SelectItem>
-                  <SelectItem value="hard">{t('form.difficultyHard')}</SelectItem>
+                  {classes?.map((c) => (
+                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-
-            {/* AI Settings */}
-            <div className="space-y-3 pt-4 border-t">
-              <h3 className="font-medium flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                {t('ai.title')}
-              </h3>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <Checkbox
-                  checked={state.aiGenerationEnabled}
-                  onCheckedChange={(v) =>
-                    dispatch({ type: 'SET_FIELD', field: 'aiGenerationEnabled', value: v })
-                  }
-                />
-                <div>
-                  <p className="text-sm font-medium">{t('ai.generation')}</p>
-                  <p className="text-xs text-muted-foreground">{t('ai.generationDesc')}</p>
-                </div>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <Checkbox
-                  checked={state.aiCheckEnabled}
-                  onCheckedChange={(v) =>
-                    dispatch({ type: 'SET_FIELD', field: 'aiCheckEnabled', value: v })
-                  }
-                />
-                <div>
-                  <p className="text-sm font-medium">{t('ai.checking')}</p>
-                  <p className="text-xs text-muted-foreground">{t('ai.checkingDesc')}</p>
-                </div>
-              </label>
+            <div className="space-y-2">
+              <Label htmlFor="dueDate">{t('form.dueDate')} *</Label>
+              <Input
+                id="dueDate"
+                type="datetime-local"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                disabled={isSubmitting}
+              />
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
 
-      {/* Step 2: Tasks */}
-      {state.step === 2 && (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>{t('wizard.step2')}</CardTitle>
-                <Button onClick={handleAddTask} size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('task.add')}
-                </Button>
+          {/* Tasks */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>{t('task.title')}</Label>
+              <Button type="button" variant="outline" size="sm" onClick={handleAddTask} disabled={isSubmitting}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" />{t('task.add')}
+              </Button>
+            </div>
+
+            {tasks.length === 0 ? (
+              <div className="text-center text-muted-foreground py-6 border border-dashed rounded-lg">
+                <p>{t('task.noTasks')}</p>
+                <p className="text-xs mt-1">{t('task.addFirst')}</p>
               </div>
-            </CardHeader>
-            <CardContent>
-              {state.tasks.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  {t('task.noTasks')}
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {state.tasks.map((task, i) => (
-                    <Card key={task.id}>
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-base">
-                            {t('task.title')} #{i + 1}
-                          </CardTitle>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              dispatch({ type: 'REMOVE_TASK', id: task.id })
-                            }
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                          <Label>{t('task.type')}</Label>
-                          <TaskTypeSelector
-                            value={task.taskType}
-                            onChange={(v) =>
-                              dispatch({
-                                type: 'UPDATE_TASK',
-                                id: task.id,
-                                updates: { taskType: v },
-                              })
-                            }
-                          />
-                        </div>
-
-                        <ContentSelector
-                          onSelect={(selection: ContentSelection) =>
-                            dispatch({
-                              type: 'UPDATE_TASK',
-                              id: task.id,
-                              updates: {
-                                textbookId: selection.textbookId,
-                                textbookTitle: selection.textbookTitle,
-                                subject: selection.subject,
-                                gradeLevel: selection.gradeLevel,
-                                chapterId: selection.chapterId,
-                                chapterNumber: selection.chapterNumber,
-                                chapterTitle: selection.chapterTitle,
-                                paragraphId: selection.paragraphId,
-                                paragraphNumber: selection.paragraphNumber,
-                                paragraphTitle: selection.paragraphTitle,
-                              },
-                            })
-                          }
-                        />
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>{t('task.points')}</Label>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={100}
-                              value={task.points}
-                              onChange={(e) =>
-                                dispatch({
-                                  type: 'UPDATE_TASK',
-                                  id: task.id,
-                                  updates: { points: Number(e.target.value) },
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>{t('task.maxAttempts')}</Label>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={10}
-                              value={task.maxAttempts}
-                              onChange={(e) =>
-                                dispatch({
-                                  type: 'UPDATE_TASK',
-                                  id: task.id,
-                                  updates: { maxAttempts: Math.min(10, Math.max(1, Number(e.target.value) || 1)) },
-                                })
-                              }
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>{t('task.instructions')}</Label>
-                          <Textarea
-                            value={task.instructions}
-                            onChange={(e) =>
-                              dispatch({
-                                type: 'UPDATE_TASK',
-                                id: task.id,
-                                updates: { instructions: e.target.value },
-                              })
-                            }
-                            placeholder={t('task.instructionsPlaceholder')}
-                          />
-                        </div>
-
-                        {/* Task Attachments */}
-                        <div className="space-y-2">
-                          <Label>{t('form.taskAttachments')}</Label>
-                          <FileUpload
-                            attachments={task.attachments}
-                            onAttachmentsChange={(attachments) =>
-                              dispatch({
-                                type: 'UPDATE_TASK',
-                                id: task.id,
-                                updates: { attachments },
-                              })
-                            }
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Step 3: Questions */}
-      {state.step === 3 && (
-        <div className="space-y-4">
-          {state.tasks.map((task, i) => (
-            <Card key={task.id}>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  {t('task.title')} #{i + 1}: {t(`task.types.${task.taskType}`)}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Content Info */}
-                {(task.subject || task.chapterTitle || task.paragraphTitle) && (
-                  <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">
-                      {t('task.contentInfo')}
-                    </h4>
-                    {task.subject && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-muted-foreground">{t('task.subject')}:</span>
-                        <span className="font-medium">
-                          {task.subject}
-                          {task.gradeLevel && ` (${task.gradeLevel} ${t('task.grade')})`}
-                        </span>
-                      </div>
-                    )}
-                    {task.chapterTitle && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-muted-foreground">{t('task.chapter')}:</span>
-                        <span className="font-medium">
-                          {task.chapterNumber && `${task.chapterNumber}. `}
-                          {task.chapterTitle}
-                        </span>
-                      </div>
-                    )}
-                    {task.paragraphTitle && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-muted-foreground">{t('task.paragraph')}:</span>
-                        <span className="font-medium">
-                          {task.paragraphNumber && `§${task.paragraphNumber}. `}
-                          {task.paragraphTitle}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {state.aiGenerationEnabled && (
-                  <AIGenerationPanel
-                    onGenerate={(params) => handleGenerateQuestions(task.id, params)}
-                    isGenerating={task.isGenerating}
-                    hasQuestions={task.questions.length > 0}
-                    taskType={task.taskType}
+            ) : (
+              <div className="space-y-3">
+                {tasks.map((task, i) => (
+                  <QuickTaskCard
+                    key={task.id} task={task} index={i}
+                    onChange={handleTaskChange} onDelete={handleTaskDelete} disabled={isSubmitting}
                   />
-                )}
-
-                {task.questions.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="font-medium">{t('question.title')} ({task.questions.length})</h4>
-                    {task.questions.map((q, qi) => (
-                      <QuestionCard key={q.id} question={q} index={qi} showAnswer />
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Step 4: Preview */}
-      {state.step === 4 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('wizard.step4')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">{t('form.title')}</p>
-                <p className="font-medium">{state.title}</p>
+                ))}
               </div>
-              <div>
-                <p className="text-muted-foreground">{t('form.class')}</p>
-                <p className="font-medium">
-                  {classes?.find((c) => c.id === state.classId)?.name || '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">{t('form.dueDate')}</p>
-                <p className="font-medium">
-                  {state.dueDate
-                    ? new Date(state.dueDate).toLocaleString()
-                    : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">{t('task.title')}</p>
-                <p className="font-medium">{state.tasks.length}</p>
-              </div>
-            </div>
+            )}
+          </div>
 
-            <div className="pt-4 border-t">
-              <p className="text-muted-foreground mb-2">{t('question.title')}</p>
-              <p className="font-medium">
-                {state.tasks.reduce((acc, t) => acc + t.questions.length, 0)} вопросов
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Navigation Buttons */}
-      <div className="flex justify-between">
-        <div>
-          {state.step > 1 && (
-            <Button
-              variant="outline"
-              onClick={() => dispatch({ type: 'PREV_STEP' })}
-              disabled={isCreating}
+          {/* Advanced Settings */}
+          <div className="border-t pt-4">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              {t('actions.back')}
-            </Button>
-          )}
-        </div>
+              {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {t('advancedSettings')}
+            </button>
 
-        <div className="flex gap-2">
-          {state.homeworkId && (
-            <Button variant="outline" onClick={handleSaveDraft}>
-              {t('actions.saveDraft')}
-            </Button>
-          )}
+            {showAdvanced && (
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label>{t('form.difficulty')}</Label>
+                  <Select value={targetDifficulty} onValueChange={setTargetDifficulty} disabled={isSubmitting}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">{t('form.difficultyAuto')}</SelectItem>
+                      <SelectItem value="easy">{t('form.difficultyEasy')}</SelectItem>
+                      <SelectItem value="medium">{t('form.difficultyMedium')}</SelectItem>
+                      <SelectItem value="hard">{t('form.difficultyHard')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {state.step === 1 && (
-            <Button onClick={handleCreateDraft} disabled={isCreating}>
-              {isCreating ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <ArrowRight className="h-4 w-4 mr-2" />
-              )}
-              {t('actions.next')}
-            </Button>
-          )}
+                <div className="space-y-3">
+                  <h4 className="font-medium flex items-center gap-2 text-sm">
+                    <Sparkles className="h-4 w-4 text-primary" />{t('ai.title')}
+                  </h4>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <Checkbox checked={aiGenerationEnabled} onCheckedChange={(v) => setAiGenerationEnabled(v as boolean)} disabled={isSubmitting} />
+                    <div>
+                      <p className="text-sm font-medium">{t('ai.generation')}</p>
+                      <p className="text-xs text-muted-foreground">{t('ai.generationDesc')}</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <Checkbox checked={aiCheckEnabled} onCheckedChange={(v) => setAiCheckEnabled(v as boolean)} disabled={isSubmitting} />
+                    <div>
+                      <p className="text-sm font-medium">{t('ai.checking')}</p>
+                      <p className="text-xs text-muted-foreground">{t('ai.checkingDesc')}</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-          {state.step === 2 && (
-            <Button
-              onClick={handleSaveTasks}
-              disabled={isCreating || state.tasks.length === 0}
-            >
-              {isCreating ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <ArrowRight className="h-4 w-4 mr-2" />
-              )}
-              {t('actions.next')}
-            </Button>
+      {/* Actions */}
+      <div className="flex justify-end gap-3">
+        <Button variant="outline" onClick={onSaveDraft} disabled={isSubmitting}>
+          {t('actions.saveDraft')}
+        </Button>
+        <Button onClick={onPublish} disabled={isSubmitting}>
+          {isSubmitting ? (
+            <><Loader2 className="h-4 w-4 animate-spin mr-2" />{publishStepLabels[publishStep]}</>
+          ) : (
+            <><Check className="h-4 w-4 mr-2" />{t('actions.publish')}</>
           )}
-
-          {state.step === 3 && (
-            <Button onClick={() => dispatch({ type: 'NEXT_STEP' })}>
-              <ArrowRight className="h-4 w-4 mr-2" />
-              {t('actions.next')}
-            </Button>
-          )}
-
-          {state.step === 4 && (
-            <Button onClick={handlePublish} disabled={isCreating}>
-              {isCreating ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Check className="h-4 w-4 mr-2" />
-              )}
-              {t('actions.publish')}
-            </Button>
-          )}
-        </div>
+        </Button>
       </div>
     </div>
   );

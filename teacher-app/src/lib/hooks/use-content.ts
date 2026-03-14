@@ -4,7 +4,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { getTextbooks, getChapters, getParagraphs } from '@/lib/api/content';
+import { getTextbooks, getChapters, getParagraphs, searchParagraphs } from '@/lib/api/content';
 
 // Query key factory for content
 export const contentKeys = {
@@ -45,5 +45,18 @@ export function useParagraphs(chapterId: number) {
     queryKey: contentKeys.paragraphs(chapterId),
     queryFn: () => getParagraphs(chapterId),
     enabled: !!chapterId && chapterId > 0,
+  });
+}
+
+/**
+ * Hook to search paragraphs across all accessible textbooks.
+ * @param query - Search string (min 2 chars to trigger)
+ */
+export function useParagraphSearch(query: string) {
+  return useQuery({
+    queryKey: [...contentKeys.all, 'paragraph-search', query],
+    queryFn: () => searchParagraphs(query),
+    enabled: query.length >= 2,
+    staleTime: 60_000,
   });
 }

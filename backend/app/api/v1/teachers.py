@@ -29,7 +29,7 @@ from app.repositories.chapter_repo import ChapterRepository
 from app.repositories.paragraph_repo import ParagraphRepository
 from app.schemas.textbook import TextbookListResponse
 from app.schemas.chapter import ChapterListResponse
-from app.schemas.paragraph import ParagraphListResponse
+from app.schemas.paragraph import ParagraphListResponse, ParagraphSearchResult
 from app.schemas.teacher_dashboard import (
     TeacherDashboardResponse,
     TeacherClassResponse,
@@ -575,6 +575,47 @@ async def list_paragraphs_for_teacher(
         chapter_id, page=pagination.page, page_size=pagination.page_size
     )
     return PaginatedResponse.create(paragraphs, total, pagination.page, pagination.page_size)
+
+
+@router.get(
+    "/paragraphs/search",
+    response_model=List[ParagraphSearchResult],
+    summary="Search paragraphs",
+    description="Flat search across all accessible paragraphs with textbook/chapter context.",
+)
+async def search_paragraphs(
+    q: str = Query(..., min_length=2, description="Search query"),
+    subject_id: Optional[int] = Query(None, description="Filter by subject"),
+    grade_level: Optional[int] = Query(None, ge=1, le=11, description="Filter by grade"),
+    limit: int = Query(20, ge=1, le=50, description="Max results"),
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db),
+) -> List[ParagraphSearchResult]:
+    """Search paragraphs by title or number across all accessible textbooks."""
+    paragraph_repo = ParagraphRepository(db)
+    results = await paragraph_repo.search_with_context(
+        query=q,
+        school_id=school_id,
+        subject_id=subject_id,
+        grade_level=grade_level,
+        limit=limit,
+    )
+    return [
+        ParagraphSearchResult(
+            id=r["paragraph_id"],
+            title=r["paragraph_title"],
+            number=r["paragraph_number"],
+            chapter_id=r["chapter_id"],
+            chapter_title=r["chapter_title"],
+            chapter_number=r["chapter_number"],
+            textbook_id=r["textbook_id"],
+            textbook_title=r["textbook_title"],
+            subject=r["subject"],
+            grade_level=r["grade_level"],
+        )
+        for r in results
+    ]
 
 
 # ============================================================================

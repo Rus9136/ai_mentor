@@ -81,3 +81,18 @@ class ParagraphListResponse(BaseModel):
     key_terms: Optional[List[str]] = None
     questions: Optional[List[dict]] = None
     created_at: datetime
+
+
+class ParagraphSearchResult(BaseModel):
+    """Paragraph search result with textbook/chapter context."""
+
+    id: int
+    title: Optional[str]
+    number: int
+    chapter_id: int
+    chapter_title: str
+    chapter_number: int
+    textbook_id: int
+    textbook_title: str
+    subject: str
+    grade_level: int

@@ -44,3 +44,16 @@ export interface ParagraphListItem {
   questions: { order: number; text: string }[] | null;
   created_at: string;
 }
+
+export interface ParagraphSearchResult {
+  id: number;
+  title: string | null;
+  number: number;
+  chapter_id: number;
+  chapter_title: string;
+  chapter_number: number;
+  textbook_id: number;
+  textbook_title: string;
+  subject: string;
+  grade_level: number;
+}
