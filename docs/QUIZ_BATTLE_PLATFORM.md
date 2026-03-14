@@ -33,7 +33,7 @@
 | Фаза | Название | Статус | Объём |
 |------|----------|--------|-------|
 | **2.0** | MVP Live Quiz | ✅ **ГОТОВО** | ~7-10 дней |
-| **2.1** | Улучшения Live Quiz | Планируется | ~3-4 дня |
+| **2.1** | Улучшения Live Quiz | ✅ **ЧАСТИЧНО** (2.1.1-2.1.4) | ~3-4 дня |
 | **2.2** | Новые режимы | Планируется | ~5-7 дней |
 | **2.3** | Формативное оценивание | Планируется | ~5-7 дней |
 | **2.4** | Продвинутая геймификация | Планируется | ~4-5 дней |
@@ -102,33 +102,37 @@
 
 ---
 
-## Фаза 2.1 — Улучшения Live Quiz
+## Фаза 2.1 — Улучшения Live Quiz (частично ✅)
 
 > Зависимость: Фаза 2.0 ✅
-> Ключевые файлы для доработки: `quiz_service.py`, `ws_quiz.py`, `QuizQuestion.tsx`
+> Реализовано: 2026-03-14
 
-### 2.1.1 Answer Streak (серия правильных ответов)
+### 2.1.1 Answer Streak (серия правильных ответов) ✅
 
 - Бонусы: 2 подряд +100, 3 +200, 4 +300, 5+ +500 (cap)
-- Backend: поле `current_streak` в `quiz_participants`, обновление в `submit_answer()`
-- Frontend: анимация огня на экране ученика
-- WebSocket: `answer_accepted` включает `streak: N`
+- Миграция: `054_quiz_streak_columns` — `current_streak`, `max_streak` в `quiz_participants`
+- Backend: `submit_answer()` обновляет streak + начисляет бонусные очки
+- Frontend: `QuizAnswered.tsx` показывает огонь 🔥 и бонус за серию
+- WebSocket: `answer_accepted` включает `current_streak`, `max_streak`, `streak_bonus`
 
-### 2.1.2 Shuffle (перемешивание)
+### 2.1.2 Shuffle (перемешивание) ✅
 
 - `settings.shuffle_questions` / `settings.shuffle_answers` в JSONB
-- Backend: permutation per-participant (seed = participant_id), mapping для проверки
-- Защита от списывания
+- Backend: детерминированный seed = session_id (вопросы) / session_id * 10000 + question_index (ответы)
+- Одинаковый shuffle для _load_question и _check_answer → корректная проверка
+- Teacher UI: чекбоксы в `QuizCreateForm.tsx`
 
-### 2.1.3 Accuracy Mode
+### 2.1.3 Accuracy Mode ✅
 
 - `settings.scoring_mode: "speed" | "accuracy"`
-- 1 балл за правильный, 0 за неправильный, без бонуса за скорость
-- Лидерборд по количеству правильных
+- Accuracy: 1000 очков за правильный, 0 за неправильный, без бонуса за скорость
+- Teacher UI: dropdown в `QuizCreateForm.tsx`
 
-### 2.1.4 Изображения в вопросах
+### 2.1.4 Изображения в вопросах ✅
 
-- `image_url` уже есть в QuizQuestionOut — передавать через WS, рендерить в QuizQuestion
+- `QuizQuestion.tsx` рендерит `image_url` если оно не null
+- Пока Question модель не имеет image_url → поле остаётся null
+- Готово к использованию когда вопросы получат изображения
 
 ### 2.1.5 Звуки и музыка
 
@@ -139,15 +143,15 @@
 
 ### Шаги реализации
 
-| Шаг | Задача | Зависимости |
-|-----|--------|-------------|
-| 2.1.1 | Backend: streak logic + participant field | ✅ 2.0 |
-| 2.1.2 | Frontend: streak анимация | 2.1.1 |
-| 2.1.3 | Backend: shuffle logic (per-participant seed) | ✅ 2.0 |
-| 2.1.4 | Backend + Frontend: accuracy mode | ✅ 2.0 |
-| 2.1.5 | Frontend: image_url рендеринг | ✅ 2.0 |
-| 2.1.6 | Frontend: звуки (файлы + хук + mute) | ✅ 2.0 |
-| 2.1.7 | Teacher: настройки квиза (shuffle, accuracy, sound) | 2.1.3, 2.1.4 |
+| Шаг | Задача | Статус |
+|-----|--------|--------|
+| 2.1.1 | Backend: streak logic + participant fields | ✅ |
+| 2.1.2 | Frontend: streak отображение (огонь + бонус) | ✅ |
+| 2.1.3 | Backend: shuffle logic (deterministic seed) | ✅ |
+| 2.1.4 | Backend + Frontend: accuracy mode | ✅ |
+| 2.1.5 | Frontend: image_url рендеринг | ✅ |
+| 2.1.6 | Teacher: настройки квиза (shuffle, accuracy) | ✅ |
+| 2.1.7 | Frontend: звуки (файлы + хук + mute) | ❌ |
 
 ---
 

@@ -643,11 +643,11 @@ teacher-app/src/
 
 ---
 
-## Известные gaps (backend — нужно исправить для полноценной работы)
+## Известные gaps (backend) — ✅ ИСПРАВЛЕНО (2026-03-14)
 
-1. **on_test_passed hook отсутствует** — `test_taking_service.py` не вызывает `gamification_service.on_test_passed()`. Это основной источник XP. Нужно добавить хук.
-2. **Achievement XP duplication risk** — в `check_achievements()` проверка существующей XP транзакции использует неправильный `source_type` (DAILY_QUEST вместо нужного). Нужно исправить.
-3. **study_time quest** — тип квеста `study_time` есть в seed data, но нет механизма трекинга времени. Либо добавить трекинг, либо деактивировать этот квест.
+1. ~~**on_test_passed hook отсутствует**~~ — ✅ Уже реализован в `grading_service.py:294-309`. Документация была неточной.
+2. ~~**Achievement XP duplication risk**~~ — ✅ Исправлено: `source_type` в проверке дупликации теперь совпадает с записью (`MASTERY_UP`).
+3. ~~**study_time / review_spaced quests**~~ — ✅ Деактивированы (миграция `053_deactivate_orphan_quests`). Будут реактивированы когда появится трекинг времени.
 
 ---
 

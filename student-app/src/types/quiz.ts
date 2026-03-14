@@ -36,7 +36,14 @@ export interface QuizQuestionData {
 
 export interface WsAnswerAccepted {
   type: 'answer_accepted';
-  data: { is_correct: boolean; score: number; total_score: number };
+  data: {
+    is_correct: boolean;
+    score: number;
+    streak_bonus: number;
+    total_score: number;
+    current_streak: number;
+    max_streak: number;
+  };
 }
 
 export interface WsQuestionResult {

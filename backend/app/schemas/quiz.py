@@ -11,6 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field
 class QuizSessionSettings(BaseModel):
     time_per_question_ms: int = Field(default=30000, ge=5000, le=120000, description="Time per question in ms")
     show_leaderboard: bool = Field(default=True)
+    shuffle_questions: bool = Field(default=False, description="Randomize question order")
+    shuffle_answers: bool = Field(default=False, description="Randomize answer options per question")
+    scoring_mode: str = Field(default="speed", description="'speed' (time-based) or 'accuracy' (1000 per correct)")
+
 
 
 class QuizSessionCreate(BaseModel):
@@ -33,6 +37,8 @@ class QuizParticipantResponse(BaseModel):
     student_name: str = ""
     total_score: int = 0
     correct_answers: int = 0
+    current_streak: int = 0
+    max_streak: int = 0
     rank: Optional[int] = None
     xp_earned: int = 0
     joined_at: datetime

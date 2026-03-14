@@ -3,7 +3,12 @@ import { apiClient } from './client';
 export interface QuizSessionCreate {
   test_id: number;
   class_id?: number;
-  settings?: { time_per_question_ms?: number };
+  settings?: {
+    time_per_question_ms?: number;
+    shuffle_questions?: boolean;
+    shuffle_answers?: boolean;
+    scoring_mode?: 'speed' | 'accuracy';
+  };
 }
 
 export async function createQuizSession(data: QuizSessionCreate) {

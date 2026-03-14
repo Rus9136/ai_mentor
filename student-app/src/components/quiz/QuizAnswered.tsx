@@ -6,9 +6,11 @@ import { CheckCircle2, Loader2 } from 'lucide-react';
 interface QuizAnsweredProps {
   score: number | null;
   isCorrect: boolean | null;
+  streakBonus?: number;
+  currentStreak?: number;
 }
 
-export default function QuizAnswered({ score, isCorrect }: QuizAnsweredProps) {
+export default function QuizAnswered({ score, isCorrect, streakBonus = 0, currentStreak = 0 }: QuizAnsweredProps) {
   const t = useTranslations('quiz');
 
   return (
@@ -21,6 +23,16 @@ export default function QuizAnswered({ score, isCorrect }: QuizAnsweredProps) {
           <h2 className="mb-2 text-xl font-bold text-foreground">{t('answerSubmitted')}</h2>
           {score !== null && score > 0 && (
             <p className="text-2xl font-bold text-primary">{t('points', { score })}</p>
+          )}
+          {streakBonus > 0 && (
+            <p className="mt-1 text-lg font-semibold text-amber-500">
+              +{streakBonus} {t('streakBonus')}
+            </p>
+          )}
+          {currentStreak >= 2 && (
+            <p className="mt-2 text-base font-medium text-amber-600">
+              🔥 {t('streak', { count: currentStreak })}
+            </p>
           )}
         </>
       ) : (

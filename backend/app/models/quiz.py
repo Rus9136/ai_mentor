@@ -62,6 +62,8 @@ class QuizParticipant(BaseModel):
     school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
     total_score = Column(Integer, nullable=False, default=0, server_default='0')
     correct_answers = Column(Integer, nullable=False, default=0, server_default='0')
+    current_streak = Column(Integer, nullable=False, default=0, server_default='0')
+    max_streak = Column(Integer, nullable=False, default=0, server_default='0')
     rank = Column(Integer, nullable=True)
     xp_earned = Column(Integer, nullable=False, default=0, server_default='0')
     joined_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

@@ -28,6 +28,9 @@ export default function QuizCreateForm() {
   const [paragraphId, setParagraphId] = useState<number | undefined>();
   const [testId, setTestId] = useState<number | undefined>();
   const [timeMs, setTimeMs] = useState(30000);
+  const [shuffleQuestions, setShuffleQuestions] = useState(false);
+  const [shuffleAnswers, setShuffleAnswers] = useState(false);
+  const [scoringMode, setScoringMode] = useState<'speed' | 'accuracy'>('speed');
 
   const { data: classes } = useClasses();
   const { data: textbooks } = useQuery({ queryKey: ['textbooks'], queryFn: getTextbooks });
@@ -54,7 +57,12 @@ export default function QuizCreateForm() {
       const result = await createQuiz.mutateAsync({
         test_id: testId,
         class_id: classId,
-        settings: { time_per_question_ms: timeMs },
+        settings: {
+          time_per_question_ms: timeMs,
+          shuffle_questions: shuffleQuestions,
+          shuffle_answers: shuffleAnswers,
+          scoring_mode: scoringMode,
+        },
       });
       router.push(`/quiz/${result.id}`);
     } catch {
@@ -170,6 +178,43 @@ export default function QuizCreateForm() {
             <option value={45000}>{t('seconds', { sec: 45 })}</option>
             <option value={60000}>{t('seconds', { sec: 60 })}</option>
           </select>
+        </div>
+      )}
+
+      {/* Shuffle & Scoring */}
+      {testId && (
+        <div className="space-y-4">
+          <div>
+            <label className="mb-2 block text-sm font-medium">{t('settings')}</label>
+            <div className="space-y-2">
+              <label className="flex cursor-pointer items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={shuffleQuestions}
+                  onChange={(e) => setShuffleQuestions(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <span className="text-sm">{t('shuffleQuestions')}</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={shuffleAnswers}
+                  onChange={(e) => setShuffleAnswers(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <span className="text-sm">{t('shuffleAnswers')}</span>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">{t('scoringMode')}</label>
+            <select className={selectClass} value={scoringMode} onChange={(e) => setScoringMode(e.target.value as 'speed' | 'accuracy')}>
+              <option value="speed">{t('speedMode')}</option>
+              <option value="accuracy">{t('accuracyMode')}</option>
+            </select>
+          </div>
         </div>
       )}
 

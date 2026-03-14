@@ -1,5 +1,6 @@
 """
 Quiz Battle Service: session management, scoring, XP integration.
+Supports: shuffle (questions/answers), answer streak, accuracy mode.
 """
 import logging
 import random
@@ -26,6 +27,10 @@ XP_RANK_1 = 50
 XP_RANK_2 = 30
 XP_RANK_3 = 15
 XP_PERFECT = 25
+
+# Streak bonus thresholds
+STREAK_BONUSES = {2: 100, 3: 200, 4: 300}
+STREAK_BONUS_CAP = 500  # 5+ streak
 
 
 class QuizService:
@@ -149,6 +154,39 @@ class QuizService:
         logger.info(f"Quiz session {session_id} cancelled")
         return session
 
+    # ── Shuffle helpers ──
+
+    def _get_sorted_questions(self, test: Test) -> list[Question]:
+        """Get active single-choice questions sorted by sort_order."""
+        return sorted(
+            [q for q in test.questions if q.question_type == QuestionType.SINGLE_CHOICE and not q.is_deleted],
+            key=lambda q: q.sort_order,
+        )
+
+    def _get_question_at_index(self, questions: list[Question], question_index: int, settings: dict, session_id: int) -> Optional[Question]:
+        """Get question at logical index, applying question shuffle if enabled."""
+        if question_index >= len(questions):
+            return None
+        if settings.get("shuffle_questions"):
+            rng = random.Random(session_id)
+            indices = list(range(len(questions)))
+            rng.shuffle(indices)
+            return questions[indices[question_index]]
+        return questions[question_index]
+
+    def _get_shuffled_options(self, question: Question, settings: dict, session_id: int, question_index: int) -> list[QuestionOption]:
+        """Get active options, optionally shuffled with deterministic seed."""
+        options = sorted(
+            [o for o in question.options if not o.is_deleted],
+            key=lambda o: o.sort_order,
+        )
+        if settings.get("shuffle_answers"):
+            rng = random.Random(session_id * 10000 + question_index)
+            indices = list(range(len(options)))
+            rng.shuffle(indices)
+            return [options[i] for i in indices]
+        return options
+
     # ── Questions ──
 
     async def get_current_question(self, session_id: int) -> Optional[QuizQuestionOut]:
@@ -158,33 +196,25 @@ class QuizService:
         if session.current_question_index < 0 or session.current_question_index >= session.question_count:
             return None
 
-        return await self._load_question(session.test_id, session.current_question_index, session.settings)
+        return await self._load_question(session.test_id, session.current_question_index, session.settings, session.id)
 
-    async def _load_question(self, test_id: int, question_index: int, settings: dict) -> Optional[QuizQuestionOut]:
-        result = await self.db.execute(
-            select(Test)
-            .options(selectinload(Test.questions).selectinload(Question.options))
-            .where(Test.id == test_id)
-        )
-        test = result.scalar_one_or_none()
+    async def _load_question(self, test_id: int, question_index: int, settings: dict, session_id: int) -> Optional[QuizQuestionOut]:
+        test = await self._load_test(test_id)
         if not test:
             return None
 
-        questions = sorted(
-            [q for q in test.questions if q.question_type == QuestionType.SINGLE_CHOICE and not q.is_deleted],
-            key=lambda q: q.sort_order,
-        )
-        if question_index >= len(questions):
+        questions = self._get_sorted_questions(test)
+        q = self._get_question_at_index(questions, question_index, settings, session_id)
+        if not q:
             return None
 
-        q = questions[question_index]
-        options = sorted(q.options, key=lambda o: o.sort_order)
+        options = self._get_shuffled_options(q, settings, session_id, question_index)
         time_limit = settings.get("time_per_question_ms", 30000)
 
         return QuizQuestionOut(
             index=question_index,
             text=q.question_text,
-            options=[o.option_text for o in options if not o.is_deleted],
+            options=[o.option_text for o in options],
             time_limit_ms=time_limit,
             image_url=None,
         )
@@ -204,7 +234,7 @@ class QuizService:
 
         await self.repo.update_session(session_id, current_question_index=new_index)
         await self.db.commit()
-        return await self._load_question(session.test_id, new_index, session.settings)
+        return await self._load_question(session.test_id, new_index, session.settings, session.id)
 
     # ── Answers ──
 
@@ -229,16 +259,24 @@ class QuizService:
         # Idempotent check
         existing = await self.repo.get_answer(participant.id, question_index)
         if existing:
-            return {"is_correct": existing.is_correct, "score": existing.score, "total_score": participant.total_score, "already_answered": True}
+            return {
+                "is_correct": existing.is_correct, "score": existing.score,
+                "total_score": participant.total_score, "already_answered": True,
+                "current_streak": participant.current_streak, "max_streak": participant.max_streak,
+            }
 
-        # Determine correctness
-        is_correct = await self._check_answer(session.test_id, question_index, selected_option)
+        # Determine correctness (handles shuffle mapping)
+        is_correct = await self._check_answer(
+            session.test_id, question_index, selected_option,
+            session.settings, session.id,
+        )
 
-        # Calculate score
+        # Calculate score (speed or accuracy mode)
         time_limit = session.settings.get("time_per_question_ms", 30000)
-        score = self._calculate_score(is_correct, answer_time_ms, time_limit)
+        scoring_mode = session.settings.get("scoring_mode", "speed")
+        score = self._calculate_score(is_correct, answer_time_ms, time_limit, scoring_mode)
 
-        # Save
+        # Save answer
         await self.repo.add_answer(
             quiz_session_id=session_id,
             participant_id=participant.id,
@@ -249,76 +287,99 @@ class QuizService:
             answer_time_ms=answer_time_ms,
             score=score,
         )
-        await self.repo.update_participant_score(participant.id, score, is_correct)
+
+        # Update score and streak atomically
+        new_streak, new_max = await self.repo.update_participant_score(participant.id, score, is_correct)
+
+        # Add streak bonus points
+        streak_bonus = self._calculate_streak_bonus(new_streak)
+        if streak_bonus > 0:
+            await self.repo.add_streak_bonus(participant.id, streak_bonus)
+
         await self.db.commit()
 
         # Refresh to get updated total
         await self.db.refresh(participant)
-        return {"is_correct": is_correct, "score": score, "total_score": participant.total_score, "already_answered": False}
+        return {
+            "is_correct": is_correct,
+            "score": score,
+            "streak_bonus": streak_bonus,
+            "total_score": participant.total_score,
+            "current_streak": new_streak,
+            "max_streak": new_max,
+            "already_answered": False,
+        }
 
-    async def _check_answer(self, test_id: int, question_index: int, selected_option: int) -> bool:
+    async def _load_test(self, test_id: int) -> Optional[Test]:
         result = await self.db.execute(
             select(Test)
             .options(selectinload(Test.questions).selectinload(Question.options))
             .where(Test.id == test_id)
         )
-        test = result.scalar_one_or_none()
+        return result.scalar_one_or_none()
+
+    async def _check_answer(
+        self, test_id: int, question_index: int, selected_option: int,
+        settings: dict, session_id: int,
+    ) -> bool:
+        test = await self._load_test(test_id)
         if not test:
             return False
 
-        questions = sorted(
-            [q for q in test.questions if q.question_type == QuestionType.SINGLE_CHOICE and not q.is_deleted],
-            key=lambda q: q.sort_order,
-        )
-        if question_index >= len(questions):
+        questions = self._get_sorted_questions(test)
+        q = self._get_question_at_index(questions, question_index, settings, session_id)
+        if not q:
             return False
 
-        options = sorted(
-            [o for o in questions[question_index].options if not o.is_deleted],
-            key=lambda o: o.sort_order,
-        )
+        # Use same shuffle as _load_question so indices match
+        options = self._get_shuffled_options(q, settings, session_id, question_index)
         if selected_option < 0 or selected_option >= len(options):
             return False
 
         return options[selected_option].is_correct
 
     @staticmethod
-    def _calculate_score(is_correct: bool, answer_time_ms: int, time_limit_ms: int) -> int:
+    def _calculate_score(is_correct: bool, answer_time_ms: int, time_limit_ms: int, scoring_mode: str = "speed") -> int:
         if not is_correct:
             return 0
+        if scoring_mode == "accuracy":
+            return MAX_QUESTION_SCORE
+        # Speed mode: faster = more points
         time_factor = max(0, 1 - (answer_time_ms / time_limit_ms) / 2)
         return round(MAX_QUESTION_SCORE * time_factor)
+
+    @staticmethod
+    def _calculate_streak_bonus(streak: int) -> int:
+        if streak < 2:
+            return 0
+        if streak >= 5:
+            return STREAK_BONUS_CAP
+        return STREAK_BONUSES.get(streak, 0)
 
     # ── Question stats ──
 
     async def get_question_stats(self, session_id: int, question_index: int) -> dict:
         stats = await self.repo.get_answer_stats(session_id, question_index)
-        # Find correct option
         session = await self.repo.get_session(session_id)
-        correct_option = await self._get_correct_option_index(session.test_id, question_index) if session else None
+        correct_option = await self._get_correct_option_index(
+            session.test_id, question_index, session.settings, session.id,
+        ) if session else None
         return {"stats": stats, "correct_option": correct_option}
 
-    async def _get_correct_option_index(self, test_id: int, question_index: int) -> Optional[int]:
-        result = await self.db.execute(
-            select(Test)
-            .options(selectinload(Test.questions).selectinload(Question.options))
-            .where(Test.id == test_id)
-        )
-        test = result.scalar_one_or_none()
+    async def _get_correct_option_index(
+        self, test_id: int, question_index: int,
+        settings: dict, session_id: int,
+    ) -> Optional[int]:
+        test = await self._load_test(test_id)
         if not test:
             return None
 
-        questions = sorted(
-            [q for q in test.questions if q.question_type == QuestionType.SINGLE_CHOICE and not q.is_deleted],
-            key=lambda q: q.sort_order,
-        )
-        if question_index >= len(questions):
+        questions = self._get_sorted_questions(test)
+        q = self._get_question_at_index(questions, question_index, settings, session_id)
+        if not q:
             return None
 
-        options = sorted(
-            [o for o in questions[question_index].options if not o.is_deleted],
-            key=lambda o: o.sort_order,
-        )
+        options = self._get_shuffled_options(q, settings, session_id, question_index)
         for i, o in enumerate(options):
             if o.is_correct:
                 return i
@@ -370,6 +431,7 @@ class QuizService:
                 "student_name": data["student_name"],
                 "total_score": p.total_score,
                 "correct_answers": p.correct_answers,
+                "max_streak": p.max_streak,
                 "xp_earned": xp,
             })
 

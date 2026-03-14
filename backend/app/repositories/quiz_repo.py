@@ -138,14 +138,40 @@ class QuizRepository:
         )
         return result.scalar_one()
 
-    async def update_participant_score(self, participant_id: int, score_delta: int, is_correct: bool) -> None:
+    async def update_participant_score(
+        self, participant_id: int, score_delta: int, is_correct: bool,
+    ) -> tuple[int, int]:
+        """Update score and streak. Returns (new_current_streak, new_max_streak)."""
+        # First, get current streak values
+        result = await self.db.execute(
+            select(QuizParticipant.current_streak, QuizParticipant.max_streak)
+            .where(QuizParticipant.id == participant_id)
+        )
+        row = result.one()
+        old_streak = row[0]
+        old_max = row[1]
+
+        new_streak = old_streak + 1 if is_correct else 0
+        new_max = max(old_max, new_streak)
+
         values = {
             "total_score": QuizParticipant.total_score + score_delta,
+            "current_streak": new_streak,
+            "max_streak": new_max,
         }
         if is_correct:
             values["correct_answers"] = QuizParticipant.correct_answers + 1
         await self.db.execute(
             update(QuizParticipant).where(QuizParticipant.id == participant_id).values(**values)
+        )
+        return new_streak, new_max
+
+    async def add_streak_bonus(self, participant_id: int, bonus: int) -> None:
+        """Add streak bonus points to total_score."""
+        await self.db.execute(
+            update(QuizParticipant).where(QuizParticipant.id == participant_id).values(
+                total_score=QuizParticipant.total_score + bonus,
+            )
         )
 
     async def set_participant_rank_and_xp(self, participant_id: int, rank: int, xp_earned: int) -> None:

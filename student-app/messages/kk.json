@@ -777,6 +777,8 @@
     "leaderboard": "Рейтинг",
     "finished": "Квиз аяқталды!",
     "questionOf": "Сұрақ {current} / {total}",
-    "waiting": "Күтілуде..."
+    "waiting": "Күтілуде...",
+    "streakBonus": "сериялық бонус",
+    "streak": "қатарынан {count}!"
   }
 }

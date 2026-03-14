@@ -777,6 +777,8 @@
     "leaderboard": "Рейтинг",
     "finished": "Квиз завершён!",
     "questionOf": "Вопрос {current} из {total}",
-    "waiting": "Ожидание..."
+    "waiting": "Ожидание...",
+    "streakBonus": "бонус за серию",
+    "streak": "серия {count} подряд!"
   }
 }

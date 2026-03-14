@@ -51,9 +51,20 @@ export default function QuizQuestion({ question, questionNumber, totalQuestions,
       </div>
 
       {/* Question text */}
-      <div className="mb-6 flex-1">
+      <div className="mb-4 flex-1">
         <h2 className="text-lg font-semibold text-foreground leading-relaxed">{question.text}</h2>
       </div>
+
+      {/* Question image */}
+      {question.image_url && (
+        <div className="mb-4 flex justify-center">
+          <img
+            src={question.image_url}
+            alt=""
+            className="max-h-48 rounded-lg object-contain"
+          />
+        </div>
+      )}
 
       {/* Options grid */}
       <div className="grid grid-cols-1 gap-3 pb-4 sm:grid-cols-2">

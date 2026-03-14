@@ -31,6 +31,8 @@ interface QuizPageState {
   lastOptions: string[];
   answerScore: number | null;
   answerCorrect: boolean | null;
+  answerStreakBonus: number;
+  answerCurrentStreak: number;
   resultCorrectOption: number | null;
   resultStats: Record<string, number>;
   resultLeaderboard: LeaderboardEntry[];
@@ -54,6 +56,8 @@ const initialState: QuizPageState = {
   lastOptions: [],
   answerScore: null,
   answerCorrect: null,
+  answerStreakBonus: 0,
+  answerCurrentStreak: 0,
   resultCorrectOption: null,
   resultStats: {},
   resultLeaderboard: [],
@@ -103,6 +107,8 @@ function reducer(state: QuizPageState, action: QuizAction): QuizPageState {
             ...state,
             answerScore: msg.data.score,
             answerCorrect: msg.data.is_correct,
+            answerStreakBonus: msg.data.streak_bonus || 0,
+            answerCurrentStreak: msg.data.current_streak || 0,
           };
 
         case 'question_result':
@@ -217,7 +223,14 @@ function QuizPageInner() {
       ) : null;
 
     case QuizState.ANSWERED:
-      return <QuizAnswered score={state.answerScore} isCorrect={state.answerCorrect} />;
+      return (
+        <QuizAnswered
+          score={state.answerScore}
+          isCorrect={state.answerCorrect}
+          streakBonus={state.answerStreakBonus}
+          currentStreak={state.answerCurrentStreak}
+        />
+      );
 
     case QuizState.RESULT:
       return (
