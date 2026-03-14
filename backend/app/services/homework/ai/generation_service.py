@@ -82,13 +82,21 @@ class QuestionGenerationService:
                 "Проверьте, что параграф существует и не удалён."
             )
 
-        content = await self._get_paragraph_text(paragraph_id)
+        content, detected_language = await self._get_paragraph_text(paragraph_id)
         if not content:
             paragraph_title = paragraph.title or f"ID {paragraph_id}"
             raise QuestionGenerationError(
                 f"Параграф «{paragraph_title}» не содержит текстового контента. "
                 "Для генерации вопросов необходимо сначала добавить учебный материал в параграф."
             )
+
+        # Auto-detect language from content if not explicitly set by teacher
+        if params.language == "ru" and detected_language != "ru":
+            logger.info(
+                f"Auto-detected content language '{detected_language}' for paragraph {paragraph_id}, "
+                f"overriding default 'ru'"
+            )
+            params = params.model_copy(update={"language": detected_language})
 
         # 2. Get content metadata (subject, chapter, textbook info)
         metadata = await self.paragraph_repo.get_content_metadata(paragraph_id)
@@ -180,19 +188,41 @@ class QuestionGenerationService:
 
         return questions
 
-    async def _get_paragraph_text(self, paragraph_id: int) -> str:
-        """Get text content from paragraph."""
+    async def _get_paragraph_text(
+        self, paragraph_id: int, preferred_language: Optional[str] = None
+    ) -> tuple[str, str]:
+        """Get text content from paragraph and detect language.
+
+        Returns:
+            Tuple of (text_content, detected_language)
+        """
         from app.repositories.paragraph_content_repo import ParagraphContentRepository
         content_repo = ParagraphContentRepository(self.db)
 
         contents = await content_repo.get_all_by_paragraph(paragraph_id)
 
-        texts = []
-        for content in contents:
-            if content.explain_text:
-                texts.append(content.explain_text)
+        # If preferred language specified, try to get content in that language first
+        if preferred_language:
+            filtered = [c for c in contents if c.language == preferred_language and c.explain_text]
+            if filtered:
+                return "\n\n".join(c.explain_text for c in filtered), preferred_language
 
-        return "\n\n".join(texts)
+        # Auto-detect: prefer kk content for Kazakh textbooks, else ru
+        kk_texts = [c.explain_text for c in contents if c.language == "kk" and c.explain_text]
+        ru_texts = [c.explain_text for c in contents if c.language == "ru" and c.explain_text]
+        en_texts = [c.explain_text for c in contents if c.language == "en" and c.explain_text]
+
+        if kk_texts:
+            return "\n\n".join(kk_texts), "kk"
+        elif ru_texts:
+            return "\n\n".join(ru_texts), "ru"
+        elif en_texts:
+            return "\n\n".join(en_texts), "en"
+
+        # Fallback: return any content
+        texts = [c.explain_text for c in contents if c.explain_text]
+        detected_lang = contents[0].language if contents else "ru"
+        return "\n\n".join(texts), detected_lang
 
     def _validate_questions(
         self,

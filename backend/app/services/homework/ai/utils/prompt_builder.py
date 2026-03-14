@@ -36,7 +36,7 @@ def get_generation_system_prompt() -> str:
 Твоя задача — создавать качественные вопросы, которые проверяют понимание материала.
 
 Требования к вопросам:
-1. Вопросы должны быть на том же языке, что и контент
+1. КРИТИЧНО: Генерируй вопросы СТРОГО на указанном языке. Если указан язык "kk" — ВСЕ вопросы, варианты ответов и пояснения ТОЛЬКО на казахском языке. Если "ru" — на русском. Если "en" — на английском.
 2. Для choice вопросов: всегда 4 варианта, один правильный
 3. Для open_ended: добавляй критерии оценки (rubric)
 4. Следуй таксономии Блума для указанных уровней
@@ -103,8 +103,7 @@ def build_generation_prompt(
 ## Требования:
 - Типы вопросов: {", ".join(params.question_types)}
 - Когнитивные уровни (Bloom): {bloom_str}
-- Язык: {params.language}
-{difficulty_hint}- Каждый вопрос должен проверять понимание материала
+{_get_language_instruction(params.language)}{difficulty_hint}- Каждый вопрос должен проверять понимание материала
 - Вопросы должны соответствовать предмету и уровню класса
 
 ## Формат ответа (JSON массив):
@@ -248,6 +247,18 @@ def _truncate_content(content: str, max_length: int = 4000) -> str:
     return content
 
 
+LANGUAGE_NAMES = {"ru": "русском", "kk": "казахском", "en": "английском"}
+
+
+def _get_language_instruction(language: str) -> str:
+    """Get explicit language instruction for the prompt."""
+    lang_name = LANGUAGE_NAMES.get(language, language)
+    return (
+        f"- Язык: {language} — ВСЕ вопросы, варианты ответов и пояснения "
+        f"должны быть ТОЛЬКО на {lang_name} языке\n"
+    )
+
+
 def build_reading_check_prompt(
     content: str,
     params: GenerationParams,
@@ -273,8 +284,7 @@ def build_reading_check_prompt(
 - Вопросы должны проверять, что ученик прочитал и понял основные идеи
 - Типы вопросов: ТОЛЬКО true_false или single_choice
 - Когнитивные уровни: remember (запоминание), understand (понимание)
-- Язык: {params.language}
-{difficulty_hint}- НЕ требуются сложные вопросы — только базовая проверка понимания
+{_get_language_instruction(params.language)}{difficulty_hint}- НЕ требуются сложные вопросы — только базовая проверка понимания
 - Каждый вопрос должен иметь 4 варианта ответа для single_choice
 
 ## Формат ответа (JSON массив):
@@ -328,8 +338,7 @@ def build_quiz_prompt(
 ## Требования:
 - Типы вопросов: {", ".join(params.question_types)}
 - Когнитивные уровни (Bloom): {bloom_str}
-- Язык: {params.language}
-{difficulty_hint}- Каждый вопрос с 4 вариантами ответа (для choice типов)
+{_get_language_instruction(params.language)}{difficulty_hint}- Каждый вопрос с 4 вариантами ответа (для choice типов)
 - Вопросы должны быть чёткими и однозначными
 - Дистракторы должны быть правдоподобными
 
@@ -379,8 +388,7 @@ def build_open_question_prompt(
 ## Требования:
 - Вопросы должны требовать размышления и аргументации
 - Когнитивные уровни: understand, apply, analyze, evaluate
-- Язык: {params.language}
-{difficulty_hint}- Для каждого вопроса добавь критерии оценки (grading_rubric)
+{_get_language_instruction(params.language)}{difficulty_hint}- Для каждого вопроса добавь критерии оценки (grading_rubric)
 - Вопросы должны проверять глубокое понимание материала
 
 ## Формат ответа (JSON массив):
@@ -431,8 +439,7 @@ def build_essay_prompt(
 
 ## Требования:
 - Тема должна быть интересной и побуждать к размышлению
-- Язык: {params.language}
-{difficulty_hint}- Включи детальные критерии оценки
+{_get_language_instruction(params.language)}{difficulty_hint}- Включи детальные критерии оценки
 - Укажи требования к объёму
 
 ## Формат ответа (JSON):
@@ -490,8 +497,7 @@ def build_practice_prompt(
 ## Требования:
 - Задачи должны быть практическими: кейсы, ситуации, задачи
 - Когнитивные уровни: apply (применение), analyze (анализ)
-- Язык: {params.language}
-{difficulty_hint}- Каждая задача должна иметь чёткие условия
+{_get_language_instruction(params.language)}{difficulty_hint}- Каждая задача должна иметь чёткие условия
 - Добавь критерии оценки для каждой задачи
 
 ## Формат ответа (JSON массив):
@@ -543,8 +549,7 @@ def build_code_prompt(
 
 ## Требования:
 - Задача должна проверять понимание алгоритмов или концепций из материала
-- Язык условия: {params.language}
-{difficulty_hint}- Включи примеры ввода-вывода
+{_get_language_instruction(params.language)}{difficulty_hint}- Включи примеры ввода-вывода
 - Добавь тестовые случаи для проверки
 
 ## Формат ответа (JSON массив):
@@ -646,7 +651,7 @@ def get_system_prompt_for_task_type(task_type: "HomeworkTaskType") -> str:
     base_prompt = """Ты — эксперт по созданию образовательных материалов для школьников Казахстана.
 
 Требования:
-1. Контент должен быть на том же языке, что и исходный материал
+1. КРИТИЧНО: Генерируй вопросы СТРОГО на указанном языке. Если указан язык "kk" — ВСЕ вопросы, варианты ответов и пояснения ТОЛЬКО на казахском языке. Если "ru" — на русском. Если "en" — на английском.
 2. Следуй таксономии Блума для указанных уровней
 3. Материалы должны быть практичными и полезными
 4. Учитывай возрастные особенности учеников
