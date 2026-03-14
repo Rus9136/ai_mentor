@@ -8,7 +8,7 @@ Provides reusable patterns for:
 """
 
 from typing import Any, Callable, Tuple, TypeVar
-import types
+import inspect
 
 from fastapi import Depends, HTTPException, status, Path
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,25 +28,35 @@ def _create_function_with_param_name(
     This is needed because FastAPI uses inspect.signature() which reads
     actual parameter names, not just __annotations__.
     """
-    # Create the function dynamically with correct parameter name
-    code = f'''
-async def dependency(
-    {param_name}: int = Path(..., description="Entity ID"),
-    school_id: int = Depends(get_current_user_school_id),
-    db: AsyncSession = Depends(get_db)
-):
-    return await async_body({param_name}, school_id, db)
-'''
-    local_vars = {
-        'Path': Path,
-        'Depends': Depends,
-        'AsyncSession': AsyncSession,
-        'get_current_user_school_id': get_current_user_school_id,
-        'get_db': get_db,
-        'async_body': async_body,
-    }
-    exec(code, local_vars, local_vars)
-    return local_vars['dependency']
+    async def dependency(**kwargs):
+        entity_id = kwargs[param_name]
+        school_id = kwargs['school_id']
+        db = kwargs['db']
+        return await async_body(entity_id, school_id, db)
+
+    # Build the correct signature dynamically so FastAPI sees the right param names
+    params = [
+        inspect.Parameter(
+            param_name,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            default=Path(..., description="Entity ID"),
+            annotation=int,
+        ),
+        inspect.Parameter(
+            'school_id',
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            default=Depends(get_current_user_school_id),
+            annotation=int,
+        ),
+        inspect.Parameter(
+            'db',
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            default=Depends(get_db),
+            annotation=AsyncSession,
+        ),
+    ]
+    dependency.__signature__ = inspect.Signature(params)
+    return dependency
 
 
 def create_entity_dependency(

@@ -85,18 +85,22 @@ class EmbeddingRepository:
         # Build the embedding string for pgvector
         embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
 
-        # Build dynamic query parts
-        filter_parts = []
+        # Build parameterized query
+        params: dict = {
+            "embedding": embedding_str,
+            "min_similarity": float(min_similarity),
+            "top_k": int(top_k),
+        }
+
+        filter_clauses = ""
         if chapter_id:
-            filter_parts.append(f"AND p.chapter_id = {chapter_id}")
+            filter_clauses += " AND p.chapter_id = :chapter_id"
+            params["chapter_id"] = int(chapter_id)
         if paragraph_ids:
-            ids_str = ",".join(map(str, paragraph_ids))
-            filter_parts.append(f"AND pe.paragraph_id IN ({ids_str})")
+            # Use ANY() with array parameter for safe IN clause
+            filter_clauses += " AND pe.paragraph_id = ANY(:paragraph_ids)"
+            params["paragraph_ids"] = [int(pid) for pid in paragraph_ids]
 
-        filters_sql = " ".join(filter_parts)
-
-        # Build complete query with explicit string interpolation for the vector
-        # Use $N placeholders for asyncpg compatibility
         query_str = f"""
             SELECT
                 pe.id,
@@ -109,18 +113,18 @@ class EmbeddingRepository:
                 pe.updated_at,
                 pe.deleted_at,
                 pe.is_deleted,
-                (1 - (pe.embedding <=> '{embedding_str}'::vector)) AS similarity
+                (1 - (pe.embedding <=> :embedding ::vector)) AS similarity
             FROM paragraph_embeddings pe
             JOIN paragraphs p ON pe.paragraph_id = p.id
             WHERE pe.is_deleted = false
             AND p.is_deleted = false
-            AND (1 - (pe.embedding <=> '{embedding_str}'::vector)) >= {min_similarity}
-            {filters_sql}
+            AND (1 - (pe.embedding <=> :embedding ::vector)) >= :min_similarity
+            {filter_clauses}
             ORDER BY similarity DESC
-            LIMIT {top_k}
+            LIMIT :top_k
         """
 
-        result = await self.db.execute(text(query_str))
+        result = await self.db.execute(text(query_str), params)
 
         # Convert results to ParagraphEmbedding objects with similarity
         embeddings_with_scores = []

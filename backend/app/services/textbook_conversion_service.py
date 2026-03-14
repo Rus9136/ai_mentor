@@ -231,7 +231,7 @@ def _sync_download_images(textbook_id: int, mmd_path: str) -> dict:
         if url in url_to_filename:
             continue
 
-        url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
+        url_hash = hashlib.md5(url.encode(), usedforsecurity=False).hexdigest()[:8]
         url_path = url.split("?")[0]
         ext = url_path.rsplit(".", 1)[-1] if "." in url_path.split("/")[-1] else "jpg"
         filename = f"img_{len(url_to_filename)+1:03d}_{url_hash}.{ext}"
