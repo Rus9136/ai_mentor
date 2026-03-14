@@ -387,7 +387,7 @@ async def test_with_questions(
     # Question 1: SINGLE_CHOICE
     q1 = Question(
         test_id=test.id,
-        order=1,
+        sort_order=1,
         question_type=QuestionType.SINGLE_CHOICE,
         question_text="Решите уравнение: 2x + 3 = 7",
         explanation="x = 2",
@@ -397,15 +397,15 @@ async def test_with_questions(
     await db_session.flush()
 
     # Options for Q1
-    q1_opt1 = QuestionOption(question_id=q1.id, order=1, option_text="x = 1", is_correct=False)
-    q1_opt2 = QuestionOption(question_id=q1.id, order=2, option_text="x = 2", is_correct=True)
-    q1_opt3 = QuestionOption(question_id=q1.id, order=3, option_text="x = 3", is_correct=False)
+    q1_opt1 = QuestionOption(question_id=q1.id, sort_order=1, option_text="x = 1", is_correct=False)
+    q1_opt2 = QuestionOption(question_id=q1.id, sort_order=2, option_text="x = 2", is_correct=True)
+    q1_opt3 = QuestionOption(question_id=q1.id, sort_order=3, option_text="x = 3", is_correct=False)
     db_session.add_all([q1_opt1, q1_opt2, q1_opt3])
 
     # Question 2: MULTIPLE_CHOICE
     q2 = Question(
         test_id=test.id,
-        order=2,
+        sort_order=2,
         question_type=QuestionType.MULTIPLE_CHOICE,
         question_text="Выберите все простые числа:",
         explanation="2, 3, 5 - простые числа",
@@ -415,16 +415,16 @@ async def test_with_questions(
     await db_session.flush()
 
     # Options for Q2
-    q2_opt1 = QuestionOption(question_id=q2.id, order=1, option_text="2", is_correct=True)
-    q2_opt2 = QuestionOption(question_id=q2.id, order=2, option_text="3", is_correct=True)
-    q2_opt3 = QuestionOption(question_id=q2.id, order=3, option_text="4", is_correct=False)
-    q2_opt4 = QuestionOption(question_id=q2.id, order=4, option_text="5", is_correct=True)
+    q2_opt1 = QuestionOption(question_id=q2.id, sort_order=1, option_text="2", is_correct=True)
+    q2_opt2 = QuestionOption(question_id=q2.id, sort_order=2, option_text="3", is_correct=True)
+    q2_opt3 = QuestionOption(question_id=q2.id, sort_order=3, option_text="4", is_correct=False)
+    q2_opt4 = QuestionOption(question_id=q2.id, sort_order=4, option_text="5", is_correct=True)
     db_session.add_all([q2_opt1, q2_opt2, q2_opt3, q2_opt4])
 
     # Question 3: TRUE_FALSE
     q3 = Question(
         test_id=test.id,
-        order=3,
+        sort_order=3,
         question_type=QuestionType.TRUE_FALSE,
         question_text="Число 0 является положительным числом",
         explanation="False - 0 не является положительным",
@@ -434,14 +434,14 @@ async def test_with_questions(
     await db_session.flush()
 
     # Options for Q3
-    q3_opt1 = QuestionOption(question_id=q3.id, order=1, option_text="True", is_correct=False)
-    q3_opt2 = QuestionOption(question_id=q3.id, order=2, option_text="False", is_correct=True)
+    q3_opt1 = QuestionOption(question_id=q3.id, sort_order=1, option_text="True", is_correct=False)
+    q3_opt2 = QuestionOption(question_id=q3.id, sort_order=2, option_text="False", is_correct=True)
     db_session.add_all([q3_opt1, q3_opt2])
 
     # Question 4: SHORT_ANSWER
     q4 = Question(
         test_id=test.id,
-        order=4,
+        sort_order=4,
         question_type=QuestionType.SHORT_ANSWER,
         question_text="Объясните теорему Пифагора своими словами",
         explanation="a² + b² = c²",
@@ -506,7 +506,7 @@ async def global_test(db_session: AsyncSession, global_textbook: Textbook) -> Te
     # Add 1 simple question
     q = Question(
         test_id=test.id,
-        order=1,
+        sort_order=1,
         question_type=QuestionType.SINGLE_CHOICE,
         question_text="Сколько законов Ньютона существует?",
         explanation="Три закона",
@@ -515,9 +515,9 @@ async def global_test(db_session: AsyncSession, global_textbook: Textbook) -> Te
     db_session.add(q)
     await db_session.flush()
 
-    opt1 = QuestionOption(question_id=q.id, order=1, option_text="2", is_correct=False)
-    opt2 = QuestionOption(question_id=q.id, order=2, option_text="3", is_correct=True)
-    opt3 = QuestionOption(question_id=q.id, order=3, option_text="4", is_correct=False)
+    opt1 = QuestionOption(question_id=q.id, sort_order=1, option_text="2", is_correct=False)
+    opt2 = QuestionOption(question_id=q.id, sort_order=2, option_text="3", is_correct=True)
+    opt3 = QuestionOption(question_id=q.id, sort_order=3, option_text="4", is_correct=False)
     db_session.add_all([opt1, opt2, opt3])
 
     await db_session.commit()
