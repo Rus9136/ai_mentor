@@ -312,12 +312,15 @@ class HomeworkService:
         task_id: int,
         school_id: int,
         regenerate: bool = False,
-        params: Optional["GenerationParams"] = None
+        params: Optional["GenerationParams"] = None,
+        user_id: Optional[int] = None,
+        teacher_id: Optional[int] = None,
     ) -> List[HomeworkTaskQuestion]:
         if not self._ai_orchestration:
             raise HomeworkServiceError("AI service not configured")
         return await self._ai_orchestration.generate_questions_for_task(
-            task_id, school_id, regenerate, params
+            task_id, school_id, regenerate, params,
+            user_id=user_id, teacher_id=teacher_id,
         )
 
     # =========================================================================

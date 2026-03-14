@@ -762,37 +762,37 @@ class LLMService:
         try:
             from app.models.llm_usage_log import LLMUsageLog
             from sqlalchemy import text as sa_text
-            if ctx.school_id:
-                await ctx.db.execute(sa_text(f"SET LOCAL app.current_school_id = '{ctx.school_id}'"))
-            log = LLMUsageLog(
-                user_id=ctx.user_id,
-                school_id=ctx.school_id,
-                student_id=ctx.student_id,
-                teacher_id=ctx.teacher_id,
-                feature=ctx.feature,
-                provider=self.provider,
-                model=response.model,
-                prompt_tokens=response.prompt_tokens,
-                completion_tokens=response.completion_tokens,
-                total_tokens=response.tokens_used,
-                latency_ms=latency_ms,
-                success=True,
-            )
-            ctx.db.add(log)
-            await ctx.db.flush()
-            # Increment daily usage counter
-            from app.repositories.usage_repo import UsageRepository
-            usage_repo = UsageRepository(ctx.db)
-            await usage_repo.increment_counter(
-                user_id=ctx.user_id,
-                school_id=ctx.school_id,
-                feature=ctx.feature,
-                tokens=response.tokens_used or 0,
-            )
+            async with ctx.db.begin_nested():
+                if ctx.school_id:
+                    await ctx.db.execute(sa_text(f"SET LOCAL app.current_school_id = '{ctx.school_id}'"))
+                log = LLMUsageLog(
+                    user_id=ctx.user_id,
+                    school_id=ctx.school_id,
+                    student_id=ctx.student_id,
+                    teacher_id=ctx.teacher_id,
+                    feature=ctx.feature,
+                    provider=self.provider,
+                    model=response.model,
+                    prompt_tokens=response.prompt_tokens,
+                    completion_tokens=response.completion_tokens,
+                    total_tokens=response.tokens_used,
+                    latency_ms=latency_ms,
+                    success=True,
+                )
+                ctx.db.add(log)
+                await ctx.db.flush()
+                # Increment daily usage counter
+                if ctx.user_id:
+                    from app.repositories.usage_repo import UsageRepository
+                    usage_repo = UsageRepository(ctx.db)
+                    await usage_repo.increment_counter(
+                        user_id=ctx.user_id,
+                        school_id=ctx.school_id,
+                        feature=ctx.feature,
+                        tokens=response.tokens_used or 0,
+                    )
         except Exception as e:
             logger.warning(f"Failed to log LLM usage: {e}")
-            # Do NOT rollback — ctx.db is shared with the caller's transaction.
-            # Rollback here would undo the caller's pending changes (e.g. chat messages).
 
     async def _log_usage_error(
         self,
@@ -805,25 +805,25 @@ class LLMService:
         try:
             from app.models.llm_usage_log import LLMUsageLog
             from sqlalchemy import text as sa_text
-            if ctx.school_id:
-                await ctx.db.execute(sa_text(f"SET LOCAL app.current_school_id = '{ctx.school_id}'"))
-            log = LLMUsageLog(
-                user_id=ctx.user_id,
-                school_id=ctx.school_id,
-                student_id=ctx.student_id,
-                teacher_id=ctx.teacher_id,
-                feature=ctx.feature,
-                provider=self.provider,
-                model=model,
-                latency_ms=latency_ms,
-                success=False,
-                error_message=error_message[:500],
-            )
-            ctx.db.add(log)
-            await ctx.db.flush()
+            async with ctx.db.begin_nested():
+                if ctx.school_id:
+                    await ctx.db.execute(sa_text(f"SET LOCAL app.current_school_id = '{ctx.school_id}'"))
+                log = LLMUsageLog(
+                    user_id=ctx.user_id,
+                    school_id=ctx.school_id,
+                    student_id=ctx.student_id,
+                    teacher_id=ctx.teacher_id,
+                    feature=ctx.feature,
+                    provider=self.provider,
+                    model=model,
+                    latency_ms=latency_ms,
+                    success=False,
+                    error_message=error_message[:500],
+                )
+                ctx.db.add(log)
+                await ctx.db.flush()
         except Exception as e:
             logger.warning(f"Failed to log LLM usage error: {e}")
-            # Do NOT rollback — ctx.db is shared with the caller's transaction.
 
     async def close(self):
         """Close all clients."""

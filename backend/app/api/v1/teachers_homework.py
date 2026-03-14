@@ -471,6 +471,7 @@ async def generate_questions(
     params: Optional[GenerationParams] = None,
     regenerate: bool = Query(False, description="Replace existing questions"),
     task: HomeworkTask = Depends(verify_task_ownership),
+    teacher: Teacher = Depends(get_teacher_from_user),
     school_id: int = Depends(get_current_user_school_id),
     service: HomeworkService = Depends(get_homework_service)
 ) -> List[QuestionResponseWithAnswer]:
@@ -491,7 +492,9 @@ async def generate_questions(
             task_id=task.id,
             school_id=school_id,
             regenerate=regenerate,
-            params=generation_params
+            params=generation_params,
+            user_id=teacher.user_id,
+            teacher_id=teacher.id,
         )
     except (HomeworkServiceError, HomeworkAIServiceError) as e:
         raise HTTPException(

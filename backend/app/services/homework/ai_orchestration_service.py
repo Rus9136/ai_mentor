@@ -42,7 +42,9 @@ class AIOrchestrationService:
         task_id: int,
         school_id: int,
         regenerate: bool = False,
-        params: Optional[GenerationParams] = None
+        params: Optional[GenerationParams] = None,
+        user_id: Optional[int] = None,
+        teacher_id: Optional[int] = None,
     ) -> List[HomeworkTaskQuestion]:
         """
         Generate questions for task using AI.
@@ -98,7 +100,10 @@ class AIOrchestrationService:
             paragraph_id=task.paragraph_id,
             params=generation_params,
             task_id=task_id,
-            task_type=task.task_type
+            task_type=task.task_type,
+            user_id=user_id,
+            teacher_id=teacher_id,
+            school_id=school_id,
         )
 
         # Save generated questions

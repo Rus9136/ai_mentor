@@ -54,7 +54,10 @@ class QuestionGenerationService:
         paragraph_id: int,
         params: GenerationParams,
         task_id: int,
-        task_type: HomeworkTaskType = HomeworkTaskType.QUIZ
+        task_type: HomeworkTaskType = HomeworkTaskType.QUIZ,
+        user_id: Optional[int] = None,
+        teacher_id: Optional[int] = None,
+        school_id: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """
         Generate questions based on paragraph content and task type.
@@ -101,6 +104,9 @@ class QuestionGenerationService:
         usage_ctx = LLMUsageContext(
             db=self.db,
             feature="homework_generation",
+            user_id=user_id,
+            teacher_id=teacher_id,
+            school_id=school_id,
         )
         try:
             response = await self.llm.generate(

@@ -57,7 +57,10 @@ class HomeworkAIService:
         paragraph_id: int,
         params: GenerationParams,
         task_id: int,
-        task_type: HomeworkTaskType = HomeworkTaskType.QUIZ
+        task_type: HomeworkTaskType = HomeworkTaskType.QUIZ,
+        user_id: Optional[int] = None,
+        teacher_id: Optional[int] = None,
+        school_id: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """
         Generate questions based on paragraph content and task type.
@@ -76,7 +79,8 @@ class HomeworkAIService:
         """
         try:
             return await self._generation.generate_questions(
-                paragraph_id, params, task_id, task_type
+                paragraph_id, params, task_id, task_type,
+                user_id=user_id, teacher_id=teacher_id, school_id=school_id,
             )
         except QuestionGenerationError as e:
             raise HomeworkAIServiceError(str(e)) from e
