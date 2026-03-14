@@ -1445,8 +1445,7 @@ async def _generate_ai_title(
     try:
         async with AsyncSessionLocal() as db:
             from sqlalchemy import text as sa_text
-            await db.execute(sa_text(f"SET app.current_tenant_id = '{school_id}'"))
-            await db.execute(sa_text(f"SET app.current_school_id = '{school_id}'"))
+            await db.execute(sa_text("SELECT set_config('app.current_tenant_id', :tid, false)"), {"tid": str(school_id)})
 
             llm = LLMService()
 

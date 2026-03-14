@@ -114,7 +114,7 @@ manager = QuizConnectionManager()
 async def _get_db_session(school_id: int) -> AsyncSession:
     """Create a DB session with RLS context for WebSocket operations."""
     session = AsyncSessionLocal()
-    await session.execute(text(f"SELECT set_config('app.current_tenant_id', '{school_id}', false)"))
+    await session.execute(text("SELECT set_config('app.current_tenant_id', :tid, false)"), {"tid": str(school_id)})
     await session.execute(text("SELECT set_config('app.is_super_admin', 'false', false)"))
     return session
 
@@ -274,7 +274,10 @@ async def _handle_student_answer(join_code: str, student_id: int, data: dict, sc
             "data": {
                 "is_correct": result["is_correct"],
                 "score": result["score"],
+                "streak_bonus": result.get("streak_bonus", 0),
                 "total_score": result["total_score"],
+                "current_streak": result.get("current_streak", 0),
+                "max_streak": result.get("max_streak", 0),
             },
         })
 

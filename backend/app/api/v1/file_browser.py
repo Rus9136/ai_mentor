@@ -2,8 +2,11 @@
 Standalone file browser HTML page — served at /files.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
+
+from app.api.dependencies import get_current_user
+from app.models.user import User
 
 router = APIRouter()
 
@@ -486,6 +489,6 @@ navigate('');
 
 
 @router.get("", response_class=HTMLResponse)
-async def file_browser_page():
+async def file_browser_page(current_user: User = Depends(get_current_user)):
     """Serve the standalone file browser page."""
     return HTML_PAGE

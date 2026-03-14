@@ -347,8 +347,7 @@ async def _run_memory_extraction(
     try:
         async with AsyncSessionLocal() as db:
             # Set RLS context for background task
-            await db.execute(sa_text(f"SET app.current_tenant_id = '{school_id}'"))
-            await db.execute(sa_text(f"SET app.current_school_id = '{school_id}'"))
+            await db.execute(sa_text("SELECT set_config('app.current_tenant_id', :tid, false)"), {"tid": str(school_id)})
             summary = await _summarize_session(session_id, student_id, school_id, db)
             if summary:
                 await _update_student_memory(session_id, student_id, school_id, db)

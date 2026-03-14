@@ -764,7 +764,7 @@ class LLMService:
             from sqlalchemy import text as sa_text
             async with ctx.db.begin_nested():
                 if ctx.school_id:
-                    await ctx.db.execute(sa_text(f"SET LOCAL app.current_school_id = '{ctx.school_id}'"))
+                    await ctx.db.execute(sa_text("SELECT set_config('app.current_tenant_id', :tid, true)"), {"tid": str(ctx.school_id)})
                 log = LLMUsageLog(
                     user_id=ctx.user_id,
                     school_id=ctx.school_id,
@@ -807,7 +807,7 @@ class LLMService:
             from sqlalchemy import text as sa_text
             async with ctx.db.begin_nested():
                 if ctx.school_id:
-                    await ctx.db.execute(sa_text(f"SET LOCAL app.current_school_id = '{ctx.school_id}'"))
+                    await ctx.db.execute(sa_text("SELECT set_config('app.current_tenant_id', :tid, true)"), {"tid": str(ctx.school_id)})
                 log = LLMUsageLog(
                     user_id=ctx.user_id,
                     school_id=ctx.school_id,

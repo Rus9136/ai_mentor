@@ -2,13 +2,15 @@
 Shared files API — public file browser with listing, preview, and download.
 """
 
-import os
 import mimetypes
 from pathlib import Path
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, HTMLResponse
+
+from app.api.dependencies import get_current_user
+from app.models.user import User
 
 router = APIRouter()
 
@@ -27,7 +29,10 @@ def _get_file_info(file_path: Path) -> dict:
 
 
 @router.get("/list")
-async def list_files(dir: str = Query("", description="Subdirectory path")):
+async def list_files(
+    dir: str = Query("", description="Subdirectory path"),
+    current_user: User = Depends(get_current_user),
+):
     """List files and folders in shared-files directory."""
     base = SHARED_DIR / dir
     base = base.resolve()
@@ -61,7 +66,7 @@ async def list_files(dir: str = Query("", description="Subdirectory path")):
 
 
 @router.get("/download/{file_path:path}")
-async def download_file(file_path: str):
+async def download_file(file_path: str, current_user: User = Depends(get_current_user)):
     """Download a file from shared-files."""
     full_path = (SHARED_DIR / file_path).resolve()
 
@@ -79,7 +84,7 @@ async def download_file(file_path: str):
 
 
 @router.get("/preview/{file_path:path}")
-async def preview_file(file_path: str):
+async def preview_file(file_path: str, current_user: User = Depends(get_current_user)):
     """Serve a file inline for browser preview."""
     full_path = (SHARED_DIR / file_path).resolve()
 
