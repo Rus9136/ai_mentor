@@ -85,6 +85,24 @@ class UserRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_phone(self, phone: str) -> Optional[User]:
+        """
+        Get user by phone number.
+
+        Args:
+            phone: Phone number (e.g. +77001234567)
+
+        Returns:
+            User object or None if not found
+        """
+        result = await self.db.execute(
+            select(User).where(
+                User.phone == phone,
+                User.is_deleted == False  # noqa: E712
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_by_apple_id(self, apple_id: str) -> Optional[User]:
         """
         Get user by Apple ID (for OAuth users).
@@ -267,6 +285,7 @@ class UserRepository:
         user.deleted_at = datetime.utcnow()
         user.google_id = None  # Allow re-registration with same Google account
         user.apple_id = None  # Allow re-registration with same Apple account
+        user.phone = None  # Allow re-registration with same phone number
         await self.db.commit()
         await self.db.refresh(user)
         return user

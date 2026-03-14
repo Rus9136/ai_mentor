@@ -198,6 +198,7 @@ from app.api.v1 import teachers_gamification
 from app.api.v1 import app_version
 from app.api.v1 import shared_files, file_browser
 from app.api.v1 import teachers_quiz, students_quiz, ws_quiz
+from app.api.v1 import auth_phone
 
 app.include_router(
     auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"]
@@ -205,6 +206,10 @@ app.include_router(
 
 app.include_router(
     auth_oauth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication - OAuth"]
+)
+
+app.include_router(
+    auth_phone.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication - Phone"]
 )
 
 app.include_router(

@@ -1,8 +1,9 @@
 """
 Authentication schemas.
 """
+import re
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class LoginRequest(BaseModel):
@@ -40,6 +41,7 @@ class UserResponse(BaseModel):
     is_verified: bool
     avatar_url: Optional[str] = None
     auth_provider: Optional[str] = None
+    phone: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -62,3 +64,51 @@ class TokenPayload(BaseModel):
     school_id: Optional[int] = None
     exp: int
     type: str  # "access" or "refresh"
+
+
+# Phone number regex: Kazakhstan format +7XXXXXXXXXX (11 digits)
+_KZ_PHONE_RE = re.compile(r"^\+7\d{10}$")
+
+
+class PhoneRegisterRequest(BaseModel):
+    """Phone registration request schema."""
+
+    phone: str = Field(..., description="Phone number in +7XXXXXXXXXX format")
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    middle_name: Optional[str] = Field(None, max_length=100)
+    password: Optional[str] = Field(None, min_length=6, description="Optional password (for future use)")
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        if not _KZ_PHONE_RE.match(v):
+            raise ValueError("Phone must be in +7XXXXXXXXXX format")
+        return v
+
+
+class PhoneLoginRequest(BaseModel):
+    """Phone login request schema."""
+
+    phone: str = Field(..., description="Phone number in +7XXXXXXXXXX format")
+    password: Optional[str] = Field(None, description="Optional password (for future use)")
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        if not _KZ_PHONE_RE.match(v):
+            raise ValueError("Phone must be in +7XXXXXXXXXX format")
+        return v
+
+
+class PhoneAuthResponse(BaseModel):
+    """Phone auth response (register/login)."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+    requires_onboarding: bool = Field(
+        False,
+        description="True if user needs to complete onboarding (enter invitation code)"
+    )

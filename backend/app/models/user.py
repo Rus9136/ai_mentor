@@ -24,6 +24,7 @@ class AuthProvider(str, enum.Enum):
     LOCAL = "local"
     GOOGLE = "google"
     APPLE = "apple"
+    PHONE = "phone"
 
 
 class User(SoftDeleteModel):

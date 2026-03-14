@@ -1,16 +1,138 @@
-# Техническое задание: Google OAuth и выбор класса в мобильном приложении
+# API: Авторизация для мобильных приложений
 
-## Обзор задачи
-
-После авторизации через Google новому пользователю необходимо предложить выбор класса (7-11), аналогично веб-версии на ai-mentor.kz.
-
----
-
-## API Endpoints
+Документация для мобильных разработчиков (iOS / Android).
 
 **Base URL:** `https://api.ai-mentor.kz/api/v1`
 
-### 1. Google OAuth Login
+---
+
+## Способы авторизации
+
+| Способ | Эндпоинт | Статус |
+|--------|----------|--------|
+| Телефон (регистрация) | `POST /auth/phone/register` | Активен |
+| Телефон (вход) | `POST /auth/phone/login` | Активен |
+| Google OAuth | `POST /auth/google` | Активен |
+| Apple Sign In | `POST /auth/apple` | Активен |
+
+Все способы возвращают одинаковую структуру: `access_token`, `refresh_token`, `user`, `requires_onboarding`.
+
+---
+
+## 1. Авторизация по телефону
+
+### 1.1 Регистрация
+
+```http
+POST /auth/phone/register
+Content-Type: application/json
+
+{
+  "phone": "+77001234567",
+  "first_name": "Иван",
+  "last_name": "Петров",
+  "middle_name": "Сергеевич",  // опционально
+  "password": "secret123"       // опционально (на будущее)
+}
+```
+
+**Валидация phone:** формат `+7XXXXXXXXXX` (казахстанский, 12 символов с `+`).
+
+**Response 200 (успех):**
+```json
+{
+  "access_token": "eyJhbGci...",
+  "refresh_token": "eyJhbGci...",
+  "token_type": "bearer",
+  "requires_onboarding": true,
+  "user": {
+    "id": 54,
+    "email": "phone_+77001234567@phone.local",
+    "role": "student",
+    "first_name": "Иван",
+    "last_name": "Петров",
+    "middle_name": "Сергеевич",
+    "school_id": null,
+    "is_active": true,
+    "is_verified": false,
+    "avatar_url": null,
+    "auth_provider": "phone",
+    "phone": "+77001234567"
+  }
+}
+```
+
+**Ошибки:**
+
+| HTTP | Код | Когда |
+|------|-----|-------|
+| 409 | `RES_002` | Номер уже зарегистрирован |
+| 422 | — | Невалидный формат номера |
+
+```json
+// 409 — номер занят
+{
+  "code": "RES_002",
+  "message": "Phone number already registered"
+}
+
+// 422 — невалидный формат
+{
+  "detail": [
+    {
+      "loc": ["body", "phone"],
+      "msg": "Value error, Phone must be in +7XXXXXXXXXX format",
+      "type": "value_error"
+    }
+  ]
+}
+```
+
+### 1.2 Вход
+
+```http
+POST /auth/phone/login
+Content-Type: application/json
+
+{
+  "phone": "+77001234567",
+  "password": "secret123"  // опционально (пока не проверяется)
+}
+```
+
+**Response 200 (успех):**
+```json
+{
+  "access_token": "eyJhbGci...",
+  "refresh_token": "eyJhbGci...",
+  "token_type": "bearer",
+  "requires_onboarding": true,
+  "user": {
+    "id": 54,
+    "role": "student",
+    "first_name": "Иван",
+    "last_name": "Петров",
+    "school_id": null,
+    "auth_provider": "phone",
+    "phone": "+77001234567"
+  }
+}
+```
+
+**Поле `requires_onboarding`:**
+- `true` — пользователь не привязан к школе → показать экран онбординга
+- `false` — пользователь уже в школе → перейти на главный экран
+
+**Ошибки:**
+
+| HTTP | Код | Когда |
+|------|-----|-------|
+| 401 | `AUTH_001` | Номер не зарегистрирован |
+| 403 | `ACCESS_004` | Аккаунт деактивирован |
+
+---
+
+## 2. Google OAuth
 
 ```http
 POST /auth/google
@@ -18,48 +140,45 @@ Content-Type: application/json
 
 {
   "id_token": "GOOGLE_ID_TOKEN",
-  "client_id": "MOBILE_GOOGLE_CLIENT_ID"  // опционально, для верификации
+  "client_id": "MOBILE_CLIENT_ID"  // опционально
 }
 ```
 
-**Response (новый пользователь):**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "bearer",
-  "requires_onboarding": true,
-  "user": {
-    "id": 123,
-    "email": "student@gmail.com",
-    "first_name": "Иван",
-    "last_name": "Петров",
-    "avatar_url": "https://lh3.googleusercontent.com/...",
-    "role": "student",
-    "school_id": null,
-    "is_active": true
-  }
-}
-```
+**Response:** та же структура (`access_token`, `refresh_token`, `user`, `requires_onboarding`).
 
-**Response (существующий пользователь):**
-```json
-{
-  "requires_onboarding": false,
-  "user": {
-    "school_id": 7  // Уже привязан к школе
-  }
-  // ... остальные поля
-}
-```
-
-**Ключевое поле:** `requires_onboarding`
-- `true` → показать экран выбора класса
-- `false` → перейти на главный экран
+Новому пользователю: `requires_onboarding: true`, `school_id: null`.
+Существующему: `requires_onboarding: false`, `school_id: 7`.
 
 ---
 
-### 2. Валидация кода класса
+## 3. Apple Sign In
+
+```http
+POST /auth/apple
+Content-Type: application/json
+
+{
+  "identity_token": "APPLE_IDENTITY_TOKEN_JWT",
+  "authorization_code": "AUTH_CODE",         // опционально
+  "first_name": "Иван",                      // только при первом входе
+  "last_name": "Петров",                      // только при первом входе
+  "client_id": "BUNDLE_ID_OR_SERVICE_ID"     // опционально
+}
+```
+
+**Важно:** Apple предоставляет имя пользователя **только при первом входе**. Если `first_name`/`last_name` доступны — обязательно передавайте их.
+
+**Response:** та же структура (`access_token`, `refresh_token`, `user`, `requires_onboarding`).
+
+---
+
+## 4. Онбординг (привязка к школе)
+
+После регистрации/входа, если `requires_onboarding: true`, нужно пройти онбординг.
+
+**Все запросы онбординга требуют авторизации:** `Authorization: Bearer {access_token}`
+
+### 4.1 Валидация кода
 
 ```http
 POST /auth/onboarding/validate-code
@@ -103,9 +222,7 @@ Content-Type: application/json
 - `"Invitation code has reached its usage limit"`
 - `"Invitation code is inactive"`
 
----
-
-### 3. Завершение регистрации
+### 4.2 Завершение онбординга
 
 ```http
 POST /auth/onboarding/complete
@@ -128,26 +245,42 @@ Content-Type: application/json
   "refresh_token": "NEW_REFRESH_TOKEN",
   "token_type": "bearer",
   "user": {
-    "id": 123,
+    "id": 54,
     "school_id": 7,
     "first_name": "Иван",
-    "last_name": "Петров"
-    // ...
+    "last_name": "Петров",
+    "role": "student"
   },
   "student": {
     "id": 456,
     "student_code": "STU70724001",
     "grade_level": 7,
-    "classes": [{"id": 45, "name": "7-А"}]
+    "classes": [],
+    "pending_request": {
+      "id": 12,
+      "class_id": 45,
+      "class_name": "7-А",
+      "status": "pending"
+    }
   }
 }
 ```
 
-**Важно:** После этого запроса нужно обновить сохранённые токены на новые!
+**ВАЖНО:** После `complete` нужно **заменить сохранённые токены** на новые! Новые токены содержат обновлённый `school_id`.
+
+### Публичные коды классов
+
+| Класс | Код |
+|-------|-----|
+| 7 | `PUBLIC7` |
+| 8 | `PUBLIC8` |
+| 9 | `PUBLIC9` |
+| 10 | `PUBLIC10` |
+| 11 | `PUBLIC11` |
 
 ---
 
-### 4. Refresh Token
+## 5. Refresh Token
 
 ```http
 POST /auth/refresh
@@ -167,255 +300,159 @@ Content-Type: application/json
 }
 ```
 
+**Сроки жизни токенов:**
+- Access token: **30 минут**
+- Refresh token: **7 дней**
+
 ---
 
-## User Flow
+## 6. Текущий пользователь
 
+```http
+GET /auth/me
+Authorization: Bearer {access_token}
 ```
-┌─────────────────────┐
-│   Splash Screen     │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│    Login Screen     │
-│  [Sign in with      │
-│   Google] button    │
-└──────────┬──────────┘
-           │ Google SDK returns ID token
-           ▼
-┌─────────────────────┐
-│  POST /auth/google  │
-│  { id_token: "..." }│
-└──────────┬──────────┘
-           │
-     ┌─────┴─────┐
-     │           │
-     ▼           ▼
-requires_     requires_
-onboarding    onboarding
-= true        = false
-     │           │
-     ▼           ▼
-┌─────────┐  ┌─────────┐
-│Onboarding│  │  Home   │
-│ Screen  │  │ Screen  │
-└────┬────┘  └─────────┘
-     │
-     ▼
-┌─────────────────────┐
-│  Выбор класса       │
-│  [7] [8] [9] [10] [11] │
-│                     │
-│  или                │
-│  [У меня есть код]  │
-└──────────┬──────────┘
-           │ validate-code
-           ▼
-┌─────────────────────┐
-│  Заполнение профиля │
-│  - Фамилия *        │
-│  - Имя *            │
-│  - Отчество         │
-│  - Дата рождения    │
-│                     │
-│  [Завершить]        │
-└──────────┬──────────┘
-           │ complete
-           ▼
-┌─────────────────────┐
-│     Home Screen     │
-└─────────────────────┘
+
+**Response:**
+```json
+{
+  "id": 54,
+  "email": "phone_+77001234567@phone.local",
+  "role": "student",
+  "first_name": "Иван",
+  "last_name": "Петров",
+  "middle_name": "Сергеевич",
+  "school_id": 7,
+  "is_active": true,
+  "is_verified": true,
+  "avatar_url": null,
+  "auth_provider": "phone",
+  "phone": "+77001234567"
+}
 ```
 
 ---
 
-## Коды для классов
-
-| Класс | Код |
-|-------|-----|
-| 7 | `PUBLIC7` |
-| 8 | `PUBLIC8` |
-| 9 | `PUBLIC9` |
-| 10 | `PUBLIC10` |
-| 11 | `PUBLIC11` |
-
-Эти коды публичные и не имеют ограничений по использованию.
-
----
-
-## UI спецификация: Onboarding Screen
-
-### Шаг 1: Выбор класса
+## User Flow (все способы)
 
 ```
-┌────────────────────────────────┐
-│                                │
-│      Выберите ваш класс        │
-│                                │
-│   ┌─────┐  ┌─────┐  ┌─────┐   │
-│   │  7  │  │  8  │  │  9  │   │
-│   └─────┘  └─────┘  └─────┘   │
-│                                │
-│      ┌─────┐  ┌─────┐         │
-│      │ 10  │  │ 11  │         │
-│      └─────┘  └─────┘         │
-│                                │
-│   ─────────────────────────   │
-│                                │
-│   У меня есть код школы →     │
-│                                │
-└────────────────────────────────┘
+┌──────────────────────────────────┐
+│          Login Screen            │
+│                                  │
+│  ┌────────────────────────────┐  │
+│  │  Номер телефона            │  │
+│  │  +7 ___  ___  __  __      │  │
+│  └────────────────────────────┘  │
+│                                  │
+│  ┌────────────────────────────┐  │
+│  │         Войти              │  │  ← POST /auth/phone/login
+│  └────────────────────────────┘  │
+│                                  │
+│  Нет аккаунта? Регистрация →     │  ← POST /auth/phone/register
+│                                  │
+│  ─── или войти через ───         │
+│                                  │
+│   [G Google]    [ Apple]        │  ← POST /auth/google | /auth/apple
+│                                  │
+└──────────────┬───────────────────┘
+               │
+         ┌─────┴─────┐
+         │           │
+         ▼           ▼
+   requires_     requires_
+   onboarding    onboarding
+   = true        = false
+         │           │
+         ▼           ▼
+  ┌───────────┐  ┌──────────┐
+  │ Onboarding│  │  Home    │
+  │  Screen   │  │  Screen  │
+  └─────┬─────┘  └──────────┘
+        │
+        ▼
+  ┌─────────────────────────────┐
+  │  Выбор класса               │
+  │  [7] [8] [9] [10] [11]     │    ← validate-code с PUBLIC{N}
+  │                             │
+  │  или                        │
+  │  [У меня есть код школы]    │    ← validate-code с кодом учителя
+  └──────────────┬──────────────┘
+                 │
+                 ▼
+  ┌─────────────────────────────┐
+  │  Заполнение профиля         │
+  │  - Фамилия *                │
+  │  - Имя *                    │
+  │  - Отчество                 │
+  │  - Дата рождения            │
+  │                             │
+  │  [Завершить]                │    ← POST /auth/onboarding/complete
+  └──────────────┬──────────────┘
+                 │ обновить токены!
+                 ▼
+  ┌─────────────────────────────┐
+  │         Home Screen         │
+  └─────────────────────────────┘
 ```
-
-**Действия:**
-- Клик на кнопку класса → `POST /auth/onboarding/validate-code` с `PUBLIC{grade}`
-- При успехе → Шаг 3
-- При ошибке → показать alert
-
-### Шаг 2: Ввод кода школы (опционально)
-
-```
-┌────────────────────────────────┐
-│                                │
-│   ←  Введите код школы         │
-│                                │
-│   ┌──────────────────────────┐ │
-│   │                          │ │
-│   └──────────────────────────┘ │
-│                                │
-│   Код выдаёт ваш учитель или   │
-│   администратор школы          │
-│                                │
-│   ┌──────────────────────────┐ │
-│   │       Продолжить         │ │
-│   └──────────────────────────┘ │
-│                                │
-└────────────────────────────────┘
-```
-
-**Валидация:**
-- Макс. длина: 12 символов
-- При отправке → `POST /auth/onboarding/validate-code`
-- При `valid: false` → показать `error` из response
-
-### Шаг 3: Заполнение профиля
-
-```
-┌────────────────────────────────┐
-│                                │
-│   ←  Заполните профиль         │
-│                                │
-│   Фамилия *                    │
-│   ┌──────────────────────────┐ │
-│   │ Петров                   │ │
-│   └──────────────────────────┘ │
-│                                │
-│   Имя *                        │
-│   ┌──────────────────────────┐ │
-│   │ Иван                     │ │
-│   └──────────────────────────┘ │
-│                                │
-│   Отчество                     │
-│   ┌──────────────────────────┐ │
-│   │                          │ │
-│   └──────────────────────────┘ │
-│                                │
-│   Дата рождения                │
-│   ┌──────────────────────────┐ │
-│   │ 15.05.2010               │ │
-│   └──────────────────────────┘ │
-│                                │
-│   ┌──────────────────────────┐ │
-│   │       Завершить          │ │
-│   └──────────────────────────┘ │
-│                                │
-└────────────────────────────────┘
-```
-
-**Поля:**
-- Фамилия — обязательное
-- Имя — обязательное
-- Отчество — опционально
-- Дата рождения — опционально, date picker
-
-**При отправке:**
-- `POST /auth/onboarding/complete`
-- Обновить токены
-- Навигация на Home
-
----
-
-## Хранение токенов
-
-| Платформа | Где хранить |
-|-----------|-------------|
-| iOS | Keychain |
-| Android | EncryptedSharedPreferences |
-
-**Не использовать:** UserDefaults, SharedPreferences (незащищённые)
 
 ---
 
 ## Обработка ошибок
 
-### HTTP 401 Unauthorized
-1. Попробовать `POST /auth/refresh`
-2. Если refresh успешен → повторить оригинальный запрос
-3. Если refresh не успешен → очистить токены, redirect на Login
+### Формат ошибок API
 
-### HTTP 422 Validation Error
 ```json
 {
-  "detail": [
-    {
-      "loc": ["body", "first_name"],
-      "msg": "field required",
-      "type": "value_error.missing"
-    }
-  ]
+  "code": "AUTH_001",
+  "message": "Phone number not registered",
+  "detail": "Phone number not registered"
 }
 ```
 
-### HTTP 400 Business Error
-```json
-{
-  "detail": "User already belongs to a school"
-}
+### Коды ошибок авторизации
+
+| HTTP | Код | Описание |
+|------|-----|----------|
+| 401 | `AUTH_001` | Неверные учётные данные / номер не зарегистрирован |
+| 401 | `AUTH_002` | Токен истёк |
+| 401 | `AUTH_003` | Невалидный токен |
+| 401 | `AUTH_007` | Невалидный refresh token |
+| 403 | `ACCESS_004` | Аккаунт деактивирован |
+| 409 | `RES_002` | Номер телефона уже зарегистрирован |
+| 422 | — | Ошибка валидации (формат телефона, пропущено поле) |
+| 429 | `RATE_001` | Слишком много запросов |
+
+### HTTP 401 — Стратегия обновления токена
+
+```
+Любой запрос → 401
+       │
+       ▼
+POST /auth/refresh
+       │
+  ┌────┴────┐
+  ▼         ▼
+200 OK    401/другая ошибка
+  │         │
+  ▼         ▼
+Повторить   Очистить токены →
+запрос      redirect на Login
 ```
 
 ---
 
-## Google Sign-In Integration
+## Хранение токенов
 
-### iOS (GoogleSignIn)
-```swift
-// Pod: GoogleSignIn
-
-GIDSignIn.sharedInstance.signIn(withPresenting: self) { result, error in
-    guard let idToken = result?.user.idToken?.tokenString else { return }
-    // Отправить idToken на backend
-}
-```
-
-### Android (Play Services Auth)
-```kotlin
-// implementation 'com.google.android.gms:play-services-auth:20.7.0'
-
-val signInIntent = googleSignInClient.signInIntent
-startActivityForResult(signInIntent, RC_SIGN_IN)
-
-// В onActivityResult:
-val account = GoogleSignIn.getSignedInAccountFromIntent(data)
-val idToken = account.result.idToken
-// Отправить idToken на backend
-```
+| Платформа | Где хранить | НЕ использовать |
+|-----------|-------------|-----------------|
+| iOS | **Keychain** | UserDefaults |
+| Android | **EncryptedSharedPreferences** | SharedPreferences |
 
 ---
 
-## Конфигурация
+## Конфигурация Google Sign-In
 
-### Настроенные Google Client IDs
+### Настроенные Client IDs
 
 | Платформа | Client ID | Статус |
 |-----------|-----------|--------|
@@ -423,30 +460,46 @@ val idToken = account.result.idToken
 | iOS | `471358699492-bk3tf3qabatma3jhe15mf7sp6vqeivd7.apps.googleusercontent.com` | Активен |
 | Android | — | Не настроен |
 
-Backend автоматически принимает токены от любого из настроенных Client ID.
+### iOS (GoogleSignIn SDK)
 
-### Добавление нового Client ID
+```swift
+GIDSignIn.sharedInstance.signIn(withPresenting: self) { result, error in
+    guard let idToken = result?.user.idToken?.tokenString else { return }
+    // POST /auth/google с { "id_token": idToken }
+}
+```
 
-1. Создать OAuth Client ID в [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-2. Добавить в `backend/.env`:
-   ```
-   GOOGLE_CLIENT_ID_ANDROID=новый_client_id.apps.googleusercontent.com
-   ```
-3. Перезапустить backend:
-   ```bash
-   docker compose -f docker-compose.infra.yml up -d backend --force-recreate
-   ```
+### Android (Play Services Auth)
+
+```kotlin
+val signInIntent = googleSignInClient.signInIntent
+startActivityForResult(signInIntent, RC_SIGN_IN)
+
+// В onActivityResult:
+val account = GoogleSignIn.getSignedInAccountFromIntent(data)
+val idToken = account.result.idToken
+// POST /auth/google с { "id_token": idToken }
+```
 
 ---
 
 ## Checklist для тестирования
 
-- [ ] Первый вход через Google → показывается выбор класса
-- [ ] Повторный вход → сразу на главную (без onboarding)
-- [ ] Выбор класса 7-11 работает корректно
-- [ ] Ввод пользовательского кода работает
-- [ ] Невалидный код показывает ошибку
-- [ ] Профиль сохраняется корректно
-- [ ] Токены обновляются после complete
-- [ ] Refresh token работает при истечении access token
-- [ ] Logout очищает токены
+### Phone Auth
+- [ ] Регистрация с валидным номером +7XXXXXXXXXX
+- [ ] Регистрация с невалидным номером → 422
+- [ ] Повторная регистрация → 409 "Phone number already registered"
+- [ ] Вход с зарегистрированным номером → 200
+- [ ] Вход с незарегистрированным номером → 401
+- [ ] После регистрации `requires_onboarding: true`
+
+### Onboarding (общий для всех способов)
+- [ ] validate-code с PUBLIC7 → valid: true
+- [ ] validate-code с невалидным кодом → valid: false
+- [ ] complete → новые токены с school_id
+- [ ] Повторный вход после complete → `requires_onboarding: false`
+
+### Tokens
+- [ ] Refresh token обновляет оба токена
+- [ ] Истёкший access token → 401 → refresh → повтор
+- [ ] Истёкший refresh token → redirect на Login
