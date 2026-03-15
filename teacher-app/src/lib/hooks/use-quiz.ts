@@ -35,12 +35,17 @@ export function useQuizSessions(params?: { status?: string }) {
   });
 }
 
+const ACTIVE_STATUSES = ['lobby', 'in_progress'];
+
 export function useQuizSession(sessionId: number) {
   return useQuery({
     queryKey: quizKeys.detail(sessionId),
     queryFn: () => getQuizSession(sessionId),
     enabled: sessionId > 0,
-    refetchInterval: 5000,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status && ACTIVE_STATUSES.includes(status) ? 5000 : false;
+    },
   });
 }
 
@@ -91,30 +96,30 @@ export function useCancelQuiz() {
   });
 }
 
-export function useStudentProgress(sessionId: number) {
+export function useStudentProgress(sessionId: number, status?: string) {
   return useQuery({
     queryKey: quizKeys.studentProgress(sessionId),
     queryFn: () => getStudentProgress(sessionId),
     enabled: sessionId > 0,
-    refetchInterval: 5000,
+    refetchInterval: status && ACTIVE_STATUSES.includes(status) ? 5000 : false,
   });
 }
 
-export function useTeamLeaderboard(sessionId: number) {
+export function useTeamLeaderboard(sessionId: number, status?: string) {
   return useQuery({
     queryKey: quizKeys.teamLeaderboard(sessionId),
     queryFn: () => getTeamLeaderboard(sessionId),
     enabled: sessionId > 0,
-    refetchInterval: 5000,
+    refetchInterval: status && ACTIVE_STATUSES.includes(status) ? 5000 : false,
   });
 }
 
-export function useQuizMatrix(sessionId: number) {
+export function useQuizMatrix(sessionId: number, status?: string) {
   return useQuery({
     queryKey: quizKeys.matrix(sessionId),
     queryFn: () => getQuizMatrix(sessionId),
     enabled: sessionId > 0,
-    refetchInterval: 5000,
+    refetchInterval: status && ACTIVE_STATUSES.includes(status) ? 5000 : false,
   });
 }
 

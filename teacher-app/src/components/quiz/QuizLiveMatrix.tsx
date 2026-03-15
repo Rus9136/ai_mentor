@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 
 interface QuizLiveMatrixProps {
   sessionId: number;
+  status?: string;
 }
 
 interface MatrixAnswer {
@@ -26,9 +27,9 @@ interface MatrixData {
   question_count: number;
 }
 
-export default function QuizLiveMatrix({ sessionId }: QuizLiveMatrixProps) {
+export default function QuizLiveMatrix({ sessionId, status }: QuizLiveMatrixProps) {
   const t = useTranslations('quiz');
-  const { data, isLoading } = useQuizMatrix(sessionId);
+  const { data, isLoading } = useQuizMatrix(sessionId, status);
 
   if (isLoading) {
     return (

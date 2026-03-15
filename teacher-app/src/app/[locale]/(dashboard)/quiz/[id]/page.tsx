@@ -115,6 +115,7 @@ export default function QuizDetailPage({ params }: { params: Promise<Params> }) 
           sessionId={sessionId}
           totalQuestions={session.question_count}
           onEndQuiz={handleEndQuiz}
+          status={status}
         />
       );
     }
@@ -162,7 +163,7 @@ export default function QuizDetailPage({ params }: { params: Promise<Params> }) 
           onNextQuestion={sendNextQuestion}
           onEndQuiz={handleEndQuiz}
         />
-        <QuizLiveMatrix sessionId={sessionId} />
+        <QuizLiveMatrix sessionId={sessionId} status={status} />
       </div>
     );
   }
@@ -175,7 +176,7 @@ export default function QuizDetailPage({ params }: { params: Promise<Params> }) 
           leaderboard={results.leaderboard}
           stats={results.stats}
         />
-        <QuizLiveMatrix sessionId={sessionId} />
+        <QuizLiveMatrix sessionId={sessionId} status={status} />
         <QuizReportDownloads sessionId={sessionId} />
       </div>
     );

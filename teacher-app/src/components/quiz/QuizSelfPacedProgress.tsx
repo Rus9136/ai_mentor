@@ -9,6 +9,7 @@ interface QuizSelfPacedProgressProps {
   sessionId: number;
   totalQuestions: number;
   onEndQuiz: () => void;
+  status?: string;
 }
 
 interface ProgressItem {
@@ -20,9 +21,9 @@ interface ProgressItem {
   total_score: number;
 }
 
-export default function QuizSelfPacedProgress({ sessionId, totalQuestions, onEndQuiz }: QuizSelfPacedProgressProps) {
+export default function QuizSelfPacedProgress({ sessionId, totalQuestions, onEndQuiz, status }: QuizSelfPacedProgressProps) {
   const t = useTranslations('quiz');
-  const { data: progress, isLoading } = useStudentProgress(sessionId);
+  const { data: progress, isLoading } = useStudentProgress(sessionId, status);
 
   if (isLoading) {
     return (
