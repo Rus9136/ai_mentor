@@ -797,6 +797,32 @@
     "teamStandings": "Команда рейтингі",
     "nextQuestion": "Келесі сұрақ",
     "correct": "Дұрыс!",
-    "incorrect": "Дұрыс емес"
+    "incorrect": "Дұрыс емес",
+    "typeAnswer": "Жауабыңызды енгізіңіз...",
+    "submit": "Жіберу",
+    "answerSent": "Жауап жіберілді",
+    "powerups": {
+      "doublePoints": "x2 Ұпай",
+      "fiftyFifty": "50/50",
+      "timeFreeze": "Мұздату",
+      "shield": "Қалқан",
+      "cost": "{cost} XP",
+      "activated": "Күшейткіш іске қосылды!",
+      "notEnoughXp": "XP жеткіліксіз",
+      "scoreDoubled": "Ұпайлар екі есе!",
+      "streakProtected": "Серия қорғалды!"
+    },
+    "confidence": {
+      "chooseMode": "Режимді таңдаңыз",
+      "risk": "Тәуекелдеймін!",
+      "riskDesc": "Жылдамдық үшін көп ұпай",
+      "safe": "Қауіпсіз",
+      "safeDesc": "Дұрыс жауап үшін 500 ұпай"
+    },
+    "tournament": {
+      "weekly": "Апта сайынғы турнир",
+      "deadline": "{date} дейін",
+      "classRank": "Орын: #{rank}"
+    }
   }
 }

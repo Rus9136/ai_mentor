@@ -179,3 +179,19 @@ async def submit_selfpaced_answer(
             logger.warning(f"Failed to notify teacher of self-paced progress: {e}")
 
     return result
+
+
+# ── Tournaments ──
+
+@router.get("/quiz-sessions/tournaments")
+async def get_student_tournaments(
+    student: Student = Depends(get_student_from_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List active/scheduled tournaments for student's classes."""
+    from app.services.quiz_tournament_service import QuizTournamentService
+    repo = QuizRepository(db)
+    class_ids = await repo.get_student_class_ids(student.id)
+
+    service = QuizTournamentService(db)
+    return await service.get_active_tournaments(student.school_id, class_ids)

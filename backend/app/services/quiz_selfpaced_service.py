@@ -9,19 +9,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.quiz import QuizSession, QuizParticipant, QuizAnswer, QuizSessionStatus
 from app.repositories.quiz_repo import QuizRepository
-from app.services.quiz_service import QuizService
 from app.schemas.quiz import QuizQuestionOut, SelfPacedNextQuestion, SelfPacedAnswerResult
+from app.services.quiz_scoring import MAX_QUESTION_SCORE
+from app.services.quiz_question_loader import (
+    load_question, check_answer, get_correct_option_index,
+)
 
 logger = logging.getLogger(__name__)
-
-MAX_QUESTION_SCORE = 1000
 
 
 class QuizSelfPacedService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.repo = QuizRepository(db)
-        self._quiz_service = QuizService(db)
 
     async def get_next_question(self, session_id: int, student_id: int) -> Optional[SelfPacedNextQuestion]:
         """Get next unanswered question for a student in self-paced mode."""
@@ -41,8 +41,8 @@ class QuizSelfPacedService:
             return None  # All questions answered
 
         question_index = answered_count  # Next unanswered
-        question = await self._quiz_service._load_question(
-            session.test_id, question_index, session.settings, session.id,
+        question = await load_question(
+            self.db, session.test_id, question_index, session.settings, session.id,
         )
         if not question:
             return None
@@ -75,8 +75,8 @@ class QuizSelfPacedService:
         # Check not already answered
         existing = await self.repo.get_answer(participant.id, question_index)
         if existing:
-            correct_option = await self._quiz_service._get_correct_option_index(
-                session.test_id, question_index, session.settings, session.id,
+            correct_option = await get_correct_option_index(
+                self.db, session.test_id, question_index, session.settings, session.id,
             )
             answered_count = await self._count_student_answers(participant.id)
             return SelfPacedAnswerResult(
@@ -91,8 +91,8 @@ class QuizSelfPacedService:
             )
 
         # Check correctness
-        is_correct = await self._quiz_service._check_answer(
-            session.test_id, question_index, selected_option,
+        is_correct = await check_answer(
+            self.db, session.test_id, question_index, selected_option,
             session.settings, session.id,
         )
 

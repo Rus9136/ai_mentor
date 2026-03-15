@@ -8,9 +8,15 @@ interface QuizAnsweredProps {
   isCorrect: boolean | null;
   streakBonus?: number;
   currentStreak?: number;
+  powerupUsed?: string | null;
+  scoreDoubled?: boolean;
+  streakProtected?: boolean;
 }
 
-export default function QuizAnswered({ score, isCorrect, streakBonus = 0, currentStreak = 0 }: QuizAnsweredProps) {
+export default function QuizAnswered({
+  score, isCorrect, streakBonus = 0, currentStreak = 0,
+  powerupUsed, scoreDoubled, streakProtected,
+}: QuizAnsweredProps) {
   const t = useTranslations('quiz');
 
   return (
@@ -23,6 +29,16 @@ export default function QuizAnswered({ score, isCorrect, streakBonus = 0, curren
           <h2 className="mb-2 text-xl font-bold text-foreground">{t('answerSubmitted')}</h2>
           {score !== null && score > 0 && (
             <p className="text-2xl font-bold text-primary">{t('points', { score })}</p>
+          )}
+          {scoreDoubled && (
+            <p className="mt-1 text-sm font-semibold text-purple-500">
+              {t('powerups.scoreDoubled')}
+            </p>
+          )}
+          {streakProtected && (
+            <p className="mt-1 text-sm font-semibold text-blue-500">
+              {t('powerups.streakProtected')}
+            </p>
           )}
           {streakBonus > 0 && (
             <p className="mt-1 text-lg font-semibold text-amber-500">

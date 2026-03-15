@@ -4,24 +4,28 @@ import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { Trophy, Star, Zap } from 'lucide-react';
 import type { QuizFinishedData } from '@/types/quiz';
+import QuizPodium from './QuizPodium';
 
 interface QuizFinishedProps {
   data: QuizFinishedData;
+  onPlaySound?: (sound: 'podiumCountdown' | 'podiumReveal') => void;
 }
 
 const MEDAL_EMOJI: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
-export default function QuizFinished({ data }: QuizFinishedProps) {
+export default function QuizFinished({ data, onPlaySound }: QuizFinishedProps) {
   const t = useTranslations('quiz');
 
+  // Use animated podium when we have 3+ participants
+  if (data.leaderboard.length >= 3) {
+    return <QuizPodium data={data} onPlaySound={onPlaySound} />;
+  }
+
+  // Fallback: simple display for < 3 participants
   useEffect(() => {
     if (data.your_rank && data.your_rank <= 3) {
       import('canvas-confetti').then((confetti) => {
-        confetti.default({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
+        confetti.default({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       });
     }
   }, [data.your_rank]);

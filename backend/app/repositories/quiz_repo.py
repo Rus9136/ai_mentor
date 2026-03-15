@@ -198,6 +198,8 @@ class QuizRepository:
         answer_time_ms: int,
         score: int,
         text_answer: Optional[str] = None,
+        powerup_used: Optional[str] = None,
+        confidence_mode: Optional[str] = None,
     ) -> QuizAnswer:
         answer = QuizAnswer(
             quiz_session_id=quiz_session_id,
@@ -209,6 +211,8 @@ class QuizRepository:
             answer_time_ms=answer_time_ms,
             score=score,
             text_answer=text_answer,
+            powerup_used=powerup_used,
+            confidence_mode=confidence_mode,
         )
         self.db.add(answer)
         await self.db.flush()

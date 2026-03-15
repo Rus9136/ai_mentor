@@ -25,6 +25,7 @@ from app.api.v1.ws_quiz_handlers import (
     handle_quick_answer,
     handle_end_quick_question,
     handle_go_to_question,
+    handle_activate_powerup,
 )
 
 logger = logging.getLogger(__name__)
@@ -273,6 +274,9 @@ async def quiz_websocket(
 
             elif msg_type == "go_to_question" and is_teacher:
                 await handle_go_to_question(manager, join_code, auth_info.get("teacher_id"), data.get("data", {}), school_id, session.id)
+
+            elif msg_type == "activate_powerup" and not is_teacher:
+                await handle_activate_powerup(manager, join_code, student_id, data.get("data", {}), school_id, session.id)
 
             # Quick Question handlers
             elif msg_type == "quick_question" and is_teacher:

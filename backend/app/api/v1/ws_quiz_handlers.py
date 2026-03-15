@@ -18,6 +18,7 @@ async def handle_student_answer(manager, join_code: str, student_id: int, data: 
     selected_option = data.get("selected_option", -1)
     answer_time_ms = data.get("answer_time_ms", 30000)
     text_answer = data.get("text_answer")
+    confidence_mode = data.get("confidence_mode")
 
     if question_index is None:
         return
@@ -32,19 +33,28 @@ async def handle_student_answer(manager, join_code: str, student_id: int, data: 
             session_id, student_id, question_index,
             selected_option if selected_option is not None else -1,
             answer_time_ms, text_answer=text_answer,
+            confidence_mode=confidence_mode,
         )
 
-        # Send result back to student
+        # Send result back to student (include powerup effects)
+        answer_data = {
+            "is_correct": result["is_correct"],
+            "score": result["score"],
+            "streak_bonus": result.get("streak_bonus", 0),
+            "total_score": result["total_score"],
+            "current_streak": result.get("current_streak", 0),
+            "max_streak": result.get("max_streak", 0),
+        }
+        if result.get("powerup_used"):
+            answer_data["powerup_used"] = result["powerup_used"]
+        if result.get("score_doubled"):
+            answer_data["score_doubled"] = True
+        if result.get("streak_protected"):
+            answer_data["streak_protected"] = True
+
         await manager.send_to_student(join_code, student_id, {
             "type": "answer_accepted",
-            "data": {
-                "is_correct": result["is_correct"],
-                "score": result["score"],
-                "streak_bonus": result.get("streak_bonus", 0),
-                "total_score": result["total_score"],
-                "current_streak": result.get("current_streak", 0),
-                "max_streak": result.get("max_streak", 0),
-            },
+            "data": answer_data,
         })
 
         # Team mode: update team score and notify teacher
@@ -368,3 +378,42 @@ async def handle_selfpaced_progress_notify(manager, join_code: str, student_id: 
             "correct": correct,
         },
     })
+
+
+async def handle_activate_powerup(manager, join_code: str, student_id: int, data: dict, school_id: int, session_id: int):
+    """Handle power-up activation from student."""
+    from app.api.v1.ws_quiz import _get_db_session
+
+    powerup_type = data.get("powerup_type")
+    if not powerup_type:
+        return
+
+    db = await _get_db_session(school_id)
+    try:
+        from app.services.quiz_powerup_service import QuizPowerupService
+        service = QuizPowerupService(db)
+        quiz_repo = QuizRepository(db)
+
+        session = await quiz_repo.get_session(session_id)
+        if not session:
+            return
+
+        participant = await quiz_repo.get_participant(session_id, student_id)
+        if not participant:
+            return
+
+        result = await service.activate_powerup(session, participant, student_id, powerup_type)
+
+        await manager.send_to_student(join_code, student_id, {
+            "type": "powerup_activated",
+            "data": result,
+        })
+    except ValueError as e:
+        await manager.send_to_student(join_code, student_id, {
+            "type": "powerup_error",
+            "data": {"message": str(e)},
+        })
+    except Exception as e:
+        logger.error(f"Error activating powerup: {e}")
+    finally:
+        await db.close()

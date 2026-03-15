@@ -1,7 +1,7 @@
 # Quiz Battle Platform — Полный план разработки
 
 > Дата: 2026-03-15
-> Статус: **Фаза 2.3 — РЕАЛИЗОВАНА** (Teacher Paced, Exit Ticket, Live Matrix, Short Answer, Reports)
+> Статус: **Фаза 2.4 — РЕАЛИЗОВАНА** (Power-ups, Confidence Mode, Animated Podium, Weekly Tournament)
 > Вдохновение: [Kahoot](https://kahoot.it/), [Socrative](https://www.socrative.com/)
 > Связь: `docs/GAMIFICATION_FRONTEND_PLAN.md` (Фаза 2)
 
@@ -36,7 +36,7 @@
 | **2.1** | Улучшения Live Quiz | ✅ **ГОТОВО** | ~3-4 дня |
 | **2.2** | Новые режимы | ✅ **ГОТОВО** | ~5-7 дней |
 | **2.3** | Формативное оценивание | ✅ **ГОТОВО** | ~5-7 дней |
-| **2.4** | Продвинутая геймификация | Планируется | ~4-5 дней |
+| **2.4** | Продвинутая геймификация | ✅ **ГОТОВО** | ~4-5 дней |
 | **2.5** | Уникальные AI-фичи | Планируется | ~5-7 дней |
 
 ---
@@ -288,11 +288,12 @@
 
 ---
 
-## Фаза 2.4 — Продвинутая геймификация
+## Фаза 2.4 — Продвинутая геймификация ✅ ГОТОВО
 
-> Ключевые файлы: `quiz_service.py`, `QuizQuestion.tsx`, `QuizFinished.tsx`
+> Зависимость: Фаза 2.0 ✅
+> Реализовано: 2026-03-15
 
-### 2.4.1 Power-ups
+### 2.4.1 Power-ups ✅
 
 | Power-up | Эффект | Стоимость |
 |----------|--------|-----------|
@@ -301,32 +302,60 @@
 | Time Freeze | +10 сек | 40 XP |
 | Shield | Серия не сбрасывается | 60 XP |
 
-- Таблица `quiz_participant_powerups`, один power-up за вопрос
+- Миграция: `060_quiz_powerups` — таблица `quiz_participant_powerups`, колонки `powerup_used`/`confidence_mode` в quiz_answers
+- Сервис: `quiz_powerup_service.py` (activate, apply_to_score, fifty_fifty)
+- Репозиторий: `quiz_powerup_repo.py`
+- `deduct_xp()` в GamificationService (отрицательные XP-транзакции)
+- WS: `activate_powerup` → `powerup_activated` / `powerup_error`
+- Frontend: `QuizPowerupBar.tsx`, интеграция в QuizQuestion (removedOptions, extraTimeMs, disableAnswers)
+- Teacher: toggle `enable_powerups` в QuizCreateForm
+- Ограничения: только timed pacing, classic/team mode, 1 powerup на вопрос
 
-### 2.4.2 Confidence Mode
+### 2.4.2 Confidence Mode ✅
 
-- "Рискну" (speed-based) vs "Безопасно" (500 фиксированных), стратегический элемент
+- `settings.enable_confidence_mode: bool`
+- "Рискну" (speed-based) vs "Безопасно" (500 фиксированных)
+- `quiz_scoring.py`: `confidence_mode="safe"` → 500 очков
+- WS: `confidence_mode` в answer data
+- Frontend: `QuizConfidenceChoice.tsx` — выбор перед ответом, блокировка кнопок до выбора
+- Только со `scoring_mode=speed`
 
-### 2.4.3 Подиум с анимацией
+### 2.4.3 Подиум с анимацией ✅
 
-- `QuizPodium.tsx`, countdown 3→2→1, конфетти, медали, фанфары
+- `QuizPodium.tsx` — countdown 3→2→1, podium rise с CSS transitions, confetti, medals
+- Звуки: `podiumCountdown()`, `podiumReveal()` в quiz-sounds.ts
+- Интеграция: QuizFinished делегирует на QuizPodium при 3+ участниках
+- Teacher: стилизованный подиум в QuizResults.tsx (без анимации)
 
-### 2.4.4 Еженедельный турнир
+### 2.4.4 Еженедельный турнир ✅
 
-- Cron (пятница 15:00) → auto-генерация квиза по пройденному за неделю
-- Self-paced, рейтинг между классами, +100/+200 XP
+- Миграция: `061_weekly_tournaments` — таблица `quiz_tournaments`
+- Сервис: `quiz_tournament_service.py` (generate, finalize, get_active, get_results)
+- Cron: APScheduler в `backend/app/core/scheduler.py`
+  - Пятница 15:00 Астана → `generate_weekly_tournaments()`
+  - Воскресенье 23:59 Астана → `finalize_expired_tournaments()`
+- REST: `GET /teachers/quiz-sessions/tournaments`, `GET .../tournaments/{id}/results`
+- REST: `GET /students/quiz-sessions/tournaments`
+- XP: rank 1 = +100, rank 2 = +75, rank 3 = +50, участие = +25
+- Frontend teacher: `WeeklyTournamentWidget.tsx` на странице квизов
+
+### Рефакторинг (подготовка к 2.4)
+
+- `quiz_service.py` (575→370 строк): извлечены `quiz_scoring.py` (57 строк) и `quiz_question_loader.py` (147 строк)
+- Обновлены импорты в `quiz_selfpaced_service.py`, `quiz_short_answer_service.py`
 
 ### Шаги реализации
 
-| Шаг | Задача | Зависимости |
-|-----|--------|-------------|
-| 2.4.1 | Backend: power-ups (таблица, activate, apply) | ✅ 2.0 |
-| 2.4.2 | Frontend: power-ups UI | 2.4.1 |
-| 2.4.3 | Backend: confidence mode logic | ✅ 2.0 |
-| 2.4.4 | Frontend: confidence choice UI | 2.4.3 |
-| 2.4.5 | Frontend: QuizPodium + звук | ✅ 2.0 |
-| 2.4.6 | Backend: weekly tournament cron | ✅ 2.0, 2.2.5 |
-| 2.4.7 | Frontend: tournament banner + leaderboard | 2.4.6 |
+| Шаг | Задача | Статус |
+|-----|--------|--------|
+| 2.4.0 | Рефакторинг: extract scoring + question loader | ✅ |
+| 2.4.1 | Backend: power-ups (таблица, activate, apply) | ✅ |
+| 2.4.2 | Frontend: power-ups UI (QuizPowerupBar + QuizQuestion) | ✅ |
+| 2.4.3 | Backend: confidence mode logic | ✅ |
+| 2.4.4 | Frontend: confidence choice UI | ✅ |
+| 2.4.5 | Frontend: QuizPodium + звуки | ✅ |
+| 2.4.6 | Backend: weekly tournament (cron + service + migration) | ✅ |
+| 2.4.7 | Frontend: tournament widget + leaderboard | ✅ |
 
 ---
 
@@ -381,7 +410,7 @@
 | Лидерборд, подиум топ-3, QR-код | 2.0 | ✅ |
 | Answer Streak, Shuffle, Accuracy Mode, Звуки | 2.1 | ✅ |
 | Team Mode, Self-Paced Challenge | 2.2 | ✅ |
-| Power-ups, Confidence Mode | 2.4 | |
+| Power-ups, Confidence Mode | 2.4 | ✅ |
 
 ### Что берём от Socrative
 
@@ -400,7 +429,7 @@
 | Адаптивная сложность по mastery | 2.5 | |
 | AI Short Answer (LLM-проверка) | 2.3 | ✅ |
 | Межклассовые баттлы | 2.5 | |
-| Еженедельный турнир | 2.4 | |
+| Еженедельный турнир | 2.4 | ✅ |
 | Родительский отчёт | 2.5 | |
 | Видео-анимации (Remotion) | 3.0 | |
 
@@ -416,7 +445,8 @@ backend/
 │   ├── 057_quiz_timestamp_columns.py     ← ✅ Фаза 2.1
 │   ├── 058_quiz_teams_and_modes.py       ← ✅ Фаза 2.2
 │   ├── 059_short_answer_and_exit_ticket.py ← ✅ Фаза 2.3
-│   └── ???_quiz_powerups.py              ← Фаза 2.4
+│   ├── 060_quiz_powerups.py             ← ✅ Фаза 2.4
+│   └── 061_weekly_tournaments.py       ← ✅ Фаза 2.4
 ├── app/
 │   ├── models/quiz.py                    ← ✅ QuizSession, QuizTeam, QuizParticipant, QuizAnswer
 │   ├── schemas/quiz.py                   ← ✅ classic/team/self_paced/quick_question schemas
@@ -429,7 +459,11 @@ backend/
 │   │   ├── quiz_selfpaced_service.py     ← ✅ Фаза 2.2
 │   │   ├── quiz_short_answer_service.py ← ✅ Фаза 2.3 (exact+fuzzy+LLM)
 │   │   ├── quiz_exit_ticket_service.py  ← ✅ Фаза 2.3
-│   │   └── quiz_report_service.py       ← ✅ Фаза 2.3 (XLSX reports)
+│   │   ├── quiz_report_service.py       ← ✅ Фаза 2.3 (XLSX reports)
+│   │   ├── quiz_scoring.py             ← ✅ Фаза 2.4 (extracted constants + calc)
+│   │   ├── quiz_question_loader.py     ← ✅ Фаза 2.4 (extracted question loading)
+│   │   ├── quiz_powerup_service.py     ← ✅ Фаза 2.4 (power-up activation + effects)
+│   │   └── quiz_tournament_service.py  ← ✅ Фаза 2.4 (weekly tournament cron)
 │   └── api/v1/
 │       ├── teachers_quiz.py              ← ✅ +quick-question, student-progress, team-leaderboard
 │       ├── teachers_quiz_analytics.py    ← ✅ Фаза 2.3 (matrix, exit-ticket)
@@ -455,7 +489,9 @@ student-app/src/
 │   ├── QuizQuickAnswer.tsx              ← ✅ Фаза 2.2
 │   ├── QuizSelfPacedFeedback.tsx         ← ✅ Фаза 2.2
 │   ├── QuizShortAnswer.tsx               ← ✅ Фаза 2.3
-│   └── QuizPodium.tsx                    ← Фаза 2.4
+│   ├── QuizPodium.tsx                    ← ✅ Фаза 2.4 (animated countdown + podium)
+│   ├── QuizPowerupBar.tsx               ← ✅ Фаза 2.4 (4 power-up buttons)
+│   └── QuizConfidenceChoice.tsx          ← ✅ Фаза 2.4 (risk/safe chooser)
 ├── lib/
 │   ├── api/quiz.ts                       ← ✅ +self-paced endpoints
 │   ├── quiz-sounds.ts                    ← ✅
@@ -482,6 +518,7 @@ teacher-app/src/
 │   ├── QuizSelfPacedProgress.tsx         ← ✅ Фаза 2.2
 │   ├── QuizLiveMatrix.tsx                ← Фаза 2.3
 │   ├── QuizReportDownload.tsx            ← Фаза 2.3
+│   ├── WeeklyTournamentWidget.tsx        ← ✅ Фаза 2.4
 │   └── QuizAIGenerate.tsx                ← Фаза 2.5
 └── lib/
     ├── api/quiz.ts                       ← ✅ +quick, progress, team APIs

@@ -25,6 +25,8 @@ import QuizFinished from '@/components/quiz/QuizFinished';
 import QuizSelfPacedFeedback from '@/components/quiz/QuizSelfPacedFeedback';
 import QuizShortAnswer from '@/components/quiz/QuizShortAnswer';
 import QuizQuickAnswer from '@/components/quiz/QuizQuickAnswer';
+import QuizPowerupBar from '@/components/quiz/QuizPowerupBar';
+import QuizConfidenceChoice from '@/components/quiz/QuizConfidenceChoice';
 
 // ── State ──
 
@@ -55,6 +57,19 @@ interface QuizPageState {
   quickQuestionOptions: string[];
   // Self-paced
   selfPacedFeedback: SelfPacedAnswerResult | null;
+  // Power-up effects on last answer
+  answerPowerupUsed: string | null;
+  answerScoreDoubled: boolean;
+  answerStreakProtected: boolean;
+  // Power-ups (Phase 2.4)
+  activePowerup: string | null;
+  removedOptions: number[] | null;
+  extraTimeMs: number;
+  studentXp: number;
+  enablePowerups: boolean;
+  // Confidence mode (Phase 2.4)
+  enableConfidence: boolean;
+  confidenceChoice: 'risk' | 'safe' | null;
 }
 
 type QuizAction =
@@ -65,6 +80,9 @@ type QuizAction =
   | { type: 'SELF_PACED_FEEDBACK'; result: SelfPacedAnswerResult }
   | { type: 'SELF_PACED_FINISHED' }
   | { type: 'QUICK_ANSWERED' }
+  | { type: 'CONFIDENCE_CHOICE'; choice: 'risk' | 'safe' }
+  | { type: 'SET_STUDENT_XP'; xp: number }
+  | { type: 'SET_QUIZ_SETTINGS'; enablePowerups: boolean; enableConfidence: boolean }
   | { type: 'ERROR'; error: string };
 
 const initialState: QuizPageState = {
@@ -91,6 +109,16 @@ const initialState: QuizPageState = {
   quickQuestionText: null,
   quickQuestionOptions: [],
   selfPacedFeedback: null,
+  answerPowerupUsed: null,
+  answerScoreDoubled: false,
+  answerStreakProtected: false,
+  activePowerup: null,
+  removedOptions: null,
+  extraTimeMs: 0,
+  studentXp: 0,
+  enablePowerups: false,
+  enableConfidence: false,
+  confidenceChoice: null,
 };
 
 function reducer(state: QuizPageState, action: QuizAction): QuizPageState {
@@ -133,6 +161,15 @@ function reducer(state: QuizPageState, action: QuizAction): QuizPageState {
     case 'QUICK_ANSWERED':
       return { ...state, quizState: QuizState.QUICK_WAITING };
 
+    case 'CONFIDENCE_CHOICE':
+      return { ...state, confidenceChoice: action.choice };
+
+    case 'SET_STUDENT_XP':
+      return { ...state, studentXp: action.xp };
+
+    case 'SET_QUIZ_SETTINGS':
+      return { ...state, enablePowerups: action.enablePowerups, enableConfidence: action.enableConfidence };
+
     case 'ERROR':
       return { ...state, error: action.error };
 
@@ -143,7 +180,12 @@ function reducer(state: QuizPageState, action: QuizAction): QuizPageState {
           return { ...state, participantCount: msg.data.count };
 
         case 'quiz_started':
-          return { ...state, totalQuestions: msg.data.total_questions };
+          return {
+            ...state,
+            totalQuestions: msg.data.total_questions,
+            enablePowerups: msg.data.enable_powerups || false,
+            enableConfidence: msg.data.enable_confidence_mode || false,
+          };
 
         case 'question':
           return {
@@ -153,6 +195,11 @@ function reducer(state: QuizPageState, action: QuizAction): QuizPageState {
             lastOptions: msg.data.options,
             answerScore: null,
             answerCorrect: null,
+            // Reset power-up and confidence for new question
+            activePowerup: null,
+            removedOptions: null,
+            extraTimeMs: 0,
+            confidenceChoice: null,
           };
 
         case 'answer_accepted':
@@ -162,6 +209,9 @@ function reducer(state: QuizPageState, action: QuizAction): QuizPageState {
             answerCorrect: msg.data.is_correct,
             answerStreakBonus: msg.data.streak_bonus || 0,
             answerCurrentStreak: msg.data.current_streak || 0,
+            answerPowerupUsed: msg.data.powerup_used || null,
+            answerScoreDoubled: msg.data.score_doubled || false,
+            answerStreakProtected: msg.data.streak_protected || false,
           };
 
         case 'question_result':
@@ -211,6 +261,18 @@ function reducer(state: QuizPageState, action: QuizAction): QuizPageState {
             quickQuestionText: null,
             quickQuestionOptions: [],
           };
+
+        case 'powerup_activated':
+          return {
+            ...state,
+            activePowerup: msg.data.powerup_type,
+            studentXp: msg.data.xp_remaining,
+            removedOptions: msg.data.removed_options || null,
+            extraTimeMs: msg.data.extra_time_ms || 0,
+          };
+
+        case 'powerup_error':
+          return { ...state, error: msg.data.message };
 
         case 'error':
           return { ...state, error: msg.data.message };
@@ -264,7 +326,10 @@ function QuizPageInner() {
         play('result');
         break;
       case QuizState.FINISHED:
-        play('victory');
+        // Podium component handles its own sounds when 3+ participants
+        if (!state.finishedData || state.finishedData.leaderboard.length < 3) {
+          play('victory');
+        }
         break;
     }
   }, [state.quizState, play]);
@@ -329,32 +394,34 @@ function QuizPageInner() {
     (selectedOption: number, answerTimeMs: number) => {
       if (!state.currentQuestion) return;
       dispatch({ type: 'ANSWER_SUBMITTED' });
-      send({
-        type: 'answer',
-        data: {
-          question_index: state.currentQuestion.index,
-          selected_option: selectedOption,
-          answer_time_ms: answerTimeMs,
-        },
-      });
+      const data: Record<string, unknown> = {
+        question_index: state.currentQuestion.index,
+        selected_option: selectedOption,
+        answer_time_ms: answerTimeMs,
+      };
+      if (state.confidenceChoice) {
+        data.confidence_mode = state.confidenceChoice;
+      }
+      send({ type: 'answer', data });
     },
-    [state.currentQuestion, send],
+    [state.currentQuestion, state.confidenceChoice, send],
   );
 
   const handleShortAnswer = useCallback(
     (textAnswer: string, answerTimeMs: number) => {
       if (!state.currentQuestion) return;
       dispatch({ type: 'ANSWER_SUBMITTED' });
-      send({
-        type: 'answer',
-        data: {
-          question_index: state.currentQuestion.index,
-          text_answer: textAnswer,
-          answer_time_ms: answerTimeMs,
-        },
-      });
+      const data: Record<string, unknown> = {
+        question_index: state.currentQuestion.index,
+        text_answer: textAnswer,
+        answer_time_ms: answerTimeMs,
+      };
+      if (state.confidenceChoice) {
+        data.confidence_mode = state.confidenceChoice;
+      }
+      send({ type: 'answer', data });
     },
-    [state.currentQuestion, send],
+    [state.currentQuestion, state.confidenceChoice, send],
   );
 
   // ── Self-paced handlers ──
@@ -404,6 +471,25 @@ function QuizPageInner() {
     }
   };
 
+  // ── Power-up handler ──
+
+  const handleActivatePowerup = useCallback(
+    (powerupType: string) => {
+      send({ type: 'activate_powerup', data: { powerup_type: powerupType } });
+      play('powerupActivate');
+    },
+    [send, play],
+  );
+
+  // ── Confidence choice handler ──
+
+  const handleConfidenceChoice = useCallback(
+    (choice: 'risk' | 'safe') => {
+      dispatch({ type: 'CONFIDENCE_CHOICE', choice });
+    },
+    [],
+  );
+
   // ── Quick question handler ──
 
   const handleQuickAnswer = (selectedOption: number) => {
@@ -441,27 +527,48 @@ function QuizPageInner() {
         if (!state.currentQuestion) return null;
         if (state.currentQuestion.question_type === 'short_answer') {
           return (
-            <QuizShortAnswer
-              question={state.currentQuestion}
-              questionNumber={state.currentQuestion.index + 1}
-              totalQuestions={state.totalQuestions}
-              onAnswer={handleShortAnswer}
-              onTimerTick={playTick}
-              onTimeUp={playTimeUp}
-              hideTimer={state.currentQuestion.time_limit_ms === 0}
-            />
+            <>
+              {state.enableConfidence && (
+                <QuizConfidenceChoice onChoice={handleConfidenceChoice} chosen={state.confidenceChoice} />
+              )}
+              <QuizShortAnswer
+                question={state.currentQuestion}
+                questionNumber={state.currentQuestion.index + 1}
+                totalQuestions={state.totalQuestions}
+                onAnswer={handleShortAnswer}
+                onTimerTick={playTick}
+                onTimeUp={playTimeUp}
+                hideTimer={state.currentQuestion.time_limit_ms === 0}
+              />
+            </>
           );
         }
         return (
-          <QuizQuestion
-            question={state.currentQuestion}
-            questionNumber={state.currentQuestion.index + 1}
-            totalQuestions={state.totalQuestions}
-            onAnswer={handleAnswer}
-            onTimerTick={playTick}
-            onTimeUp={playTimeUp}
-            hideTimer={state.currentQuestion.time_limit_ms === 0}
-          />
+          <>
+            {state.enablePowerups && (
+              <QuizPowerupBar
+                studentXp={state.studentXp}
+                activePowerup={state.activePowerup}
+                onActivate={handleActivatePowerup}
+                enabled={state.enablePowerups}
+              />
+            )}
+            {state.enableConfidence && (
+              <QuizConfidenceChoice onChoice={handleConfidenceChoice} chosen={state.confidenceChoice} />
+            )}
+            <QuizQuestion
+              question={state.currentQuestion}
+              questionNumber={state.currentQuestion.index + 1}
+              totalQuestions={state.totalQuestions}
+              onAnswer={handleAnswer}
+              onTimerTick={playTick}
+              onTimeUp={playTimeUp}
+              hideTimer={state.currentQuestion.time_limit_ms === 0}
+              removedOptions={state.removedOptions}
+              extraTimeMs={state.extraTimeMs}
+              disableAnswers={state.enableConfidence && !state.confidenceChoice}
+            />
+          </>
         );
 
       case QuizState.ANSWERED:
@@ -471,6 +578,9 @@ function QuizPageInner() {
             isCorrect={state.answerCorrect}
             streakBonus={state.answerStreakBonus}
             currentStreak={state.answerCurrentStreak}
+            powerupUsed={state.answerPowerupUsed}
+            scoreDoubled={state.answerScoreDoubled}
+            streakProtected={state.answerStreakProtected}
           />
         );
 
@@ -486,7 +596,12 @@ function QuizPageInner() {
         );
 
       case QuizState.FINISHED:
-        return state.finishedData ? <QuizFinished data={state.finishedData} /> : null;
+        return state.finishedData ? (
+          <QuizFinished
+            data={state.finishedData}
+            onPlaySound={(s) => play(s as Parameters<typeof play>[0])}
+          />
+        ) : null;
 
       // Self-paced states
       case QuizState.SELF_PACED_QUESTION:

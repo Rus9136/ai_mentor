@@ -24,7 +24,12 @@ export interface WsParticipantJoined {
 
 export interface WsQuizStarted {
   type: 'quiz_started';
-  data: { total_questions: number; mode?: string };
+  data: {
+    total_questions: number;
+    mode?: string;
+    enable_powerups?: boolean;
+    enable_confidence_mode?: boolean;
+  };
 }
 
 export interface WsQuestion {
@@ -50,6 +55,9 @@ export interface WsAnswerAccepted {
     total_score: number;
     current_streak: number;
     max_streak: number;
+    powerup_used?: string;
+    score_doubled?: boolean;
+    streak_protected?: boolean;
   };
 }
 
@@ -99,6 +107,23 @@ export interface WsQuickQuestionEnd {
   data: { responses: Record<string, number>; total: number };
 }
 
+// Power-up messages
+export interface WsPowerupActivated {
+  type: 'powerup_activated';
+  data: {
+    powerup_type: string;
+    xp_cost: number;
+    xp_remaining: number;
+    removed_options?: number[];
+    extra_time_ms?: number;
+  };
+}
+
+export interface WsPowerupError {
+  type: 'powerup_error';
+  data: { message: string };
+}
+
 export type WsServerMessage =
   | WsParticipantJoined
   | WsQuizStarted
@@ -111,7 +136,9 @@ export type WsServerMessage =
   | WsTeamLeaderboard
   | WsQuickQuestion
   | WsQuickAnswerAccepted
-  | WsQuickQuestionEnd;
+  | WsQuickQuestionEnd
+  | WsPowerupActivated
+  | WsPowerupError;
 
 // ── Client → Server ──
 

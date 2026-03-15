@@ -128,6 +128,45 @@ class GamificationService:
             "level_up": level_up,
         }
 
+    async def deduct_xp(
+        self,
+        student_id: int,
+        school_id: int,
+        amount: int,
+        source_type: XpSourceType,
+        source_id: Optional[int] = None,
+        extra_data: Optional[dict] = None,
+    ) -> dict:
+        """
+        Deduct XP for purchases (power-ups, etc.). Amount must be positive.
+        Creates a negative XP transaction and decrements student.total_xp.
+        Raises ValueError if insufficient XP.
+        """
+        from app.core.config import settings
+        if not settings.GAMIFICATION_ENABLED:
+            return {"deducted": 0, "remaining": 0}
+
+        if amount <= 0:
+            raise ValueError("Deduction amount must be positive")
+
+        from app.models.student import Student
+        student = await self.db.get(Student, student_id)
+        if not student or (student.total_xp or 0) < amount:
+            raise ValueError("Not enough XP")
+
+        await self.repo.add_xp_transaction(
+            student_id=student_id,
+            school_id=school_id,
+            amount=-amount,
+            source_type=source_type,
+            source_id=source_id,
+            extra_data=extra_data,
+        )
+
+        remaining = (student.total_xp or 0) - amount
+        logger.info(f"Deducted {amount} XP from student {student_id} (source={source_type.value}, remaining={remaining})")
+        return {"deducted": amount, "remaining": remaining}
+
     # ══════════════════════════════════════════════════════════════════════
     # CONTENT CHAIN RESOLUTION
     # ══════════════════════════════════════════════════════════════════════

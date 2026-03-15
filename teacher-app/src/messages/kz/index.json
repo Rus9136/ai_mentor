@@ -666,6 +666,13 @@
     "noParticipants": "Қатысушылар жоқ",
     "spaceRace": "Команда жарысы",
     "finishLine": "Финиш",
-    "teamStandings": "Команда рейтингі"
+    "teamStandings": "Команда рейтингі",
+    "enablePowerups": "Күшейткіштер (Power-ups)",
+    "powerupsHint": "Оқушылар квиз кезінде XP-ді күшейткіштерге жұмсайды",
+    "enableConfidence": "Сенімділік режимі",
+    "confidenceHint": "Тәуекелдеу (жылдамдық) немесе қауіпсіз (500 ұпай)",
+    "tournament": "Апта сайынғы турнир",
+    "tournamentActive": "Белсенді",
+    "tournamentFinished": "Аяқталды"
   }
 }

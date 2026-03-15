@@ -39,10 +39,15 @@ async def lifespan(app: FastAPI):
     upload_dir.mkdir(parents=True, exist_ok=True)
     print(f"Upload directory: {upload_dir.absolute()}")
 
+    # Start scheduler for periodic tasks (weekly tournaments)
+    from app.core.scheduler import setup_scheduler, shutdown_scheduler
+    setup_scheduler()
+
     yield
 
     # Shutdown
     print("Shutting down AI Mentor API...")
+    shutdown_scheduler()
     await engine.dispose()
 
 

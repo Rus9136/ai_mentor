@@ -118,6 +118,8 @@ class QuizAnswer(BaseModel):
     selected_option = Column(Integer, nullable=False)
     is_correct = Column(Boolean, nullable=False)
     text_answer = Column(Text, nullable=True)  # for short_answer question type
+    powerup_used = Column(String(20), nullable=True)  # power-up active during this answer
+    confidence_mode = Column(String(10), nullable=True)  # 'risk' | 'safe'
     answer_time_ms = Column(Integer, nullable=False)
     score = Column(Integer, nullable=False, default=0, server_default='0')
     answered_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -129,3 +131,50 @@ class QuizAnswer(BaseModel):
 
     def __repr__(self) -> str:
         return f"<QuizAnswer(id={self.id}, participant={self.participant_id}, q={self.question_index})>"
+
+
+class QuizParticipantPowerup(BaseModel):
+    """A power-up activated by a participant for a specific question."""
+
+    __tablename__ = "quiz_participant_powerups"
+
+    quiz_session_id = Column(Integer, ForeignKey("quiz_sessions.id", ondelete="CASCADE"), nullable=False)
+    participant_id = Column(Integer, ForeignKey("quiz_participants.id", ondelete="CASCADE"), nullable=False)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
+    powerup_type = Column(String(20), nullable=False)
+    question_index = Column(Integer, nullable=False)
+    xp_cost = Column(Integer, nullable=False)
+    activated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    applied = Column(Boolean, nullable=False, default=False, server_default='false')
+
+    # Relationships
+    participant = relationship("QuizParticipant")
+    school = relationship("School")
+
+    def __repr__(self) -> str:
+        return f"<QuizParticipantPowerup(id={self.id}, type='{self.powerup_type}', q={self.question_index})>"
+
+
+class QuizTournament(BaseModel):
+    """A weekly quiz tournament for a class."""
+
+    __tablename__ = "quiz_tournaments"
+
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
+    class_id = Column(Integer, ForeignKey("school_classes.id", ondelete="CASCADE"), nullable=False)
+    quiz_session_id = Column(Integer, ForeignKey("quiz_sessions.id", ondelete="SET NULL"), nullable=True)
+    week_start = Column(DateTime(timezone=False), nullable=False)  # DATE
+    week_end = Column(DateTime(timezone=False), nullable=False)  # DATE
+    status = Column(String(20), nullable=False, default="scheduled", server_default="scheduled")
+    xp_rank_1 = Column(Integer, nullable=False, default=100, server_default='100')
+    xp_rank_2 = Column(Integer, nullable=False, default=75, server_default='75')
+    xp_rank_3 = Column(Integer, nullable=False, default=50, server_default='50')
+    xp_participation = Column(Integer, nullable=False, default=25, server_default='25')
+
+    # Relationships
+    school = relationship("School")
+    school_class = relationship("SchoolClass")
+    quiz_session = relationship("QuizSession")
+
+    def __repr__(self) -> str:
+        return f"<QuizTournament(id={self.id}, class={self.class_id}, week={self.week_start})>"

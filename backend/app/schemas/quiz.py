@@ -22,6 +22,9 @@ class QuizSessionSettings(BaseModel):
     team_count: Optional[int] = Field(default=None, ge=2, le=6, description="Number of teams (team mode)")
     show_space_race: bool = Field(default=False, description="Show space race visualization (team mode)")
     deadline: Optional[str] = Field(default=None, description="ISO datetime deadline (self_paced mode)")
+    # Phase 2.4: gamification
+    enable_powerups: bool = Field(default=False, description="Allow students to use power-ups (timed mode only)")
+    enable_confidence_mode: bool = Field(default=False, description="Risk/Safe choice per question (speed mode only)")
 
 
 class QuizSessionCreate(BaseModel):

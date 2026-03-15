@@ -72,13 +72,14 @@ class QuizShortAnswerService:
         self, test_id: int, question_index: int, settings: dict, session_id: int,
     ) -> list[str]:
         """Get correct option texts for the question at the given index."""
-        from app.services.quiz_service import QuizService
-        service = QuizService(self.db)
-        test = await service._load_test(test_id)
+        from app.services.quiz_question_loader import (
+            load_test, get_sorted_questions, get_question_at_index,
+        )
+        test = await load_test(self.db, test_id)
         if not test:
             return []
-        questions = service._get_sorted_questions(test)
-        q = service._get_question_at_index(questions, question_index, settings, session_id)
+        questions = get_sorted_questions(test)
+        q = get_question_at_index(questions, question_index, settings, session_id)
         if not q:
             return []
         return [o.option_text for o in q.options if o.is_correct and not o.is_deleted]
@@ -86,13 +87,14 @@ class QuizShortAnswerService:
     async def _get_question_text(
         self, test_id: int, question_index: int, settings: dict, session_id: int,
     ) -> Optional[str]:
-        from app.services.quiz_service import QuizService
-        service = QuizService(self.db)
-        test = await service._load_test(test_id)
+        from app.services.quiz_question_loader import (
+            load_test, get_sorted_questions, get_question_at_index,
+        )
+        test = await load_test(self.db, test_id)
         if not test:
             return None
-        questions = service._get_sorted_questions(test)
-        q = service._get_question_at_index(questions, question_index, settings, session_id)
+        questions = get_sorted_questions(test)
+        q = get_question_at_index(questions, question_index, settings, session_id)
         return q.question_text if q else None
 
     async def _llm_check(self, question_text: str, correct_answer: str, student_answer: str) -> bool:

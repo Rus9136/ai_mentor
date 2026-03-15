@@ -12,7 +12,10 @@ export type QuizSound =
   | 'incorrect'
   | 'streak'
   | 'result'
-  | 'victory';
+  | 'victory'
+  | 'podiumCountdown'
+  | 'podiumReveal'
+  | 'powerupActivate';
 
 export function useQuizSounds() {
   const mgr = useRef<QuizSoundManager | null>(null);

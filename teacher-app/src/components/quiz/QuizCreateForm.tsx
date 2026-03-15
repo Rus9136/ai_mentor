@@ -35,6 +35,8 @@ export default function QuizCreateForm() {
   const [pacing, setPacing] = useState<'timed' | 'teacher_paced'>('timed');
   const [teamCount, setTeamCount] = useState(2);
   const [showSpaceRace, setShowSpaceRace] = useState(false);
+  const [enablePowerups, setEnablePowerups] = useState(false);
+  const [enableConfidence, setEnableConfidence] = useState(false);
 
   const { data: classes } = useClasses();
   const { data: textbooks } = useQuery({ queryKey: ['textbooks'], queryFn: getTextbooks });
@@ -69,6 +71,8 @@ export default function QuizCreateForm() {
           mode,
           pacing: mode === 'self_paced' ? 'timed' : pacing,
           ...(mode === 'team' ? { team_count: teamCount, show_space_race: showSpaceRace } : {}),
+          ...(enablePowerups && pacing === 'timed' && mode !== 'self_paced' ? { enable_powerups: true } : {}),
+          ...(enableConfidence && scoringMode === 'speed' && mode !== 'self_paced' ? { enable_confidence_mode: true } : {}),
         },
       });
       router.push(`/quiz/${result.id}`);
@@ -280,6 +284,38 @@ export default function QuizCreateForm() {
               <option value="accuracy">{t('accuracyMode')}</option>
             </select>
           </div>
+
+          {/* Power-ups toggle (only timed, classic/team) */}
+          {pacing === 'timed' && mode !== 'self_paced' && (
+            <label className="flex cursor-pointer items-center gap-2.5">
+              <input
+                type="checkbox"
+                checked={enablePowerups}
+                onChange={(e) => setEnablePowerups(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <div>
+                <span className="text-sm">{t('enablePowerups')}</span>
+                <p className="text-xs text-muted-foreground">{t('powerupsHint')}</p>
+              </div>
+            </label>
+          )}
+
+          {/* Confidence mode toggle (only speed scoring, not self-paced) */}
+          {scoringMode === 'speed' && mode !== 'self_paced' && (
+            <label className="flex cursor-pointer items-center gap-2.5">
+              <input
+                type="checkbox"
+                checked={enableConfidence}
+                onChange={(e) => setEnableConfidence(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <div>
+                <span className="text-sm">{t('enableConfidence')}</span>
+                <p className="text-xs text-muted-foreground">{t('confidenceHint')}</p>
+              </div>
+            </label>
+          )}
         </div>
       )}
 

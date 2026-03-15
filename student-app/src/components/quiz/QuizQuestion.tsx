@@ -13,6 +13,9 @@ interface QuizQuestionProps {
   onTimerTick?: () => void;
   onTimeUp?: () => void;
   hideTimer?: boolean;
+  removedOptions?: number[] | null;
+  extraTimeMs?: number;
+  disableAnswers?: boolean;
 }
 
 const OPTION_COLORS = [
@@ -24,25 +27,31 @@ const OPTION_COLORS = [
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
 
-export default function QuizQuestion({ question, questionNumber, totalQuestions, onAnswer, onTimerTick, onTimeUp, hideTimer }: QuizQuestionProps) {
+export default function QuizQuestion({
+  question, questionNumber, totalQuestions, onAnswer, onTimerTick, onTimeUp,
+  hideTimer, removedOptions, extraTimeMs = 0, disableAnswers,
+}: QuizQuestionProps) {
   const t = useTranslations('quiz');
   const [selected, setSelected] = useState<number | null>(null);
   const startTime = useRef(Date.now());
 
   const handleSelect = (index: number) => {
-    if (selected !== null) return;
+    if (selected !== null || disableAnswers) return;
     setSelected(index);
     const answerTimeMs = Date.now() - startTime.current;
     onAnswer(index, answerTimeMs);
   };
 
+  const effectiveTimeMs = question.time_limit_ms + extraTimeMs;
+
   const handleExpire = useCallback(() => {
     onTimeUp?.();
     if (selected === null) {
-      // Time expired without answering — send a dummy answer
-      onAnswer(-1, question.time_limit_ms);
+      onAnswer(-1, effectiveTimeMs);
     }
-  }, [selected, onAnswer, onTimeUp, question.time_limit_ms]);
+  }, [selected, onAnswer, onTimeUp, effectiveTimeMs]);
+
+  const isRemoved = (index: number) => removedOptions?.includes(index) ?? false;
 
   return (
     <div className="flex min-h-dvh flex-col px-4 py-4">
@@ -51,7 +60,7 @@ export default function QuizQuestion({ question, questionNumber, totalQuestions,
         <span className="text-sm font-medium text-muted-foreground">
           {t('questionOf', { current: questionNumber, total: totalQuestions })}
         </span>
-        {!hideTimer && <QuizTimer totalMs={question.time_limit_ms} onExpire={handleExpire} onUrgentTick={onTimerTick} />}
+        {!hideTimer && <QuizTimer totalMs={effectiveTimeMs} onExpire={handleExpire} onUrgentTick={onTimerTick} />}
       </div>
 
       {/* Question text */}
@@ -72,26 +81,31 @@ export default function QuizQuestion({ question, questionNumber, totalQuestions,
 
       {/* Options grid */}
       <div className="grid grid-cols-1 gap-3 pb-4 sm:grid-cols-2">
-        {question.options.map((option, index) => (
-          <button
-            key={index}
-            onClick={() => handleSelect(index)}
-            disabled={selected !== null}
-            className={`
-              flex items-center gap-3 rounded-xl p-4 text-left text-white font-semibold
-              transition-all duration-150
-              ${selected === index ? 'ring-4 ring-white/50 scale-95' : ''}
-              ${selected !== null && selected !== index ? 'opacity-50' : ''}
-              ${OPTION_COLORS[index] || OPTION_COLORS[0]}
-              disabled:cursor-default
-            `}
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-sm font-bold">
-              {OPTION_LABELS[index]}
-            </span>
-            <span className="text-sm leading-snug">{option}</span>
-          </button>
-        ))}
+        {question.options.map((option, index) => {
+          const removed = isRemoved(index);
+          return (
+            <button
+              key={index}
+              onClick={() => handleSelect(index)}
+              disabled={selected !== null || removed || disableAnswers}
+              className={`
+                flex items-center gap-3 rounded-xl p-4 text-left text-white font-semibold
+                transition-all duration-150
+                ${removed ? 'opacity-20 pointer-events-none scale-95' : ''}
+                ${selected === index ? 'ring-4 ring-white/50 scale-95' : ''}
+                ${selected !== null && selected !== index && !removed ? 'opacity-50' : ''}
+                ${disableAnswers && !removed ? 'opacity-60' : ''}
+                ${OPTION_COLORS[index] || OPTION_COLORS[0]}
+                disabled:cursor-default
+              `}
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-sm font-bold">
+                {OPTION_LABELS[index]}
+              </span>
+              <span className="text-sm leading-snug">{removed ? '—' : option}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

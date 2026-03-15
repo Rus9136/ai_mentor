@@ -800,6 +800,29 @@
     "incorrect": "Неправильно",
     "typeAnswer": "Введите ваш ответ...",
     "submit": "Отправить",
-    "answerSent": "Ответ отправлен"
+    "answerSent": "Ответ отправлен",
+    "powerups": {
+      "doublePoints": "x2 Очки",
+      "fiftyFifty": "50/50",
+      "timeFreeze": "Заморозка",
+      "shield": "Щит",
+      "cost": "{cost} XP",
+      "activated": "Усилитель активирован!",
+      "notEnoughXp": "Недостаточно XP",
+      "scoreDoubled": "Очки удвоены!",
+      "streakProtected": "Серия защищена!"
+    },
+    "confidence": {
+      "chooseMode": "Выберите режим",
+      "risk": "Рискну!",
+      "riskDesc": "Больше очков за скорость",
+      "safe": "Безопасно",
+      "safeDesc": "500 очков за правильный"
+    },
+    "tournament": {
+      "weekly": "Еженедельный турнир",
+      "deadline": "До {date}",
+      "classRank": "Место: #{rank}"
+    }
   }
 }

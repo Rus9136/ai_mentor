@@ -160,6 +160,33 @@ export class QuizSoundManager {
     ]);
   }
 
+  /** Podium countdown — short beep per number */
+  podiumCountdown() {
+    this.notes([{ freq: 880, dur: 0.1, type: 'triangle', gain: 0.25 }]); // A5
+  }
+
+  /** Podium reveal — extended triumphant fanfare */
+  podiumReveal() {
+    this.notes([
+      { freq: 523, dur: 0.15, gain: 0.3 },                    // C5
+      { freq: 659, dur: 0.15, delay: 0.12, gain: 0.3 },       // E5
+      { freq: 784, dur: 0.15, delay: 0.24, gain: 0.3 },       // G5
+      { freq: 1047, dur: 0.2, delay: 0.36, gain: 0.35 },      // C6
+      { freq: 784, dur: 0.12, delay: 0.52, gain: 0.25 },      // G5
+      { freq: 1047, dur: 0.12, delay: 0.62, gain: 0.3 },      // C6
+      { freq: 1319, dur: 0.5, delay: 0.72, gain: 0.35 },      // E6 (sustained)
+    ]);
+  }
+
+  /** Power-up activated — ascending sparkle */
+  powerupActivate() {
+    this.notes([
+      { freq: 600, dur: 0.08, type: 'triangle', gain: 0.2 },
+      { freq: 900, dur: 0.08, type: 'triangle', delay: 0.06, gain: 0.25 },
+      { freq: 1200, dur: 0.15, type: 'triangle', delay: 0.12, gain: 0.3 },
+    ]);
+  }
+
   dispose() {
     if (this.ctx) {
       this.ctx.close();

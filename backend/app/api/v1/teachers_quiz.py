@@ -218,15 +218,22 @@ async def start_quiz(
     from app.api.v1.ws_quiz import manager
 
     mode = session.mode
+    settings = session.settings or {}
     await manager.broadcast_to_all(session.join_code, {
         "type": "quiz_started",
-        "data": {"total_questions": session.question_count, "mode": mode},
+        "data": {
+            "total_questions": session.question_count,
+            "mode": mode,
+            "enable_powerups": settings.get("enable_powerups", False),
+            "enable_confidence_mode": settings.get("enable_confidence_mode", False),
+        },
     })
 
     # Self-paced: don't send first question (students fetch via REST)
     if mode != "self_paced" and mode != "quick_question" and session.test_id:
-        first_question = await service._load_question(
-            session.test_id, 0, session.settings, session.id,
+        from app.services.quiz_question_loader import load_question
+        first_question = await load_question(
+            db, session.test_id, 0, session.settings, session.id,
         )
         if first_question:
             await manager.broadcast_to_all(session.join_code, {
@@ -384,3 +391,43 @@ async def get_team_leaderboard(
 
     team_service = QuizTeamService(db)
     return await team_service.get_team_leaderboard(session_id)
+
+
+# ── Tournaments ──
+
+@router.get("/quiz-sessions/tournaments")
+async def get_tournaments(
+    teacher: Teacher = Depends(get_teacher_from_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List active/scheduled weekly tournaments for teacher's classes."""
+    from app.services.quiz_tournament_service import QuizTournamentService
+    from app.models.school_class import SchoolClass
+    from sqlalchemy import select
+
+    # Get teacher's class IDs
+    result = await db.execute(
+        select(SchoolClass.id).where(
+            SchoolClass.school_id == teacher.school_id,
+            SchoolClass.is_deleted == False,
+        )
+    )
+    class_ids = [row[0] for row in result.all()]
+
+    service = QuizTournamentService(db)
+    return await service.get_active_tournaments(teacher.school_id, class_ids)
+
+
+@router.get("/quiz-sessions/tournaments/{tournament_id}/results")
+async def get_tournament_results(
+    tournament_id: int,
+    teacher: Teacher = Depends(get_teacher_from_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get tournament results/leaderboard."""
+    from app.services.quiz_tournament_service import QuizTournamentService
+    service = QuizTournamentService(db)
+    results = await service.get_tournament_results(tournament_id)
+    if not results:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    return results

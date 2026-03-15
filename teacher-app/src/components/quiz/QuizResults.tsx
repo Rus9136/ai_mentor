@@ -42,21 +42,51 @@ export default function QuizResults({ totalQuestions, leaderboard, stats }: Quiz
         </div>
       )}
 
-      {/* Top 3 */}
+      {/* Podium — styled top 3 */}
       {leaderboard.length >= 3 && (
-        <div className="flex items-end justify-center gap-4 py-4">
-          {[1, 0, 2].map((idx) => {
-            const p = leaderboard[idx];
-            if (!p) return null;
-            const isFirst = idx === 0;
+        <div className="flex items-end justify-center gap-3 py-4">
+          {/* 2nd place (left) */}
+          {(() => {
+            const p = leaderboard[1];
             return (
-              <div key={idx} className={`text-center ${isFirst ? 'order-2' : idx === 1 ? 'order-1' : 'order-3'}`}>
-                <div className="text-2xl">{MEDAL[p.rank || idx + 1]}</div>
-                <p className={`font-semibold ${isFirst ? 'text-lg' : 'text-sm'}`}>{p.student_name}</p>
-                <p className="text-sm text-muted-foreground">{p.total_score}</p>
+              <div className="flex flex-1 max-w-[140px] flex-col items-center">
+                <div className="mb-1 text-2xl">{MEDAL[2]}</div>
+                <p className="text-sm font-semibold truncate max-w-full">{p.student_name}</p>
+                <p className="text-xs text-muted-foreground mb-2">{p.total_score}</p>
+                <div className="w-full h-20 rounded-t-lg bg-gradient-to-b from-slate-300 to-slate-400 flex items-center justify-center">
+                  <span className="text-xl font-black text-white/80">2</span>
+                </div>
               </div>
             );
-          })}
+          })()}
+          {/* 1st place (center) */}
+          {(() => {
+            const p = leaderboard[0];
+            return (
+              <div className="flex flex-1 max-w-[160px] flex-col items-center">
+                <div className="mb-1 text-3xl">{MEDAL[1]}</div>
+                <p className="text-base font-bold truncate max-w-full">{p.student_name}</p>
+                <p className="text-sm text-muted-foreground mb-2">{p.total_score}</p>
+                <div className="w-full h-28 rounded-t-lg bg-gradient-to-b from-yellow-400 to-amber-500 shadow-lg shadow-yellow-400/20 flex items-center justify-center">
+                  <span className="text-2xl font-black text-white/90">1</span>
+                </div>
+              </div>
+            );
+          })()}
+          {/* 3rd place (right) */}
+          {(() => {
+            const p = leaderboard[2];
+            return (
+              <div className="flex flex-1 max-w-[140px] flex-col items-center">
+                <div className="mb-1 text-2xl">{MEDAL[3]}</div>
+                <p className="text-sm font-semibold truncate max-w-full">{p.student_name}</p>
+                <p className="text-xs text-muted-foreground mb-2">{p.total_score}</p>
+                <div className="w-full h-14 rounded-t-lg bg-gradient-to-b from-amber-600 to-amber-700 flex items-center justify-center">
+                  <span className="text-xl font-black text-white/80">3</span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 

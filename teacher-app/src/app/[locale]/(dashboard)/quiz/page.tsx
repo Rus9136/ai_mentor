@@ -6,6 +6,7 @@ import { Link } from '@/i18n/routing';
 import { useQuizSessions } from '@/lib/hooks/use-quiz';
 import { Plus, Loader2, Users, Clock, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import WeeklyTournamentWidget from '@/components/quiz/WeeklyTournamentWidget';
 
 const STATUS_COLORS: Record<string, string> = {
   lobby: 'bg-blue-100 text-blue-700',
@@ -29,6 +30,9 @@ export default function QuizListPage() {
 
   return (
     <div className="space-y-6">
+      {/* Weekly Tournament Widget */}
+      <WeeklyTournamentWidget />
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t('title')}</h1>
         <div className="flex gap-2">

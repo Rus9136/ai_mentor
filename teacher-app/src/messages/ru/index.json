@@ -680,6 +680,13 @@
     "downloadQuestionReport": "Анализ вопросов (XLSX)",
     "downloadTrendReport": "Тренды (XLSX)",
     "reports": "Отчёты",
-    "shortAnswer": "Короткий ответ"
+    "shortAnswer": "Короткий ответ",
+    "enablePowerups": "Усилители (Power-ups)",
+    "powerupsHint": "Ученики тратят XP на усилители во время квиза",
+    "enableConfidence": "Режим уверенности",
+    "confidenceHint": "Рискнуть (скорость) или безопасно (500 очков)",
+    "tournament": "Еженедельный турнир",
+    "tournamentActive": "Активен",
+    "tournamentFinished": "Завершён"
   }
 }
