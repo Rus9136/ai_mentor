@@ -1,5 +1,6 @@
 """
 Schemas for Quiz Battle.
+Supports: classic, team, self_paced, quick_question modes.
 """
 from datetime import datetime
 from typing import Optional
@@ -14,17 +15,35 @@ class QuizSessionSettings(BaseModel):
     shuffle_questions: bool = Field(default=False, description="Randomize question order")
     shuffle_answers: bool = Field(default=False, description="Randomize answer options per question")
     scoring_mode: str = Field(default="speed", description="'speed' (time-based) or 'accuracy' (1000 per correct)")
-
+    # Phase 2.2: game modes
+    mode: str = Field(default="classic", description="classic|team|self_paced|quick_question")
+    team_count: Optional[int] = Field(default=None, ge=2, le=6, description="Number of teams (team mode)")
+    show_space_race: bool = Field(default=False, description="Show space race visualization (team mode)")
+    deadline: Optional[str] = Field(default=None, description="ISO datetime deadline (self_paced mode)")
 
 
 class QuizSessionCreate(BaseModel):
-    test_id: int
+    test_id: Optional[int] = None  # nullable for quick_question mode
     class_id: Optional[int] = None
     settings: QuizSessionSettings = Field(default_factory=QuizSessionSettings)
 
 
 class JoinQuizRequest(BaseModel):
     join_code: str = Field(min_length=4, max_length=6)
+
+
+class QuickQuestionCreate(BaseModel):
+    """Create a quick question session (no test needed)."""
+    class_id: Optional[int] = None
+    question_text: str = Field(min_length=1, max_length=1000)
+    options: list[str] = Field(min_length=2, max_length=6)
+    time_per_question_ms: int = Field(default=30000, ge=5000, le=120000)
+
+
+class SelfPacedSubmitRequest(BaseModel):
+    """Submit an answer in self-paced mode."""
+    question_index: int = Field(ge=0)
+    selected_option: int = Field(ge=0)
 
 
 # ── Response schemas ──
@@ -42,6 +61,20 @@ class QuizParticipantResponse(BaseModel):
     rank: Optional[int] = None
     xp_earned: int = 0
     joined_at: datetime
+    team_id: Optional[int] = None
+    team_name: Optional[str] = None
+    team_color: Optional[str] = None
+
+
+class QuizTeamResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    color: str
+    total_score: int = 0
+    correct_answers: int = 0
+    member_count: int = 0
 
 
 class QuizSessionResponse(BaseModel):
@@ -51,7 +84,7 @@ class QuizSessionResponse(BaseModel):
     school_id: int
     teacher_id: int
     class_id: Optional[int] = None
-    test_id: int
+    test_id: Optional[int] = None
     test_title: str = ""
     class_name: str = ""
     join_code: str
@@ -63,6 +96,7 @@ class QuizSessionResponse(BaseModel):
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
     created_at: datetime
+    teams: list[QuizTeamResponse] = []
 
 
 class QuizSessionDetailResponse(QuizSessionResponse):
@@ -74,6 +108,10 @@ class JoinQuizResponse(BaseModel):
     ws_url: str
     status: str
     participant_count: int = 0
+    mode: str = "classic"
+    team_id: Optional[int] = None
+    team_name: Optional[str] = None
+    team_color: Optional[str] = None
 
 
 class QuizQuestionOut(BaseModel):
@@ -89,6 +127,7 @@ class QuizResultsResponse(BaseModel):
     test_title: str = ""
     total_questions: int
     leaderboard: list[QuizParticipantResponse] = []
+    team_leaderboard: list[QuizTeamResponse] = []
     your_rank: Optional[int] = None
     your_score: Optional[int] = None
     your_correct: Optional[int] = None
@@ -106,3 +145,34 @@ class QuizTestInfo(BaseModel):
     question_count: int = 0
     difficulty: str = "medium"
     test_purpose: str = "formative"
+
+
+# ── Self-Paced schemas ──
+
+class SelfPacedNextQuestion(BaseModel):
+    question: QuizQuestionOut
+    answered_count: int
+    total_questions: int
+    is_last: bool
+
+
+class SelfPacedAnswerResult(BaseModel):
+    is_correct: bool
+    correct_option: int
+    score: int
+    total_score: int
+    correct_answers: int
+    answered_count: int
+    total_questions: int
+    is_finished: bool
+
+
+# ── Student progress (teacher view) ──
+
+class StudentProgressItem(BaseModel):
+    student_id: int
+    student_name: str
+    answered: int
+    total: int
+    correct: int
+    total_score: int

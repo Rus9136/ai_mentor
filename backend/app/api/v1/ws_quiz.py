@@ -1,5 +1,6 @@
 """
 WebSocket endpoint for Quiz Battle real-time communication.
+Supports: classic, team, self-paced, quick question modes.
 """
 import logging
 from dataclasses import dataclass, field
@@ -15,8 +16,15 @@ from app.models.user import User, UserRole
 from app.models.student import Student
 from app.models.teacher import Teacher
 from app.models.quiz import QuizSession, QuizSessionStatus
-from app.services.quiz_service import QuizService
 from app.repositories.quiz_repo import QuizRepository
+from app.api.v1.ws_quiz_handlers import (
+    handle_student_answer,
+    handle_next_question,
+    handle_finish_quiz,
+    handle_quick_question,
+    handle_quick_answer,
+    handle_end_quick_question,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +41,10 @@ class QuizRoom:
     teacher_ws: Optional[WebSocket] = None
     teacher_id: Optional[int] = None
     students: dict[int, WebSocket] = field(default_factory=dict)  # student_id -> ws
+    # Quick Question in-memory state
+    quick_responses: dict = field(default_factory=dict)
+    quick_question_data: Optional[dict] = None
+    quick_answered_students: set = field(default_factory=set)
 
 
 class QuizConnectionManager:
@@ -64,7 +76,6 @@ class QuizConnectionManager:
             room.teacher_ws = None
         else:
             room.students.pop(user_id, None)
-        # Clean up empty rooms
         if room.teacher_ws is None and not room.students:
             self.rooms.pop(join_code, None)
 
@@ -229,6 +240,21 @@ async def quiz_websocket(
             "data": {"student_name": student_name, "count": count},
         })
 
+        # Team mode: notify student of team assignment
+        if participant and participant.team_id:
+            from app.repositories.quiz_team_repo import QuizTeamRepository
+            db2 = await _get_db_session(school_id)
+            try:
+                team_repo = QuizTeamRepository(db2)
+                team = await team_repo.get_team_by_id(participant.team_id)
+                if team:
+                    await manager.send_to_student(join_code, student_id, {
+                        "type": "team_assigned",
+                        "data": {"team_id": team.id, "team_name": team.name, "team_color": team.color},
+                    })
+            finally:
+                await db2.close()
+
     # Message loop
     try:
         while True:
@@ -236,13 +262,23 @@ async def quiz_websocket(
             msg_type = data.get("type")
 
             if msg_type == "answer" and not is_teacher:
-                await _handle_student_answer(join_code, student_id, data.get("data", {}), school_id, session.id)
+                await handle_student_answer(manager, join_code, student_id, data.get("data", {}), school_id, session.id)
 
             elif msg_type == "next_question" and is_teacher:
-                await _handle_next_question(join_code, auth_info.get("teacher_id"), school_id, session.id)
+                await handle_next_question(manager, join_code, auth_info.get("teacher_id"), school_id, session.id)
 
             elif msg_type == "finish_quiz" and is_teacher:
-                await _handle_finish_quiz(join_code, auth_info.get("teacher_id"), school_id, session.id)
+                await handle_finish_quiz(manager, join_code, auth_info.get("teacher_id"), school_id, session.id)
+
+            # Quick Question handlers
+            elif msg_type == "quick_question" and is_teacher:
+                await handle_quick_question(manager, join_code, data.get("data", {}))
+
+            elif msg_type == "quick_answer" and not is_teacher:
+                await handle_quick_answer(manager, join_code, student_id, data.get("data", {}))
+
+            elif msg_type == "end_quick_question" and is_teacher:
+                await handle_end_quick_question(manager, join_code)
 
     except WebSocketDisconnect:
         logger.info(f"{'Teacher' if is_teacher else 'Student'} disconnected from quiz {join_code}")
@@ -251,147 +287,3 @@ async def quiz_websocket(
     finally:
         user_id = auth_info.get("teacher_id") if is_teacher else auth_info.get("student_id")
         manager.disconnect(join_code, user_id, is_teacher)
-
-
-# ── Message Handlers ──
-
-async def _handle_student_answer(join_code: str, student_id: int, data: dict, school_id: int, session_id: int):
-    question_index = data.get("question_index")
-    selected_option = data.get("selected_option")
-    answer_time_ms = data.get("answer_time_ms", 30000)
-
-    if question_index is None or selected_option is None:
-        return
-
-    db = await _get_db_session(school_id)
-    try:
-        service = QuizService(db)
-        result = await service.submit_answer(session_id, student_id, question_index, selected_option, answer_time_ms)
-
-        # Send result back to student
-        await manager.send_to_student(join_code, student_id, {
-            "type": "answer_accepted",
-            "data": {
-                "is_correct": result["is_correct"],
-                "score": result["score"],
-                "streak_bonus": result.get("streak_bonus", 0),
-                "total_score": result["total_score"],
-                "current_streak": result.get("current_streak", 0),
-                "max_streak": result.get("max_streak", 0),
-            },
-        })
-
-        # Send progress to teacher
-        total_participants = manager.get_student_count(join_code)
-        answered_count = await service.repo.count_answers_for_question(session_id, question_index)
-        await manager.send_to_teacher(join_code, {
-            "type": "answer_progress",
-            "data": {"answered": answered_count, "total": total_participants},
-        })
-    except ValueError as e:
-        await manager.send_to_student(join_code, student_id, {
-            "type": "error",
-            "data": {"message": str(e)},
-        })
-    except Exception as e:
-        logger.error(f"Error handling answer: {e}")
-    finally:
-        await db.close()
-
-
-async def _handle_next_question(join_code: str, teacher_id: int, school_id: int, session_id: int):
-    db = await _get_db_session(school_id)
-    try:
-        service = QuizService(db)
-
-        # Get stats for current question before advancing
-        session = await service.repo.get_session(session_id)
-        if session:
-            current_idx = session.current_question_index
-            stats_data = await service.get_question_stats(session_id, current_idx)
-
-            # Get top 5 leaderboard
-            lb_data = await service.repo.get_participants_with_names(session_id)
-            top5 = [
-                {"rank": i + 1, "student_name": d["student_name"], "total_score": d["participant"].total_score}
-                for i, d in enumerate(lb_data[:5])
-            ]
-
-            # Broadcast question result
-            await manager.broadcast_to_all(join_code, {
-                "type": "question_result",
-                "data": {
-                    "correct_option": stats_data["correct_option"],
-                    "stats": stats_data["stats"],
-                    "leaderboard_top5": top5,
-                },
-            })
-
-        # Advance to next question
-        next_q = await service.advance_question(session_id, teacher_id)
-        if next_q:
-            await manager.broadcast_to_all(join_code, {
-                "type": "question",
-                "data": next_q.model_dump(),
-            })
-        else:
-            # No more questions — auto finish
-            await _handle_finish_quiz(join_code, teacher_id, school_id, session_id)
-    except ValueError as e:
-        await manager.send_to_teacher(join_code, {"type": "error", "data": {"message": str(e)}})
-    except Exception as e:
-        logger.error(f"Error advancing question: {e}")
-    finally:
-        await db.close()
-
-
-async def _handle_finish_quiz(join_code: str, teacher_id: int, school_id: int, session_id: int):
-    db = await _get_db_session(school_id)
-    try:
-        service = QuizService(db)
-        results = await service.finish_session(session_id, teacher_id)
-
-        # Send personalized results to each student
-        room = manager.get_room(join_code)
-        if room:
-            for student_id in list(room.students.keys()):
-                # Find this student's data
-                your_rank = None
-                your_score = 0
-                your_correct = 0
-                xp_earned = 0
-                for entry in results["leaderboard"]:
-                    if entry["student_id"] == student_id:
-                        your_rank = entry["rank"]
-                        your_score = entry["total_score"]
-                        your_correct = entry["correct_answers"]
-                        xp_earned = entry["xp_earned"]
-                        break
-
-                await manager.send_to_student(join_code, student_id, {
-                    "type": "quiz_finished",
-                    "data": {
-                        "leaderboard": results["leaderboard"],
-                        "your_rank": your_rank,
-                        "your_score": your_score,
-                        "your_correct": your_correct,
-                        "xp_earned": xp_earned,
-                        "correct_answers": your_correct,
-                        "total_questions": results["total_questions"],
-                    },
-                })
-
-        # Send to teacher
-        await manager.send_to_teacher(join_code, {
-            "type": "quiz_finished",
-            "data": {
-                "leaderboard": results["leaderboard"],
-                "total_questions": results["total_questions"],
-            },
-        })
-    except ValueError as e:
-        await manager.send_to_teacher(join_code, {"type": "error", "data": {"message": str(e)}})
-    except Exception as e:
-        logger.error(f"Error finishing quiz: {e}")
-    finally:
-        await db.close()

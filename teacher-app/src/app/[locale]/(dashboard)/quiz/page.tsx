@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { useQuizSessions } from '@/lib/hooks/use-quiz';
-import { Plus, Loader2, Users, Clock } from 'lucide-react';
+import { Plus, Loader2, Users, Clock, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -31,12 +31,20 @@ export default function QuizListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t('title')}</h1>
-        <Link href="/quiz/create">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            {t('createQuiz')}
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/quiz/quick">
+            <Button variant="outline">
+              <Zap className="mr-2 h-4 w-4" />
+              {t('quickQuestion')}
+            </Button>
+          </Link>
+          <Link href="/quiz/create">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              {t('createQuiz')}
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Tabs */}

@@ -252,11 +252,11 @@ student-app/src/
 
 ---
 
-## Фаза 2 — Живые соревнования (Quiz Battle) ✅ MVP ГОТОВО
+## Фаза 2 — Живые соревнования (Quiz Battle) ✅ Фаза 2.2 ГОТОВО
 
 **Цель:** учитель запускает квиз на уроке → ученики соревнуются в реальном времени → зарабатывают XP.
 
-**Статус MVP:** Реализовано 2026-03-14 (коммит `0227d71`)
+**Статус:** Фазы 2.0–2.2 реализованы (MVP + улучшения + 4 новых режима)
 
 **Полный план:** [`docs/QUIZ_BATTLE_PLATFORM.md`](./QUIZ_BATTLE_PLATFORM.md) — 6 фаз (MVP + 5 расширений), сравнение с Kahoot/Socrative, уникальные AI-фичи.
 
@@ -627,19 +627,14 @@ teacher-app/src/
 
 ### Фаза 2 — Живые квизы
 
-| Шаг | Задача | Зависимости |
-|-----|--------|-------------|
-| 2.1 | Миграция 051: таблицы quiz_sessions, quiz_participants, quiz_answers | — |
-| 2.2 | Backend модели + schemas + repo | 2.1 |
-| 2.3 | Quiz service (state machine, scoring) | 2.2 |
-| 2.4 | REST API (teacher: create/start/cancel, student: join/results) | 2.3 |
-| 2.5 | WebSocket endpoint + hub (broadcast) | 2.3 |
-| 2.6 | WebView layout в student-app | — |
-| 2.7 | Quiz WebView (все 6 экранов) | 2.5, 2.6 |
-| 2.8 | Teacher quiz dashboard (create + live + results) | 2.4, 2.5 |
-| 2.9 | XP начисление после квиза (интеграция с gamification_service) | 2.3 |
-| 2.10 | Локализация (ru + kk) | 2.7, 2.8 |
-| 2.11 | QR-код генерация для join_code | 2.4 |
+| Шаг | Задача | Статус |
+|-----|--------|--------|
+| 2.0 | MVP: миграции, модели, service, WS, REST, WebView, teacher dashboard | ✅ |
+| 2.1 | Улучшения: streak, shuffle, accuracy, звуки | ✅ |
+| 2.2 | Новые режимы: Team Mode, Space Race, Self-Paced, Quick Question | ✅ |
+| 2.3 | Формативное оценивание: Teacher Paced, Exit Ticket, Live Matrix, Short Answer | — |
+| 2.4 | Продвинутая геймификация: Power-ups, Confidence Mode, подиум, турнир | — |
+| 2.5 | AI-фичи: AI-генерация, адаптивная сложность, mastery интеграция | — |
 
 ---
 

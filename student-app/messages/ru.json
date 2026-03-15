@@ -779,6 +779,10 @@
     "questionOf": "Вопрос {current} из {total}",
     "waiting": "Ожидание...",
     "streakBonus": "бонус за серию",
-    "streak": "серия {count} подряд!"
+    "streak": "серия {count} подряд!",
+    "teamStandings": "Рейтинг команд",
+    "nextQuestion": "Следующий вопрос",
+    "correct": "Правильно!",
+    "incorrect": "Неправильно"
   }
 }

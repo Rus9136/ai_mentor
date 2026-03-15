@@ -1,5 +1,5 @@
 """
-Quiz Battle models: quiz sessions, participants, answers.
+Quiz Battle models: quiz sessions, participants, answers, teams.
 """
 import enum
 from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, DateTime, Enum
@@ -25,7 +25,7 @@ class QuizSession(BaseModel):
     school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
     teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=False, index=True)
     class_id = Column(Integer, ForeignKey("school_classes.id", ondelete="SET NULL"), nullable=True)
-    test_id = Column(Integer, ForeignKey("tests.id", ondelete="CASCADE"), nullable=False)
+    test_id = Column(Integer, ForeignKey("tests.id", ondelete="CASCADE"), nullable=True)  # nullable for quick_question
     join_code = Column(String(6), nullable=False, unique=True)
     status = Column(
         Enum(QuizSessionStatus, values_callable=lambda x: [e.value for e in x], name='quiz_session_status',
@@ -47,9 +47,34 @@ class QuizSession(BaseModel):
     test = relationship("Test")
     participants = relationship("QuizParticipant", back_populates="quiz_session", cascade="all, delete-orphan")
     answers = relationship("QuizAnswer", back_populates="quiz_session", cascade="all, delete-orphan")
+    teams = relationship("QuizTeam", back_populates="quiz_session", cascade="all, delete-orphan")
+
+    @property
+    def mode(self) -> str:
+        return (self.settings or {}).get("mode", "classic")
 
     def __repr__(self) -> str:
         return f"<QuizSession(id={self.id}, join_code='{self.join_code}', status='{self.status}')>"
+
+
+class QuizTeam(BaseModel):
+    """A team within a quiz session."""
+
+    __tablename__ = "quiz_teams"
+
+    quiz_session_id = Column(Integer, ForeignKey("quiz_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(50), nullable=False)
+    color = Column(String(7), nullable=False)
+    total_score = Column(Integer, nullable=False, default=0, server_default='0')
+    correct_answers = Column(Integer, nullable=False, default=0, server_default='0')
+
+    # Relationships
+    quiz_session = relationship("QuizSession", back_populates="teams")
+    participants = relationship("QuizParticipant", back_populates="team")
+
+    def __repr__(self) -> str:
+        return f"<QuizTeam(id={self.id}, name='{self.name}', score={self.total_score})>"
 
 
 class QuizParticipant(BaseModel):
@@ -60,6 +85,7 @@ class QuizParticipant(BaseModel):
     quiz_session_id = Column(Integer, ForeignKey("quiz_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
     school_id = Column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
+    team_id = Column(Integer, ForeignKey("quiz_teams.id", ondelete="SET NULL"), nullable=True)
     total_score = Column(Integer, nullable=False, default=0, server_default='0')
     correct_answers = Column(Integer, nullable=False, default=0, server_default='0')
     current_streak = Column(Integer, nullable=False, default=0, server_default='0')
@@ -73,6 +99,7 @@ class QuizParticipant(BaseModel):
     quiz_session = relationship("QuizSession", back_populates="participants")
     student = relationship("Student")
     school = relationship("School")
+    team = relationship("QuizTeam", back_populates="participants")
 
     def __repr__(self) -> str:
         return f"<QuizParticipant(id={self.id}, student_id={self.student_id}, score={self.total_score})>"

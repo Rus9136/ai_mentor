@@ -1,7 +1,7 @@
 # Quiz Battle Platform — Полный план разработки
 
-> Дата: 2026-03-14
-> Статус: **Фаза 2.0 — РЕАЛИЗОВАНА** (коммит `0227d71`, деплой 2026-03-14)
+> Дата: 2026-03-15
+> Статус: **Фаза 2.2 — РЕАЛИЗОВАНА** (Team Mode, Space Race, Self-Paced, Quick Question)
 > Вдохновение: [Kahoot](https://kahoot.it/), [Socrative](https://www.socrative.com/)
 > Связь: `docs/GAMIFICATION_FRONTEND_PLAN.md` (Фаза 2)
 
@@ -34,7 +34,7 @@
 |------|----------|--------|-------|
 | **2.0** | MVP Live Quiz | ✅ **ГОТОВО** | ~7-10 дней |
 | **2.1** | Улучшения Live Quiz | ✅ **ГОТОВО** | ~3-4 дня |
-| **2.2** | Новые режимы | Планируется | ~5-7 дней |
+| **2.2** | Новые режимы | ✅ **ГОТОВО** | ~5-7 дней |
 | **2.3** | Формативное оценивание | Планируется | ~5-7 дней |
 | **2.4** | Продвинутая геймификация | Планируется | ~4-5 дней |
 | **2.5** | Уникальные AI-фичи | Планируется | ~5-7 дней |
@@ -157,45 +157,68 @@
 
 ---
 
-## Фаза 2.2 — Новые режимы игры
+## Фаза 2.2 — Новые режимы игры ✅ ГОТОВО
 
-> Ключевые файлы: `quiz_service.py`, `ws_quiz.py`, `quiz_repo.py`
+> Зависимость: Фаза 2.0 ✅
+> Реализовано: 2026-03-15
 
-### 2.2.1 Team Mode
+### 2.2.1 Team Mode ✅
 
-- Таблица `quiz_teams` (id, quiz_session_id, name, color, total_score)
-- `quiz_participants.team_id` FK
-- 5 сек "Team Talk" перед вопросом, очки суммируются по команде
-- Лидерборд по командам
+- Миграция: `058_quiz_teams_and_modes` — таблица `quiz_teams`, `team_id` в participants, nullable `test_id`
+- Модель: `QuizTeam` (name, color, total_score, correct_answers)
+- `settings.mode: "team"`, `settings.team_count: 2-6`
+- Авто-назначение команд: round-robin при join (команда с наименьшим количеством участников)
+- 6 предустановленных команд: Red, Blue, Green, Yellow, Purple, Orange
+- Агрегация очков команды после каждого ответа
+- WS: `team_assigned` (при join), `team_progress` (учителю), `team_leaderboard` (всем)
+- Сервис: `quiz_team_service.py`, Репозиторий: `quiz_team_repo.py`
+- Frontend student: team badge в лобби, team leaderboard в результатах
+- Frontend teacher: team_count selector в форме создания, team leaderboard в результатах
+- REST: `GET /teachers/quiz-sessions/{id}/team-leaderboard`
 
-### 2.2.2 Space Race
+### 2.2.2 Space Race ✅
 
-- Визуализация: ракеты двигаются по дорожке при правильных ответах
-- `SpaceRaceTrack.tsx`, WS: `team_progress`
+- Надстройка над Team Mode: `settings.show_space_race: true`
+- Визуализация: горизонтальный трек с ракетами, прогресс = correct_answers / total_questions
+- Компонент: `teacher-app/src/components/quiz/SpaceRaceTrack.tsx`
+- CSS transitions для плавного перемещения
+- Данные из WS `team_progress`
 
-### 2.2.3 Self-Paced Challenge
+### 2.2.3 Self-Paced Challenge ✅
 
-- `settings.mode: "live" | "self_paced"`, `settings.deadline: datetime`
-- REST API вместо WebSocket, accuracy mode, прогресс сохраняется
-- Teacher: прогресс по ученикам
+- `settings.mode: "self_paced"`, scoring_mode автоматически "accuracy"
+- REST API вместо WebSocket для вопросов (студент может делать перерывы)
+- WS используется только для лобби/старт + уведомление учителю о прогрессе
+- Сервис: `quiz_selfpaced_service.py`
+- Student endpoints: `GET /{id}/next-question`, `POST /{id}/submit-answer`
+- Teacher endpoint: `GET /{id}/student-progress`
+- Frontend student: `QuizSelfPacedFeedback.tsx` — немедленная обратная связь с правильным ответом
+- Frontend teacher: `QuizSelfPacedProgress.tsx` — progress bars по каждому ученику
+- WS: `student_progress` (учителю после каждого ответа)
 
-### 2.2.4 Quick Question
+### 2.2.4 Quick Question ✅
 
-- Устный вопрос → A/B/C/D или текст на телефоне → bar chart у учителя
-- In-memory, не сохраняется в историю
+- `settings.mode: "quick_question"`, `test_id = NULL`
+- Учитель создаёт комнату → ученики подключаются → учитель отправляет вопрос через WS
+- Ответы хранятся in-memory в QuizRoom (не в quiz_answers)
+- WS: `quick_question` (broadcast), `quick_answer` (студент→сервер), `quick_response_update` (live bar chart), `end_quick_question`
+- REST: `POST /teachers/quiz-sessions/quick-question`
+- Frontend teacher: `quiz/quick/page.tsx` — создание + лобби + bar chart ответов
+- Frontend student: `QuizQuickAnswer.tsx` — цветные кнопки A/B/C/D
 
 ### Шаги реализации
 
-| Шаг | Задача | Зависимости |
-|-----|--------|-------------|
-| 2.2.1 | Backend: quiz_teams таблица + миграция | ✅ 2.0 |
-| 2.2.2 | Backend: team assignment + team scoring | 2.2.1 |
-| 2.2.3 | Frontend: Team Mode UI | 2.2.2 |
-| 2.2.4 | Frontend: Space Race визуализация | 2.2.2 |
-| 2.2.5 | Backend: self-paced mode | ✅ 2.0 |
-| 2.2.6 | Frontend: Self-Paced quiz page | 2.2.5 |
-| 2.2.7 | Teacher: self-paced dashboard | 2.2.5 |
-| 2.2.8 | Backend + Frontend: Quick Question | ✅ 2.0 |
+| Шаг | Задача | Статус |
+|-----|--------|--------|
+| 2.2.1 | Backend: quiz_teams таблица + миграция | ✅ |
+| 2.2.2 | Backend: team assignment + team scoring | ✅ |
+| 2.2.3 | Frontend: Team Mode UI (student + teacher) | ✅ |
+| 2.2.4 | Frontend: Space Race визуализация | ✅ |
+| 2.2.5 | Backend: self-paced mode (service + REST) | ✅ |
+| 2.2.6 | Frontend: Self-Paced quiz page | ✅ |
+| 2.2.7 | Teacher: self-paced dashboard | ✅ |
+| 2.2.8 | Backend + Frontend: Quick Question | ✅ |
+| 2.2.9 | Локализация (ru/kk/kz) | ✅ |
 
 ---
 
@@ -339,7 +362,7 @@
 | Вход по коду, speed scoring, 4 цветных варианта | 2.0 | ✅ |
 | Лидерборд, подиум топ-3, QR-код | 2.0 | ✅ |
 | Answer Streak, Shuffle, Accuracy Mode, Звуки | 2.1 | ✅ |
-| Team Mode, Self-Paced Challenge | 2.2 | |
+| Team Mode, Self-Paced Challenge | 2.2 | ✅ |
 | Power-ups, Confidence Mode | 2.4 | |
 
 ### Что берём от Socrative
@@ -348,7 +371,7 @@
 |------|------|--------|
 | Teacher Paced, Exit Ticket, Live Matrix | 2.3 | |
 | Short Answer, Отчёты (XLSX/PDF) | 2.3 | |
-| Space Race, Quick Question | 2.2 | |
+| Space Race, Quick Question | 2.2 | ✅ |
 
 ### Наши уникальные фичи
 
@@ -371,61 +394,74 @@
 backend/
 ├── alembic/versions/
 │   ├── 052_quiz_sessions.py              ← ✅ Фаза 2.0
-│   ├── 053_quiz_teams.py                 ← Фаза 2.2
-│   └── 054_quiz_powerups.py              ← Фаза 2.4
+│   ├── 054_quiz_streak_columns.py        ← ✅ Фаза 2.1
+│   ├── 057_quiz_timestamp_columns.py     ← ✅ Фаза 2.1
+│   ├── 058_quiz_teams_and_modes.py       ← ✅ Фаза 2.2
+│   └── ???_quiz_powerups.py              ← Фаза 2.4
 ├── app/
-│   ├── models/quiz.py                    ← ✅
-│   ├── schemas/quiz.py                   ← ✅
-│   ├── repositories/quiz_repo.py         ← ✅
+│   ├── models/quiz.py                    ← ✅ QuizSession, QuizTeam, QuizParticipant, QuizAnswer
+│   ├── schemas/quiz.py                   ← ✅ classic/team/self_paced/quick_question schemas
+│   ├── repositories/
+│   │   ├── quiz_repo.py                  ← ✅
+│   │   └── quiz_team_repo.py             ← ✅ Фаза 2.2
 │   ├── services/
-│   │   ├── quiz_service.py               ← ✅
+│   │   ├── quiz_service.py               ← ✅ mode-aware create/join
+│   │   ├── quiz_team_service.py          ← ✅ Фаза 2.2
+│   │   ├── quiz_selfpaced_service.py     ← ✅ Фаза 2.2
 │   │   └── quiz_report_service.py        ← Фаза 2.3
 │   └── api/v1/
-│       ├── teachers_quiz.py              ← ✅
-│       ├── students_quiz.py              ← ✅
-│       └── ws_quiz.py                    ← ✅
+│       ├── teachers_quiz.py              ← ✅ +quick-question, student-progress, team-leaderboard
+│       ├── students_quiz.py              ← ✅ +next-question, submit-answer
+│       ├── ws_quiz.py                    ← ✅ +team/quick message routing
+│       └── ws_quiz_handlers.py           ← ✅ Фаза 2.2 (extracted handlers)
 
 student-app/src/
 ├── app/[locale]/webview/
 │   ├── layout.tsx                        ← ✅
-│   └── quiz/page.tsx                     ← ✅
+│   └── quiz/page.tsx                     ← ✅ +team/self_paced/quick states
 ├── components/quiz/
 │   ├── QuizJoinScreen.tsx                ← ✅
-│   ├── QuizLobby.tsx                     ← ✅
-│   ├── QuizQuestion.tsx                  ← ✅
+│   ├── QuizLobby.tsx                     ← ✅ +team badge
+│   ├── QuizQuestion.tsx                  ← ✅ +hideTimer prop
 │   ├── QuizTimer.tsx                     ← ✅
 │   ├── QuizAnswered.tsx                  ← ✅
-│   ├── QuizQuestionResult.tsx            ← ✅
+│   ├── QuizQuestionResult.tsx            ← ✅ +team leaderboard
 │   ├── QuizMiniLeaderboard.tsx           ← ✅
-│   ├── QuizFinished.tsx                  ← ✅
+│   ├── QuizFinished.tsx                  ← ✅ +team results
+│   ├── QuizTeamBadge.tsx                 ← ✅ Фаза 2.2
+│   ├── QuizQuickAnswer.tsx              ← ✅ Фаза 2.2
+│   ├── QuizSelfPacedFeedback.tsx         ← ✅ Фаза 2.2
 │   ├── QuizShortAnswer.tsx               ← Фаза 2.3
-│   ├── QuizPodium.tsx                    ← Фаза 2.4
-│   └── SpaceRaceTrack.tsx                ← Фаза 2.2
+│   └── QuizPodium.tsx                    ← Фаза 2.4
 ├── lib/
-│   ├── api/quiz.ts                       ← ✅
-│   ├── quiz-sounds.ts                    ← ✅ Web Audio API sound manager
+│   ├── api/quiz.ts                       ← ✅ +self-paced endpoints
+│   ├── quiz-sounds.ts                    ← ✅
 │   └── hooks/
 │       ├── use-quiz-websocket.ts         ← ✅
 │       └── use-quiz-sounds.ts            ← ✅
+├── types/quiz.ts                         ← ✅ +team/quick/self-paced types
 
 teacher-app/src/
 ├── app/[locale]/(dashboard)/quiz/
-│   ├── page.tsx                          ← ✅
+│   ├── page.tsx                          ← ✅ +Quick Question button
 │   ├── create/page.tsx                   ← ✅
-│   └── [id]/page.tsx                     ← ✅
+│   ├── [id]/page.tsx                     ← ✅ +mode-based rendering
+│   └── quick/page.tsx                    ← ✅ Фаза 2.2
 ├── components/quiz/
-│   ├── QuizCreateForm.tsx                ← ✅
+│   ├── QuizCreateForm.tsx                ← ✅ +mode selector, team settings
 │   ├── QuizLobbyTeacher.tsx              ← ✅
 │   ├── QuizLiveProgress.tsx              ← ✅
 │   ├── QuizResults.tsx                   ← ✅
+│   ├── SpaceRaceTrack.tsx                ← ✅ Фаза 2.2
+│   ├── QuizSelfPacedProgress.tsx         ← ✅ Фаза 2.2
 │   ├── QuizLiveMatrix.tsx                ← Фаза 2.3
 │   ├── QuizReportDownload.tsx            ← Фаза 2.3
 │   └── QuizAIGenerate.tsx                ← Фаза 2.5
 └── lib/
-    ├── api/quiz.ts                       ← ✅
+    ├── api/quiz.ts                       ← ✅ +quick, progress, team APIs
     └── hooks/
-        ├── use-quiz.ts                   ← ✅
-        └── use-quiz-websocket.ts         ← ✅
+        ├── use-quiz.ts                   ← ✅ +useStudentProgress, useTeamLeaderboard
+        └── use-quiz-websocket.ts         ← ✅ +sendQuickQuestion
 ```
 
 ---

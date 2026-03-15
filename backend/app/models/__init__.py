@@ -104,7 +104,7 @@ from app.models.prerequisite import ParagraphPrerequisite
 from app.models.subscription import SubscriptionPlan, SchoolSubscription, DailyUsageCounter
 
 # Quiz Battle
-from app.models.quiz import QuizSession, QuizParticipant, QuizAnswer, QuizSessionStatus
+from app.models.quiz import QuizSession, QuizParticipant, QuizAnswer, QuizTeam, QuizSessionStatus
 
 # Gamification
 from app.models.gamification import (
@@ -254,5 +254,6 @@ __all__ = [
     "QuizSession",
     "QuizParticipant",
     "QuizAnswer",
+    "QuizTeam",
     "QuizSessionStatus",
 ]

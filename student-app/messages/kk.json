@@ -779,6 +779,10 @@
     "questionOf": "Сұрақ {current} / {total}",
     "waiting": "Күтілуде...",
     "streakBonus": "сериялық бонус",
-    "streak": "қатарынан {count}!"
+    "streak": "қатарынан {count}!",
+    "teamStandings": "Команда рейтингі",
+    "nextQuestion": "Келесі сұрақ",
+    "correct": "Дұрыс!",
+    "incorrect": "Дұрыс емес"
   }
 }

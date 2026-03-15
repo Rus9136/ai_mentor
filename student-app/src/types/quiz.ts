@@ -1,4 +1,4 @@
-// Quiz Battle types
+// Quiz Battle types — supports classic, team, self-paced, quick question modes
 
 export enum QuizState {
   JOIN = 'join',
@@ -7,6 +7,12 @@ export enum QuizState {
   ANSWERED = 'answered',
   RESULT = 'result',
   FINISHED = 'finished',
+  // Self-paced states
+  SELF_PACED_QUESTION = 'self_paced_question',
+  SELF_PACED_FEEDBACK = 'self_paced_feedback',
+  // Quick question states
+  QUICK_ANSWER = 'quick_answer',
+  QUICK_WAITING = 'quick_waiting',
 }
 
 // ── WebSocket messages (server → client) ──
@@ -18,7 +24,7 @@ export interface WsParticipantJoined {
 
 export interface WsQuizStarted {
   type: 'quiz_started';
-  data: { total_questions: number };
+  data: { total_questions: number; mode?: string };
 }
 
 export interface WsQuestion {
@@ -65,6 +71,33 @@ export interface WsError {
   data: { message: string };
 }
 
+// Team mode messages
+export interface WsTeamAssigned {
+  type: 'team_assigned';
+  data: { team_id: number; team_name: string; team_color: string };
+}
+
+export interface WsTeamLeaderboard {
+  type: 'team_leaderboard';
+  data: { teams: TeamEntry[] };
+}
+
+// Quick question messages
+export interface WsQuickQuestion {
+  type: 'quick_question';
+  data: { question_text: string; options: string[] };
+}
+
+export interface WsQuickAnswerAccepted {
+  type: 'quick_answer_accepted';
+  data: { selected_option: number };
+}
+
+export interface WsQuickQuestionEnd {
+  type: 'quick_question_end';
+  data: { responses: Record<string, number>; total: number };
+}
+
 export type WsServerMessage =
   | WsParticipantJoined
   | WsQuizStarted
@@ -72,7 +105,12 @@ export type WsServerMessage =
   | WsAnswerAccepted
   | WsQuestionResult
   | WsQuizFinished
-  | WsError;
+  | WsError
+  | WsTeamAssigned
+  | WsTeamLeaderboard
+  | WsQuickQuestion
+  | WsQuickAnswerAccepted
+  | WsQuickQuestionEnd;
 
 // ── Client → Server ──
 
@@ -85,6 +123,7 @@ export interface WsAnswer {
 
 export interface QuizFinishedData {
   leaderboard: LeaderboardEntry[];
+  team_leaderboard?: TeamEntry[];
   your_rank: number | null;
   your_score: number;
   your_correct: number;
@@ -101,9 +140,43 @@ export interface LeaderboardEntry {
   xp_earned?: number;
 }
 
+export interface TeamEntry {
+  id: number;
+  name: string;
+  color: string;
+  total_score: number;
+  correct_answers: number;
+  member_count: number;
+  rank?: number;
+}
+
 export interface JoinQuizResponse {
   quiz_session_id: number;
   ws_url: string;
   status: string;
   participant_count: number;
+  mode?: string;
+  team_id?: number;
+  team_name?: string;
+  team_color?: string;
+}
+
+// ── Self-paced types ──
+
+export interface SelfPacedNextQuestion {
+  question: QuizQuestionData;
+  answered_count: number;
+  total_questions: number;
+  is_last: boolean;
+}
+
+export interface SelfPacedAnswerResult {
+  is_correct: boolean;
+  correct_option: number;
+  score: number;
+  total_score: number;
+  correct_answers: number;
+  answered_count: number;
+  total_questions: number;
+  is_finished: boolean;
 }

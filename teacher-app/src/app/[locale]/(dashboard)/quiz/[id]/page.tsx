@@ -9,6 +9,8 @@ import { Loader2 } from 'lucide-react';
 import QuizLobbyTeacher from '@/components/quiz/QuizLobbyTeacher';
 import QuizLiveProgress from '@/components/quiz/QuizLiveProgress';
 import QuizResults from '@/components/quiz/QuizResults';
+import QuizSelfPacedProgress from '@/components/quiz/QuizSelfPacedProgress';
+import SpaceRaceTrack from '@/components/quiz/SpaceRaceTrack';
 
 interface Params {
   id: string;
@@ -20,7 +22,7 @@ export default function QuizDetailPage({ params }: { params: Promise<Params> }) 
   const t = useTranslations('quiz');
 
   const { data: session, isLoading } = useQuizSession(sessionId);
-  const { data: results } = useQuizResults(sessionId);
+  const { data: results } = useQuizResults(sessionId, session?.status);
   const startQuiz = useStartQuiz();
   const cancelQuiz = useCancelQuiz();
 
@@ -100,21 +102,48 @@ export default function QuizDetailPage({ params }: { params: Promise<Params> }) 
   }
 
   if (status === 'in_progress') {
+    const mode = session.settings?.mode || 'classic';
+
+    // Self-paced mode: show student progress dashboard
+    if (mode === 'self_paced') {
+      return (
+        <QuizSelfPacedProgress
+          sessionId={sessionId}
+          totalQuestions={session.question_count}
+          onEndQuiz={handleEndQuiz}
+        />
+      );
+    }
+
     const students = (session.participants || []).map((p: Record<string, unknown>) => ({
       student_name: p.student_name as string,
-      answered: false, // Updated via WS in real usage
+      answered: false,
     }));
 
+    // Team mode with space race
+    const showSpaceRace = mode === 'team' && session.settings?.show_space_race;
+    const teamProgress = (lastMessage?.type === 'team_progress'
+      ? (lastMessage.data as { teams: Array<{ id: number; name: string; color: string; correct_answers: number; total_score: number }> }).teams
+      : session.teams?.map((t: { id: number; name: string; color: string; total_score: number; correct_answers: number }) => ({
+          id: t.id, name: t.name, color: t.color, correct_answers: t.correct_answers, total_score: t.total_score,
+        }))
+    ) || [];
+
     return (
-      <QuizLiveProgress
-        currentQuestion={currentQuestion}
-        totalQuestions={session.question_count}
-        answeredCount={answeredCount}
-        totalParticipants={participantCount}
-        students={students}
-        onNextQuestion={sendNextQuestion}
-        onEndQuiz={handleEndQuiz}
-      />
+      <div className="space-y-6">
+        {showSpaceRace && teamProgress.length > 0 && (
+          <SpaceRaceTrack teams={teamProgress} totalQuestions={session.question_count} />
+        )}
+        <QuizLiveProgress
+          currentQuestion={currentQuestion}
+          totalQuestions={session.question_count}
+          answeredCount={answeredCount}
+          totalParticipants={participantCount}
+          students={students}
+          onNextQuestion={sendNextQuestion}
+          onEndQuiz={handleEndQuiz}
+        />
+      </div>
     );
   }
 

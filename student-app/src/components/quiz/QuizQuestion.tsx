@@ -12,6 +12,7 @@ interface QuizQuestionProps {
   onAnswer: (selectedOption: number, answerTimeMs: number) => void;
   onTimerTick?: () => void;
   onTimeUp?: () => void;
+  hideTimer?: boolean;
 }
 
 const OPTION_COLORS = [
@@ -23,7 +24,7 @@ const OPTION_COLORS = [
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
 
-export default function QuizQuestion({ question, questionNumber, totalQuestions, onAnswer, onTimerTick, onTimeUp }: QuizQuestionProps) {
+export default function QuizQuestion({ question, questionNumber, totalQuestions, onAnswer, onTimerTick, onTimeUp, hideTimer }: QuizQuestionProps) {
   const t = useTranslations('quiz');
   const [selected, setSelected] = useState<number | null>(null);
   const startTime = useRef(Date.now());
@@ -50,7 +51,7 @@ export default function QuizQuestion({ question, questionNumber, totalQuestions,
         <span className="text-sm font-medium text-muted-foreground">
           {t('questionOf', { current: questionNumber, total: totalQuestions })}
         </span>
-        <QuizTimer totalMs={question.time_limit_ms} onExpire={handleExpire} onUrgentTick={onTimerTick} />
+        {!hideTimer && <QuizTimer totalMs={question.time_limit_ms} onExpire={handleExpire} onUrgentTick={onTimerTick} />}
       </div>
 
       {/* Question text */}

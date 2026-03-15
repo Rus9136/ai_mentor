@@ -1,9 +1,9 @@
 'use client';
 
-import { useReducer, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useReducer, useEffect, useCallback, useRef, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Volume2, VolumeX } from 'lucide-react';
-import { joinQuiz } from '@/lib/api/quiz';
+import { joinQuiz, getNextQuestion, submitSelfPacedAnswer } from '@/lib/api/quiz';
 import { useQuizWebSocket } from '@/lib/hooks/use-quiz-websocket';
 import { useQuizSounds } from '@/lib/hooks/use-quiz-sounds';
 import { QuizState } from '@/types/quiz';
@@ -11,7 +11,9 @@ import type {
   QuizQuestionData,
   QuizFinishedData,
   LeaderboardEntry,
+  TeamEntry,
   WsServerMessage,
+  SelfPacedAnswerResult,
 } from '@/types/quiz';
 
 import QuizJoinScreen from '@/components/quiz/QuizJoinScreen';
@@ -20,6 +22,8 @@ import QuizQuestion from '@/components/quiz/QuizQuestion';
 import QuizAnswered from '@/components/quiz/QuizAnswered';
 import QuizQuestionResult from '@/components/quiz/QuizQuestionResult';
 import QuizFinished from '@/components/quiz/QuizFinished';
+import QuizSelfPacedFeedback from '@/components/quiz/QuizSelfPacedFeedback';
+import QuizQuickAnswer from '@/components/quiz/QuizQuickAnswer';
 
 // ── State ──
 
@@ -27,6 +31,7 @@ interface QuizPageState {
   quizState: QuizState;
   joinCode: string | null;
   sessionId: number | null;
+  mode: string;
   participantCount: number;
   totalQuestions: number;
   currentQuestion: QuizQuestionData | null;
@@ -40,18 +45,32 @@ interface QuizPageState {
   resultLeaderboard: LeaderboardEntry[];
   finishedData: QuizFinishedData | null;
   error: string | null;
+  // Team mode
+  teamName: string | null;
+  teamColor: string | null;
+  teamLeaderboard: TeamEntry[];
+  // Quick question
+  quickQuestionText: string | null;
+  quickQuestionOptions: string[];
+  // Self-paced
+  selfPacedFeedback: SelfPacedAnswerResult | null;
 }
 
 type QuizAction =
-  | { type: 'JOIN_SUCCESS'; joinCode: string; sessionId: number; participantCount: number }
+  | { type: 'JOIN_SUCCESS'; joinCode: string; sessionId: number; participantCount: number; mode?: string; teamName?: string; teamColor?: string }
   | { type: 'WS_MESSAGE'; msg: WsServerMessage }
   | { type: 'ANSWER_SUBMITTED' }
+  | { type: 'SELF_PACED_QUESTION'; question: QuizQuestionData; answeredCount: number; totalQuestions: number }
+  | { type: 'SELF_PACED_FEEDBACK'; result: SelfPacedAnswerResult }
+  | { type: 'SELF_PACED_FINISHED' }
+  | { type: 'QUICK_ANSWERED' }
   | { type: 'ERROR'; error: string };
 
 const initialState: QuizPageState = {
   quizState: QuizState.JOIN,
   joinCode: null,
   sessionId: null,
+  mode: 'classic',
   participantCount: 0,
   totalQuestions: 0,
   currentQuestion: null,
@@ -65,6 +84,12 @@ const initialState: QuizPageState = {
   resultLeaderboard: [],
   finishedData: null,
   error: null,
+  teamName: null,
+  teamColor: null,
+  teamLeaderboard: [],
+  quickQuestionText: null,
+  quickQuestionOptions: [],
+  selfPacedFeedback: null,
 };
 
 function reducer(state: QuizPageState, action: QuizAction): QuizPageState {
@@ -76,11 +101,36 @@ function reducer(state: QuizPageState, action: QuizAction): QuizPageState {
         joinCode: action.joinCode,
         sessionId: action.sessionId,
         participantCount: action.participantCount,
+        mode: action.mode || 'classic',
+        teamName: action.teamName || null,
+        teamColor: action.teamColor || null,
         error: null,
       };
 
     case 'ANSWER_SUBMITTED':
       return { ...state, quizState: QuizState.ANSWERED, answerScore: null, answerCorrect: null };
+
+    case 'SELF_PACED_QUESTION':
+      return {
+        ...state,
+        quizState: QuizState.SELF_PACED_QUESTION,
+        currentQuestion: action.question,
+        lastOptions: action.question.options,
+        totalQuestions: action.totalQuestions,
+      };
+
+    case 'SELF_PACED_FEEDBACK':
+      return {
+        ...state,
+        quizState: QuizState.SELF_PACED_FEEDBACK,
+        selfPacedFeedback: action.result,
+      };
+
+    case 'SELF_PACED_FINISHED':
+      return { ...state, quizState: QuizState.FINISHED };
+
+    case 'QUICK_ANSWERED':
+      return { ...state, quizState: QuizState.QUICK_WAITING };
 
     case 'ERROR':
       return { ...state, error: action.error };
@@ -129,6 +179,38 @@ function reducer(state: QuizPageState, action: QuizAction): QuizPageState {
             finishedData: msg.data,
           };
 
+        case 'team_assigned':
+          return {
+            ...state,
+            teamName: msg.data.team_name,
+            teamColor: msg.data.team_color,
+          };
+
+        case 'team_leaderboard':
+          return {
+            ...state,
+            teamLeaderboard: msg.data.teams,
+          };
+
+        case 'quick_question':
+          return {
+            ...state,
+            quizState: QuizState.QUICK_ANSWER,
+            quickQuestionText: msg.data.question_text,
+            quickQuestionOptions: msg.data.options,
+          };
+
+        case 'quick_answer_accepted':
+          return { ...state, quizState: QuizState.QUICK_WAITING };
+
+        case 'quick_question_end':
+          return {
+            ...state,
+            quizState: QuizState.LOBBY,
+            quickQuestionText: null,
+            quickQuestionOptions: [],
+          };
+
         case 'error':
           return { ...state, error: msg.data.message };
 
@@ -159,6 +241,7 @@ function QuizPageInner() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const { lastMessage, send } = useQuizWebSocket(state.joinCode);
   const { play, muted, toggleMute } = useQuizSounds();
+  const [selfPacedLoading, setSelfPacedLoading] = useState(false);
 
   // ── Sound triggers on state transitions ──
   const prevQuizState = useRef(QuizState.JOIN);
@@ -173,6 +256,7 @@ function QuizPageInner() {
         play('lobby');
         break;
       case QuizState.QUESTION:
+      case QuizState.SELF_PACED_QUESTION:
         play('questionAppear');
         break;
       case QuizState.RESULT:
@@ -206,6 +290,14 @@ function QuizPageInner() {
     }
   }, [lastMessage]);
 
+  // Self-paced: fetch first question after quiz_started
+  useEffect(() => {
+    if (state.mode === 'self_paced' && state.totalQuestions > 0 && state.quizState === QuizState.LOBBY && state.sessionId) {
+      fetchNextSelfPacedQuestion();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.totalQuestions, state.mode]);
+
   // Auto-join from URL code
   useEffect(() => {
     if (initialCode && state.quizState === QuizState.JOIN) {
@@ -222,6 +314,9 @@ function QuizPageInner() {
         joinCode: code,
         sessionId: result.quiz_session_id,
         participantCount: result.participant_count,
+        mode: result.mode,
+        teamName: result.team_name,
+        teamColor: result.team_color,
       });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Failed to join';
@@ -245,6 +340,60 @@ function QuizPageInner() {
     [state.currentQuestion, send],
   );
 
+  // ── Self-paced handlers ──
+
+  const fetchNextSelfPacedQuestion = async () => {
+    if (!state.sessionId) return;
+    setSelfPacedLoading(true);
+    try {
+      const data = await getNextQuestion(state.sessionId);
+      dispatch({
+        type: 'SELF_PACED_QUESTION',
+        question: data.question,
+        answeredCount: data.answered_count,
+        totalQuestions: data.total_questions,
+      });
+    } catch {
+      dispatch({ type: 'SELF_PACED_FINISHED' });
+    } finally {
+      setSelfPacedLoading(false);
+    }
+  };
+
+  const handleSelfPacedAnswer = async (selectedOption: number) => {
+    if (!state.sessionId || !state.currentQuestion) return;
+    setSelfPacedLoading(true);
+    try {
+      const result = await submitSelfPacedAnswer(
+        state.sessionId,
+        state.currentQuestion.index,
+        selectedOption,
+      );
+      if (result.is_correct) play('correct');
+      else play('incorrect');
+      dispatch({ type: 'SELF_PACED_FEEDBACK', result });
+    } catch (e: unknown) {
+      dispatch({ type: 'ERROR', error: e instanceof Error ? e.message : 'Error submitting answer' });
+    } finally {
+      setSelfPacedLoading(false);
+    }
+  };
+
+  const handleSelfPacedNext = () => {
+    if (state.selfPacedFeedback?.is_finished) {
+      dispatch({ type: 'SELF_PACED_FINISHED' });
+    } else {
+      fetchNextSelfPacedQuestion();
+    }
+  };
+
+  // ── Quick question handler ──
+
+  const handleQuickAnswer = (selectedOption: number) => {
+    send({ type: 'quick_answer', data: { selected_option: selectedOption } });
+    dispatch({ type: 'QUICK_ANSWERED' });
+  };
+
   // ── Render ──
 
   const muteButton = state.quizState !== QuizState.JOIN && (
@@ -263,7 +412,13 @@ function QuizPageInner() {
         return <QuizJoinScreen onJoin={handleJoin} initialCode={initialCode} />;
 
       case QuizState.LOBBY:
-        return <QuizLobby participantCount={state.participantCount} />;
+        return (
+          <QuizLobby
+            participantCount={state.participantCount}
+            teamName={state.teamName}
+            teamColor={state.teamColor}
+          />
+        );
 
       case QuizState.QUESTION:
         return state.currentQuestion ? (
@@ -294,11 +449,53 @@ function QuizPageInner() {
             stats={state.resultStats}
             options={state.lastOptions}
             leaderboardTop5={state.resultLeaderboard}
+            teamLeaderboard={state.teamLeaderboard}
           />
         );
 
       case QuizState.FINISHED:
         return state.finishedData ? <QuizFinished data={state.finishedData} /> : null;
+
+      // Self-paced states
+      case QuizState.SELF_PACED_QUESTION:
+        return state.currentQuestion ? (
+          <QuizQuestion
+            question={state.currentQuestion}
+            questionNumber={state.currentQuestion.index + 1}
+            totalQuestions={state.totalQuestions}
+            onAnswer={(opt) => handleSelfPacedAnswer(opt)}
+            hideTimer
+          />
+        ) : null;
+
+      case QuizState.SELF_PACED_FEEDBACK:
+        return state.selfPacedFeedback ? (
+          <QuizSelfPacedFeedback
+            result={state.selfPacedFeedback}
+            options={state.lastOptions}
+            onNext={handleSelfPacedNext}
+            loading={selfPacedLoading}
+          />
+        ) : null;
+
+      // Quick question states
+      case QuizState.QUICK_ANSWER:
+        return state.quickQuestionText ? (
+          <QuizQuickAnswer
+            questionText={state.quickQuestionText}
+            options={state.quickQuestionOptions}
+            onAnswer={handleQuickAnswer}
+          />
+        ) : null;
+
+      case QuizState.QUICK_WAITING:
+        return (
+          <div className="flex min-h-dvh flex-col items-center justify-center px-4 text-center">
+            <div className="mb-4 text-4xl">✓</div>
+            <p className="text-lg font-medium text-foreground">Ответ принят</p>
+            <p className="mt-2 text-sm text-muted-foreground">Ожидайте следующий вопрос...</p>
+          </div>
+        );
 
       default:
         return null;

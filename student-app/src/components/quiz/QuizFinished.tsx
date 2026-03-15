@@ -55,6 +55,25 @@ export default function QuizFinished({ data }: QuizFinishedProps) {
         </p>
       </div>
 
+      {/* Team leaderboard (if team mode) */}
+      {data.team_leaderboard && data.team_leaderboard.length > 0 && (
+        <div className="mb-6 w-full max-w-sm">
+          <h3 className="mb-3 text-sm font-semibold text-muted-foreground">{t('teamStandings')}</h3>
+          <div className="space-y-2">
+            {data.team_leaderboard.map((team, i) => (
+              <div key={team.id} className="flex items-center justify-between rounded-xl px-4 py-3 bg-card">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-bold text-muted-foreground">#{i + 1}</span>
+                  <span className="h-4 w-4 rounded-full" style={{ backgroundColor: team.color }} />
+                  <span className="font-medium text-foreground">{team.name}</span>
+                </div>
+                <span className="font-bold text-foreground">{team.total_score}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Full leaderboard */}
       <div className="w-full max-w-sm">
         <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">

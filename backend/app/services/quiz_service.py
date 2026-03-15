@@ -54,10 +54,34 @@ class QuizService:
         self,
         teacher_id: int,
         school_id: int,
-        test_id: int,
+        test_id: Optional[int] = None,
         class_id: Optional[int] = None,
         settings: Optional[QuizSessionSettings] = None,
     ) -> QuizSession:
+        settings_obj = settings or QuizSessionSettings()
+        mode = settings_obj.mode
+
+        # Quick question mode: no test needed
+        if mode == "quick_question":
+            join_code = await self.generate_join_code()
+            settings_dict = settings_obj.model_dump()
+            session = await self.repo.create_session(
+                school_id=school_id,
+                teacher_id=teacher_id,
+                test_id=None,
+                class_id=class_id,
+                join_code=join_code,
+                question_count=0,
+                settings=settings_dict,
+            )
+            await self.db.commit()
+            logger.info(f"Quick question session {session.id} created with code {join_code}")
+            return session
+
+        # All other modes require a test
+        if not test_id:
+            raise ValueError("test_id is required for this mode")
+
         # Load test with questions
         result = await self.db.execute(
             select(Test)
@@ -77,7 +101,11 @@ class QuizService:
             raise ValueError("Test has no single-choice questions")
 
         join_code = await self.generate_join_code()
-        settings_dict = (settings or QuizSessionSettings()).model_dump()
+        settings_dict = settings_obj.model_dump()
+
+        # Self-paced mode forces accuracy scoring
+        if mode == "self_paced":
+            settings_dict["scoring_mode"] = "accuracy"
 
         session = await self.repo.create_session(
             school_id=school_id,
@@ -88,9 +116,16 @@ class QuizService:
             question_count=len(questions),
             settings=settings_dict,
         )
+
+        # Team mode: create teams
+        if mode == "team":
+            from app.services.quiz_team_service import QuizTeamService
+            team_service = QuizTeamService(self.db)
+            team_count = settings_obj.team_count or 2
+            await team_service.create_teams(session.id, school_id, team_count)
+
         await self.db.commit()
-        await self.db.refresh(session)
-        logger.info(f"Quiz session {session.id} created with code {join_code}, {len(questions)} questions")
+        logger.info(f"Quiz session {session.id} created with code {join_code}, {len(questions)} questions, mode={mode}")
         return session
 
     async def join_session(self, join_code: str, student_id: int, school_id: int) -> dict:
@@ -102,11 +137,31 @@ class QuizService:
         if session.school_id != school_id:
             raise ValueError("Quiz belongs to a different school")
 
+        mode = session.mode
+
         # Idempotent: check if already joined
         existing = await self.repo.get_participant(session.id, student_id)
+        team_info = {}
         if not existing:
-            await self.repo.add_participant(session.id, student_id, school_id)
+            participant = await self.repo.add_participant(session.id, student_id, school_id)
+
+            # Team mode: auto-assign to team
+            if mode == "team":
+                from app.services.quiz_team_service import QuizTeamService
+                team_service = QuizTeamService(self.db)
+                team = await team_service.assign_to_team(session.id, participant.id)
+                if team:
+                    team_info = {"team_id": team.id, "team_name": team.name, "team_color": team.color}
+
             await self.db.commit()
+        else:
+            # Already joined — get team info if team mode
+            if mode == "team" and existing.team_id:
+                from app.repositories.quiz_team_repo import QuizTeamRepository
+                team_repo = QuizTeamRepository(self.db)
+                team = await team_repo.get_team_by_id(existing.team_id)
+                if team:
+                    team_info = {"team_id": team.id, "team_name": team.name, "team_color": team.color}
 
         participant_count = await self.repo.get_participant_count(session.id)
         return {
@@ -114,6 +169,8 @@ class QuizService:
             "join_code": session.join_code,
             "status": session.status.value if isinstance(session.status, QuizSessionStatus) else session.status,
             "participant_count": participant_count,
+            "mode": mode,
+            **team_info,
         }
 
     async def start_session(self, session_id: int, teacher_id: int) -> QuizSession:
@@ -298,13 +355,13 @@ class QuizService:
 
         await self.db.commit()
 
-        # Refresh to get updated total
-        await self.db.refresh(participant)
+        # Compute total from known values (avoid refresh which may fail with RLS)
+        new_total = (participant.total_score or 0) + score + streak_bonus
         return {
             "is_correct": is_correct,
             "score": score,
             "streak_bonus": streak_bonus,
-            "total_score": participant.total_score,
+            "total_score": new_total,
             "current_streak": new_streak,
             "max_streak": new_max,
             "already_answered": False,

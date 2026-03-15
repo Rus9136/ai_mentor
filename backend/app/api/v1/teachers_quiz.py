@@ -13,6 +13,8 @@ from app.api.dependencies import get_teacher_from_user, get_current_user_school_
 from app.models.teacher import Teacher
 from app.models.test import Test, Question, QuestionType
 from app.services.quiz_service import QuizService
+from app.services.quiz_team_service import QuizTeamService
+from app.services.quiz_selfpaced_service import QuizSelfPacedService
 from app.schemas.quiz import (
     QuizSessionCreate,
     QuizSessionResponse,
@@ -20,6 +22,9 @@ from app.schemas.quiz import (
     QuizParticipantResponse,
     QuizResultsResponse,
     QuizTestInfo,
+    QuizTeamResponse,
+    QuickQuestionCreate,
+    StudentProgressItem,
 )
 
 logger = logging.getLogger(__name__)
@@ -208,6 +213,27 @@ async def start_quiz(
         session = await service.start_session(session_id, teacher.id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    # Broadcast quiz_started via WebSocket
+    from app.api.v1.ws_quiz import manager
+
+    mode = session.mode
+    await manager.broadcast_to_all(session.join_code, {
+        "type": "quiz_started",
+        "data": {"total_questions": session.question_count, "mode": mode},
+    })
+
+    # Self-paced: don't send first question (students fetch via REST)
+    if mode != "self_paced" and mode != "quick_question" and session.test_id:
+        first_question = await service._load_question(
+            session.test_id, 0, session.settings, session.id,
+        )
+        if first_question:
+            await manager.broadcast_to_all(session.join_code, {
+                "type": "question",
+                "data": first_question.model_dump(),
+            })
+
     return {"status": "in_progress", "message": "Quiz started"}
 
 
@@ -260,9 +286,101 @@ async def get_quiz_results(
     total_participants = len(leaderboard)
     avg_score = sum(p.total_score for p in leaderboard) / total_participants if total_participants else 0
 
+    # Team leaderboard (if team mode)
+    team_leaderboard = []
+    if session.mode == "team":
+        team_service = QuizTeamService(db)
+        team_leaderboard = await team_service.get_team_leaderboard(session_id)
+
     return QuizResultsResponse(
         quiz_session_id=session_id,
         total_questions=session.question_count,
         leaderboard=leaderboard,
+        team_leaderboard=team_leaderboard,
         stats={"average_score": round(avg_score), "total_participants": total_participants},
     )
+
+
+@router.post("/quick-question", response_model=QuizSessionResponse, status_code=status.HTTP_201_CREATED)
+async def create_quick_question(
+    data: QuickQuestionCreate,
+    teacher: Teacher = Depends(get_teacher_from_user),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a quick question session (no test needed, in-memory answers)."""
+    from app.schemas.quiz import QuizSessionSettings
+
+    settings = QuizSessionSettings(
+        mode="quick_question",
+        time_per_question_ms=data.time_per_question_ms,
+    )
+    service = QuizService(db)
+    try:
+        session = await service.create_session(
+            teacher_id=teacher.id,
+            school_id=school_id,
+            test_id=None,
+            class_id=data.class_id,
+            settings=settings,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    return QuizSessionResponse(
+        id=session.id,
+        school_id=session.school_id,
+        teacher_id=session.teacher_id,
+        class_id=session.class_id,
+        test_id=session.test_id,
+        join_code=session.join_code,
+        status=session.status.value if hasattr(session.status, 'value') else session.status,
+        settings=session.settings,
+        question_count=session.question_count,
+        current_question_index=session.current_question_index,
+        participant_count=0,
+        started_at=session.started_at,
+        finished_at=session.finished_at,
+        created_at=session.created_at,
+    )
+
+
+@router.get("/{session_id}/student-progress", response_model=list[StudentProgressItem])
+async def get_student_progress(
+    session_id: int,
+    teacher: Teacher = Depends(get_teacher_from_user),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get per-student progress for self-paced quiz."""
+    service = QuizService(db)
+    session = await service.repo.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.teacher_id != teacher.id:
+        raise HTTPException(status_code=403, detail="Not the session owner")
+
+    selfpaced_service = QuizSelfPacedService(db)
+    progress = await selfpaced_service.get_all_student_progress(session_id)
+    return [StudentProgressItem(**p) for p in progress]
+
+
+@router.get("/{session_id}/team-leaderboard", response_model=list[QuizTeamResponse])
+async def get_team_leaderboard(
+    session_id: int,
+    teacher: Teacher = Depends(get_teacher_from_user),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get team leaderboard for team mode quiz."""
+    service = QuizService(db)
+    session = await service.repo.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.teacher_id != teacher.id:
+        raise HTTPException(status_code=403, detail="Not the session owner")
+    if session.mode != "team":
+        raise HTTPException(status_code=400, detail="Not a team mode session")
+
+    team_service = QuizTeamService(db)
+    return await team_service.get_team_leaderboard(session_id)

@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import type { LeaderboardEntry } from '@/types/quiz';
+import type { LeaderboardEntry, TeamEntry } from '@/types/quiz';
 import QuizMiniLeaderboard from './QuizMiniLeaderboard';
 
 interface QuizQuestionResultProps {
@@ -9,12 +9,13 @@ interface QuizQuestionResultProps {
   stats: Record<string, number>;
   options: string[];
   leaderboardTop5: LeaderboardEntry[];
+  teamLeaderboard?: TeamEntry[];
 }
 
 const BAR_COLORS = ['bg-red-500', 'bg-blue-500', 'bg-amber-500', 'bg-green-500'];
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
 
-export default function QuizQuestionResult({ correctOption, stats, options, leaderboardTop5 }: QuizQuestionResultProps) {
+export default function QuizQuestionResult({ correctOption, stats, options, leaderboardTop5, teamLeaderboard }: QuizQuestionResultProps) {
   const t = useTranslations('quiz');
   const maxCount = Math.max(1, ...Object.values(stats));
 
@@ -49,6 +50,22 @@ export default function QuizQuestionResult({ correctOption, stats, options, lead
           );
         })}
       </div>
+
+      {/* Team leaderboard (if team mode) */}
+      {teamLeaderboard && teamLeaderboard.length > 0 && (
+        <div className="mb-4 w-full max-w-sm space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground">{t('teamStandings')}</h3>
+          {teamLeaderboard.map((team, i) => (
+            <div key={team.id} className="flex items-center justify-between rounded-lg px-3 py-2 bg-card">
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: team.color }} />
+                <span className="text-sm font-medium">{team.name}</span>
+              </div>
+              <span className="text-sm font-bold">{team.total_score}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Mini leaderboard */}
       <QuizMiniLeaderboard entries={leaderboardTop5} />

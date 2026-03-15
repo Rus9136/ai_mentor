@@ -31,6 +31,9 @@ export default function QuizCreateForm() {
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [shuffleAnswers, setShuffleAnswers] = useState(false);
   const [scoringMode, setScoringMode] = useState<'speed' | 'accuracy'>('speed');
+  const [mode, setMode] = useState<'classic' | 'team' | 'self_paced'>('classic');
+  const [teamCount, setTeamCount] = useState(2);
+  const [showSpaceRace, setShowSpaceRace] = useState(false);
 
   const { data: classes } = useClasses();
   const { data: textbooks } = useQuery({ queryKey: ['textbooks'], queryFn: getTextbooks });
@@ -61,7 +64,9 @@ export default function QuizCreateForm() {
           time_per_question_ms: timeMs,
           shuffle_questions: shuffleQuestions,
           shuffle_answers: shuffleAnswers,
-          scoring_mode: scoringMode,
+          scoring_mode: mode === 'self_paced' ? 'accuracy' : scoringMode,
+          mode,
+          ...(mode === 'team' ? { team_count: teamCount, show_space_race: showSpaceRace } : {}),
         },
       });
       router.push(`/quiz/${result.id}`);
@@ -167,8 +172,51 @@ export default function QuizCreateForm() {
         </div>
       )}
 
-      {/* Time */}
+      {/* Game Mode */}
       {testId && (
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">{t('gameMode')}</label>
+          <select
+            className={selectClass}
+            value={mode}
+            onChange={(e) => setMode(e.target.value as 'classic' | 'team' | 'self_paced')}
+          >
+            <option value="classic">{t('classicMode')}</option>
+            <option value="team">{t('teamMode')}</option>
+            <option value="self_paced">{t('selfPacedMode')}</option>
+          </select>
+        </div>
+      )}
+
+      {/* Team settings */}
+      {testId && mode === 'team' && (
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">{t('teamCount')}</label>
+            <select
+              className={selectClass}
+              value={teamCount}
+              onChange={(e) => setTeamCount(Number(e.target.value))}
+            >
+              {[2, 3, 4, 5, 6].map((n) => (
+                <option key={n} value={n}>{n} {t('teams')}</option>
+              ))}
+            </select>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={showSpaceRace}
+              onChange={(e) => setShowSpaceRace(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <span className="text-sm">{t('showSpaceRace')}</span>
+          </label>
+        </div>
+      )}
+
+      {/* Time */}
+      {testId && mode !== 'self_paced' && (
         <div>
           <label className="mb-1.5 block text-sm font-medium">{t('timePerQuestion')}</label>
           <select className={selectClass} value={timeMs} onChange={(e) => setTimeMs(Number(e.target.value))}>

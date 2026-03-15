@@ -7,7 +7,11 @@ import {
   cancelQuiz,
   getQuizResults,
   getTestsForQuiz,
+  getStudentProgress,
+  getTeamLeaderboard,
+  createQuickQuestion,
   type QuizSessionCreate,
+  type QuickQuestionCreate,
 } from '@/lib/api/quiz';
 
 export const quizKeys = {
@@ -18,6 +22,8 @@ export const quizKeys = {
   detail: (id: number) => [...quizKeys.details(), id] as const,
   results: (id: number) => [...quizKeys.all, 'results', id] as const,
   tests: (params?: Record<string, unknown>) => [...quizKeys.all, 'tests', params] as const,
+  studentProgress: (id: number) => [...quizKeys.all, 'student-progress', id] as const,
+  teamLeaderboard: (id: number) => [...quizKeys.all, 'team-leaderboard', id] as const,
 };
 
 export function useQuizSessions(params?: { status?: string }) {
@@ -36,11 +42,11 @@ export function useQuizSession(sessionId: number) {
   });
 }
 
-export function useQuizResults(sessionId: number) {
+export function useQuizResults(sessionId: number, status?: string) {
   return useQuery({
     queryKey: quizKeys.results(sessionId),
     queryFn: () => getQuizResults(sessionId),
-    enabled: sessionId > 0,
+    enabled: sessionId > 0 && status === 'finished',
   });
 }
 
@@ -78,6 +84,34 @@ export function useCancelQuiz() {
     mutationFn: (sessionId: number) => cancelQuiz(sessionId),
     onSuccess: (_, sessionId) => {
       queryClient.invalidateQueries({ queryKey: quizKeys.detail(sessionId) });
+      queryClient.invalidateQueries({ queryKey: quizKeys.lists() });
+    },
+  });
+}
+
+export function useStudentProgress(sessionId: number) {
+  return useQuery({
+    queryKey: quizKeys.studentProgress(sessionId),
+    queryFn: () => getStudentProgress(sessionId),
+    enabled: sessionId > 0,
+    refetchInterval: 5000,
+  });
+}
+
+export function useTeamLeaderboard(sessionId: number) {
+  return useQuery({
+    queryKey: quizKeys.teamLeaderboard(sessionId),
+    queryFn: () => getTeamLeaderboard(sessionId),
+    enabled: sessionId > 0,
+    refetchInterval: 5000,
+  });
+}
+
+export function useCreateQuickQuestion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: QuickQuestionCreate) => createQuickQuestion(data),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: quizKeys.lists() });
     },
   });
