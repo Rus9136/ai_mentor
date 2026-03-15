@@ -42,7 +42,7 @@
 | Страница /gamification (4 таба) | `src/app/[locale]/(app)/gamification/page.tsx` | ✅ |
 | Навигация (sidebar + bottom nav) | `AppSidebar.tsx`, `MobileBottomNav.tsx` | ✅ |
 | Локализация (ru + kk) | `messages/ru.json`, `messages/kk.json` | ✅ |
-| Teacher-app: лидерборд класса | — | ❌ (Фаза 1.11, отложено) |
+| Teacher-app: лидерборд класса | `teacher-app/src/components/gamification/ClassLeaderboard.tsx` | ✅ |
 
 ### 1.1 API-клиент (student-app)
 
@@ -623,7 +623,7 @@ teacher-app/src/
 | 1.8 | `AchievementPopup` (polling recent) | 1.1 | ✅ |
 | 1.9 | Навигация (sidebar + bottom nav) | 1.1, 1.2 | ✅ |
 | 1.10 | Локализация (ru + kk) | 1.3-1.9 | ✅ |
-| 1.11 | Teacher-app: лидерборд класса | — | ❌ отложено |
+| 1.11 | Teacher-app: лидерборд класса | — | ✅ |
 
 ### Фаза 2 — Живые квизы
 

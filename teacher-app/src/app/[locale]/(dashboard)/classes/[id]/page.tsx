@@ -18,7 +18,10 @@ import {
   UserPlus,
   Plus,
   Key,
+  Trophy,
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ClassLeaderboard } from '@/components/gamification/ClassLeaderboard';
 import { formatRelativeDate } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { usePendingCounts } from '@/lib/hooks/use-join-requests';
@@ -34,6 +37,7 @@ export default function ClassDetailPage() {
   const classId = Number(params.id);
   const t = useTranslations('classes');
   const tInvite = useTranslations('invitationCodes');
+  const tGamification = useTranslations('gamification');
 
   const [showCreateCodeModal, setShowCreateCodeModal] = useState(false);
 
@@ -130,46 +134,141 @@ export default function ClassDetailPage() {
         </Card>
       </div>
 
-      {/* Invitation Codes Section */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div className="flex items-center gap-2">
-            <Key className="h-5 w-5 text-muted-foreground" />
-            <CardTitle className="text-lg">{tInvite('title')}</CardTitle>
+      {/* Tabs: Students / Leaderboard / Invitation Codes */}
+      <Tabs defaultValue="students">
+        <TabsList>
+          <TabsTrigger value="students">
+            <Users className="h-4 w-4 mr-1.5" />
+            {t('studentsList')}
+          </TabsTrigger>
+          <TabsTrigger value="leaderboard">
+            <Trophy className="h-4 w-4 mr-1.5" />
+            {tGamification('leaderboard')}
+          </TabsTrigger>
+          <TabsTrigger value="codes">
+            <Key className="h-4 w-4 mr-1.5" />
+            {tInvite('title')}
             {activeCodesCount > 0 && (
-              <Badge variant="secondary">{activeCodesCount}</Badge>
+              <Badge variant="secondary" className="ml-1.5">{activeCodesCount}</Badge>
             )}
-          </div>
-          <Button size="sm" onClick={() => setShowCreateCodeModal(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            {tInvite('createButton')}
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {isLoadingCodes ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : invitationCodes && invitationCodes.length > 0 ? (
-            <div className="space-y-3">
-              {invitationCodes.map((code) => (
-                <InvitationCodeCard
-                  key={code.id}
-                  code={code}
-                  onDeactivate={(id) => deactivateCodeMutation.mutate(id)}
-                  isDeactivating={deactivateCodeMutation.isPending}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-6 text-muted-foreground">
-              <Key className="h-10 w-10 mx-auto mb-2 opacity-50" />
-              <p>{tInvite('noCodesYet')}</p>
-              <p className="text-sm">{tInvite('noCodesDescription')}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Students tab */}
+        <TabsContent value="students">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="overflow-x-auto">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Ученик</th>
+                      <th>{t('masteryLevel')}</th>
+                      <th>{t('progress')}</th>
+                      <th>{t('lastActivity')}</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {classData.students.map((student) => (
+                      <tr key={student.id}>
+                        <td>
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+                              {student.first_name[0]}
+                              {student.last_name[0]}
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">
+                                {student.last_name} {student.first_name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {student.student_code}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <MasteryBadge level={student.mastery_level} showLabel />
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            <Progress
+                              value={student.progress_percentage}
+                              className="h-2 w-20"
+                            />
+                            <span className="text-sm text-muted-foreground">
+                              {student.progress_percentage}%
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="text-sm text-muted-foreground">
+                            {student.last_activity
+                              ? formatRelativeDate(student.last_activity)
+                              : t('neverActive')}
+                          </span>
+                        </td>
+                        <td>
+                          <Link
+                            href={`/classes/${classId}/students/${student.id}`}
+                            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                          >
+                            Подробнее
+                            <ChevronRight className="h-4 w-4" />
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Leaderboard tab */}
+        <TabsContent value="leaderboard">
+          <ClassLeaderboard classId={classId} />
+        </TabsContent>
+
+        {/* Invitation Codes tab */}
+        <TabsContent value="codes">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-lg">{tInvite('title')}</CardTitle>
+              <Button size="sm" onClick={() => setShowCreateCodeModal(true)}>
+                <Plus className="h-4 w-4 mr-1" />
+                {tInvite('createButton')}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {isLoadingCodes ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : invitationCodes && invitationCodes.length > 0 ? (
+                <div className="space-y-3">
+                  {invitationCodes.map((code) => (
+                    <InvitationCodeCard
+                      key={code.id}
+                      code={code}
+                      onDeactivate={(id) => deactivateCodeMutation.mutate(id)}
+                      isDeactivating={deactivateCodeMutation.isPending}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Key className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                  <p>{tInvite('noCodesYet')}</p>
+                  <p className="text-sm">{tInvite('noCodesDescription')}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Create Invitation Code Modal */}
       <CreateInvitationCodeModal
@@ -183,80 +282,6 @@ export default function ClassDetailPage() {
         isLoading={createCodeMutation.isPending}
         className={classData.name}
       />
-
-      {/* Students table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('studentsList')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Ученик</th>
-                  <th>{t('masteryLevel')}</th>
-                  <th>{t('progress')}</th>
-                  <th>{t('lastActivity')}</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {classData.students.map((student) => (
-                  <tr key={student.id}>
-                    <td>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
-                          {student.first_name[0]}
-                          {student.last_name[0]}
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {student.last_name} {student.first_name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {student.student_code}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <MasteryBadge level={student.mastery_level} showLabel />
-                    </td>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <Progress
-                          value={student.progress_percentage}
-                          className="h-2 w-20"
-                        />
-                        <span className="text-sm text-muted-foreground">
-                          {student.progress_percentage}%
-                        </span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="text-sm text-muted-foreground">
-                        {student.last_activity
-                          ? formatRelativeDate(student.last_activity)
-                          : t('neverActive')}
-                      </span>
-                    </td>
-                    <td>
-                      <Link
-                        href={`/classes/${classId}/students/${student.id}`}
-                        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                      >
-                        Подробнее
-                        <ChevronRight className="h-4 w-4" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

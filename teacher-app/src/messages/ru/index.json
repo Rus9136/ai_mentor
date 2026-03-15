@@ -585,6 +585,14 @@
     "planNotFound": "План не найден",
     "classLabel": "класс"
   },
+  "gamification": {
+    "leaderboard": "Рейтинг XP",
+    "level": "Уровень",
+    "student": "Ученик",
+    "totalStudents": "Всего учеников",
+    "noData": "Пока нет данных по XP",
+    "loadError": "Ошибка загрузки рейтинга"
+  },
   "quiz": {
     "title": "Квизы",
     "createQuiz": "Создать квиз",

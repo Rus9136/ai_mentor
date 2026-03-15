@@ -585,6 +585,14 @@
     "planNotFound": "Жоспар табылмады",
     "classLabel": "сынып"
   },
+  "gamification": {
+    "leaderboard": "XP рейтингі",
+    "level": "Деңгей",
+    "student": "Оқушы",
+    "totalStudents": "Барлық оқушылар",
+    "noData": "XP деректері әлі жоқ",
+    "loadError": "Рейтингті жүктеу қатесі"
+  },
   "quiz": {
     "title": "Квиздер",
     "createQuiz": "Квиз құру",
