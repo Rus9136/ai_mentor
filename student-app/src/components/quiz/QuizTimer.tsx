@@ -5,23 +5,35 @@ import { useEffect, useRef, useState } from 'react';
 interface QuizTimerProps {
   totalMs: number;
   onExpire: () => void;
+  onUrgentTick?: () => void;
 }
 
-export default function QuizTimer({ totalMs, onExpire }: QuizTimerProps) {
+export default function QuizTimer({ totalMs, onExpire, onUrgentTick }: QuizTimerProps) {
   const [remaining, setRemaining] = useState(totalMs);
   const startTimeRef = useRef(Date.now());
   const animRef = useRef<number>(0);
   const expiredRef = useRef(false);
+  const lastTickedSec = useRef(-1);
+  const urgentTickRef = useRef(onUrgentTick);
+  urgentTickRef.current = onUrgentTick;
 
   useEffect(() => {
     startTimeRef.current = Date.now();
     expiredRef.current = false;
+    lastTickedSec.current = -1;
     setRemaining(totalMs);
 
     const tick = () => {
       const elapsed = Date.now() - startTimeRef.current;
       const left = Math.max(0, totalMs - elapsed);
       setRemaining(left);
+
+      // Urgent tick sound (once per second when <= 5s)
+      const sec = Math.ceil(left / 1000);
+      if (sec <= 5 && sec > 0 && sec !== lastTickedSec.current) {
+        lastTickedSec.current = sec;
+        urgentTickRef.current?.();
+      }
 
       if (left <= 0 && !expiredRef.current) {
         expiredRef.current = true;

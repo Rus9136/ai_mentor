@@ -10,6 +10,8 @@ interface QuizQuestionProps {
   questionNumber: number;
   totalQuestions: number;
   onAnswer: (selectedOption: number, answerTimeMs: number) => void;
+  onTimerTick?: () => void;
+  onTimeUp?: () => void;
 }
 
 const OPTION_COLORS = [
@@ -21,7 +23,7 @@ const OPTION_COLORS = [
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
 
-export default function QuizQuestion({ question, questionNumber, totalQuestions, onAnswer }: QuizQuestionProps) {
+export default function QuizQuestion({ question, questionNumber, totalQuestions, onAnswer, onTimerTick, onTimeUp }: QuizQuestionProps) {
   const t = useTranslations('quiz');
   const [selected, setSelected] = useState<number | null>(null);
   const startTime = useRef(Date.now());
@@ -34,11 +36,12 @@ export default function QuizQuestion({ question, questionNumber, totalQuestions,
   };
 
   const handleExpire = useCallback(() => {
+    onTimeUp?.();
     if (selected === null) {
       // Time expired without answering — send a dummy answer
       onAnswer(-1, question.time_limit_ms);
     }
-  }, [selected, onAnswer, question.time_limit_ms]);
+  }, [selected, onAnswer, onTimeUp, question.time_limit_ms]);
 
   return (
     <div className="flex min-h-dvh flex-col px-4 py-4">
@@ -47,7 +50,7 @@ export default function QuizQuestion({ question, questionNumber, totalQuestions,
         <span className="text-sm font-medium text-muted-foreground">
           {t('questionOf', { current: questionNumber, total: totalQuestions })}
         </span>
-        <QuizTimer totalMs={question.time_limit_ms} onExpire={handleExpire} />
+        <QuizTimer totalMs={question.time_limit_ms} onExpire={handleExpire} onUrgentTick={onTimerTick} />
       </div>
 
       {/* Question text */}

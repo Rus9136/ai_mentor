@@ -1,9 +1,11 @@
 'use client';
 
-import { useReducer, useEffect, useCallback, Suspense } from 'react';
+import { useReducer, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Volume2, VolumeX } from 'lucide-react';
 import { joinQuiz } from '@/lib/api/quiz';
 import { useQuizWebSocket } from '@/lib/hooks/use-quiz-websocket';
+import { useQuizSounds } from '@/lib/hooks/use-quiz-sounds';
 import { QuizState } from '@/types/quiz';
 import type {
   QuizQuestionData,
@@ -156,6 +158,46 @@ function QuizPageInner() {
 
   const [state, dispatch] = useReducer(reducer, initialState);
   const { lastMessage, send } = useQuizWebSocket(state.joinCode);
+  const { play, muted, toggleMute } = useQuizSounds();
+
+  // ── Sound triggers on state transitions ──
+  const prevQuizState = useRef(QuizState.JOIN);
+  useEffect(() => {
+    const prev = prevQuizState.current;
+    const curr = state.quizState;
+    prevQuizState.current = curr;
+    if (prev === curr) return;
+
+    switch (curr) {
+      case QuizState.LOBBY:
+        play('lobby');
+        break;
+      case QuizState.QUESTION:
+        play('questionAppear');
+        break;
+      case QuizState.RESULT:
+        play('result');
+        break;
+      case QuizState.FINISHED:
+        play('victory');
+        break;
+    }
+  }, [state.quizState, play]);
+
+  // Sound on correct / incorrect / streak
+  useEffect(() => {
+    if (state.answerCorrect === true) {
+      play('correct');
+      if (state.answerStreakBonus > 0) {
+        setTimeout(() => play('streak'), 300);
+      }
+    } else if (state.answerCorrect === false) {
+      play('incorrect');
+    }
+  }, [state.answerCorrect, state.answerStreakBonus, play]);
+
+  const playTick = useCallback(() => play('tick'), [play]);
+  const playTimeUp = useCallback(() => play('timeUp'), [play]);
 
   // Process WS messages
   useEffect(() => {
@@ -205,47 +247,68 @@ function QuizPageInner() {
 
   // ── Render ──
 
-  switch (state.quizState) {
-    case QuizState.JOIN:
-      return <QuizJoinScreen onJoin={handleJoin} initialCode={initialCode} />;
+  const muteButton = state.quizState !== QuizState.JOIN && (
+    <button
+      onClick={toggleMute}
+      className="fixed right-3 top-3 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-black/20 backdrop-blur-sm text-white/70 hover:text-white transition-colors"
+      aria-label={muted ? 'Unmute' : 'Mute'}
+    >
+      {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+    </button>
+  );
 
-    case QuizState.LOBBY:
-      return <QuizLobby participantCount={state.participantCount} />;
+  const renderScreen = () => {
+    switch (state.quizState) {
+      case QuizState.JOIN:
+        return <QuizJoinScreen onJoin={handleJoin} initialCode={initialCode} />;
 
-    case QuizState.QUESTION:
-      return state.currentQuestion ? (
-        <QuizQuestion
-          question={state.currentQuestion}
-          questionNumber={state.currentQuestion.index + 1}
-          totalQuestions={state.totalQuestions}
-          onAnswer={handleAnswer}
-        />
-      ) : null;
+      case QuizState.LOBBY:
+        return <QuizLobby participantCount={state.participantCount} />;
 
-    case QuizState.ANSWERED:
-      return (
-        <QuizAnswered
-          score={state.answerScore}
-          isCorrect={state.answerCorrect}
-          streakBonus={state.answerStreakBonus}
-          currentStreak={state.answerCurrentStreak}
-        />
-      );
+      case QuizState.QUESTION:
+        return state.currentQuestion ? (
+          <QuizQuestion
+            question={state.currentQuestion}
+            questionNumber={state.currentQuestion.index + 1}
+            totalQuestions={state.totalQuestions}
+            onAnswer={handleAnswer}
+            onTimerTick={playTick}
+            onTimeUp={playTimeUp}
+          />
+        ) : null;
 
-    case QuizState.RESULT:
-      return (
-        <QuizQuestionResult
-          correctOption={state.resultCorrectOption}
-          stats={state.resultStats}
-          options={state.lastOptions}
-          leaderboardTop5={state.resultLeaderboard}
-        />
-      );
+      case QuizState.ANSWERED:
+        return (
+          <QuizAnswered
+            score={state.answerScore}
+            isCorrect={state.answerCorrect}
+            streakBonus={state.answerStreakBonus}
+            currentStreak={state.answerCurrentStreak}
+          />
+        );
 
-    case QuizState.FINISHED:
-      return state.finishedData ? <QuizFinished data={state.finishedData} /> : null;
+      case QuizState.RESULT:
+        return (
+          <QuizQuestionResult
+            correctOption={state.resultCorrectOption}
+            stats={state.resultStats}
+            options={state.lastOptions}
+            leaderboardTop5={state.resultLeaderboard}
+          />
+        );
 
-    default:
-      return null;
-  }
+      case QuizState.FINISHED:
+        return state.finishedData ? <QuizFinished data={state.finishedData} /> : null;
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <>
+      {muteButton}
+      {renderScreen()}
+    </>
+  );
 }

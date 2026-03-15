@@ -33,7 +33,7 @@
 | Фаза | Название | Статус | Объём |
 |------|----------|--------|-------|
 | **2.0** | MVP Live Quiz | ✅ **ГОТОВО** | ~7-10 дней |
-| **2.1** | Улучшения Live Quiz | ✅ **ЧАСТИЧНО** (2.1.1-2.1.4) | ~3-4 дня |
+| **2.1** | Улучшения Live Quiz | ✅ **ГОТОВО** | ~3-4 дня |
 | **2.2** | Новые режимы | Планируется | ~5-7 дней |
 | **2.3** | Формативное оценивание | Планируется | ~5-7 дней |
 | **2.4** | Продвинутая геймификация | Планируется | ~4-5 дней |
@@ -102,7 +102,7 @@
 
 ---
 
-## Фаза 2.1 — Улучшения Live Quiz (частично ✅)
+## Фаза 2.1 — Улучшения Live Quiz ✅ ГОТОВО
 
 > Зависимость: Фаза 2.0 ✅
 > Реализовано: 2026-03-14
@@ -134,12 +134,14 @@
 - Пока Question модель не имеет image_url → поле остаётся null
 - Готово к использованию когда вопросы получат изображения
 
-### 2.1.5 Звуки и музыка
+### 2.1.5 Звуки и музыка ✅
 
-- Файлы: `student-app/public/sounds/quiz/*.mp3`
-- Хук: `useQuizSounds()` через Web Audio API
-- Моменты: лобби, вопрос, таймер <5с, правильный/неправильный, лидерборд, подиум
-- Кнопка mute
+- Процедурная генерация звуков через Web Audio API (без mp3 файлов)
+- `QuizSoundManager` класс: `student-app/src/lib/quiz-sounds.ts`
+- `useQuizSounds()` хук: `student-app/src/lib/hooks/use-quiz-sounds.ts`
+- 9 звуков: lobby, questionAppear, tick, timeUp, correct, incorrect, streak, result, victory
+- Триггеры: state transitions (page useEffect), timer urgent tick (QuizTimer), time expired (QuizQuestion)
+- Кнопка mute (fixed, top-right) с сохранением в localStorage
 
 ### Шаги реализации
 
@@ -151,7 +153,7 @@
 | 2.1.4 | Backend + Frontend: accuracy mode | ✅ |
 | 2.1.5 | Frontend: image_url рендеринг | ✅ |
 | 2.1.6 | Teacher: настройки квиза (shuffle, accuracy) | ✅ |
-| 2.1.7 | Frontend: звуки (файлы + хук + mute) | ❌ |
+| 2.1.7 | Frontend: звуки (Web Audio API + хук + mute) | ✅ |
 
 ---
 
@@ -336,7 +338,7 @@
 |------|------|--------|
 | Вход по коду, speed scoring, 4 цветных варианта | 2.0 | ✅ |
 | Лидерборд, подиум топ-3, QR-код | 2.0 | ✅ |
-| Answer Streak, Shuffle, Accuracy Mode, Звуки | 2.1 | |
+| Answer Streak, Shuffle, Accuracy Mode, Звуки | 2.1 | ✅ |
 | Team Mode, Self-Paced Challenge | 2.2 | |
 | Power-ups, Confidence Mode | 2.4 | |
 
@@ -399,11 +401,12 @@ student-app/src/
 │   ├── QuizShortAnswer.tsx               ← Фаза 2.3
 │   ├── QuizPodium.tsx                    ← Фаза 2.4
 │   └── SpaceRaceTrack.tsx                ← Фаза 2.2
-└── lib/
-    ├── api/quiz.ts                       ← ✅
-    └── hooks/
-        ├── use-quiz-websocket.ts         ← ✅
-        └── use-quiz-sounds.ts            ← Фаза 2.1
+├── lib/
+│   ├── api/quiz.ts                       ← ✅
+│   ├── quiz-sounds.ts                    ← ✅ Web Audio API sound manager
+│   └── hooks/
+│       ├── use-quiz-websocket.ts         ← ✅
+│       └── use-quiz-sounds.ts            ← ✅
 
 teacher-app/src/
 ├── app/[locale]/(dashboard)/quiz/
