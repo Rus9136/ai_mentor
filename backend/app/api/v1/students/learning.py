@@ -251,6 +251,18 @@ async def update_paragraph_progress(
             completed_at=now,
         )
 
+        # Gamification hook: award XP for paragraph completion
+        try:
+            from app.services.gamification_service import GamificationService
+            gamification = GamificationService(db)
+            await gamification.on_paragraph_complete(
+                student_id=student_id,
+                school_id=school_id,
+                paragraph_id=paragraph_id,
+            )
+        except Exception as e:
+            logger.warning(f"Gamification hook failed (paragraph_complete): {e}")
+
     await db.commit()
 
     # Determine available steps

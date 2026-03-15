@@ -335,7 +335,10 @@ class GamificationService:
             await self.check_achievements(student_id, school_id)
 
     async def on_self_assessment(
-        self, student_id: int, school_id: int
+        self,
+        student_id: int,
+        school_id: int,
+        paragraph_id: Optional[int] = None,
     ) -> None:
         """Hook: called when student submits a self-assessment."""
         await self.award_xp(
@@ -343,7 +346,35 @@ class GamificationService:
             school_id=school_id,
             amount=XP_SELF_ASSESSMENT,
             source_type=XpSourceType.SELF_ASSESSMENT,
+            source_id=paragraph_id,
         )
+
+        # Update streak
+        await self.update_streak(student_id, school_id)
+
+        # Check achievements
+        await self.check_achievements(student_id, school_id)
+
+    async def on_paragraph_complete(
+        self,
+        student_id: int,
+        school_id: int,
+        paragraph_id: int,
+    ) -> None:
+        """Hook: called when student completes a paragraph (all steps done)."""
+        await self.award_xp(
+            student_id=student_id,
+            school_id=school_id,
+            amount=XP_PARAGRAPH_COMPLETE,
+            source_type=XpSourceType.PARAGRAPH_COMPLETE,
+            source_id=paragraph_id,
+        )
+
+        # Update streak
+        await self.update_streak(student_id, school_id)
+
+        # Check achievements
+        await self.check_achievements(student_id, school_id)
 
     # ══════════════════════════════════════════════════════════════════════
     # STREAK

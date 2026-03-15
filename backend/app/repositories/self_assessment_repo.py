@@ -49,7 +49,7 @@ class SelfAssessmentRepository:
             time_spent=time_spent,
         )
         self.db.add(record)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(record)
         return record
 

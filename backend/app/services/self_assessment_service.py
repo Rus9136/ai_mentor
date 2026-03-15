@@ -125,6 +125,7 @@ class SelfAssessmentService:
             await gamification.on_self_assessment(
                 student_id=student_id,
                 school_id=school_id,
+                paragraph_id=paragraph_id,
             )
         except Exception as e:
             logger.warning(f"Gamification hook failed (self_assessment): {e}")
@@ -225,4 +226,4 @@ class SelfAssessmentService:
             student_para.self_assessment_at = now
             student_para.last_accessed_at = now
 
-        await self.db.commit()
+        await self.db.flush()

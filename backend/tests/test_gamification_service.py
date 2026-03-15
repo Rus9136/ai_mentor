@@ -16,7 +16,8 @@ from app.services.gamification_service import (
     XP_MASTERY_STRUGGLING_TO_PROGRESSING,
     XP_MASTERY_PROGRESSING_TO_MASTERED,
     XP_CHAPTER_C_TO_B, XP_CHAPTER_B_TO_A,
-    XP_SELF_ASSESSMENT, XP_STREAK_PER_DAY, XP_STREAK_CAP,
+    XP_SELF_ASSESSMENT, XP_PARAGRAPH_COMPLETE,
+    XP_STREAK_PER_DAY, XP_STREAK_CAP,
 )
 
 
@@ -483,12 +484,73 @@ class TestOnSelfAssessment:
     @pytest.mark.asyncio
     async def test_awards_flat_xp(self, service, mock_repo):
         mock_repo.get_student_xp.return_value = (100, 1)
+        mock_repo.get_student_streak_info.return_value = (0, 0, None)
+        mock_repo.get_all_active_achievements.return_value = []
 
         await service.on_self_assessment(student_id=1, school_id=1)
 
         call_kwargs = mock_repo.add_xp_transaction.call_args_list[0].kwargs
         assert call_kwargs["amount"] == XP_SELF_ASSESSMENT
         assert call_kwargs["source_type"] == XpSourceType.SELF_ASSESSMENT
+
+    @pytest.mark.asyncio
+    async def test_updates_streak_and_checks_achievements(self, service, mock_repo):
+        """Self-assessment should also update streak and check achievements."""
+        mock_repo.get_student_xp.return_value = (100, 1)
+        mock_repo.get_student_streak_info.return_value = (0, 0, None)
+        mock_repo.get_all_active_achievements.return_value = []
+
+        await service.on_self_assessment(student_id=1, school_id=1, paragraph_id=42)
+
+        mock_repo.get_student_streak_info.assert_called_once()
+        mock_repo.get_all_active_achievements.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_passes_paragraph_id_as_source(self, service, mock_repo):
+        """Self-assessment should record paragraph_id as source_id."""
+        mock_repo.get_student_xp.return_value = (100, 1)
+        mock_repo.get_student_streak_info.return_value = (0, 0, None)
+        mock_repo.get_all_active_achievements.return_value = []
+
+        await service.on_self_assessment(student_id=1, school_id=1, paragraph_id=99)
+
+        call_kwargs = mock_repo.add_xp_transaction.call_args_list[0].kwargs
+        assert call_kwargs["source_id"] == 99
+
+
+# ══════════════════════════════════════════════════════════════════════
+# ON PARAGRAPH COMPLETE
+# ══════════════════════════════════════════════════════════════════════
+
+class TestOnParagraphComplete:
+
+    @pytest.mark.asyncio
+    async def test_awards_xp(self, service, mock_repo):
+        mock_repo.get_student_xp.return_value = (50, 1)
+        mock_repo.get_student_streak_info.return_value = (0, 0, None)
+        mock_repo.get_all_active_achievements.return_value = []
+
+        await service.on_paragraph_complete(
+            student_id=1, school_id=1, paragraph_id=42
+        )
+
+        call_kwargs = mock_repo.add_xp_transaction.call_args_list[0].kwargs
+        assert call_kwargs["amount"] == XP_PARAGRAPH_COMPLETE
+        assert call_kwargs["source_type"] == XpSourceType.PARAGRAPH_COMPLETE
+        assert call_kwargs["source_id"] == 42
+
+    @pytest.mark.asyncio
+    async def test_updates_streak_and_checks_achievements(self, service, mock_repo):
+        mock_repo.get_student_xp.return_value = (50, 1)
+        mock_repo.get_student_streak_info.return_value = (0, 0, None)
+        mock_repo.get_all_active_achievements.return_value = []
+
+        await service.on_paragraph_complete(
+            student_id=1, school_id=1, paragraph_id=42
+        )
+
+        mock_repo.get_student_streak_info.assert_called_once()
+        mock_repo.get_all_active_achievements.assert_called_once()
 
 
 # ══════════════════════════════════════════════════════════════════════
