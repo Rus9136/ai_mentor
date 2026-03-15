@@ -761,6 +761,20 @@
     "noQuests": "Бүгінге тапсырмалар жоқ",
     "awesome": "Керемет!"
   },
+  "quizWidget": {
+    "title": "Менің квиздерім",
+    "available": "Қол жетімді",
+    "inProgress": "Жүріп жатыр",
+    "completed": "Аяқталды",
+    "join": "Кіру",
+    "rejoin": "Кіру",
+    "continue": "Жалғастыру",
+    "enterCode": "Кодты енгізу",
+    "live": "Live",
+    "team": "Командалар",
+    "selfPaced": "Өздігінен",
+    "untitled": "Квиз"
+  },
   "quiz": {
     "enterCode": "Квиз кодын енгізіңіз",
     "join": "Қосылу",

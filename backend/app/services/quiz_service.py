@@ -92,13 +92,13 @@ class QuizService:
         if not test:
             raise ValueError("Test not found or inactive")
 
-        # Filter single-choice questions only
+        # Filter quiz-eligible questions
         questions = [
             q for q in test.questions
-            if q.question_type == QuestionType.SINGLE_CHOICE and not q.is_deleted
+            if q.question_type in self.ALLOWED_QUESTION_TYPES and not q.is_deleted
         ]
         if not questions:
-            raise ValueError("Test has no single-choice questions")
+            raise ValueError("Test has no eligible questions")
 
         join_code = await self.generate_join_code()
         settings_dict = settings_obj.model_dump()
@@ -132,7 +132,11 @@ class QuizService:
         session = await self.repo.get_session_by_join_code(join_code)
         if not session:
             raise ValueError("Invalid quiz code")
-        if session.status != QuizSessionStatus.LOBBY:
+        # Self-paced allows joining while in_progress
+        allowed_statuses = [QuizSessionStatus.LOBBY]
+        if session.mode == "self_paced":
+            allowed_statuses.append(QuizSessionStatus.IN_PROGRESS)
+        if session.status not in allowed_statuses:
             raise ValueError("Quiz is not accepting participants")
         if session.school_id != school_id:
             raise ValueError("Quiz belongs to a different school")
@@ -213,10 +217,13 @@ class QuizService:
 
     # ── Shuffle helpers ──
 
+    # Question types allowed in quiz sessions
+    ALLOWED_QUESTION_TYPES = {QuestionType.SINGLE_CHOICE, QuestionType.SHORT_ANSWER}
+
     def _get_sorted_questions(self, test: Test) -> list[Question]:
-        """Get active single-choice questions sorted by sort_order."""
+        """Get active quiz-eligible questions sorted by sort_order."""
         return sorted(
-            [q for q in test.questions if q.question_type == QuestionType.SINGLE_CHOICE and not q.is_deleted],
+            [q for q in test.questions if q.question_type in self.ALLOWED_QUESTION_TYPES and not q.is_deleted],
             key=lambda q: q.sort_order,
         )
 
@@ -265,12 +272,28 @@ class QuizService:
         if not q:
             return None
 
-        options = self._get_shuffled_options(q, settings, session_id, question_index)
         time_limit = settings.get("time_per_question_ms", 30000)
+        # Teacher-paced mode: no timer
+        if settings.get("pacing") == "teacher_paced":
+            time_limit = 0
 
+        # Short answer: no option buttons
+        q_type = q.question_type.value if hasattr(q.question_type, 'value') else str(q.question_type)
+        if q_type == "short_answer":
+            return QuizQuestionOut(
+                index=question_index,
+                text=q.question_text,
+                question_type="short_answer",
+                options=[],
+                time_limit_ms=time_limit,
+                image_url=None,
+            )
+
+        options = self._get_shuffled_options(q, settings, session_id, question_index)
         return QuizQuestionOut(
             index=question_index,
             text=q.question_text,
+            question_type="single_choice",
             options=[o.option_text for o in options],
             time_limit_ms=time_limit,
             image_url=None,
@@ -293,6 +316,24 @@ class QuizService:
         await self.db.commit()
         return await self._load_question(session.test_id, new_index, session.settings, session.id)
 
+    async def go_to_question(self, session_id: int, teacher_id: int, question_index: int) -> Optional[QuizQuestionOut]:
+        """Navigate to an arbitrary question (teacher-paced mode only)."""
+        session = await self.repo.get_session(session_id)
+        if not session:
+            raise ValueError("Session not found")
+        if session.teacher_id != teacher_id:
+            raise ValueError("Not the session owner")
+        if session.status != QuizSessionStatus.IN_PROGRESS:
+            raise ValueError("Session is not in progress")
+        if session.settings.get("pacing") != "teacher_paced":
+            raise ValueError("go_to_question is only available in teacher_paced mode")
+        if question_index < 0 or question_index >= session.question_count:
+            raise ValueError(f"Question index must be 0-{session.question_count - 1}")
+
+        await self.repo.update_session(session_id, current_question_index=question_index)
+        await self.db.commit()
+        return await self._load_question(session.test_id, question_index, session.settings, session.id)
+
     # ── Answers ──
 
     async def submit_answer(
@@ -302,6 +343,7 @@ class QuizService:
         question_index: int,
         selected_option: int,
         answer_time_ms: int,
+        text_answer: Optional[str] = None,
     ) -> dict:
         session = await self.repo.get_session(session_id)
         if not session or session.status != QuizSessionStatus.IN_PROGRESS:
@@ -313,20 +355,36 @@ class QuizService:
         if not participant:
             raise ValueError("Not a participant")
 
-        # Idempotent check
+        # Idempotent check (or re-answer in teacher-paced mode)
         existing = await self.repo.get_answer(participant.id, question_index)
+        is_teacher_paced = session.settings.get("pacing") == "teacher_paced"
         if existing:
-            return {
-                "is_correct": existing.is_correct, "score": existing.score,
-                "total_score": participant.total_score, "already_answered": True,
-                "current_streak": participant.current_streak, "max_streak": participant.max_streak,
-            }
+            if not is_teacher_paced:
+                return {
+                    "is_correct": existing.is_correct, "score": existing.score,
+                    "total_score": participant.total_score, "already_answered": True,
+                    "current_streak": participant.current_streak, "max_streak": participant.max_streak,
+                }
+            # Teacher-paced: allow re-answer — reverse old score, then proceed below
+            old_score = existing.score
+            old_correct = existing.is_correct
+            await self.repo.reverse_answer_score(participant.id, old_score, old_correct)
+            await self.repo.delete_answer(existing.id)
 
-        # Determine correctness (handles shuffle mapping)
-        is_correct = await self._check_answer(
-            session.test_id, question_index, selected_option,
-            session.settings, session.id,
-        )
+        # Determine correctness
+        if text_answer is not None:
+            # Short answer: delegate to QuizShortAnswerService
+            from app.services.quiz_short_answer_service import QuizShortAnswerService
+            sa_service = QuizShortAnswerService(self.db)
+            is_correct, _method = await sa_service.check_answer(
+                session.test_id, question_index, text_answer, session.settings, session.id,
+            )
+        else:
+            # Single choice: handles shuffle mapping
+            is_correct = await self._check_answer(
+                session.test_id, question_index, selected_option,
+                session.settings, session.id,
+            )
 
         # Calculate score (speed or accuracy mode)
         time_limit = session.settings.get("time_per_question_ms", 30000)
@@ -343,6 +401,7 @@ class QuizService:
             is_correct=is_correct,
             answer_time_ms=answer_time_ms,
             score=score,
+            text_answer=text_answer,
         )
 
         # Update score and streak atomically

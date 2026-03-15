@@ -1,5 +1,10 @@
 import { apiClient } from './client';
-import type { JoinQuizResponse, SelfPacedNextQuestion, SelfPacedAnswerResult } from '@/types/quiz';
+import type { JoinQuizResponse, SelfPacedNextQuestion, SelfPacedAnswerResult, StudentQuizListItem } from '@/types/quiz';
+
+export async function getMyQuizzes(): Promise<StudentQuizListItem[]> {
+  const response = await apiClient.get<StudentQuizListItem[]>('/students/quiz-sessions/my-quizzes');
+  return response.data;
+}
 
 export async function joinQuiz(join_code: string): Promise<JoinQuizResponse> {
   const response = await apiClient.post<JoinQuizResponse>('/students/quiz-sessions/join', { join_code });

@@ -1,7 +1,7 @@
 # Quiz Battle Platform — Полный план разработки
 
 > Дата: 2026-03-15
-> Статус: **Фаза 2.2 — РЕАЛИЗОВАНА** (Team Mode, Space Race, Self-Paced, Quick Question)
+> Статус: **Фаза 2.3 — РЕАЛИЗОВАНА** (Teacher Paced, Exit Ticket, Live Matrix, Short Answer, Reports)
 > Вдохновение: [Kahoot](https://kahoot.it/), [Socrative](https://www.socrative.com/)
 > Связь: `docs/GAMIFICATION_FRONTEND_PLAN.md` (Фаза 2)
 
@@ -35,7 +35,7 @@
 | **2.0** | MVP Live Quiz | ✅ **ГОТОВО** | ~7-10 дней |
 | **2.1** | Улучшения Live Quiz | ✅ **ГОТОВО** | ~3-4 дня |
 | **2.2** | Новые режимы | ✅ **ГОТОВО** | ~5-7 дней |
-| **2.3** | Формативное оценивание | Планируется | ~5-7 дней |
+| **2.3** | Формативное оценивание | ✅ **ГОТОВО** | ~5-7 дней |
 | **2.4** | Продвинутая геймификация | Планируется | ~4-5 дней |
 | **2.5** | Уникальные AI-фичи | Планируется | ~5-7 дней |
 
@@ -222,51 +222,69 @@
 
 ---
 
-## Фаза 2.3 — Формативное оценивание
+## Фаза 2.3 — Формативное оценивание ✅ ГОТОВО
 
-> Ключевые файлы: `quiz_service.py`, `ws_quiz.py`, `teachers_quiz.py`
+> Зависимость: Фаза 2.0 ✅
+> Реализовано: 2026-03-15
 
-### 2.3.1 Teacher Paced Mode
+### 2.3.1 Teacher Paced Mode ✅
 
 - `settings.pacing: "timed" | "teacher_paced"`
 - Без таймера, возможность вернуться к предыдущему вопросу
 - WS: `go_to_question` с произвольным index
+- Ученики могут перезаписать ответ при возврате учителя к вопросу
+- Сервис: `quiz_service.py` → `go_to_question()`, `reverse_answer_score()`
+- WS Handler: `ws_quiz_handlers.py` → `handle_go_to_question()`
+- Frontend teacher: `QuizTeacherPacedProgress.tsx` — навигация по вопросам
+- Frontend teacher: pacing selector в `QuizCreateForm.tsx`
 
-### 2.3.2 Exit Ticket
+### 2.3.2 Exit Ticket ✅
 
-- 3 фиксированных вопроса в конце урока (понимание, интересное/сложное, по теме)
-- Интеграция с `paragraph_self_assessments`
+- 3 фиксированных вопроса: самооценка, рефлексия (текст), вопрос по теме
+- `settings.mode: "exit_ticket"`, всегда teacher_paced
+- Сервис: `quiz_exit_ticket_service.py`
+- Интеграция с `paragraph_self_assessments` через `SelfAssessmentService`
+- Миграция: `059_short_answer_and_exit_ticket` — `paragraph_id` в `quiz_sessions`
+- REST: `POST /teachers/quiz-sessions/exit-ticket`, `POST /{id}/exit-ticket/finalize`
 
-### 2.3.3 Live Results Matrix
+### 2.3.3 Live Results Matrix ✅
 
 - Матрица Ученик × Вопрос (зелёный/красный/серый)
 - `QuizLiveMatrix.tsx`, endpoint `GET /quiz-sessions/{id}/matrix`
+- API файл: `teachers_quiz_analytics.py` (вынесено из teachers_quiz.py)
+- Auto-refresh через React Query (5s)
+- Отображается во время квиза и после завершения
 
-### 2.3.4 Short Answer
+### 2.3.4 Short Answer ✅
 
 - `quiz_answers.text_answer: TEXT`
-- Проверка: exact + fuzzy + LLM fallback
-- `QuizShortAnswer.tsx`, голосование за лучший ответ
+- Проверка: exact match → fuzzy match (0.85) → LLM fallback (5s timeout)
+- Сервис: `quiz_short_answer_service.py`
+- `QuizShortAnswer.tsx` — текстовый input вместо цветных кнопок
+- `QuizQuestionOut.question_type: "single_choice" | "short_answer"`
+- WS answer: `text_answer` поле в data
 
-### 2.3.5 Отчёты
+### 2.3.5 Отчёты ✅
 
-- По классу (XLSX), по ученику (PDF), по вопросу (PDF), трендовый (XLSX)
-- `quiz_report_service.py`, `openpyxl` / `weasyprint`
+- По классу (XLSX), по вопросам (XLSX), тренды (XLSX)
+- `quiz_report_service.py` + `openpyxl`
+- API: `teachers_quiz_reports.py` — StreamingResponse XLSX
+- Frontend: `QuizReportDownloads.tsx` — кнопки скачивания
 
 ### Шаги реализации
 
-| Шаг | Задача | Зависимости |
-|-----|--------|-------------|
-| 2.3.1 | Backend: teacher_paced mode | ✅ 2.0 |
-| 2.3.2 | Frontend: teacher_paced UI | 2.3.1 |
-| 2.3.3 | Backend + Frontend: Exit Ticket | ✅ 2.0 |
-| 2.3.4 | Exit Ticket интеграция с self-assessment | 2.3.3 |
-| 2.3.5 | Frontend: QuizLiveMatrix | ✅ 2.0 |
-| 2.3.6 | Backend: short_answer + check logic | ✅ 2.0 |
-| 2.3.7 | AI-проверка short answer через LLM | 2.3.6 |
-| 2.3.8 | Frontend: QuizShortAnswer + голосование | 2.3.6 |
-| 2.3.9 | Backend: отчёты (XLSX + PDF) | ✅ 2.0 |
-| 2.3.10 | Teacher: UI скачивания отчётов | 2.3.9 |
+| Шаг | Задача | Статус |
+|-----|--------|--------|
+| 2.3.1 | Backend: teacher_paced mode | ✅ |
+| 2.3.2 | Frontend: teacher_paced UI | ✅ |
+| 2.3.3 | Backend + Frontend: Exit Ticket | ✅ |
+| 2.3.4 | Exit Ticket интеграция с self-assessment | ✅ |
+| 2.3.5 | Frontend: QuizLiveMatrix | ✅ |
+| 2.3.6 | Backend: short_answer + check logic | ✅ |
+| 2.3.7 | AI-проверка short answer через LLM | ✅ |
+| 2.3.8 | Frontend: QuizShortAnswer | ✅ |
+| 2.3.9 | Backend: отчёты (XLSX) | ✅ |
+| 2.3.10 | Teacher: UI скачивания отчётов | ✅ |
 
 ---
 
@@ -369,8 +387,8 @@
 
 | Фича | Фаза | Статус |
 |------|------|--------|
-| Teacher Paced, Exit Ticket, Live Matrix | 2.3 | |
-| Short Answer, Отчёты (XLSX/PDF) | 2.3 | |
+| Teacher Paced, Exit Ticket, Live Matrix | 2.3 | ✅ |
+| Short Answer, Отчёты (XLSX) | 2.3 | ✅ |
 | Space Race, Quick Question | 2.2 | ✅ |
 
 ### Наши уникальные фичи
@@ -380,7 +398,7 @@
 | XP геймификация (квиз = источник XP) | 2.0 | ✅ |
 | AI-генерация квизов | 2.5 | |
 | Адаптивная сложность по mastery | 2.5 | |
-| AI Short Answer (LLM-проверка) | 2.3 | |
+| AI Short Answer (LLM-проверка) | 2.3 | ✅ |
 | Межклассовые баттлы | 2.5 | |
 | Еженедельный турнир | 2.4 | |
 | Родительский отчёт | 2.5 | |
@@ -397,6 +415,7 @@ backend/
 │   ├── 054_quiz_streak_columns.py        ← ✅ Фаза 2.1
 │   ├── 057_quiz_timestamp_columns.py     ← ✅ Фаза 2.1
 │   ├── 058_quiz_teams_and_modes.py       ← ✅ Фаза 2.2
+│   ├── 059_short_answer_and_exit_ticket.py ← ✅ Фаза 2.3
 │   └── ???_quiz_powerups.py              ← Фаза 2.4
 ├── app/
 │   ├── models/quiz.py                    ← ✅ QuizSession, QuizTeam, QuizParticipant, QuizAnswer
@@ -408,12 +427,16 @@ backend/
 │   │   ├── quiz_service.py               ← ✅ mode-aware create/join
 │   │   ├── quiz_team_service.py          ← ✅ Фаза 2.2
 │   │   ├── quiz_selfpaced_service.py     ← ✅ Фаза 2.2
-│   │   └── quiz_report_service.py        ← Фаза 2.3
+│   │   ├── quiz_short_answer_service.py ← ✅ Фаза 2.3 (exact+fuzzy+LLM)
+│   │   ├── quiz_exit_ticket_service.py  ← ✅ Фаза 2.3
+│   │   └── quiz_report_service.py       ← ✅ Фаза 2.3 (XLSX reports)
 │   └── api/v1/
 │       ├── teachers_quiz.py              ← ✅ +quick-question, student-progress, team-leaderboard
+│       ├── teachers_quiz_analytics.py    ← ✅ Фаза 2.3 (matrix, exit-ticket)
+│       ├── teachers_quiz_reports.py      ← ✅ Фаза 2.3 (XLSX downloads)
 │       ├── students_quiz.py              ← ✅ +next-question, submit-answer
-│       ├── ws_quiz.py                    ← ✅ +team/quick message routing
-│       └── ws_quiz_handlers.py           ← ✅ Фаза 2.2 (extracted handlers)
+│       ├── ws_quiz.py                    ← ✅ +team/quick/go_to_question routing
+│       └── ws_quiz_handlers.py           ← ✅ +go_to_question handler
 
 student-app/src/
 ├── app/[locale]/webview/
@@ -431,7 +454,7 @@ student-app/src/
 │   ├── QuizTeamBadge.tsx                 ← ✅ Фаза 2.2
 │   ├── QuizQuickAnswer.tsx              ← ✅ Фаза 2.2
 │   ├── QuizSelfPacedFeedback.tsx         ← ✅ Фаза 2.2
-│   ├── QuizShortAnswer.tsx               ← Фаза 2.3
+│   ├── QuizShortAnswer.tsx               ← ✅ Фаза 2.3
 │   └── QuizPodium.tsx                    ← Фаза 2.4
 ├── lib/
 │   ├── api/quiz.ts                       ← ✅ +self-paced endpoints
@@ -448,9 +471,12 @@ teacher-app/src/
 │   ├── [id]/page.tsx                     ← ✅ +mode-based rendering
 │   └── quick/page.tsx                    ← ✅ Фаза 2.2
 ├── components/quiz/
-│   ├── QuizCreateForm.tsx                ← ✅ +mode selector, team settings
+│   ├── QuizCreateForm.tsx                ← ✅ +mode selector, team settings, pacing
 │   ├── QuizLobbyTeacher.tsx              ← ✅
 │   ├── QuizLiveProgress.tsx              ← ✅
+│   ├── QuizTeacherPacedProgress.tsx      ← ✅ Фаза 2.3
+│   ├── QuizLiveMatrix.tsx                ← ✅ Фаза 2.3
+│   ├── QuizReportDownloads.tsx           ← ✅ Фаза 2.3
 │   ├── QuizResults.tsx                   ← ✅
 │   ├── SpaceRaceTrack.tsx                ← ✅ Фаза 2.2
 │   ├── QuizSelfPacedProgress.tsx         ← ✅ Фаза 2.2

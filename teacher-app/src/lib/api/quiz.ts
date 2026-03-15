@@ -9,6 +9,7 @@ export interface QuizSessionCreate {
     shuffle_answers?: boolean;
     scoring_mode?: 'speed' | 'accuracy';
     mode?: 'classic' | 'team' | 'self_paced' | 'quick_question';
+    pacing?: 'timed' | 'teacher_paced';
     team_count?: number;
     show_space_race?: boolean;
     deadline?: string;
@@ -69,5 +70,25 @@ export async function getStudentProgress(sessionId: number) {
 
 export async function getTeamLeaderboard(sessionId: number) {
   const response = await apiClient.get(`/teachers/quiz-sessions/${sessionId}/team-leaderboard`);
+  return response.data;
+}
+
+export async function getQuizMatrix(sessionId: number) {
+  const response = await apiClient.get(`/teachers/quiz-sessions/${sessionId}/matrix`);
+  return response.data;
+}
+
+export async function downloadReport(sessionId: number, type: 'class' | 'questions') {
+  const response = await apiClient.get(`/teachers/quiz-sessions/${sessionId}/reports/${type}`, {
+    responseType: 'blob',
+  });
+  return response.data;
+}
+
+export async function downloadTrendReport(classId: number) {
+  const response = await apiClient.get('/teachers/quiz-sessions/reports/trend', {
+    params: { class_id: classId },
+    responseType: 'blob',
+  });
   return response.data;
 }

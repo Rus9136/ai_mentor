@@ -9,6 +9,7 @@ import {
   getTestsForQuiz,
   getStudentProgress,
   getTeamLeaderboard,
+  getQuizMatrix,
   createQuickQuestion,
   type QuizSessionCreate,
   type QuickQuestionCreate,
@@ -24,6 +25,7 @@ export const quizKeys = {
   tests: (params?: Record<string, unknown>) => [...quizKeys.all, 'tests', params] as const,
   studentProgress: (id: number) => [...quizKeys.all, 'student-progress', id] as const,
   teamLeaderboard: (id: number) => [...quizKeys.all, 'team-leaderboard', id] as const,
+  matrix: (id: number) => [...quizKeys.all, 'matrix', id] as const,
 };
 
 export function useQuizSessions(params?: { status?: string }) {
@@ -102,6 +104,15 @@ export function useTeamLeaderboard(sessionId: number) {
   return useQuery({
     queryKey: quizKeys.teamLeaderboard(sessionId),
     queryFn: () => getTeamLeaderboard(sessionId),
+    enabled: sessionId > 0,
+    refetchInterval: 5000,
+  });
+}
+
+export function useQuizMatrix(sessionId: number) {
+  return useQuery({
+    queryKey: quizKeys.matrix(sessionId),
+    queryFn: () => getQuizMatrix(sessionId),
     enabled: sessionId > 0,
     refetchInterval: 5000,
   });

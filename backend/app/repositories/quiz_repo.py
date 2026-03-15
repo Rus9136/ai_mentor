@@ -3,13 +3,16 @@ Repository for Quiz Battle CRUD operations.
 """
 import logging
 from typing import Optional
-from sqlalchemy import select, func, update
+from sqlalchemy import select, func, update, case, literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 
 from app.models.quiz import QuizSession, QuizParticipant, QuizAnswer, QuizSessionStatus
 from app.models.student import Student
 from app.models.user import User
+from app.models.class_student import ClassStudent
+from app.models.school_class import SchoolClass
+from app.models.test import Test
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +81,7 @@ class QuizRepository:
     ) -> list[QuizSession]:
         query = (
             select(QuizSession)
+            .options(selectinload(QuizSession.test), selectinload(QuizSession.school_class))
             .where(QuizSession.teacher_id == teacher_id, QuizSession.school_id == school_id)
             .order_by(QuizSession.created_at.desc())
             .limit(limit)
@@ -193,6 +197,7 @@ class QuizRepository:
         is_correct: bool,
         answer_time_ms: int,
         score: int,
+        text_answer: Optional[str] = None,
     ) -> QuizAnswer:
         answer = QuizAnswer(
             quiz_session_id=quiz_session_id,
@@ -203,6 +208,7 @@ class QuizRepository:
             is_correct=is_correct,
             answer_time_ms=answer_time_ms,
             score=score,
+            text_answer=text_answer,
         )
         self.db.add(answer)
         await self.db.flush()
@@ -244,5 +250,159 @@ class QuizRepository:
             stats[str(row[0])] = row[1]
         return stats
 
+    async def get_answers_matrix(self, quiz_session_id: int) -> list[QuizAnswer]:
+        """Get all answers for a session (for matrix view)."""
+        result = await self.db.execute(
+            select(QuizAnswer)
+            .where(QuizAnswer.quiz_session_id == quiz_session_id)
+            .order_by(QuizAnswer.participant_id, QuizAnswer.question_index)
+        )
+        return list(result.scalars().all())
+
+    async def reverse_answer_score(self, participant_id: int, old_score: int, was_correct: bool) -> None:
+        """Reverse a previous answer's score (for re-answering in teacher-paced mode)."""
+        values = {"total_score": QuizParticipant.total_score - old_score}
+        if was_correct:
+            values["correct_answers"] = QuizParticipant.correct_answers - 1
+        await self.db.execute(
+            update(QuizParticipant).where(QuizParticipant.id == participant_id).values(**values)
+        )
+
+    async def delete_answer(self, answer_id: int) -> None:
+        """Delete a quiz answer (for re-answering in teacher-paced mode)."""
+        from sqlalchemy import delete as sa_delete
+        await self.db.execute(
+            sa_delete(QuizAnswer).where(QuizAnswer.id == answer_id)
+        )
+
     async def get_leaderboard(self, quiz_session_id: int) -> list[dict]:
         return await self.get_participants_with_names(quiz_session_id)
+
+    # ── Student quiz list (My Quizzes widget) ──
+
+    async def get_student_class_ids(self, student_id: int) -> list[int]:
+        """Get all class IDs for a student."""
+        result = await self.db.execute(
+            select(ClassStudent.class_id).where(ClassStudent.student_id == student_id)
+        )
+        return list(result.scalars().all())
+
+    async def get_sessions_for_classes(
+        self, class_ids: list[int], school_id: int, student_id: int,
+    ) -> list[dict]:
+        """Get quiz sessions for student's classes with participation info."""
+        from datetime import datetime, timedelta, timezone
+
+        if not class_ids:
+            return []
+
+        seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+
+        # Subquery: count answers by this student per session
+        answered_sub = (
+            select(
+                QuizAnswer.quiz_session_id,
+                func.count().label("answered_count"),
+            )
+            .join(QuizParticipant, QuizAnswer.participant_id == QuizParticipant.id)
+            .where(QuizParticipant.student_id == student_id)
+            .group_by(QuizAnswer.quiz_session_id)
+            .subquery()
+        )
+
+        # Subquery: participant info for this student
+        participant_sub = (
+            select(
+                QuizParticipant.quiz_session_id,
+                QuizParticipant.total_score,
+                QuizParticipant.correct_answers,
+                QuizParticipant.rank,
+                QuizParticipant.xp_earned,
+            )
+            .where(QuizParticipant.student_id == student_id)
+            .subquery()
+        )
+
+        # Subquery: participant count per session
+        pcount_sub = (
+            select(
+                QuizParticipant.quiz_session_id,
+                func.count().label("participant_count"),
+            )
+            .group_by(QuizParticipant.quiz_session_id)
+            .subquery()
+        )
+
+        query = (
+            select(
+                QuizSession.id,
+                QuizSession.join_code,
+                QuizSession.status,
+                QuizSession.settings,
+                QuizSession.question_count,
+                QuizSession.created_at,
+                Test.title.label("test_title"),
+                SchoolClass.name.label("class_name"),
+                participant_sub.c.total_score,
+                participant_sub.c.correct_answers,
+                participant_sub.c.rank,
+                participant_sub.c.xp_earned,
+                answered_sub.c.answered_count,
+                pcount_sub.c.participant_count,
+            )
+            .outerjoin(Test, QuizSession.test_id == Test.id)
+            .outerjoin(SchoolClass, QuizSession.class_id == SchoolClass.id)
+            .outerjoin(participant_sub, QuizSession.id == participant_sub.c.quiz_session_id)
+            .outerjoin(answered_sub, QuizSession.id == answered_sub.c.quiz_session_id)
+            .outerjoin(pcount_sub, QuizSession.id == pcount_sub.c.quiz_session_id)
+            .where(
+                QuizSession.class_id.in_(class_ids),
+                QuizSession.school_id == school_id,
+                QuizSession.status.in_([
+                    QuizSessionStatus.LOBBY,
+                    QuizSessionStatus.IN_PROGRESS,
+                    QuizSessionStatus.FINISHED,
+                ]),
+            )
+            # Exclude old finished sessions
+            .where(
+                (QuizSession.status != QuizSessionStatus.FINISHED)
+                | (QuizSession.created_at >= seven_days_ago)
+            )
+            # Exclude quick_question mode (ephemeral, no test)
+            .where(QuizSession.test_id.isnot(None))
+            .order_by(
+                # in_progress first, then lobby, then finished
+                case(
+                    (QuizSession.status == QuizSessionStatus.IN_PROGRESS, literal(0)),
+                    (QuizSession.status == QuizSessionStatus.LOBBY, literal(1)),
+                    else_=literal(2),
+                ),
+                QuizSession.created_at.desc(),
+            )
+            .limit(20)
+        )
+
+        result = await self.db.execute(query)
+        rows = result.all()
+
+        return [
+            {
+                "id": row.id,
+                "join_code": row.join_code,
+                "status": row.status.value if hasattr(row.status, 'value') else row.status,
+                "mode": (row.settings or {}).get("mode", "classic"),
+                "question_count": row.question_count,
+                "test_title": row.test_title or "",
+                "class_name": row.class_name or "",
+                "participant_count": row.participant_count or 0,
+                "has_joined": row.total_score is not None,
+                "answered_count": row.answered_count or 0,
+                "total_score": row.total_score,
+                "correct_answers": row.correct_answers,
+                "rank": row.rank,
+                "xp_earned": row.xp_earned,
+                "created_at": row.created_at,
+            }
+            for row in rows
+        ]

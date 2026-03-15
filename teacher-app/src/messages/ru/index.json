@@ -667,6 +667,19 @@
     "spaceRace": "Гонка команд",
     "finishLine": "Финиш",
     "teamStandings": "Рейтинг команд",
-    "in_progress": "Идёт квиз"
+    "in_progress": "Идёт квиз",
+    "pacing": "Управление вопросами",
+    "timedPacing": "С таймером",
+    "teacherPacedPacing": "Управление учителем",
+    "previousQuestion": "Предыдущий",
+    "matrixView": "Матрица",
+    "progressView": "Прогресс",
+    "exitTicket": "Exit Ticket",
+    "createExitTicket": "Создать Exit Ticket",
+    "downloadClassReport": "Отчёт по классу (XLSX)",
+    "downloadQuestionReport": "Анализ вопросов (XLSX)",
+    "downloadTrendReport": "Тренды (XLSX)",
+    "reports": "Отчёты",
+    "shortAnswer": "Короткий ответ"
   }
 }

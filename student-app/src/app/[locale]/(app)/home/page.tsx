@@ -7,6 +7,7 @@ import { useStudentStats, useStudentProfile } from '@/lib/hooks/use-profile';
 import { Link } from '@/i18n/routing';
 import { TextbookCard } from '@/components/textbooks';
 import { ReviewCard } from '@/components/reviews/ReviewCard';
+import { MyQuizzesWidget } from '@/components/quiz/MyQuizzesWidget';
 import {
   BookOpen,
   Play,
@@ -100,6 +101,9 @@ export default function HomePage() {
           </Link>
         </div>
       )}
+
+      {/* My Quizzes Widget */}
+      <MyQuizzesWidget />
 
       {/* Spaced Repetition — Reviews Due Today */}
       <ReviewCard />

@@ -2,7 +2,7 @@
 Quiz Battle models: quiz sessions, participants, answers, teams.
 """
 import enum
-from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, DateTime, Enum
+from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, DateTime, Enum, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy import func
@@ -26,6 +26,7 @@ class QuizSession(BaseModel):
     teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=False, index=True)
     class_id = Column(Integer, ForeignKey("school_classes.id", ondelete="SET NULL"), nullable=True)
     test_id = Column(Integer, ForeignKey("tests.id", ondelete="CASCADE"), nullable=True)  # nullable for quick_question
+    paragraph_id = Column(Integer, ForeignKey("paragraphs.id", ondelete="SET NULL"), nullable=True)  # for exit ticket
     join_code = Column(String(6), nullable=False, unique=True)
     status = Column(
         Enum(QuizSessionStatus, values_callable=lambda x: [e.value for e in x], name='quiz_session_status',
@@ -116,6 +117,7 @@ class QuizAnswer(BaseModel):
     question_index = Column(Integer, nullable=False)
     selected_option = Column(Integer, nullable=False)
     is_correct = Column(Boolean, nullable=False)
+    text_answer = Column(Text, nullable=True)  # for short_answer question type
     answer_time_ms = Column(Integer, nullable=False)
     score = Column(Integer, nullable=False, default=0, server_default='0')
     answered_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

@@ -198,6 +198,8 @@ from app.api.v1 import teachers_gamification
 from app.api.v1 import app_version
 from app.api.v1 import shared_files, file_browser
 from app.api.v1 import teachers_quiz, students_quiz, ws_quiz
+from app.api.v1 import teachers_quiz_analytics
+from app.api.v1 import teachers_quiz_reports
 from app.api.v1 import auth_phone
 
 app.include_router(
@@ -352,6 +354,18 @@ app.include_router(
     teachers_quiz.router,
     prefix=f"{settings.API_V1_PREFIX}",
     tags=["Teachers - Quiz Battle"],
+)
+
+app.include_router(
+    teachers_quiz_analytics.router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Teachers - Quiz Analytics"],
+)
+
+app.include_router(
+    teachers_quiz_reports.router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Teachers - Quiz Reports"],
 )
 
 app.include_router(

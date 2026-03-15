@@ -23,6 +23,7 @@ import QuizAnswered from '@/components/quiz/QuizAnswered';
 import QuizQuestionResult from '@/components/quiz/QuizQuestionResult';
 import QuizFinished from '@/components/quiz/QuizFinished';
 import QuizSelfPacedFeedback from '@/components/quiz/QuizSelfPacedFeedback';
+import QuizShortAnswer from '@/components/quiz/QuizShortAnswer';
 import QuizQuickAnswer from '@/components/quiz/QuizQuickAnswer';
 
 // ── State ──
@@ -340,6 +341,22 @@ function QuizPageInner() {
     [state.currentQuestion, send],
   );
 
+  const handleShortAnswer = useCallback(
+    (textAnswer: string, answerTimeMs: number) => {
+      if (!state.currentQuestion) return;
+      dispatch({ type: 'ANSWER_SUBMITTED' });
+      send({
+        type: 'answer',
+        data: {
+          question_index: state.currentQuestion.index,
+          text_answer: textAnswer,
+          answer_time_ms: answerTimeMs,
+        },
+      });
+    },
+    [state.currentQuestion, send],
+  );
+
   // ── Self-paced handlers ──
 
   const fetchNextSelfPacedQuestion = async () => {
@@ -421,7 +438,21 @@ function QuizPageInner() {
         );
 
       case QuizState.QUESTION:
-        return state.currentQuestion ? (
+        if (!state.currentQuestion) return null;
+        if (state.currentQuestion.question_type === 'short_answer') {
+          return (
+            <QuizShortAnswer
+              question={state.currentQuestion}
+              questionNumber={state.currentQuestion.index + 1}
+              totalQuestions={state.totalQuestions}
+              onAnswer={handleShortAnswer}
+              onTimerTick={playTick}
+              onTimeUp={playTimeUp}
+              hideTimer={state.currentQuestion.time_limit_ms === 0}
+            />
+          );
+        }
+        return (
           <QuizQuestion
             question={state.currentQuestion}
             questionNumber={state.currentQuestion.index + 1}
@@ -429,8 +460,9 @@ function QuizPageInner() {
             onAnswer={handleAnswer}
             onTimerTick={playTick}
             onTimeUp={playTimeUp}
+            hideTimer={state.currentQuestion.time_limit_ms === 0}
           />
-        ) : null;
+        );
 
       case QuizState.ANSWERED:
         return (

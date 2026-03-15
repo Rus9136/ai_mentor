@@ -761,6 +761,20 @@
     "noQuests": "Нет заданий на сегодня",
     "awesome": "Круто!"
   },
+  "quizWidget": {
+    "title": "Мои квизы",
+    "available": "Доступен",
+    "inProgress": "В процессе",
+    "completed": "Завершён",
+    "join": "Войти",
+    "rejoin": "Войти",
+    "continue": "Продолжить",
+    "enterCode": "Ввести код",
+    "live": "Live",
+    "team": "Команды",
+    "selfPaced": "Самост.",
+    "untitled": "Квиз"
+  },
   "quiz": {
     "enterCode": "Введите код квиза",
     "join": "Присоединиться",
@@ -783,6 +797,9 @@
     "teamStandings": "Рейтинг команд",
     "nextQuestion": "Следующий вопрос",
     "correct": "Правильно!",
-    "incorrect": "Неправильно"
+    "incorrect": "Неправильно",
+    "typeAnswer": "Введите ваш ответ...",
+    "submit": "Отправить",
+    "answerSent": "Ответ отправлен"
   }
 }

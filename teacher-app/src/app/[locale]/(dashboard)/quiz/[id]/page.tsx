@@ -8,6 +8,9 @@ import { Loader2 } from 'lucide-react';
 
 import QuizLobbyTeacher from '@/components/quiz/QuizLobbyTeacher';
 import QuizLiveProgress from '@/components/quiz/QuizLiveProgress';
+import QuizTeacherPacedProgress from '@/components/quiz/QuizTeacherPacedProgress';
+import QuizLiveMatrix from '@/components/quiz/QuizLiveMatrix';
+import QuizReportDownloads from '@/components/quiz/QuizReportDownloads';
 import QuizResults from '@/components/quiz/QuizResults';
 import QuizSelfPacedProgress from '@/components/quiz/QuizSelfPacedProgress';
 import SpaceRaceTrack from '@/components/quiz/SpaceRaceTrack';
@@ -27,7 +30,7 @@ export default function QuizDetailPage({ params }: { params: Promise<Params> }) 
   const cancelQuiz = useCancelQuiz();
 
   const joinCode = session?.join_code || null;
-  const { lastMessage, sendNextQuestion, sendFinishQuiz, connected } = useTeacherQuizWebSocket(
+  const { lastMessage, sendNextQuestion, sendFinishQuiz, sendGoToQuestion, connected } = useTeacherQuizWebSocket(
     session?.status === 'lobby' || session?.status === 'in_progress' ? joinCode : null
   );
 
@@ -103,6 +106,7 @@ export default function QuizDetailPage({ params }: { params: Promise<Params> }) 
 
   if (status === 'in_progress') {
     const mode = session.settings?.mode || 'classic';
+    const pacing = session.settings?.pacing || 'timed';
 
     // Self-paced mode: show student progress dashboard
     if (mode === 'self_paced') {
@@ -110,6 +114,21 @@ export default function QuizDetailPage({ params }: { params: Promise<Params> }) 
         <QuizSelfPacedProgress
           sessionId={sessionId}
           totalQuestions={session.question_count}
+          onEndQuiz={handleEndQuiz}
+        />
+      );
+    }
+
+    // Teacher-paced mode: question navigation
+    if (pacing === 'teacher_paced') {
+      return (
+        <QuizTeacherPacedProgress
+          currentQuestion={currentQuestion}
+          totalQuestions={session.question_count}
+          answeredCount={answeredCount}
+          totalParticipants={participantCount}
+          onGoToQuestion={sendGoToQuestion}
+          onNextQuestion={sendNextQuestion}
           onEndQuiz={handleEndQuiz}
         />
       );
@@ -143,17 +162,22 @@ export default function QuizDetailPage({ params }: { params: Promise<Params> }) 
           onNextQuestion={sendNextQuestion}
           onEndQuiz={handleEndQuiz}
         />
+        <QuizLiveMatrix sessionId={sessionId} />
       </div>
     );
   }
 
   if (status === 'finished' && results) {
     return (
-      <QuizResults
-        totalQuestions={results.total_questions}
-        leaderboard={results.leaderboard}
-        stats={results.stats}
-      />
+      <div className="space-y-6">
+        <QuizResults
+          totalQuestions={results.total_questions}
+          leaderboard={results.leaderboard}
+          stats={results.stats}
+        />
+        <QuizLiveMatrix sessionId={sessionId} />
+        <QuizReportDownloads sessionId={sessionId} />
+      </div>
     );
   }
 

@@ -35,6 +35,7 @@ export interface WsQuestion {
 export interface QuizQuestionData {
   index: number;
   text: string;
+  question_type?: 'single_choice' | 'short_answer';
   options: string[];
   time_limit_ms: number;
   image_url: string | null;
@@ -159,6 +160,26 @@ export interface JoinQuizResponse {
   team_id?: number;
   team_name?: string;
   team_color?: string;
+}
+
+// ── Student quiz list (My Quizzes widget) ──
+
+export interface StudentQuizListItem {
+  id: number;
+  test_title: string;
+  class_name: string;
+  join_code: string;
+  status: string;
+  mode: string;
+  question_count: number;
+  participant_count: number;
+  has_joined: boolean;
+  answered_count: number;
+  total_score: number | null;
+  correct_answers: number | null;
+  rank: number | null;
+  xp_earned: number | null;
+  created_at: string;
 }
 
 // ── Self-paced types ──

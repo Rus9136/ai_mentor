@@ -14,6 +14,7 @@ interface UseTeacherQuizWebSocketReturn {
   lastMessage: WsMessage | null;
   sendNextQuestion: () => void;
   sendFinishQuiz: () => void;
+  sendGoToQuestion: (index: number) => void;
   sendQuickQuestion: (questionText: string, options: string[]) => void;
   sendEndQuickQuestion: () => void;
   error: string | null;
@@ -92,6 +93,10 @@ export function useTeacherQuizWebSocket(joinCode: string | null): UseTeacherQuiz
 
   const sendNextQuestion = useCallback(() => send({ type: 'next_question' }), [send]);
   const sendFinishQuiz = useCallback(() => send({ type: 'finish_quiz' }), [send]);
+  const sendGoToQuestion = useCallback(
+    (index: number) => send({ type: 'go_to_question', data: { question_index: index } }),
+    [send],
+  );
   const sendQuickQuestion = useCallback(
     (questionText: string, options: string[]) =>
       send({ type: 'quick_question', data: { question_text: questionText, options } }),
@@ -99,5 +104,5 @@ export function useTeacherQuizWebSocket(joinCode: string | null): UseTeacherQuiz
   );
   const sendEndQuickQuestion = useCallback(() => send({ type: 'end_quick_question' }), [send]);
 
-  return { connected, lastMessage, sendNextQuestion, sendFinishQuiz, sendQuickQuestion, sendEndQuickQuestion, error };
+  return { connected, lastMessage, sendNextQuestion, sendFinishQuiz, sendGoToQuestion, sendQuickQuestion, sendEndQuickQuestion, error };
 }

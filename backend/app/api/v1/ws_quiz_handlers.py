@@ -15,16 +15,24 @@ async def handle_student_answer(manager, join_code: str, student_id: int, data: 
     from app.api.v1.ws_quiz import _get_db_session
 
     question_index = data.get("question_index")
-    selected_option = data.get("selected_option")
+    selected_option = data.get("selected_option", -1)
     answer_time_ms = data.get("answer_time_ms", 30000)
+    text_answer = data.get("text_answer")
 
-    if question_index is None or selected_option is None:
+    if question_index is None:
+        return
+    # For short answer, selected_option may be absent
+    if selected_option is None and text_answer is None:
         return
 
     db = await _get_db_session(school_id)
     try:
         service = QuizService(db)
-        result = await service.submit_answer(session_id, student_id, question_index, selected_option, answer_time_ms)
+        result = await service.submit_answer(
+            session_id, student_id, question_index,
+            selected_option if selected_option is not None else -1,
+            answer_time_ms, text_answer=text_answer,
+        )
 
         # Send result back to student
         await manager.send_to_student(join_code, student_id, {
@@ -288,6 +296,64 @@ async def handle_end_quick_question(manager, join_code: str):
     room.quick_responses = {}
     room.quick_question_data = None
     room.quick_answered_students = set()
+
+
+async def handle_go_to_question(manager, join_code: str, teacher_id: int, data: dict, school_id: int, session_id: int):
+    """Handle teacher navigating to an arbitrary question (teacher-paced mode)."""
+    from app.api.v1.ws_quiz import _get_db_session
+
+    question_index = data.get("question_index")
+    if question_index is None:
+        await manager.send_to_teacher(join_code, {"type": "error", "data": {"message": "question_index required"}})
+        return
+
+    db = await _get_db_session(school_id)
+    try:
+        service = QuizService(db)
+
+        # Get stats for current question before navigating
+        session = await service.repo.get_session(session_id)
+        if session and session.current_question_index >= 0:
+            current_idx = session.current_question_index
+            stats_data = await service.get_question_stats(session_id, current_idx)
+
+            lb_data = await service.repo.get_participants_with_names(session_id)
+            top5 = [
+                {"rank": i + 1, "student_name": d["student_name"], "total_score": d["participant"].total_score}
+                for i, d in enumerate(lb_data[:5])
+            ]
+
+            await manager.broadcast_to_all(join_code, {
+                "type": "question_result",
+                "data": {
+                    "correct_option": stats_data["correct_option"],
+                    "stats": stats_data["stats"],
+                    "leaderboard_top5": top5,
+                },
+            })
+
+            # Team leaderboard
+            if session.mode == "team":
+                team_service = QuizTeamService(db)
+                team_lb = await team_service.get_team_leaderboard(session_id)
+                await manager.broadcast_to_all(join_code, {
+                    "type": "team_leaderboard",
+                    "data": {"teams": [t.model_dump() for t in team_lb]},
+                })
+
+        # Navigate to the target question
+        question = await service.go_to_question(session_id, teacher_id, question_index)
+        if question:
+            await manager.broadcast_to_all(join_code, {
+                "type": "question",
+                "data": question.model_dump(),
+            })
+    except ValueError as e:
+        await manager.send_to_teacher(join_code, {"type": "error", "data": {"message": str(e)}})
+    except Exception as e:
+        logger.error(f"Error in go_to_question: {e}")
+    finally:
+        await db.close()
 
 
 async def handle_selfpaced_progress_notify(manager, join_code: str, student_id: int, student_name: str, answered: int, total: int, correct: int):

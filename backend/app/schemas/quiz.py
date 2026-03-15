@@ -17,6 +17,8 @@ class QuizSessionSettings(BaseModel):
     scoring_mode: str = Field(default="speed", description="'speed' (time-based) or 'accuracy' (1000 per correct)")
     # Phase 2.2: game modes
     mode: str = Field(default="classic", description="classic|team|self_paced|quick_question")
+    # Phase 2.3: pacing
+    pacing: str = Field(default="timed", description="'timed' (countdown) or 'teacher_paced' (manual, no timer)")
     team_count: Optional[int] = Field(default=None, ge=2, le=6, description="Number of teams (team mode)")
     show_space_race: bool = Field(default=False, description="Show space race visualization (team mode)")
     deadline: Optional[str] = Field(default=None, description="ISO datetime deadline (self_paced mode)")
@@ -117,6 +119,7 @@ class JoinQuizResponse(BaseModel):
 class QuizQuestionOut(BaseModel):
     index: int
     text: str
+    question_type: str = "single_choice"  # single_choice | short_answer
     options: list[str]
     time_limit_ms: int
     image_url: Optional[str] = None
@@ -176,3 +179,42 @@ class StudentProgressItem(BaseModel):
     total: int
     correct: int
     total_score: int
+
+
+# ── Student quiz list (My Quizzes widget) ──
+
+class StudentQuizListItem(BaseModel):
+    """Quiz item for student's "My Quizzes" widget."""
+    id: int
+    test_title: str = ""
+    class_name: str = ""
+    join_code: str
+    status: str
+    mode: str = "classic"
+    question_count: int = 0
+    participant_count: int = 0
+    has_joined: bool = False
+    answered_count: int = 0
+    total_score: Optional[int] = None
+    correct_answers: Optional[int] = None
+    rank: Optional[int] = None
+    xp_earned: Optional[int] = None
+    created_at: datetime
+
+
+# ── Matrix schemas (Phase 2.3) ──
+
+class QuizMatrixAnswer(BaseModel):
+    question_index: int
+    is_correct: bool
+    answer_time_ms: int
+    text_answer: Optional[str] = None
+
+class QuizMatrixStudent(BaseModel):
+    student_id: int
+    student_name: str
+    answers: list[Optional[QuizMatrixAnswer]]
+
+class QuizMatrixResponse(BaseModel):
+    students: list[QuizMatrixStudent]
+    question_count: int

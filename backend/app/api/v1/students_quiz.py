@@ -12,6 +12,7 @@ from app.models.student import Student
 from app.services.quiz_service import QuizService
 from app.services.quiz_selfpaced_service import QuizSelfPacedService
 from app.services.quiz_team_service import QuizTeamService
+from app.repositories.quiz_repo import QuizRepository
 from app.schemas.quiz import (
     JoinQuizRequest,
     JoinQuizResponse,
@@ -21,11 +22,27 @@ from app.schemas.quiz import (
     SelfPacedNextQuestion,
     SelfPacedAnswerResult,
     SelfPacedSubmitRequest,
+    StudentQuizListItem,
 )
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/students/quiz-sessions")
+
+
+@router.get("/my-quizzes", response_model=list[StudentQuizListItem])
+async def get_my_quizzes(
+    student: Student = Depends(get_student_from_user),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get quizzes for student's classes (My Quizzes widget)."""
+    repo = QuizRepository(db)
+    class_ids = await repo.get_student_class_ids(student.id)
+    if not class_ids:
+        return []
+    items = await repo.get_sessions_for_classes(class_ids, school_id, student.id)
+    return [StudentQuizListItem(**item) for item in items]
 
 
 @router.post("/join", response_model=JoinQuizResponse)

@@ -32,6 +32,7 @@ export default function QuizCreateForm() {
   const [shuffleAnswers, setShuffleAnswers] = useState(false);
   const [scoringMode, setScoringMode] = useState<'speed' | 'accuracy'>('speed');
   const [mode, setMode] = useState<'classic' | 'team' | 'self_paced'>('classic');
+  const [pacing, setPacing] = useState<'timed' | 'teacher_paced'>('timed');
   const [teamCount, setTeamCount] = useState(2);
   const [showSpaceRace, setShowSpaceRace] = useState(false);
 
@@ -66,6 +67,7 @@ export default function QuizCreateForm() {
           shuffle_answers: shuffleAnswers,
           scoring_mode: mode === 'self_paced' ? 'accuracy' : scoringMode,
           mode,
+          pacing: mode === 'self_paced' ? 'timed' : pacing,
           ...(mode === 'team' ? { team_count: teamCount, show_space_race: showSpaceRace } : {}),
         },
       });
@@ -215,8 +217,23 @@ export default function QuizCreateForm() {
         </div>
       )}
 
-      {/* Time */}
+      {/* Pacing */}
       {testId && mode !== 'self_paced' && (
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">{t('pacing')}</label>
+          <select
+            className={selectClass}
+            value={pacing}
+            onChange={(e) => setPacing(e.target.value as 'timed' | 'teacher_paced')}
+          >
+            <option value="timed">{t('timedPacing')}</option>
+            <option value="teacher_paced">{t('teacherPacedPacing')}</option>
+          </select>
+        </div>
+      )}
+
+      {/* Time */}
+      {testId && mode !== 'self_paced' && pacing !== 'teacher_paced' && (
         <div>
           <label className="mb-1.5 block text-sm font-medium">{t('timePerQuestion')}</label>
           <select className={selectClass} value={timeMs} onChange={(e) => setTimeMs(Number(e.target.value))}>
