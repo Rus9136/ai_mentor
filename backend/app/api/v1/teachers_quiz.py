@@ -426,6 +426,12 @@ async def get_tournament_results(
 ):
     """Get tournament results/leaderboard."""
     from app.services.quiz_tournament_service import QuizTournamentService
+    from app.models.quiz import QuizTournament
+
+    tournament = await db.get(QuizTournament, tournament_id)
+    if not tournament or tournament.school_id != teacher.school_id:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
     service = QuizTournamentService(db)
     results = await service.get_tournament_results(tournament_id)
     if not results:

@@ -171,7 +171,7 @@ class QuizTournamentService:
         result = await self.db.execute(
             select(QuizTournament).where(
                 QuizTournament.status == "active",
-                QuizTournament.week_end < today,
+                QuizTournament.week_end <= today,
             )
         )
         tournaments = list(result.scalars().all())

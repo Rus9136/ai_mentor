@@ -116,8 +116,8 @@ class QuizSelfPacedService:
         await self.db.commit()
 
         # Get correct option index for feedback
-        correct_option = await self._quiz_service._get_correct_option_index(
-            session.test_id, question_index, session.settings, session.id,
+        correct_option = await get_correct_option_index(
+            self.db, session.test_id, question_index, session.settings, session.id,
         )
 
         answered_count = await self._count_student_answers(participant.id)
