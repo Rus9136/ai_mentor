@@ -455,7 +455,7 @@ class GamificationService:
                     existing = await self.db.execute(
                         select(XpTransaction).where(
                             XpTransaction.student_id == student_id,
-                            XpTransaction.source_type == XpSourceType.MASTERY_UP,
+                            XpTransaction.source_type == XpSourceType.ACHIEVEMENT,
                             XpTransaction.source_id == achievement.id,
                         ).limit(1)
                     )
@@ -464,7 +464,7 @@ class GamificationService:
                             student_id=student_id,
                             school_id=school_id,
                             amount=achievement.xp_reward,
-                            source_type=XpSourceType.MASTERY_UP,
+                            source_type=XpSourceType.ACHIEVEMENT,
                             source_id=achievement.id,
                             extra_data={"achievement_code": achievement.code},
                         )

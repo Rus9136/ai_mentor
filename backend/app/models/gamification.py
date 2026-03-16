@@ -24,6 +24,7 @@ class XpSourceType(str, enum.Enum):
     QUIZ_BATTLE = "quiz_battle"
     POWERUP_PURCHASE = "powerup_purchase"
     WEEKLY_TOURNAMENT = "weekly_tournament"
+    ACHIEVEMENT = "achievement"
 
 
 class AchievementCategory(str, enum.Enum):
