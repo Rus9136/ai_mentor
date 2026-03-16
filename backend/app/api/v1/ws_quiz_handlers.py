@@ -81,6 +81,19 @@ async def handle_student_answer(manager, join_code: str, student_id: int, data: 
             "type": "answer_progress",
             "data": {"answered": answered_count, "total": total_participants},
         })
+
+        # Auto-close: if all connected participants answered, close question immediately
+        room = manager.get_room(join_code)
+        if room and not room.question_closed:
+            if not session:
+                session = await service.repo.get_session(session_id)
+            if session:
+                settings = session.settings or {}
+                if settings.get("pacing", "timed") == "timed":
+                    if answered_count >= total_participants and total_participants > 0:
+                        from app.api.v1.ws_quiz_auto import auto_close_question
+                        await auto_close_question(manager, join_code, school_id, session_id)
+
     except ValueError as e:
         await manager.send_to_student(join_code, student_id, {
             "type": "error",
@@ -95,6 +108,12 @@ async def handle_student_answer(manager, join_code: str, student_id: int, data: 
 async def handle_next_question(manager, join_code: str, teacher_id: int, school_id: int, session_id: int):
     """Handle teacher advancing to next question."""
     from app.api.v1.ws_quiz import _get_db_session
+    from app.api.v1.ws_quiz_auto import cancel_question_timers, start_question_close_timer
+
+    # Cancel any running auto-close / auto-advance timers
+    room = manager.get_room(join_code)
+    if room:
+        cancel_question_timers(room)
 
     db = await _get_db_session(school_id)
     try:
@@ -103,42 +122,52 @@ async def handle_next_question(manager, join_code: str, teacher_id: int, school_
         # Get stats for current question before advancing
         session = await service.repo.get_session(session_id)
         if session:
-            current_idx = session.current_question_index
-            stats_data = await service.get_question_stats(session_id, current_idx)
+            # Only broadcast question_result if not already auto-closed
+            if not (room and room.question_closed):
+                current_idx = session.current_question_index
+                stats_data = await service.get_question_stats(session_id, current_idx)
 
-            # Get top 5 leaderboard
-            lb_data = await service.repo.get_participants_with_names(session_id)
-            top5 = [
-                {"rank": i + 1, "student_name": d["student_name"], "total_score": d["participant"].total_score}
-                for i, d in enumerate(lb_data[:5])
-            ]
+                # Get top 5 leaderboard
+                lb_data = await service.repo.get_participants_with_names(session_id)
+                top5 = [
+                    {"rank": i + 1, "student_name": d["student_name"], "total_score": d["participant"].total_score}
+                    for i, d in enumerate(lb_data[:5])
+                ]
 
-            # Broadcast question result
-            await manager.broadcast_to_all(join_code, {
-                "type": "question_result",
-                "data": {
-                    "correct_option": stats_data["correct_option"],
-                    "stats": stats_data["stats"],
-                    "leaderboard_top5": top5,
-                },
-            })
-
-            # Team mode: broadcast team leaderboard
-            if session.mode == "team":
-                team_service = QuizTeamService(db)
-                team_lb = await team_service.get_team_leaderboard(session_id)
+                # Broadcast question result
                 await manager.broadcast_to_all(join_code, {
-                    "type": "team_leaderboard",
-                    "data": {"teams": [t.model_dump() for t in team_lb]},
+                    "type": "question_result",
+                    "data": {
+                        "correct_option": stats_data["correct_option"],
+                        "stats": stats_data["stats"],
+                        "leaderboard_top5": top5,
+                    },
                 })
+
+                # Team mode: broadcast team leaderboard
+                if session.mode == "team":
+                    team_service = QuizTeamService(db)
+                    team_lb = await team_service.get_team_leaderboard(session_id)
+                    await manager.broadcast_to_all(join_code, {
+                        "type": "team_leaderboard",
+                        "data": {"teams": [t.model_dump() for t in team_lb]},
+                    })
 
         # Advance to next question
         next_q = await service.advance_question(session_id, teacher_id)
         if next_q:
+            if room:
+                room.question_closed = False
             await manager.broadcast_to_all(join_code, {
                 "type": "question",
                 "data": next_q.model_dump(),
             })
+            # Start close timer for the new question (timed mode only)
+            if room and session:
+                settings = session.settings or {}
+                if settings.get("pacing", "timed") == "timed":
+                    time_limit = settings.get("time_per_question_ms", 30000)
+                    await start_question_close_timer(manager, join_code, time_limit, school_id, session_id)
         else:
             # No more questions — auto finish
             await handle_finish_quiz(manager, join_code, teacher_id, school_id, session_id)
@@ -153,6 +182,12 @@ async def handle_next_question(manager, join_code: str, teacher_id: int, school_
 async def handle_finish_quiz(manager, join_code: str, teacher_id: int, school_id: int, session_id: int):
     """Handle quiz finish: calculate ranks, award XP, send results."""
     from app.api.v1.ws_quiz import _get_db_session
+    from app.api.v1.ws_quiz_auto import cancel_question_timers
+
+    # Cancel any running timers
+    room = manager.get_room(join_code)
+    if room:
+        cancel_question_timers(room)
 
     db = await _get_db_session(school_id)
     try:

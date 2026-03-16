@@ -70,6 +70,8 @@ interface QuizPageState {
   // Confidence mode (Phase 2.4)
   enableConfidence: boolean;
   confidenceChoice: 'risk' | 'safe' | null;
+  // Auto-advance (Phase 2.4.5)
+  autoAdvanceMs: number | null;
 }
 
 type QuizAction =
@@ -119,6 +121,7 @@ const initialState: QuizPageState = {
   enablePowerups: false,
   enableConfidence: false,
   confidenceChoice: null,
+  autoAdvanceMs: null,
 };
 
 function reducer(state: QuizPageState, action: QuizAction): QuizPageState {
@@ -195,11 +198,12 @@ function reducer(state: QuizPageState, action: QuizAction): QuizPageState {
             lastOptions: msg.data.options,
             answerScore: null,
             answerCorrect: null,
-            // Reset power-up and confidence for new question
+            // Reset power-up, confidence, and auto-advance for new question
             activePowerup: null,
             removedOptions: null,
             extraTimeMs: 0,
             confidenceChoice: null,
+            autoAdvanceMs: null,
           };
 
         case 'answer_accepted':
@@ -221,6 +225,7 @@ function reducer(state: QuizPageState, action: QuizAction): QuizPageState {
             resultCorrectOption: msg.data.correct_option,
             resultStats: msg.data.stats,
             resultLeaderboard: msg.data.leaderboard_top5,
+            autoAdvanceMs: msg.data.auto_advance_ms ?? null,
           };
 
         case 'quiz_finished':
@@ -592,6 +597,7 @@ function QuizPageInner() {
             options={state.lastOptions}
             leaderboardTop5={state.resultLeaderboard}
             teamLeaderboard={state.teamLeaderboard}
+            autoAdvanceMs={state.autoAdvanceMs}
           />
         );
 

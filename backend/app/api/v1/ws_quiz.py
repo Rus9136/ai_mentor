@@ -2,6 +2,7 @@
 WebSocket endpoint for Quiz Battle real-time communication.
 Supports: classic, team, self-paced, quick question modes.
 """
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from typing import Optional
@@ -47,6 +48,10 @@ class QuizRoom:
     quick_responses: dict = field(default_factory=dict)
     quick_question_data: Optional[dict] = None
     quick_answered_students: set = field(default_factory=set)
+    # Auto-close / auto-advance timers (Phase 2.4.5)
+    question_close_task: Optional[asyncio.Task] = None
+    auto_advance_task: Optional[asyncio.Task] = None
+    question_closed: bool = False
 
 
 class QuizConnectionManager:
@@ -79,6 +84,8 @@ class QuizConnectionManager:
         else:
             room.students.pop(user_id, None)
         if room.teacher_ws is None and not room.students:
+            from app.api.v1.ws_quiz_auto import cancel_question_timers
+            cancel_question_timers(room)
             self.rooms.pop(join_code, None)
 
     async def send_to_teacher(self, join_code: str, message: dict):

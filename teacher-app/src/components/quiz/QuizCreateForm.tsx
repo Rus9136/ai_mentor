@@ -37,6 +37,9 @@ export default function QuizCreateForm() {
   const [showSpaceRace, setShowSpaceRace] = useState(false);
   const [enablePowerups, setEnablePowerups] = useState(false);
   const [enableConfidence, setEnableConfidence] = useState(false);
+  const [autoAdvance, setAutoAdvance] = useState(false);
+  const [autoAdvanceDelay, setAutoAdvanceDelay] = useState(5000);
+  const [showLeaderboardEveryN, setShowLeaderboardEveryN] = useState(1);
 
   const { data: classes } = useClasses();
   const { data: textbooks } = useQuery({ queryKey: ['textbooks'], queryFn: getTextbooks });
@@ -73,6 +76,8 @@ export default function QuizCreateForm() {
           ...(mode === 'team' ? { team_count: teamCount, show_space_race: showSpaceRace } : {}),
           ...(enablePowerups && pacing === 'timed' && mode !== 'self_paced' ? { enable_powerups: true } : {}),
           ...(enableConfidence && scoringMode === 'speed' && mode !== 'self_paced' ? { enable_confidence_mode: true } : {}),
+          ...(autoAdvance && pacing === 'timed' && mode !== 'self_paced' ? { auto_advance: true, auto_advance_delay_ms: autoAdvanceDelay } : {}),
+          ...(showLeaderboardEveryN > 1 ? { show_leaderboard_every_n: showLeaderboardEveryN } : {}),
         },
       });
       router.push(`/quiz/${result.id}`);
@@ -315,6 +320,48 @@ export default function QuizCreateForm() {
                 <p className="text-xs text-muted-foreground">{t('confidenceHint')}</p>
               </div>
             </label>
+          )}
+
+          {/* Auto-advance toggle (only timed, not self-paced) */}
+          {pacing === 'timed' && mode !== 'self_paced' && (
+            <>
+              <label className="flex cursor-pointer items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={autoAdvance}
+                  onChange={(e) => setAutoAdvance(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <div>
+                  <span className="text-sm">{t('autoAdvance')}</span>
+                  <p className="text-xs text-muted-foreground">{t('autoAdvanceHint')}</p>
+                </div>
+              </label>
+              {autoAdvance && (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">{t('autoAdvanceDelay')}</label>
+                  <select className={selectClass} value={autoAdvanceDelay} onChange={(e) => setAutoAdvanceDelay(Number(e.target.value))}>
+                    <option value={3000}>{t('seconds', { sec: 3 })}</option>
+                    <option value={5000}>{t('seconds', { sec: 5 })}</option>
+                    <option value={7000}>{t('seconds', { sec: 7 })}</option>
+                    <option value={10000}>{t('seconds', { sec: 10 })}</option>
+                  </select>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Leaderboard frequency */}
+          {pacing === 'timed' && mode !== 'self_paced' && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">{t('leaderboardFrequency')}</label>
+              <select className={selectClass} value={showLeaderboardEveryN} onChange={(e) => setShowLeaderboardEveryN(Number(e.target.value))}>
+                <option value={1}>{t('everyQuestion')}</option>
+                <option value={2}>{t('everyNQuestions', { n: 2 })}</option>
+                <option value={3}>{t('everyNQuestions', { n: 3 })}</option>
+                <option value={5}>{t('everyNQuestions', { n: 5 })}</option>
+              </select>
+            </div>
           )}
         </div>
       )}

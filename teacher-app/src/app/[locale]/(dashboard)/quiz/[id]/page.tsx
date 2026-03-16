@@ -38,6 +38,7 @@ export default function QuizDetailPage({ params }: { params: Promise<Params> }) 
   const [participantCount, setParticipantCount] = useState(0);
   const [answeredCount, setAnsweredCount] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [questionClosed, setQuestionClosed] = useState(false);
 
   useEffect(() => {
     if (session) {
@@ -58,6 +59,10 @@ export default function QuizDetailPage({ params }: { params: Promise<Params> }) 
       case 'question':
         setCurrentQuestion(((lastMessage.data as { index: number }).index || 0) + 1);
         setAnsweredCount(0);
+        setQuestionClosed(false);
+        break;
+      case 'question_auto_closed':
+        setQuestionClosed(true);
         break;
     }
   }, [lastMessage]);
@@ -162,6 +167,9 @@ export default function QuizDetailPage({ params }: { params: Promise<Params> }) 
           students={students}
           onNextQuestion={sendNextQuestion}
           onEndQuiz={handleEndQuiz}
+          questionClosed={questionClosed}
+          autoAdvance={session.settings?.auto_advance || false}
+          autoAdvanceDelayMs={session.settings?.auto_advance_delay_ms || 5000}
         />
         <QuizLiveMatrix sessionId={sessionId} status={status} />
       </div>

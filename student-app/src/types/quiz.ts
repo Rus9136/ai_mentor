@@ -29,6 +29,7 @@ export interface WsQuizStarted {
     mode?: string;
     enable_powerups?: boolean;
     enable_confidence_mode?: boolean;
+    auto_advance?: boolean;
   };
 }
 
@@ -67,6 +68,7 @@ export interface WsQuestionResult {
     correct_option: number;
     stats: Record<string, number>;
     leaderboard_top5: LeaderboardEntry[];
+    auto_advance_ms?: number;
   };
 }
 

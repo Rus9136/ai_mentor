@@ -226,6 +226,7 @@ async def start_quiz(
             "mode": mode,
             "enable_powerups": settings.get("enable_powerups", False),
             "enable_confidence_mode": settings.get("enable_confidence_mode", False),
+            "auto_advance": settings.get("auto_advance", False),
         },
     })
 
@@ -240,6 +241,14 @@ async def start_quiz(
                 "type": "question",
                 "data": first_question.model_dump(),
             })
+            # Start auto-close timer for first question (timed mode only)
+            pacing = settings.get("pacing", "timed")
+            if pacing == "timed":
+                from app.api.v1.ws_quiz_auto import start_question_close_timer
+                time_limit = settings.get("time_per_question_ms", 30000)
+                await start_question_close_timer(
+                    manager, session.join_code, time_limit, session.school_id, session.id,
+                )
 
     return {"status": "in_progress", "message": "Quiz started"}
 

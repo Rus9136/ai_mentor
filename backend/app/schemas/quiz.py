@@ -25,6 +25,10 @@ class QuizSessionSettings(BaseModel):
     # Phase 2.4: gamification
     enable_powerups: bool = Field(default=False, description="Allow students to use power-ups (timed mode only)")
     enable_confidence_mode: bool = Field(default=False, description="Risk/Safe choice per question (speed mode only)")
+    # Phase 2.4.5: auto-advance
+    auto_advance: bool = Field(default=False, description="Auto-advance to next question after result display (timed mode)")
+    auto_advance_delay_ms: int = Field(default=5000, ge=3000, le=15000, description="Delay before auto-advancing in ms")
+    show_leaderboard_every_n: int = Field(default=1, ge=1, le=10, description="Show leaderboard every N questions")
 
 
 class QuizSessionCreate(BaseModel):

@@ -356,6 +356,19 @@
 | 2.4.5 | Frontend: QuizPodium + звуки | ✅ |
 | 2.4.6 | Backend: weekly tournament (cron + service + migration) | ✅ |
 | 2.4.7 | Frontend: tournament widget + leaderboard | ✅ |
+| 2.4.8 | Backend + Frontend: auto-close + auto-advance | ✅ |
+
+### 2.4.5 Auto-Close + Auto-Advance ✅
+
+- Server-side таймеры в QuizRoom: `question_close_task`, `auto_advance_task`
+- Auto-close: вопрос автоматически закрывается (broadcast `question_result`) когда таймер истёк ИЛИ все ответили
+- Auto-advance: `settings.auto_advance: bool` — после показа результатов автоматически переход к следующему вопросу
+- `settings.auto_advance_delay_ms: int` (3-15 сек, default 5) — задержка перед авто-переходом
+- `settings.show_leaderboard_every_n: int` (1-10, default 1) — частота показа лидерборда
+- WS: `question_auto_closed` → teacher, `auto_advance_ms` в `question_result` → student countdown
+- Новый модуль: `ws_quiz_auto.py` (start_question_close_timer, auto_close_question, auto_advance)
+- Teacher override: кнопка "Далее" отменяет таймеры и переходит сразу
+- Только для `pacing: "timed"` — teacher_paced не затронут
 
 ---
 
@@ -470,7 +483,8 @@ backend/
 │       ├── teachers_quiz_reports.py      ← ✅ Фаза 2.3 (XLSX downloads)
 │       ├── students_quiz.py              ← ✅ +next-question, submit-answer
 │       ├── ws_quiz.py                    ← ✅ +team/quick/go_to_question routing
-│       └── ws_quiz_handlers.py           ← ✅ +go_to_question handler
+│       ├── ws_quiz_handlers.py           ← ✅ +go_to_question handler
+│       └── ws_quiz_auto.py              ← ✅ Фаза 2.4.5 (auto-close + auto-advance timers)
 
 student-app/src/
 ├── app/[locale]/webview/

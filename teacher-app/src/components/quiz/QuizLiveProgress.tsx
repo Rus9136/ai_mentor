@@ -1,8 +1,9 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, Square } from 'lucide-react';
+import { ChevronRight, Square, CheckCircle2 } from 'lucide-react';
 
 interface StudentStatus {
   student_name: string;
@@ -17,6 +18,9 @@ interface QuizLiveProgressProps {
   students: StudentStatus[];
   onNextQuestion: () => void;
   onEndQuiz: () => void;
+  questionClosed?: boolean;
+  autoAdvance?: boolean;
+  autoAdvanceDelayMs?: number;
 }
 
 export default function QuizLiveProgress({
@@ -27,9 +31,27 @@ export default function QuizLiveProgress({
   students,
   onNextQuestion,
   onEndQuiz,
+  questionClosed = false,
+  autoAdvance = false,
+  autoAdvanceDelayMs = 5000,
 }: QuizLiveProgressProps) {
   const t = useTranslations('quiz');
   const pct = totalParticipants > 0 ? Math.round((answeredCount / totalParticipants) * 100) : 0;
+
+  // Auto-advance countdown for teacher
+  const [countdown, setCountdown] = useState<number | null>(null);
+  useEffect(() => {
+    if (questionClosed && autoAdvance) {
+      const sec = Math.ceil(autoAdvanceDelayMs / 1000);
+      setCountdown(sec);
+      const interval = setInterval(() => {
+        setCountdown((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setCountdown(null);
+    }
+  }, [questionClosed, autoAdvance, autoAdvanceDelayMs]);
 
   return (
     <div className="space-y-6">
@@ -38,9 +60,17 @@ export default function QuizLiveProgress({
         <h2 className="text-lg font-bold">
           {t('questionOf', { current: currentQuestion, total: totalQuestions })}
         </h2>
-        <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
-          {t('inProgress')}
-        </span>
+        <div className="flex items-center gap-2">
+          {questionClosed && (
+            <span className="flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {t('questionClosed')}
+            </span>
+          )}
+          <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
+            {t('inProgress')}
+          </span>
+        </div>
       </div>
 
       {/* Answer progress */}
@@ -76,11 +106,16 @@ export default function QuizLiveProgress({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3">
+      <div className="flex items-center gap-3">
         <Button onClick={onNextQuestion} className="flex-1">
           <ChevronRight className="mr-1 h-4 w-4" />
           {t('nextQuestion')}
         </Button>
+        {countdown !== null && countdown > 0 && (
+          <span className="text-sm font-medium text-primary">
+            {t('autoAdvancing', { sec: countdown })}
+          </span>
+        )}
         <Button variant="outline" onClick={onEndQuiz}>
           <Square className="mr-1 h-4 w-4" />
           {t('endQuiz')}

@@ -792,6 +792,7 @@
     "finished": "Квиз завершён!",
     "questionOf": "Вопрос {current} из {total}",
     "waiting": "Ожидание...",
+    "nextQuestionIn": "Следующий вопрос через {sec}...",
     "streakBonus": "бонус за серию",
     "streak": "серия {count} подряд!",
     "teamStandings": "Рейтинг команд",

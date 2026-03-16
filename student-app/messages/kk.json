@@ -792,6 +792,7 @@
     "finished": "Квиз аяқталды!",
     "questionOf": "Сұрақ {current} / {total}",
     "waiting": "Күтілуде...",
+    "nextQuestionIn": "Келесі сұрақ {sec} секундтан кейін...",
     "streakBonus": "сериялық бонус",
     "streak": "қатарынан {count}!",
     "teamStandings": "Команда рейтингі",

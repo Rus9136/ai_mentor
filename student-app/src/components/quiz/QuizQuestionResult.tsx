@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import type { LeaderboardEntry, TeamEntry } from '@/types/quiz';
 import QuizMiniLeaderboard from './QuizMiniLeaderboard';
@@ -10,14 +11,28 @@ interface QuizQuestionResultProps {
   options: string[];
   leaderboardTop5: LeaderboardEntry[];
   teamLeaderboard?: TeamEntry[];
+  autoAdvanceMs?: number | null;
 }
 
 const BAR_COLORS = ['bg-red-500', 'bg-blue-500', 'bg-amber-500', 'bg-green-500'];
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
 
-export default function QuizQuestionResult({ correctOption, stats, options, leaderboardTop5, teamLeaderboard }: QuizQuestionResultProps) {
+export default function QuizQuestionResult({ correctOption, stats, options, leaderboardTop5, teamLeaderboard, autoAdvanceMs }: QuizQuestionResultProps) {
   const t = useTranslations('quiz');
   const maxCount = Math.max(1, ...Object.values(stats));
+
+  // Auto-advance countdown
+  const [countdown, setCountdown] = useState<number | null>(
+    autoAdvanceMs ? Math.ceil(autoAdvanceMs / 1000) : null,
+  );
+  useEffect(() => {
+    if (!autoAdvanceMs) return;
+    setCountdown(Math.ceil(autoAdvanceMs / 1000));
+    const interval = setInterval(() => {
+      setCountdown((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [autoAdvanceMs]);
 
   return (
     <div className="flex min-h-dvh flex-col items-center px-4 py-6">
@@ -70,7 +85,11 @@ export default function QuizQuestionResult({ correctOption, stats, options, lead
       {/* Mini leaderboard */}
       <QuizMiniLeaderboard entries={leaderboardTop5} />
 
-      <p className="mt-6 text-sm text-muted-foreground">{t('waiting')}</p>
+      {countdown !== null && countdown > 0 ? (
+        <p className="mt-6 text-sm font-medium text-primary">{t('nextQuestionIn', { sec: countdown })}</p>
+      ) : (
+        <p className="mt-6 text-sm text-muted-foreground">{t('waiting')}</p>
+      )}
     </div>
   );
 }
