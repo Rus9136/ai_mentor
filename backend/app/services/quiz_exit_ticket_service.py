@@ -101,9 +101,8 @@ class QuizExitTicketService:
             )
         elif question_index == 2 and session.test_id:
             # Q2: Topic question from test
-            from app.services.quiz_service import QuizService
-            service = QuizService(self.db)
-            return await service._load_question(session.test_id, 0, session.settings, session.id)
+            from app.services.quiz_question_loader import load_question
+            return await load_question(self.db, session.test_id, 0, session.settings, session.id)
         return None
 
     async def finalize_exit_ticket(self, session_id: int, teacher_id: int) -> dict:
