@@ -292,8 +292,14 @@ class SchoolClassRepository:
         if not school_class:
             raise ValueError(f"Class {class_id} not found")
 
+        # Get existing student IDs in this class
+        existing_ids = {cs.student_id for cs in school_class.class_students}
+
         # Verify all students exist and belong to the same school
         for student_id in student_ids:
+            if student_id in existing_ids:
+                continue  # Already in class
+
             # Query with school_id and is_deleted filter
             result = await self.db.execute(
                 select(Student).where(
@@ -309,9 +315,9 @@ class SchoolClassRepository:
                     f"Student {student_id} not found or belongs to different school"
                 )
 
-            # Add relationship if not exists
-            if student not in school_class.students:
-                school_class.students.append(student)
+            # Use association object directly (school_class.students is viewonly=True)
+            assoc = ClassStudent(class_id=class_id, student_id=student_id)
+            self.db.add(assoc)
 
         await self.db.commit()
         await self.db.refresh(school_class)

@@ -5,6 +5,7 @@ Provides Google OAuth login and student onboarding flow.
 """
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 from pydantic import BaseModel, Field
 from typing import Optional
 
@@ -375,6 +376,12 @@ async def complete_onboarding(
         else:
             raise APIError(ErrorCode.VAL_003, message=error or "Invalid invitation code")
 
+    # Bypass RLS for onboarding: JWT has school_id=NULL (not yet assigned),
+    # so tenant_id is empty and RLS would block cross-school operations.
+    # This is safe because the user is authenticated and data comes from
+    # a validated invitation code.
+    await db.execute(text("SELECT set_config('app.is_super_admin', 'true', false)"))
+
     # Update user profile
     user_repo = UserRepository(db)
     current_user.first_name = data.first_name
@@ -426,6 +433,9 @@ async def complete_onboarding(
                 school_id=invitation_code.school_id,
                 invitation_code_id=invitation_code.id
             )
+
+    # Restore RLS context after onboarding operations
+    await db.execute(text("SELECT set_config('app.is_super_admin', 'false', false)"))
 
     # Note: We don't record code usage here anymore
     # Code usage is recorded when teacher approves the request

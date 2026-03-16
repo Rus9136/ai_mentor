@@ -219,11 +219,10 @@ class JoinRequestService:
         if request.status != JoinRequestStatus.PENDING:
             return None, "request_already_processed"
 
-        # Temporarily bypass RLS to access student from another school
-        # This is safe because we've already validated:
-        # 1. The request exists and belongs to the teacher's school
-        # 2. The teacher has access to the class
-        await self.db.execute(text("SET LOCAL app.is_super_admin = 'true'"))
+        # Bypass RLS for cross-school student access during approval.
+        # Using set_config(false) instead of SET LOCAL so it persists across commits.
+        # Safe because we've already validated request ownership and teacher access.
+        await self.db.execute(text("SELECT set_config('app.is_super_admin', 'true', false)"))
 
         # Get student with user for FIO update
         result = await self.db.execute(
@@ -235,7 +234,7 @@ class JoinRequestService:
 
         if not student:
             # Reset super admin before returning
-            await self.db.execute(text("SET LOCAL app.is_super_admin = 'false'"))
+            await self.db.execute(text("SELECT set_config('app.is_super_admin', 'false', false)"))
             return None, "student_not_found"
 
         old_school_id = student.school_id
@@ -257,8 +256,7 @@ class JoinRequestService:
 
         await self.db.commit()
 
-        # Re-set super admin for subsequent operations (commit ends the transaction)
-        await self.db.execute(text("SET LOCAL app.is_super_admin = 'true'"))
+        # No need to re-set — using set_config(false) persists across commits
 
         # 3. Remove student from all previous classes
         removed_count = await self._class_repo.remove_student_from_all_classes(
@@ -292,7 +290,7 @@ class JoinRequestService:
         if request.invitation_code_id:
             try:
                 # Load invitation code since it wasn't eagerly loaded
-                code = await self._code_repo.get_by_id(request.invitation_code_id)
+                code = await self._code_repo.get_by_id(request.invitation_code_id, request.school_id)
                 if code:
                     await self._code_repo.use_code(code, request.student_id)
             except Exception as e:
@@ -300,6 +298,9 @@ class JoinRequestService:
 
         # Approve request
         approved = await self._repo.approve(request, reviewer_id)
+
+        # Restore normal RLS context
+        await self.db.execute(text("SELECT set_config('app.is_super_admin', 'false', false)"))
 
         logger.info(f"Approved join request {request_id} by user {reviewer_id}")
 
