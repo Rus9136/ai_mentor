@@ -224,6 +224,52 @@ async def list_chapter_questions(
     ]
 
 
+# ── Tournaments (MUST be before /{session_id} to avoid route conflict) ──
+
+@router.get("/tournaments")
+async def get_tournaments(
+    teacher: Teacher = Depends(get_teacher_from_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List active/scheduled weekly tournaments for teacher's classes."""
+    from app.services.quiz_tournament_service import QuizTournamentService
+    from app.models.school_class import SchoolClass
+    from sqlalchemy import select
+
+    # Get teacher's class IDs
+    result = await db.execute(
+        select(SchoolClass.id).where(
+            SchoolClass.school_id == teacher.school_id,
+            SchoolClass.is_deleted == False,
+        )
+    )
+    class_ids = [row[0] for row in result.all()]
+
+    service = QuizTournamentService(db)
+    return await service.get_active_tournaments(teacher.school_id, class_ids)
+
+
+@router.get("/tournaments/{tournament_id}/results")
+async def get_tournament_results(
+    tournament_id: int,
+    teacher: Teacher = Depends(get_teacher_from_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get tournament results/leaderboard."""
+    from app.services.quiz_tournament_service import QuizTournamentService
+    from app.models.quiz import QuizTournament
+
+    tournament = await db.get(QuizTournament, tournament_id)
+    if not tournament or tournament.school_id != teacher.school_id:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
+    service = QuizTournamentService(db)
+    results = await service.get_tournament_results(tournament_id)
+    if not results:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    return results
+
+
 @router.get("/{session_id}", response_model=QuizSessionDetailResponse)
 async def get_quiz_session(
     session_id: int,
@@ -472,49 +518,3 @@ async def get_team_leaderboard(
 
     team_service = QuizTeamService(db)
     return await team_service.get_team_leaderboard(session_id)
-
-
-# ── Tournaments ──
-
-@router.get("/quiz-sessions/tournaments")
-async def get_tournaments(
-    teacher: Teacher = Depends(get_teacher_from_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """List active/scheduled weekly tournaments for teacher's classes."""
-    from app.services.quiz_tournament_service import QuizTournamentService
-    from app.models.school_class import SchoolClass
-    from sqlalchemy import select
-
-    # Get teacher's class IDs
-    result = await db.execute(
-        select(SchoolClass.id).where(
-            SchoolClass.school_id == teacher.school_id,
-            SchoolClass.is_deleted == False,
-        )
-    )
-    class_ids = [row[0] for row in result.all()]
-
-    service = QuizTournamentService(db)
-    return await service.get_active_tournaments(teacher.school_id, class_ids)
-
-
-@router.get("/quiz-sessions/tournaments/{tournament_id}/results")
-async def get_tournament_results(
-    tournament_id: int,
-    teacher: Teacher = Depends(get_teacher_from_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Get tournament results/leaderboard."""
-    from app.services.quiz_tournament_service import QuizTournamentService
-    from app.models.quiz import QuizTournament
-
-    tournament = await db.get(QuizTournament, tournament_id)
-    if not tournament or tournament.school_id != teacher.school_id:
-        raise HTTPException(status_code=404, detail="Tournament not found")
-
-    service = QuizTournamentService(db)
-    results = await service.get_tournament_results(tournament_id)
-    if not results:
-        raise HTTPException(status_code=404, detail="Tournament not found")
-    return results

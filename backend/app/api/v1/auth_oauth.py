@@ -308,7 +308,11 @@ async def validate_invitation_code(
         raise APIError(ErrorCode.ACCESS_002, message="Only students can use invitation codes")
 
     if current_user.school_id is not None:
-        raise APIError(ErrorCode.VAL_006)  # User already belongs to a school
+        # Allow validation if Student record is missing (partial onboarding recovery)
+        _student_repo = StudentRepository(db)
+        _existing_student = await _student_repo.get_by_user_id(current_user.id)
+        if _existing_student:
+            raise APIError(ErrorCode.VAL_006)  # User already fully onboarded
 
     code_repo = InvitationCodeRepository(db)
     is_valid, error, invitation_code = await code_repo.validate_code(data.code)
@@ -361,7 +365,12 @@ async def complete_onboarding(
         raise APIError(ErrorCode.ACCESS_002, message="Only students can complete onboarding")
 
     if current_user.school_id is not None:
-        raise APIError(ErrorCode.VAL_006)  # User already belongs to a school
+        # Check if Student record exists — might be missing due to partial onboarding
+        _student_repo = StudentRepository(db)
+        _existing_student = await _student_repo.get_by_user_id(current_user.id)
+        if _existing_student:
+            raise APIError(ErrorCode.VAL_006)  # User already fully onboarded
+        # Student record missing — allow onboarding to continue and create it
 
     # Validate invitation code
     code_repo = InvitationCodeRepository(db)

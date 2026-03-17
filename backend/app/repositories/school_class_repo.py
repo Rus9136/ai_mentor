@@ -287,13 +287,15 @@ class SchoolClassRepository:
         Raises:
             ValueError: If class or students not found, or belong to different schools
         """
-        # Get class with students loaded to avoid lazy loading
-        school_class = await self.get_by_id(class_id, school_id, load_students=True)
+        school_class = await self.get_by_id(class_id, school_id)
         if not school_class:
             raise ValueError(f"Class {class_id} not found")
 
-        # Get existing student IDs in this class
-        existing_ids = {cs.student_id for cs in school_class.class_students}
+        # Get existing student IDs via direct query (avoid lazy loading in async)
+        result = await self.db.execute(
+            select(ClassStudent.student_id).where(ClassStudent.class_id == class_id)
+        )
+        existing_ids = {row[0] for row in result.all()}
 
         # Verify all students exist and belong to the same school
         for student_id in student_ids:
