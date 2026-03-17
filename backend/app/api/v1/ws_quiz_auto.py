@@ -17,11 +17,21 @@ logger = logging.getLogger(__name__)
 
 def cancel_question_timers(room: "QuizRoom"):
     """Cancel both close and advance timers."""
+    _cancel_close_timer(room)
+    _cancel_advance_timer(room)
+
+
+def _cancel_close_timer(room: "QuizRoom"):
+    """Cancel only the close timer."""
     if room.question_close_task and not room.question_close_task.done():
         room.question_close_task.cancel()
+    room.question_close_task = None
+
+
+def _cancel_advance_timer(room: "QuizRoom"):
+    """Cancel only the advance timer."""
     if room.auto_advance_task and not room.auto_advance_task.done():
         room.auto_advance_task.cancel()
-    room.question_close_task = None
     room.auto_advance_task = None
 
 
@@ -37,8 +47,10 @@ async def start_question_close_timer(
     if not room:
         return
 
-    # Cancel any existing timers and reset state
-    cancel_question_timers(room)
+    # Only cancel the close timer — do NOT cancel the advance timer here,
+    # because this function may be called from within the advance task itself
+    # (via _auto_advance_to_next), and cancelling it would self-cancel the running task.
+    _cancel_close_timer(room)
     room.question_closed = False
 
     async def _timer():
@@ -75,6 +87,10 @@ async def auto_close_question(
     from app.api.v1.ws_quiz import _get_db_session
     from app.services.quiz_service import QuizService
 
+    # Read settings early so auto_advance timer can be started even if stats fail
+    auto_advance = False
+    auto_advance_delay_ms = 5000
+
     db = await _get_db_session(school_id)
     try:
         service = QuizService(db)
@@ -83,9 +99,12 @@ async def auto_close_question(
             return
 
         current_idx = session.current_question_index
+        settings = session.settings or {}
+        auto_advance = settings.get("auto_advance", False)
+        auto_advance_delay_ms = settings.get("auto_advance_delay_ms", 5000)
+
         stats_data = await service.get_question_stats(session_id, current_idx)
 
-        settings = session.settings or {}
         every_n = settings.get("show_leaderboard_every_n", 1)
         question_number = current_idx + 1  # 1-based
         show_lb = (question_number % every_n == 0) or (question_number == session.question_count)
@@ -100,9 +119,6 @@ async def auto_close_question(
             ]
 
         # Build question_result payload
-        auto_advance = settings.get("auto_advance", False)
-        auto_advance_delay_ms = settings.get("auto_advance_delay_ms", 5000)
-
         result_data = {
             "correct_option": stats_data["correct_option"],
             "stats": stats_data["stats"],
@@ -132,15 +148,18 @@ async def auto_close_question(
             "data": {"question_index": current_idx},
         })
 
-        # Start auto-advance timer if enabled
-        if auto_advance:
-            await _start_auto_advance_timer(
-                manager, join_code, auto_advance_delay_ms, school_id, session_id,
-            )
+        logger.info(f"Quiz {join_code}: Q{current_idx} auto-closed, auto_advance={auto_advance}")
     except Exception as e:
-        logger.error(f"Error in auto_close_question for {join_code}: {e}")
+        logger.error(f"Error in auto_close_question for {join_code}: {e}", exc_info=True)
     finally:
         await db.close()
+
+    # Start auto-advance timer OUTSIDE try/finally to ensure it runs
+    # even if there were partial errors above (settings were read early)
+    if auto_advance:
+        await _start_auto_advance_timer(
+            manager, join_code, auto_advance_delay_ms, school_id, session_id,
+        )
 
 
 async def _start_auto_advance_timer(
@@ -155,16 +174,21 @@ async def _start_auto_advance_timer(
     if not room:
         return
 
+    # Cancel any previous advance timer before starting a new one
+    _cancel_advance_timer(room)
+
     async def _advance():
         try:
             await asyncio.sleep(delay_ms / 1000.0)
+            logger.info(f"Quiz {join_code}: auto-advance timer fired, advancing to next question")
             await _auto_advance_to_next(manager, join_code, school_id, session_id)
         except asyncio.CancelledError:
-            pass
+            logger.info(f"Quiz {join_code}: auto-advance timer cancelled (teacher manual advance)")
         except Exception as e:
-            logger.error(f"Error in auto-advance timer for {join_code}: {e}")
+            logger.error(f"Error in auto-advance timer for {join_code}: {e}", exc_info=True)
 
     room.auto_advance_task = asyncio.create_task(_advance())
+    logger.info(f"Quiz {join_code}: auto-advance timer started ({delay_ms}ms)")
 
 
 async def _auto_advance_to_next(
@@ -187,6 +211,7 @@ async def _auto_advance_to_next(
         service = QuizService(db)
         session = await service.repo.get_session(session_id)
         if not session or session.status.value != "in_progress":
+            logger.warning(f"Quiz {join_code}: auto-advance skipped, session not in_progress")
             return
 
         teacher_id = room.teacher_id or session.teacher_id
@@ -198,14 +223,16 @@ async def _auto_advance_to_next(
                 "type": "question",
                 "data": next_q.model_dump(),
             })
+            logger.info(f"Quiz {join_code}: auto-advanced to Q{next_q.index}")
             # Start the close timer for the new question
             settings = session.settings or {}
             time_limit = settings.get("time_per_question_ms", 30000)
             await start_question_close_timer(manager, join_code, time_limit, school_id, session_id)
         else:
             # No more questions — finish
+            logger.info(f"Quiz {join_code}: no more questions, finishing quiz")
             await handle_finish_quiz(manager, join_code, teacher_id, school_id, session_id)
     except Exception as e:
-        logger.error(f"Error in auto_advance_to_next for {join_code}: {e}")
+        logger.error(f"Error in auto_advance_to_next for {join_code}: {e}", exc_info=True)
     finally:
         await db.close()
