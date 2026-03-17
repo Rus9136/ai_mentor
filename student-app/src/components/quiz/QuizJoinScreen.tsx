@@ -24,13 +24,13 @@ export default function QuizJoinScreen({ onJoin, initialCode }: QuizJoinScreenPr
     setDigits(newDigits);
     setError('');
     if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
+      inputRefs.current[index + 1]?.focus({ preventScroll: true });
     }
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace' && !digits[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
+      inputRefs.current[index - 1]?.focus({ preventScroll: true });
     }
   };
 
@@ -59,7 +59,7 @@ export default function QuizJoinScreen({ onJoin, initialCode }: QuizJoinScreenPr
   const code = digits.join('');
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm text-center">
         <h1 className="mb-8 text-2xl font-bold text-foreground">{t('enterCode')}</h1>
 

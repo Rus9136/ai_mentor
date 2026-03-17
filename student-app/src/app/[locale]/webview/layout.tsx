@@ -22,7 +22,7 @@ function TokenExtractor({ children }: { children: React.ReactNode }) {
 
 export default function WebViewLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="min-h-screen bg-background">
       <Suspense>
         <TokenExtractor>{children}</TokenExtractor>
       </Suspense>
