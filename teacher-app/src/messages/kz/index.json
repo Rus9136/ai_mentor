@@ -681,6 +681,17 @@
     "autoAdvancing": "{sec} секундтан кейін ауысу...",
     "tournament": "Апта сайынғы турнир",
     "tournamentActive": "Белсенді",
-    "tournamentFinished": "Аяқталды"
+    "tournamentFinished": "Аяқталды",
+    "pickQuestions": "Сұрақтарды таңдаңыз",
+    "selectedCount": "Таңдалды: {count}",
+    "selectAll": "Барлығын таңдау",
+    "noBankQuestions": "Бұл тарауда қолжетімді сұрақтар жоқ",
+    "myQuestions": "Менің сұрақтарым",
+    "optionsCount": "нұсқа",
+    "addCustomQuestion": "Өз сұрағыңызды қосыңыз",
+    "correctOptionHint": "Дұрыс жауап нұсқасын белгілеңіз",
+    "saveQuestion": "Сұрақты сақтау",
+    "cancel": "Болдырмау",
+    "loading": "Жүктелуде..."
   }
 }

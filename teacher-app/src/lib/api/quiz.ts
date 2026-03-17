@@ -1,7 +1,15 @@
 import { apiClient } from './client';
 
+export interface CustomQuestion {
+  question_text: string;
+  options: string[];
+  correct_option: number;
+}
+
 export interface QuizSessionCreate {
   test_id?: number;
+  question_ids?: number[];
+  custom_questions?: CustomQuestion[];
   class_id?: number;
   settings?: {
     time_per_question_ms?: number;
@@ -14,6 +22,25 @@ export interface QuizSessionCreate {
     show_space_race?: boolean;
     deadline?: string;
   };
+}
+
+export interface QuestionOptionPreview {
+  text: string;
+  is_correct: boolean;
+}
+
+export interface QuestionPreview {
+  id: number;
+  question_text: string;
+  question_type: string;
+  options: QuestionOptionPreview[];
+}
+
+export interface ParagraphQuestions {
+  paragraph_id: number;
+  paragraph_number: number;
+  paragraph_title: string;
+  questions: QuestionPreview[];
 }
 
 export interface QuickQuestionCreate {
@@ -55,6 +82,13 @@ export async function getQuizResults(sessionId: number) {
 
 export async function getTestsForQuiz(params: { paragraph_id?: number; chapter_id?: number }) {
   const response = await apiClient.get('/teachers/quiz-sessions/tests', { params });
+  return response.data;
+}
+
+export async function getChapterQuestions(chapterId: number): Promise<ParagraphQuestions[]> {
+  const response = await apiClient.get('/teachers/quiz-sessions/chapter-questions', {
+    params: { chapter_id: chapterId },
+  });
   return response.data;
 }
 

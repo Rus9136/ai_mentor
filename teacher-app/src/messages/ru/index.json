@@ -695,6 +695,17 @@
     "autoAdvancing": "Переход через {sec}...",
     "tournament": "Еженедельный турнир",
     "tournamentActive": "Активен",
-    "tournamentFinished": "Завершён"
+    "tournamentFinished": "Завершён",
+    "pickQuestions": "Выберите вопросы",
+    "selectedCount": "Выбрано: {count}",
+    "selectAll": "Выбрать все",
+    "noBankQuestions": "Нет доступных вопросов в этой главе",
+    "myQuestions": "Мои вопросы",
+    "optionsCount": "вариантов",
+    "addCustomQuestion": "Добавить свой вопрос",
+    "correctOptionHint": "Отметьте правильный вариант ответа",
+    "saveQuestion": "Сохранить вопрос",
+    "cancel": "Отмена",
+    "loading": "Загрузка..."
   }
 }

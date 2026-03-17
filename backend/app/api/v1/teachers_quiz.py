@@ -15,6 +15,7 @@ from app.models.test import Test, Question, QuestionType
 from app.services.quiz_service import QuizService
 from app.services.quiz_team_service import QuizTeamService
 from app.services.quiz_selfpaced_service import QuizSelfPacedService
+from app.models.paragraph import Paragraph
 from app.schemas.quiz import (
     QuizSessionCreate,
     QuizSessionResponse,
@@ -25,6 +26,9 @@ from app.schemas.quiz import (
     QuizTeamResponse,
     QuickQuestionCreate,
     StudentProgressItem,
+    ParagraphQuestions,
+    QuestionPreview,
+    QuestionOptionPreview,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,7 +43,7 @@ async def create_quiz_session(
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new quiz session from an existing test."""
+    """Create a new quiz session from test, cherry-picked questions, or custom questions."""
     service = QuizService(db)
     try:
         session = await service.create_session(
@@ -48,6 +52,8 @@ async def create_quiz_session(
             test_id=data.test_id,
             class_id=data.class_id,
             settings=data.settings,
+            question_ids=data.question_ids,
+            custom_questions=[q.model_dump() for q in data.custom_questions] if data.custom_questions else None,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -153,6 +159,71 @@ async def list_tests_for_quiz(
     ]
 
 
+@router.get("/chapter-questions", response_model=list[ParagraphQuestions])
+async def list_chapter_questions(
+    chapter_id: int = Query(..., description="Chapter ID"),
+    teacher: Teacher = Depends(get_teacher_from_user),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all quiz-eligible questions for a chapter, grouped by paragraph."""
+    from app.models.test import QuestionType as QT
+    from sqlalchemy.orm import selectinload as sil
+
+    # Get paragraphs for this chapter
+    para_result = await db.execute(
+        select(Paragraph)
+        .where(Paragraph.chapter_id == chapter_id, Paragraph.is_deleted == False)
+        .order_by(Paragraph.number)
+    )
+    paragraphs = para_result.scalars().all()
+    if not paragraphs:
+        return []
+
+    para_ids = [p.id for p in paragraphs]
+
+    # Load all tests + questions + options for these paragraphs
+    test_result = await db.execute(
+        select(Test)
+        .options(sil(Test.questions).selectinload(Question.options))
+        .where(
+            Test.paragraph_id.in_(para_ids),
+            Test.is_active == True,
+            Test.is_deleted == False,
+            (Test.school_id == None) | (Test.school_id == school_id),
+        )
+    )
+    tests = test_result.scalars().unique().all()
+
+    # Group questions by paragraph_id
+    para_questions: dict[int, list[QuestionPreview]] = {pid: [] for pid in para_ids}
+    for t in tests:
+        for q in sorted(t.questions, key=lambda x: x.sort_order):
+            if q.is_deleted or q.question_type not in {QT.SINGLE_CHOICE, QT.SHORT_ANSWER}:
+                continue
+            options = sorted(
+                [o for o in q.options if not o.is_deleted],
+                key=lambda o: o.sort_order,
+            )
+            para_questions[t.paragraph_id].append(QuestionPreview(
+                id=q.id,
+                question_text=q.question_text,
+                question_type=q.question_type.value,
+                options=[QuestionOptionPreview(text=o.option_text, is_correct=o.is_correct) for o in options],
+            ))
+
+    return [
+        ParagraphQuestions(
+            paragraph_id=p.id,
+            paragraph_number=p.number,
+            paragraph_title=p.title,
+            questions=para_questions.get(p.id, []),
+        )
+        for p in paragraphs
+        if para_questions.get(p.id)  # Only paragraphs with questions
+    ]
+
+
 @router.get("/{session_id}", response_model=QuizSessionDetailResponse)
 async def get_quiz_session(
     session_id: int,
@@ -231,7 +302,8 @@ async def start_quiz(
     })
 
     # Self-paced: don't send first question (students fetch via REST)
-    if mode != "self_paced" and mode != "quick_question" and session.test_id:
+    has_questions = session.test_id or session.settings.get("question_ids") or session.settings.get("custom_questions")
+    if mode != "self_paced" and mode != "quick_question" and has_questions:
         from app.services.quiz_question_loader import load_question
         first_question = await load_question(
             db, session.test_id, 0, session.settings, session.id,

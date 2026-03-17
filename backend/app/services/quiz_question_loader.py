@@ -1,6 +1,11 @@
 """
 Quiz question loader: test loading, question shuffling, answer checking.
 Extracted from quiz_service.py for reuse across quiz modules.
+
+Supports three question sources:
+1. test_id — all questions from a single test (legacy)
+2. question_ids — cherry-picked questions from multiple tests (stored in settings)
+3. custom_questions — teacher-created inline questions (stored in settings)
 """
 import random
 from typing import Optional
@@ -34,6 +39,39 @@ def get_sorted_questions(test: Test) -> list[Question]:
     )
 
 
+async def _load_questions_by_ids(db: AsyncSession, question_ids: list[int]) -> list[Question]:
+    """Load specific questions by IDs, preserving order from question_ids."""
+    result = await db.execute(
+        select(Question)
+        .options(selectinload(Question.options))
+        .where(Question.id.in_(question_ids), Question.is_deleted == False)
+    )
+    questions = result.scalars().all()
+    id_to_q = {q.id: q for q in questions}
+    return [id_to_q[qid] for qid in question_ids if qid in id_to_q]
+
+
+def _get_total_question_count(settings: dict, test_question_count: int = 0) -> int:
+    """Calculate total questions from bank + custom."""
+    bank_count = len(settings.get("question_ids", [])) if settings.get("question_ids") else test_question_count
+    custom_count = len(settings.get("custom_questions", []))
+    return bank_count + custom_count
+
+
+async def _resolve_questions(
+    db: AsyncSession, test_id: Optional[int], settings: dict,
+) -> list[Question]:
+    """Resolve the list of DB Question objects based on settings."""
+    question_ids = settings.get("question_ids")
+    if question_ids:
+        return await _load_questions_by_ids(db, question_ids)
+    if test_id:
+        test = await load_test(db, test_id)
+        if test:
+            return get_sorted_questions(test)
+    return []
+
+
 def get_question_at_index(
     questions: list[Question], question_index: int, settings: dict, session_id: int,
 ) -> Optional[Question]:
@@ -64,44 +102,81 @@ def get_shuffled_options(
     return options
 
 
+def _build_question_out(
+    question_index: int, text: str, question_type: str,
+    option_texts: list[str], time_limit: int,
+) -> QuizQuestionOut:
+    return QuizQuestionOut(
+        index=question_index,
+        text=text,
+        question_type=question_type,
+        options=option_texts,
+        time_limit_ms=time_limit,
+        image_url=None,
+    )
+
+
+def _get_time_limit(settings: dict) -> int:
+    time_limit = settings.get("time_per_question_ms", 30000)
+    if settings.get("pacing") == "teacher_paced":
+        time_limit = 0
+    return time_limit
+
+
+def _try_custom_question(
+    question_index: int, settings: dict, bank_count: int, session_id: int,
+) -> Optional[QuizQuestionOut]:
+    """If question_index falls into custom_questions range, return it."""
+    custom_questions = settings.get("custom_questions", [])
+    if not custom_questions:
+        return None
+    custom_index = question_index - bank_count
+    if custom_index < 0 or custom_index >= len(custom_questions):
+        return None
+    cq = custom_questions[custom_index]
+    time_limit = _get_time_limit(settings)
+    options = list(cq["options"])
+    if settings.get("shuffle_answers"):
+        rng = random.Random(session_id * 10000 + question_index)
+        # Shuffle while tracking correct answer
+        correct_idx = cq["correct_option"]
+        indexed = list(enumerate(options))
+        rng.shuffle(indexed)
+        options = [o for _, o in indexed]
+        # Update correct_option in shuffled order (for answer checking)
+        # Not modifying settings — checked separately
+    return _build_question_out(question_index, cq["question_text"], "single_choice", options, time_limit)
+
+
 async def load_question(
     db: AsyncSession, test_id: int, question_index: int, settings: dict, session_id: int,
 ) -> Optional[QuizQuestionOut]:
-    """Load a single question by index with shuffle and time settings applied."""
-    test = await load_test(db, test_id)
-    if not test:
-        return None
+    """Load a single question by index with shuffle and time settings applied.
 
-    questions = get_sorted_questions(test)
-    q = get_question_at_index(questions, question_index, settings, session_id)
+    Supports: test_id, question_ids, and custom_questions (bank first, then custom).
+    """
+    bank_questions = await _resolve_questions(db, test_id, settings)
+    bank_count = len(bank_questions)
+
+    # Check if this index falls into custom_questions
+    if question_index >= bank_count:
+        return _try_custom_question(question_index, settings, bank_count, session_id)
+
+    # Bank question (from test or question_ids)
+    q = get_question_at_index(bank_questions, question_index, settings, session_id)
     if not q:
-        return None
+        return _try_custom_question(question_index, settings, bank_count, session_id)
 
-    time_limit = settings.get("time_per_question_ms", 30000)
-    # Teacher-paced mode: no timer
-    if settings.get("pacing") == "teacher_paced":
-        time_limit = 0
+    time_limit = _get_time_limit(settings)
 
-    # Short answer: no option buttons
     q_type = q.question_type.value if hasattr(q.question_type, 'value') else str(q.question_type)
     if q_type == "short_answer":
-        return QuizQuestionOut(
-            index=question_index,
-            text=q.question_text,
-            question_type="short_answer",
-            options=[],
-            time_limit_ms=time_limit,
-            image_url=None,
-        )
+        return _build_question_out(question_index, q.question_text, "short_answer", [], time_limit)
 
     options = get_shuffled_options(q, settings, session_id, question_index)
-    return QuizQuestionOut(
-        index=question_index,
-        text=q.question_text,
-        question_type="single_choice",
-        options=[o.option_text for o in options],
-        time_limit_ms=time_limit,
-        image_url=None,
+    return _build_question_out(
+        question_index, q.question_text, "single_choice",
+        [o.option_text for o in options], time_limit,
     )
 
 
@@ -110,12 +185,27 @@ async def check_answer(
     settings: dict, session_id: int,
 ) -> bool:
     """Check if selected_option is the correct answer (respects shuffle)."""
-    test = await load_test(db, test_id)
-    if not test:
-        return False
+    bank_questions = await _resolve_questions(db, test_id, settings)
+    bank_count = len(bank_questions)
 
-    questions = get_sorted_questions(test)
-    q = get_question_at_index(questions, question_index, settings, session_id)
+    # Custom question
+    if question_index >= bank_count:
+        custom_questions = settings.get("custom_questions", [])
+        custom_index = question_index - bank_count
+        if custom_index < 0 or custom_index >= len(custom_questions):
+            return False
+        cq = custom_questions[custom_index]
+        correct = cq["correct_option"]
+        if settings.get("shuffle_answers"):
+            rng = random.Random(session_id * 10000 + question_index)
+            indices = list(range(len(cq["options"])))
+            rng.shuffle(indices)
+            # indices[selected_option] maps to original index
+            return indices[selected_option] == correct
+        return selected_option == correct
+
+    # Bank question
+    q = get_question_at_index(bank_questions, question_index, settings, session_id)
     if not q:
         return False
 
@@ -131,12 +221,29 @@ async def get_correct_option_index(
     settings: dict, session_id: int,
 ) -> Optional[int]:
     """Get the index of the correct option (respects shuffle)."""
-    test = await load_test(db, test_id)
-    if not test:
-        return None
+    bank_questions = await _resolve_questions(db, test_id, settings)
+    bank_count = len(bank_questions)
 
-    questions = get_sorted_questions(test)
-    q = get_question_at_index(questions, question_index, settings, session_id)
+    # Custom question
+    if question_index >= bank_count:
+        custom_questions = settings.get("custom_questions", [])
+        custom_index = question_index - bank_count
+        if custom_index < 0 or custom_index >= len(custom_questions):
+            return None
+        cq = custom_questions[custom_index]
+        correct = cq["correct_option"]
+        if settings.get("shuffle_answers"):
+            rng = random.Random(session_id * 10000 + question_index)
+            indices = list(range(len(cq["options"])))
+            rng.shuffle(indices)
+            for i, orig in enumerate(indices):
+                if orig == correct:
+                    return i
+            return None
+        return correct
+
+    # Bank question
+    q = get_question_at_index(bank_questions, question_index, settings, session_id)
     if not q:
         return None
 

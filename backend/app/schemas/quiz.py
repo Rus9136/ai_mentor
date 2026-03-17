@@ -31,8 +31,17 @@ class QuizSessionSettings(BaseModel):
     show_leaderboard_every_n: int = Field(default=1, ge=1, le=10, description="Show leaderboard every N questions")
 
 
+class CustomQuestionInput(BaseModel):
+    """Teacher-created custom question for a quiz."""
+    question_text: str = Field(min_length=1, max_length=2000)
+    options: list[str] = Field(min_length=2, max_length=6)
+    correct_option: int = Field(ge=0, description="Index of the correct option")
+
+
 class QuizSessionCreate(BaseModel):
-    test_id: Optional[int] = None  # nullable for quick_question mode
+    test_id: Optional[int] = None  # nullable for question_ids / quick_question mode
+    question_ids: Optional[list[int]] = Field(default=None, description="Cherry-picked question IDs from bank")
+    custom_questions: Optional[list[CustomQuestionInput]] = Field(default=None, description="Teacher-created questions")
     class_id: Optional[int] = None
     settings: QuizSessionSettings = Field(default_factory=QuizSessionSettings)
 
@@ -225,3 +234,24 @@ class QuizMatrixStudent(BaseModel):
 class QuizMatrixResponse(BaseModel):
     students: list[QuizMatrixStudent]
     question_count: int
+
+
+# ── Chapter questions for quiz creation (question picker) ──
+
+class QuestionOptionPreview(BaseModel):
+    text: str
+    is_correct: bool
+
+
+class QuestionPreview(BaseModel):
+    id: int
+    question_text: str
+    question_type: str
+    options: list[QuestionOptionPreview] = []
+
+
+class ParagraphQuestions(BaseModel):
+    paragraph_id: int
+    paragraph_number: int
+    paragraph_title: str
+    questions: list[QuestionPreview] = []

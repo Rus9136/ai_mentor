@@ -7,6 +7,7 @@ import {
   cancelQuiz,
   getQuizResults,
   getTestsForQuiz,
+  getChapterQuestions,
   getStudentProgress,
   getTeamLeaderboard,
   getQuizMatrix,
@@ -62,6 +63,14 @@ export function useTestsForQuiz(params: { paragraph_id?: number; chapter_id?: nu
     queryKey: quizKeys.tests(params),
     queryFn: () => getTestsForQuiz(params),
     enabled: !!(params.paragraph_id || params.chapter_id),
+  });
+}
+
+export function useChapterQuestions(chapterId?: number) {
+  return useQuery({
+    queryKey: [...quizKeys.all, 'chapter-questions', chapterId] as const,
+    queryFn: () => getChapterQuestions(chapterId!),
+    enabled: !!chapterId,
   });
 }
 

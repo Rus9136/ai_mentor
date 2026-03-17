@@ -5,28 +5,27 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
-import { useCreateQuiz, useTestsForQuiz } from '@/lib/hooks/use-quiz';
-import { getTextbooks, getChapters, getParagraphs } from '@/lib/api/content';
+import { useCreateQuiz } from '@/lib/hooks/use-quiz';
+import { getTextbooks, getChapters } from '@/lib/api/content';
 import { useQuery } from '@tanstack/react-query';
 import { useClasses } from '@/lib/hooks/use-teacher-data';
-
-interface QuizTest {
-  id: number;
-  title: string;
-  description: string | null;
-  question_count: number;
-  difficulty: string;
-}
+import QuestionPicker from './QuestionPicker';
+import type { CustomQuestion } from '@/lib/api/quiz';
 
 export default function QuizCreateForm() {
   const t = useTranslations('quiz');
   const router = useRouter();
 
+  // Content selection
   const [classId, setClassId] = useState<number | undefined>();
   const [textbookId, setTextbookId] = useState<number | undefined>();
   const [chapterId, setChapterId] = useState<number | undefined>();
-  const [paragraphId, setParagraphId] = useState<number | undefined>();
-  const [testId, setTestId] = useState<number | undefined>();
+
+  // Question selection (new)
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
+  const [customQuestions, setCustomQuestions] = useState<CustomQuestion[]>([]);
+
+  // Game settings
   const [timeMs, setTimeMs] = useState(30000);
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [shuffleAnswers, setShuffleAnswers] = useState(false);
@@ -48,23 +47,18 @@ export default function QuizCreateForm() {
     queryFn: () => getChapters(textbookId!),
     enabled: !!textbookId,
   });
-  const { data: paragraphs } = useQuery({
-    queryKey: ['paragraphs', chapterId],
-    queryFn: () => getParagraphs(chapterId!),
-    enabled: !!chapterId,
-  });
-  const { data: tests } = useTestsForQuiz({
-    paragraph_id: paragraphId,
-    chapter_id: !paragraphId ? chapterId : undefined,
-  });
 
   const createQuiz = useCreateQuiz();
 
+  const totalQuestions = selectedQuestionIds.length + customQuestions.length;
+  const canCreate = totalQuestions > 0;
+
   const handleCreate = async () => {
-    if (!testId) return;
+    if (!canCreate) return;
     try {
       const result = await createQuiz.mutateAsync({
-        test_id: testId,
+        question_ids: selectedQuestionIds.length > 0 ? selectedQuestionIds : undefined,
+        custom_questions: customQuestions.length > 0 ? customQuestions : undefined,
         class_id: classId,
         settings: {
           time_per_question_ms: timeMs,
@@ -111,7 +105,11 @@ export default function QuizCreateForm() {
         <select
           className={selectClass}
           value={textbookId || ''}
-          onChange={(e) => { setTextbookId(Number(e.target.value) || undefined); setChapterId(undefined); setParagraphId(undefined); setTestId(undefined); }}
+          onChange={(e) => {
+            setTextbookId(Number(e.target.value) || undefined);
+            setChapterId(undefined);
+            setSelectedQuestionIds([]);
+          }}
         >
           <option value="">—</option>
           {(textbooks || []).map((tb: { id: number; title: string }) => (
@@ -127,7 +125,10 @@ export default function QuizCreateForm() {
           <select
             className={selectClass}
             value={chapterId || ''}
-            onChange={(e) => { setChapterId(Number(e.target.value) || undefined); setParagraphId(undefined); setTestId(undefined); }}
+            onChange={(e) => {
+              setChapterId(Number(e.target.value) || undefined);
+              setSelectedQuestionIds([]);
+            }}
           >
             <option value="">—</option>
             {(chapters || []).map((ch: { id: number; title: string }) => (
@@ -137,54 +138,17 @@ export default function QuizCreateForm() {
         </div>
       )}
 
-      {/* Paragraph */}
-      {chapterId && (
-        <div>
-          <label className="mb-1.5 block text-sm font-medium">{t('selectParagraph')}</label>
-          <select
-            className={selectClass}
-            value={paragraphId || ''}
-            onChange={(e) => { setParagraphId(Number(e.target.value) || undefined); setTestId(undefined); }}
-          >
-            <option value="">— {t('allChapter')} —</option>
-            {(paragraphs || []).map((p: { id: number; number: number; title: string }) => (
-              <option key={p.id} value={p.id}>
-                §{p.number}. {p.title}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Tests */}
-      {(paragraphId || chapterId) && (
-        <div>
-          <label className="mb-1.5 block text-sm font-medium">{t('selectTest')}</label>
-          {!tests || tests.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('noTests')}</p>
-          ) : (
-            <div className="space-y-2">
-              {tests.map((test: QuizTest) => (
-                <button
-                  key={test.id}
-                  onClick={() => setTestId(test.id)}
-                  className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                    testId === test.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
-                  }`}
-                >
-                  <span className="font-medium">{test.title}</span>
-                  <span className="ml-2 text-sm text-muted-foreground">
-                    {t('questions', { count: test.question_count })}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Question Picker */}
+      <QuestionPicker
+        chapterId={chapterId}
+        selectedQuestionIds={selectedQuestionIds}
+        onSelectedChange={setSelectedQuestionIds}
+        customQuestions={customQuestions}
+        onCustomQuestionsChange={setCustomQuestions}
+      />
 
       {/* Game Mode */}
-      {testId && (
+      {canCreate && (
         <div>
           <label className="mb-1.5 block text-sm font-medium">{t('gameMode')}</label>
           <select
@@ -200,7 +164,7 @@ export default function QuizCreateForm() {
       )}
 
       {/* Team settings */}
-      {testId && mode === 'team' && (
+      {canCreate && mode === 'team' && (
         <div className="space-y-3">
           <div>
             <label className="mb-1.5 block text-sm font-medium">{t('teamCount')}</label>
@@ -227,7 +191,7 @@ export default function QuizCreateForm() {
       )}
 
       {/* Pacing */}
-      {testId && mode !== 'self_paced' && (
+      {canCreate && mode !== 'self_paced' && (
         <div>
           <label className="mb-1.5 block text-sm font-medium">{t('pacing')}</label>
           <select
@@ -242,7 +206,7 @@ export default function QuizCreateForm() {
       )}
 
       {/* Time */}
-      {testId && mode !== 'self_paced' && pacing !== 'teacher_paced' && (
+      {canCreate && mode !== 'self_paced' && pacing !== 'teacher_paced' && (
         <div>
           <label className="mb-1.5 block text-sm font-medium">{t('timePerQuestion')}</label>
           <select className={selectClass} value={timeMs} onChange={(e) => setTimeMs(Number(e.target.value))}>
@@ -256,7 +220,7 @@ export default function QuizCreateForm() {
       )}
 
       {/* Shuffle & Scoring */}
-      {testId && (
+      {canCreate && (
         <div className="space-y-4">
           <div>
             <label className="mb-2 block text-sm font-medium">{t('settings')}</label>
@@ -367,9 +331,9 @@ export default function QuizCreateForm() {
       )}
 
       {/* Submit */}
-      <Button onClick={handleCreate} disabled={!testId || createQuiz.isPending} className="w-full">
+      <Button onClick={handleCreate} disabled={!canCreate || createQuiz.isPending} className="w-full">
         {createQuiz.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-        {t('create')}
+        {t('create')} {canCreate && `(${totalQuestions})`}
       </Button>
     </div>
   );

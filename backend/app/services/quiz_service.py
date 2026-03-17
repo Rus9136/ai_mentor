@@ -50,6 +50,8 @@ class QuizService:
         test_id: Optional[int] = None,
         class_id: Optional[int] = None,
         settings: Optional[QuizSessionSettings] = None,
+        question_ids: Optional[list[int]] = None,
+        custom_questions: Optional[list[dict]] = None,
     ) -> QuizSession:
         settings_obj = settings or QuizSessionSettings()
         mode = settings_obj.mode
@@ -67,9 +69,58 @@ class QuizService:
             logger.info(f"Quick question session {session.id} created with code {join_code}")
             return session
 
-        # All other modes require a test
+        settings_dict = settings_obj.model_dump()
+
+        # ── Cherry-picked / custom questions mode ──
+        if question_ids or custom_questions:
+            bank_count = 0
+            if question_ids:
+                # Validate question_ids exist and are quiz-eligible
+                from app.services.quiz_question_loader import _load_questions_by_ids
+                bank_questions = await _load_questions_by_ids(self.db, question_ids)
+                if len(bank_questions) != len(question_ids):
+                    found_ids = {q.id for q in bank_questions}
+                    missing = [qid for qid in question_ids if qid not in found_ids]
+                    raise ValueError(f"Questions not found: {missing}")
+                bank_count = len(bank_questions)
+                settings_dict["question_ids"] = question_ids
+
+            custom_count = 0
+            if custom_questions:
+                # Validate custom questions
+                for i, cq in enumerate(custom_questions):
+                    if cq["correct_option"] >= len(cq["options"]):
+                        raise ValueError(f"Custom question {i+1}: correct_option out of range")
+                custom_count = len(custom_questions)
+                settings_dict["custom_questions"] = custom_questions
+
+            total_count = bank_count + custom_count
+            if total_count == 0:
+                raise ValueError("No questions provided")
+
+            if mode == "self_paced":
+                settings_dict["scoring_mode"] = "accuracy"
+
+            join_code = await self.generate_join_code()
+            session = await self.repo.create_session(
+                school_id=school_id, teacher_id=teacher_id, test_id=test_id,
+                class_id=class_id, join_code=join_code, question_count=total_count,
+                settings=settings_dict,
+            )
+
+            if mode == "team":
+                from app.services.quiz_team_service import QuizTeamService
+                team_service = QuizTeamService(self.db)
+                team_count = settings_obj.team_count or 2
+                await team_service.create_teams(session.id, school_id, team_count)
+
+            await self.db.commit()
+            logger.info(f"Quiz session {session.id} created with code {join_code}, {total_count} questions (bank={bank_count}, custom={custom_count}), mode={mode}")
+            return session
+
+        # ── Legacy test_id mode ──
         if not test_id:
-            raise ValueError("test_id is required for this mode")
+            raise ValueError("test_id, question_ids, or custom_questions required")
 
         test = await load_test(self.db, test_id)
         if not test:
@@ -83,7 +134,6 @@ class QuizService:
             raise ValueError("Test has no eligible questions")
 
         join_code = await self.generate_join_code()
-        settings_dict = settings_obj.model_dump()
 
         if mode == "self_paced":
             settings_dict["scoring_mode"] = "accuracy"
