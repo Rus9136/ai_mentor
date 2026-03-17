@@ -200,6 +200,7 @@ class TestRepository:
         page_size: int = 20,
         include_global: bool = False,
         chapter_id: Optional[int] = None,
+        subject_id: Optional[int] = None,
     ) -> Tuple[List[Test], int]:
         """
         Get tests for a school with pagination.
@@ -210,6 +211,7 @@ class TestRepository:
             page_size: Number of items per page
             include_global: Whether to include global tests
             chapter_id: Optional filter by chapter
+            subject_id: Optional filter by subject (via textbook)
 
         Returns:
             Tuple of (list of tests, total count)
@@ -227,6 +229,16 @@ class TestRepository:
 
         if chapter_id is not None:
             filters.append(Test.chapter_id == chapter_id)
+
+        if subject_id is not None:
+            filters.append(
+                Test.textbook_id.in_(
+                    select(Textbook.id).where(
+                        Textbook.subject_id == subject_id,
+                        Textbook.is_deleted == False,
+                    )
+                )
+            )
 
         # Count total before pagination
         count_query = select(func.count()).select_from(

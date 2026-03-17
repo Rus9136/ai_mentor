@@ -12,6 +12,7 @@ import {
   ClipboardCheck,
   BookOpen,
   FileText,
+  FileQuestion,
   Settings,
   LogOut,
   GraduationCap,
@@ -53,6 +54,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: '/analytics', icon: BarChart3, label: t('analytics') },
     { href: '/ai-chat', icon: MessageSquare, label: t('aiChat') },
     { href: '/quiz', icon: Swords, label: t('quiz') },
+    { href: '/tests', icon: FileQuestion, label: t('tests') },
   ];
 
   const isActive = (href: string) => {
