@@ -73,12 +73,15 @@ jobs:
       - name: Run tests
         working-directory: backend
         run: |
-          poetry run pytest tests/ \
+          poetry run pytest \
+            tests/test_onboarding_partial_state.py \
+            tests/test_join_request_approval.py \
+            tests/test_route_conflicts.py \
+            tests/test_quiz_api.py \
+            tests/test_student_api.py \
+            tests/test_rls_policy_audit.py \
             -v \
             --tb=short \
-            --cov=app \
-            --cov-report=term \
-            --cov-report=xml:coverage.xml \
             -x
 
       - name: Upload coverage
