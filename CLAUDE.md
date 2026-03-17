@@ -72,12 +72,19 @@ TEST_DB_HOST=localhost TEST_DB_PORT=5435 python -m pytest backend/tests/ --cov=b
 **Конфиг:** `.github/workflows/ci.yml`
 **Репозиторий:** `Rus9136/ai_mentor` на GitHub
 
+### ОБЯЗАТЕЛЬНО: Проверка CI после push
+
+**После каждого `git push` в main (если затронут `backend/`) агент ОБЯЗАН:**
+1. Подождать ~3 минуты
+2. Выполнить `gh run list --limit 1` для проверки статуса
+3. Если `failure` — выполнить `gh run view <id> --log-failed` и починить
+4. Сообщить пользователю результат: CI зелёный ✓ или красный ✗
+
 ### Что запускается
 
 CI автоматически запускается при **push в main** и **PR в main** (только при изменениях в `backend/`):
 
-1. **lint** — `black --check` + `ruff check`
-2. **test** — pytest против PostgreSQL (pgvector:pg16) service container
+1. **test** — pytest регрессионные тесты против PostgreSQL (pgvector:pg16) service container
 
 ### Как это работает
 
