@@ -413,10 +413,11 @@ class QuizService:
         from app.services.gamification_service import GamificationService
         gamification = GamificationService(self.db)
 
+        total_participants = len(participants_data)
         leaderboard = []
         for rank, data in enumerate(participants_data, 1):
             p = data["participant"]
-            xp = calculate_xp(rank, p.correct_answers, session.question_count)
+            xp = calculate_xp(rank, p.correct_answers, session.question_count, total_participants)
 
             await self.repo.set_participant_rank_and_xp(p.id, rank, xp)
 

@@ -6,7 +6,7 @@ import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.quiz_service import QuizService
-from app.services.quiz_scoring import MAX_QUESTION_SCORE
+from app.services.quiz_scoring import MAX_QUESTION_SCORE, calculate_xp
 from app.models.quiz import QuizSession, QuizParticipant, QuizAnswer, QuizSessionStatus
 
 
@@ -58,42 +58,57 @@ class TestCalculateScore:
 
 
 class TestCalculateXp:
-    """Unit tests for _calculate_xp static method."""
+    """Unit tests for calculate_xp function."""
 
     def test_rank1_perfect(self):
-        """Rank 1, 10/10 correct → 10 + 50 + 50 + 25 = 135."""
-        xp = QuizService._calculate_xp(rank=1, correct_answers=10, total_questions=10)
+        """Rank 1, 10/10 correct, 5 players → 10 + 50 + 50 + 25 = 135."""
+        xp = calculate_xp(rank=1, correct_answers=10, total_questions=10, total_participants=5)
         assert xp == 135
 
     def test_rank2_partial(self):
-        """Rank 2, 7/10 correct → 10 + 35 + 30 = 75."""
-        xp = QuizService._calculate_xp(rank=2, correct_answers=7, total_questions=10)
+        """Rank 2, 7/10 correct, 5 players → 10 + 35 + 30 = 75."""
+        xp = calculate_xp(rank=2, correct_answers=7, total_questions=10, total_participants=5)
         assert xp == 75
 
     def test_rank4_zero_correct(self):
         """Rank 4+, 0 correct → only participation XP = 10."""
-        xp = QuizService._calculate_xp(rank=4, correct_answers=0, total_questions=10)
+        xp = calculate_xp(rank=4, correct_answers=0, total_questions=10, total_participants=5)
         assert xp == 10
 
     def test_rank1_not_perfect(self):
-        """Rank 1, 5/10 → 10 + 25 + 50 = 85 (no perfect bonus)."""
-        xp = QuizService._calculate_xp(rank=1, correct_answers=5, total_questions=10)
+        """Rank 1, 5/10, 3 players → 10 + 25 + 50 = 85 (no perfect bonus)."""
+        xp = calculate_xp(rank=1, correct_answers=5, total_questions=10, total_participants=3)
         assert xp == 85
 
     def test_rank3(self):
-        """Rank 3, 8/10 → 10 + 40 + 15 = 65."""
-        xp = QuizService._calculate_xp(rank=3, correct_answers=8, total_questions=10)
+        """Rank 3, 8/10, 5 players → 10 + 40 + 15 = 65."""
+        xp = calculate_xp(rank=3, correct_answers=8, total_questions=10, total_participants=5)
         assert xp == 65
 
     def test_rank2_perfect(self):
-        """Rank 2, 10/10 → 10 + 50 + 30 + 25 = 115."""
-        xp = QuizService._calculate_xp(rank=2, correct_answers=10, total_questions=10)
+        """Rank 2, 10/10, 4 players → 10 + 50 + 30 + 25 = 115."""
+        xp = calculate_xp(rank=2, correct_answers=10, total_questions=10, total_participants=4)
         assert xp == 115
 
+    def test_solo_zero_correct_no_rank_bonus(self):
+        """Solo player (1 participant), 0 correct → no rank bonus = 10."""
+        xp = calculate_xp(rank=1, correct_answers=0, total_questions=10, total_participants=1)
+        assert xp == 10
+
+    def test_solo_with_correct_no_rank_bonus(self):
+        """Solo player, 5/10 correct → participation + correct only = 10 + 25 = 35."""
+        xp = calculate_xp(rank=1, correct_answers=5, total_questions=10, total_participants=1)
+        assert xp == 35
+
+    def test_rank1_zero_correct_no_rank_bonus(self):
+        """Rank 1 with 0 correct among 3 players → no rank bonus = 10."""
+        xp = calculate_xp(rank=1, correct_answers=0, total_questions=10, total_participants=3)
+        assert xp == 10
+
     def test_zero_total_no_perfect_bonus(self):
-        """total_questions=0, correct=0 → no perfect bonus even if equal."""
-        xp = QuizService._calculate_xp(rank=1, correct_answers=0, total_questions=0)
-        assert xp == 60  # 10 + 0 + 50, no perfect (total=0 guard)
+        """total_questions=0, correct=0 → no rank bonus (0 correct) = 10."""
+        xp = calculate_xp(rank=1, correct_answers=0, total_questions=0, total_participants=1)
+        assert xp == 10
 
 
 # ========== State Machine Tests (with mocked DB) ==========

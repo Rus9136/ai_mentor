@@ -211,15 +211,20 @@ class QuizTournamentService:
         from app.services.gamification_service import GamificationService
         gamification = GamificationService(self.db)
 
+        total_participants = len(participants)
         for rank, data in enumerate(participants, 1):
             p = data["participant"]
             xp_bonus = 0
-            if rank == 1:
-                xp_bonus = tournament.xp_rank_1
-            elif rank == 2:
-                xp_bonus = tournament.xp_rank_2
-            elif rank == 3:
-                xp_bonus = tournament.xp_rank_3
+            # Rank bonus only if 2+ players and at least 1 correct answer
+            if total_participants >= 2 and p.correct_answers > 0:
+                if rank == 1:
+                    xp_bonus = tournament.xp_rank_1
+                elif rank == 2:
+                    xp_bonus = tournament.xp_rank_2
+                elif rank == 3:
+                    xp_bonus = tournament.xp_rank_3
+                else:
+                    xp_bonus = tournament.xp_participation
             else:
                 xp_bonus = tournament.xp_participation
 

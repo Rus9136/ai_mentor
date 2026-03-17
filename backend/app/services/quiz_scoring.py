@@ -49,16 +49,23 @@ def calculate_streak_bonus(streak: int) -> int:
     return STREAK_BONUSES.get(streak, 0)
 
 
-def calculate_xp(rank: int, correct_answers: int, total_questions: int) -> int:
+def calculate_xp(
+    rank: int,
+    correct_answers: int,
+    total_questions: int,
+    total_participants: int = 1,
+) -> int:
     """Calculate XP earned from quiz placement."""
     xp = XP_PARTICIPATION
     xp += correct_answers * XP_PER_CORRECT
-    if rank == 1:
-        xp += XP_RANK_1
-    elif rank == 2:
-        xp += XP_RANK_2
-    elif rank == 3:
-        xp += XP_RANK_3
+    # Rank bonus only if 2+ players and at least 1 correct answer
+    if total_participants >= 2 and correct_answers > 0:
+        if rank == 1:
+            xp += XP_RANK_1
+        elif rank == 2:
+            xp += XP_RANK_2
+        elif rank == 3:
+            xp += XP_RANK_3
     if correct_answers == total_questions and total_questions > 0:
         xp += XP_PERFECT
     return xp
