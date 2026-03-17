@@ -27,10 +27,10 @@ jobs:
         run: pip install black ruff
 
       - name: Check formatting (black)
-        run: black --check backend/
+        run: black --check backend/app/
 
       - name: Lint (ruff)
-        run: ruff check backend/
+        run: ruff check backend/app/
 
   test:
     name: Backend Tests

@@ -43,6 +43,19 @@ cd backend && alembic revision --autogenerate -m "desc"  # Новая мигра
 docker exec -it ai_mentor_postgres psql -U ai_mentor_user -d ai_mentor_db
 ```
 
+### Testing
+```bash
+# Запуск всех тестов (из корня проекта, venv активирован)
+source .venv/bin/activate
+TEST_DB_HOST=localhost TEST_DB_PORT=5435 python -m pytest backend/tests/ -v --tb=short
+
+# Запуск конкретного файла
+TEST_DB_HOST=localhost TEST_DB_PORT=5435 python -m pytest backend/tests/test_quiz_api.py -v
+
+# С покрытием
+TEST_DB_HOST=localhost TEST_DB_PORT=5435 python -m pytest backend/tests/ --cov=backend/app --cov-report=html
+```
+
 ### Deploy
 ```bash
 ./deploy.sh              # Умный деплой (анализ изменений)
@@ -51,6 +64,42 @@ docker exec -it ai_mentor_postgres psql -U ai_mentor_user -d ai_mentor_db
 ./deploy-infra.sh status # Статус сервисов
 ./deploy-infra.sh logs backend
 ```
+
+---
+
+## CI/CD (GitHub Actions)
+
+**Конфиг:** `.github/workflows/ci.yml`
+**Репозиторий:** `Rus9136/ai_mentor` на GitHub
+
+### Что запускается
+
+CI автоматически запускается при **push в main** и **PR в main** (только при изменениях в `backend/`):
+
+1. **lint** — `black --check` + `ruff check`
+2. **test** — pytest против PostgreSQL (pgvector:pg16) service container
+
+### Как это работает
+
+- Service container поднимает PostgreSQL с базой `ai_mentor_test_db`
+- Тесты используют `db_session` фикстуру (DROP/CREATE schema на каждый тест)
+- Тестовая БД **отдельная** от продакшена — безопасно
+
+### Регрессионные тесты
+
+| Файл | Что покрывает | Тестов |
+|------|---------------|--------|
+| `test_onboarding_partial_state.py` | Partial onboarding (school_id без Student) | 4 |
+| `test_join_request_approval.py` | Одобрение заявки (MissingGreenlet fix) | 6 |
+| `test_route_conflicts.py` | Route ordering (/{id} vs /static-path) | 6 |
+
+### ВАЖНО для агента
+
+- **Перед деплоем** на прод: убедись что CI зелёный (или запусти тесты локально)
+- **При добавлении нового endpoint:** написать хотя бы 1 интеграционный тест
+- **При добавлении route с path parameter `/{id}`:** проверить, что статические routes (`/list`, `/stats`, etc.) объявлены **до** `/{id}` в роутере — иначе FastAPI поймает строку как id
+- **При изменении async кода с relationships:** не обращаться к lazy-loaded relationships — использовать `selectinload()` или прямой SQL запрос
+- **Тестовая БД:** `ai_mentor_test_db` на порту **5435** (тот же PostgreSQL контейнер что и прод, но отдельная БД)
 
 ---
 
