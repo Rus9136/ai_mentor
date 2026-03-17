@@ -104,8 +104,12 @@ apiClient.interceptors.response.use(
 
       const refreshToken = getRefreshToken();
       if (!refreshToken) {
-        clearTokens();
-        window.location.href = '/ru/login';
+        // In WebView context mobile app manages tokens — don't redirect to login
+        const isWebView = typeof window !== 'undefined' && window.location.pathname.includes('/webview/');
+        if (!isWebView) {
+          clearTokens();
+          window.location.href = '/ru/login';
+        }
         return Promise.reject(error);
       }
 
