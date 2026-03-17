@@ -5,7 +5,8 @@ Tests: team mode creation, quick_question mode, self_paced mode, accuracy scorin
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
-from app.services.quiz_service import QuizService, MAX_QUESTION_SCORE
+from app.services.quiz_service import QuizService
+from app.services.quiz_scoring import MAX_QUESTION_SCORE
 from app.models.quiz import QuizSession, QuizParticipant, QuizSessionStatus
 from app.schemas.quiz import QuizSessionSettings
 

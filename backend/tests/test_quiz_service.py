@@ -5,7 +5,8 @@ import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.quiz_service import QuizService, MAX_QUESTION_SCORE
+from app.services.quiz_service import QuizService
+from app.services.quiz_scoring import MAX_QUESTION_SCORE
 from app.models.quiz import QuizSession, QuizParticipant, QuizAnswer, QuizSessionStatus
 
 
