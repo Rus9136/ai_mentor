@@ -255,7 +255,7 @@ class PrerequisiteService:
     async def get_textbook_graph(self, textbook_id: int) -> TextbookGraphResponse:
         """Get full prerequisite graph for a textbook (nodes + edges).
         Includes cross-textbook prerequisite nodes if they exist."""
-        # Load all paragraphs for this textbook (nodes)
+        # Load all paragraphs for this textbook (nodes) with chapter→textbook
         result = await self.db.execute(
             select(Paragraph)
             .join(Chapter, Paragraph.chapter_id == Chapter.id)
@@ -263,7 +263,10 @@ class PrerequisiteService:
                 Chapter.textbook_id == textbook_id,
                 Paragraph.is_deleted == False,
             )
-            .options(selectinload(Paragraph.chapter))
+            .options(
+                selectinload(Paragraph.chapter)
+                .selectinload(Chapter.textbook)
+            )
             .order_by(Chapter.order, Paragraph.order)
         )
         paragraphs = list(result.scalars().all())
@@ -293,10 +296,17 @@ class PrerequisiteService:
             result = await self.db.execute(
                 select(Paragraph)
                 .where(Paragraph.id.in_(cross_ids), Paragraph.is_deleted == False)
-                .options(selectinload(Paragraph.chapter))
+                .options(
+                    selectinload(Paragraph.chapter)
+                    .selectinload(Chapter.textbook)
+                )
             )
             cross_paragraphs = list(result.scalars().all())
             paragraphs.extend(cross_paragraphs)
+
+        def _textbook(p: Paragraph):
+            ch = p.chapter
+            return ch.textbook if ch else None
 
         nodes = [
             GraphNode(
@@ -307,6 +317,9 @@ class PrerequisiteService:
                 chapter_title=p.chapter.title if p.chapter else None,
                 chapter_number=p.chapter.number if p.chapter else None,
                 order=p.order or 0,
+                textbook_id=_textbook(p).id if _textbook(p) else None,
+                textbook_title=_textbook(p).title if _textbook(p) else None,
+                grade_level=_textbook(p).grade_level if _textbook(p) else None,
             )
             for p in paragraphs
         ]

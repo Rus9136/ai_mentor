@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, BookOpen, GitBranch } from 'lucide-react';
+import { ArrowLeft, BookOpen, GitBranch, Network, List } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,13 +10,17 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RoleGuard } from '@/components/auth';
 import { PrerequisiteGraph } from '@/components/textbooks/prerequisite-graph';
+import { PrerequisiteTable } from '@/components/textbooks/prerequisite-table';
 import { useTextbook } from '@/lib/hooks/use-textbooks';
 import { useTextbookPrerequisiteGraph } from '@/lib/hooks/use-prerequisites';
+
+type ViewMode = 'graph' | 'table';
 
 export default function TextbookGraphPage() {
   const params = useParams();
   const router = useRouter();
   const textbookId = Number(params.id);
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
 
   const { data: textbook, isLoading: textbookLoading } = useTextbook(textbookId, false);
   const { data: graph, isLoading: graphLoading } = useTextbookPrerequisiteGraph(textbookId);
@@ -124,16 +129,51 @@ export default function TextbookGraphPage() {
         ) : (
           <Card className="overflow-hidden">
             <CardHeader className="py-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <GitBranch className="h-4 w-4" />
-                Траектория обучения
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <GitBranch className="h-4 w-4" />
+                  Траектория обучения
+                </CardTitle>
+                {/* View mode toggle */}
+                <div className="flex items-center rounded-lg border bg-muted/30 p-0.5">
+                  <button
+                    onClick={() => setViewMode('table')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      viewMode === 'table'
+                        ? 'bg-background shadow-sm text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <List className="h-3.5 w-3.5" />
+                    Таблица
+                  </button>
+                  <button
+                    onClick={() => setViewMode('graph')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      viewMode === 'graph'
+                        ? 'bg-background shadow-sm text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Network className="h-3.5 w-3.5" />
+                    Граф
+                  </button>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="p-0 h-[700px]">
-              <PrerequisiteGraph
-                graphNodes={graph.nodes}
-                graphEdges={graph.edges}
-              />
+            <CardContent className={`p-0 ${viewMode === 'graph' ? 'h-[700px]' : ''}`}>
+              {viewMode === 'graph' ? (
+                <PrerequisiteGraph
+                  graphNodes={graph.nodes}
+                  graphEdges={graph.edges}
+                />
+              ) : (
+                <PrerequisiteTable
+                  graphNodes={graph.nodes}
+                  graphEdges={graph.edges}
+                  currentTextbookId={textbookId}
+                />
+              )}
             </CardContent>
           </Card>
         )}

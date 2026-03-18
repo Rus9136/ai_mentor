@@ -64,6 +64,9 @@ class GraphNode(BaseModel):
     chapter_title: Optional[str] = None
     chapter_number: Optional[int] = None
     order: int = 0
+    textbook_id: Optional[int] = None
+    textbook_title: Optional[str] = None
+    grade_level: Optional[int] = None
 
 
 class TextbookGraphResponse(BaseModel):

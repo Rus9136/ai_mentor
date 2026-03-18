@@ -33,6 +33,9 @@ export interface GraphNode {
   chapter_title: string | null;
   chapter_number: number | null;
   order: number;
+  textbook_id: number | null;
+  textbook_title: string | null;
+  grade_level: number | null;
 }
 
 export interface TextbookGraphResponse {

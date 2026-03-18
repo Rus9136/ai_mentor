@@ -49,6 +49,8 @@ interface ParagraphNodeData {
   label: string;
   paragraphNumber: number | null;
   chapterTitle: string | null;
+  gradeLevel: number | null;
+  isCrossTextbook: boolean;
   chapterColor: { bg: string; border: string; text: string };
   hasIncoming: boolean;
   hasOutgoing: boolean;
@@ -74,17 +76,31 @@ function ParagraphNode({ data }: { data: ParagraphNodeData }) {
         }}
       />
       <div className="flex items-start gap-2">
-        {data.paragraphNumber != null && (
-          <span
-            className="inline-flex items-center justify-center rounded-md px-1.5 py-0.5 text-xs font-bold shrink-0"
-            style={{
-              backgroundColor: data.chapterColor.border,
-              color: '#fff',
-            }}
-          >
-            §{data.paragraphNumber}
-          </span>
-        )}
+        <div className="flex flex-col items-center gap-0.5 shrink-0">
+          {data.gradeLevel != null && (
+            <span
+              className="inline-flex items-center justify-center rounded px-1 py-px text-[9px] font-medium shrink-0"
+              style={{
+                backgroundColor: data.isCrossTextbook ? '#fef3c7' : data.chapterColor.border + '20',
+                color: data.isCrossTextbook ? '#92400e' : data.chapterColor.text,
+                border: data.isCrossTextbook ? '1px solid #f59e0b' : 'none',
+              }}
+            >
+              {data.gradeLevel} кл
+            </span>
+          )}
+          {data.paragraphNumber != null && (
+            <span
+              className="inline-flex items-center justify-center rounded-md px-1.5 py-0.5 text-xs font-bold shrink-0"
+              style={{
+                backgroundColor: data.chapterColor.border,
+                color: '#fff',
+              }}
+            >
+              §{data.paragraphNumber}
+            </span>
+          )}
+        </div>
         <div className="min-w-0">
           <p className="text-xs font-semibold leading-tight truncate" style={{ color: data.chapterColor.text }}>
             {data.label}
@@ -203,6 +219,8 @@ export function PrerequisiteGraph({
         label: node.title || `Параграф ${node.id}`,
         paragraphNumber: node.number,
         chapterTitle: node.chapter_title,
+        gradeLevel: node.grade_level,
+        isCrossTextbook: node.textbook_id != null && node.textbook_id !== graphNodes[0]?.textbook_id,
         chapterColor: getChapterColor(chapterIndexMap[node.chapter_id] ?? 0),
         hasIncoming: nodesWithIncoming.has(node.id),
         hasOutgoing: nodesWithOutgoing.has(node.id),
