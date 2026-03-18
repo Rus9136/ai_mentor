@@ -84,6 +84,7 @@ class TestListResponse(BaseModel):
     textbook_title: Optional[str] = None
     chapter_title: Optional[str] = None
     paragraph_title: Optional[str] = None
+    grade_level: Optional[int] = None
 
     @classmethod
     def from_test(cls, test) -> "TestListResponse":
@@ -105,6 +106,7 @@ class TestListResponse(BaseModel):
             textbook_title=test.textbook.title if test.textbook else None,
             chapter_title=test.chapter.title if test.chapter else None,
             paragraph_title=test.paragraph.title if test.paragraph else None,
+            grade_level=test.textbook.grade_level if test.textbook else None,
         )
 
 

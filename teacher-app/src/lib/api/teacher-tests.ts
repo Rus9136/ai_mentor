@@ -26,7 +26,7 @@ const transformTestFromApi = <T extends { passing_score: number }>(test: T): T =
 
 export const teacherTestsApi = {
   // Tests
-  getList: async (params?: { include_global?: boolean; chapter_id?: number; page?: number; page_size?: number }): Promise<PaginatedResponse<Test>> => {
+  getList: async (params?: { include_global?: boolean; chapter_id?: number; grade_level?: number; page?: number; page_size?: number }): Promise<PaginatedResponse<Test>> => {
     const { data } = await apiClient.get<PaginatedResponse<Test>>('/teachers/tests', { params });
     return { ...data, items: data.items.map(transformTestFromApi) };
   },

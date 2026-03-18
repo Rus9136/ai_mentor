@@ -201,6 +201,7 @@ class TestRepository:
         include_global: bool = False,
         chapter_id: Optional[int] = None,
         subject_id: Optional[int] = None,
+        grade_level: Optional[int] = None,
     ) -> Tuple[List[Test], int]:
         """
         Get tests for a school with pagination.
@@ -212,6 +213,7 @@ class TestRepository:
             include_global: Whether to include global tests
             chapter_id: Optional filter by chapter
             subject_id: Optional filter by subject (via textbook)
+            grade_level: Optional filter by grade level (via textbook)
 
         Returns:
             Tuple of (list of tests, total count)
@@ -235,6 +237,16 @@ class TestRepository:
                 Test.textbook_id.in_(
                     select(Textbook.id).where(
                         Textbook.subject_id == subject_id,
+                        Textbook.is_deleted == False,
+                    )
+                )
+            )
+
+        if grade_level is not None:
+            filters.append(
+                Test.textbook_id.in_(
+                    select(Textbook.id).where(
+                        Textbook.grade_level == grade_level,
                         Textbook.is_deleted == False,
                     )
                 )

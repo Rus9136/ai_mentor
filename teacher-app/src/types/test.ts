@@ -23,6 +23,7 @@ export interface Test {
   textbook_title?: string | null;
   chapter_title?: string | null;
   paragraph_title?: string | null;
+  grade_level?: number | null;
 }
 
 export interface TestCreate {

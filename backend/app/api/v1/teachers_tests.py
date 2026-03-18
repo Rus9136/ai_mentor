@@ -281,7 +281,9 @@ async def delete_teacher_option(
 async def list_teacher_tests(
     include_global: bool = Query(True, description="Include global tests"),
     chapter_id: Optional[int] = Query(None, description="Filter by chapter ID"),
-    pagination: PaginationParams = Depends(get_pagination_params),
+    grade_level: Optional[int] = Query(None, ge=1, le=11, description="Filter by grade level (1-11)"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=500, description="Items per page (max 500 for tree view)"),
     teacher: Teacher = Depends(get_teacher_from_user),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db),
@@ -294,19 +296,20 @@ async def list_teacher_tests(
 
     tests, total = await test_repo.get_by_school_paginated(
         school_id=school_id,
-        page=pagination.page,
-        page_size=pagination.page_size,
+        page=page,
+        page_size=page_size,
         include_global=include_global,
         chapter_id=chapter_id,
         subject_id=teacher.subject_id,
+        grade_level=grade_level,
     )
 
     items = [TestListResponse.from_test(t) for t in tests]
     return PaginatedResponse.create(
         items=items,
         total=total,
-        page=pagination.page,
-        page_size=pagination.page_size,
+        page=page,
+        page_size=page_size,
     )
 
 

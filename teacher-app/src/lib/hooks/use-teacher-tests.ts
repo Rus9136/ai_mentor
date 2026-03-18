@@ -14,7 +14,7 @@ export const teacherTestKeys = {
 };
 
 // Get all tests
-export function useTeacherTests(params?: { include_global?: boolean; chapter_id?: number }) {
+export function useTeacherTests(params?: { include_global?: boolean; chapter_id?: number; grade_level?: number; page_size?: number }) {
   return useQuery({
     queryKey: teacherTestKeys.list(params as Record<string, unknown>),
     queryFn: () => teacherTestsApi.getList(params),
