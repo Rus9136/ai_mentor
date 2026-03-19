@@ -18,6 +18,6 @@ export default function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Добавлен kk для обработки редиректа
-  matcher: ['/', '/(ru|kz|kk)/:path*'],
+  // Match all paths except Next.js internals and static files
+  matcher: ['/((?!_next|api|favicon.ico|.*\\..*).*)', '/', '/(ru|kz|kk)/:path*'],
 };
