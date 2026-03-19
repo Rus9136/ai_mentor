@@ -396,6 +396,58 @@ fi
 
 ---
 
+### Фаза 2.5. Деплой фронтенда lab.ai-mentor.kz (предстоит)
+
+**Цель:** lab-app доступен по адресу `https://lab.ai-mentor.kz` с валидным SSL.
+
+**Предусловие:** DNS-запись `lab.ai-mentor.kz` добавлена и указывает на сервер.
+
+**Задачи:**
+
+1. SSL-сертификат:
+   - Проверить что DNS уже резолвится: `dig lab.ai-mentor.kz` или `nslookup lab.ai-mentor.kz`
+   - Добавить Nginx server block для `lab.ai-mentor.kz` (сначала на порт 80 для certbot)
+   - Получить сертификат: `sudo certbot --nginx -d lab.ai-mentor.kz`
+   - Проверить автообновление: `sudo certbot renew --dry-run`
+
+2. Nginx конфигурация (после certbot):
+   ```nginx
+   server {
+       server_name lab.ai-mentor.kz;
+       listen 443 ssl;
+       ssl_certificate /etc/letsencrypt/live/lab.ai-mentor.kz/fullchain.pem;
+       ssl_certificate_key /etc/letsencrypt/live/lab.ai-mentor.kz/privkey.pem;
+
+       location / {
+           proxy_pass http://127.0.0.1:3008;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection 'upgrade';
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_cache_bypass $http_upgrade;
+       }
+   }
+   server {
+       server_name lab.ai-mentor.kz;
+       listen 80;
+       return 301 https://$host$request_uri;
+   }
+   ```
+
+3. Сборка и запуск контейнера:
+   - `docker compose -f docker-compose.infra.yml build lab-app`
+   - `docker compose -f docker-compose.infra.yml up -d lab-app`
+   - Или через deploy script: `./deploy.sh lab-app`
+
+4. Проверка:
+   - `curl -s https://lab.ai-mentor.kz/ru` — должен вернуть HTML
+   - Проверить логин через браузер
+   - Проверить что карта загружается на странице лаборатории
+   - Health check: `curl -s http://127.0.0.1:3008/ru`
+
+---
+
 ### Фаза 3. Карта истории Казахстана — MVP модуль (3-5 дней)
 
 **Цель:** полноценная интерактивная карта с 5-7 историческими эпохами.
