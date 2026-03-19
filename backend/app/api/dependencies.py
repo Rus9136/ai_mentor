@@ -19,11 +19,12 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 import logging
 
 from app.core.database import get_db, get_db_no_rls
+from app.core.tenant_context import get_tenant_context
 from app.schemas.pagination import PaginationParams
 from app.core.security import decode_token, verify_token_type
 from app.models.user import User, UserRole
@@ -313,6 +314,9 @@ async def get_student_from_user(
     Use this instead of lazy loading current_user.student, which
     doesn't work in async context.
 
+    Also syncs RLS tenant context when JWT school_id is stale (e.g. NULL
+    from before onboarding while user.school_id is already set in DB).
+
     Args:
         current_user: Authenticated user with STUDENT role
         db: Database session (RLS already configured)
@@ -323,6 +327,21 @@ async def get_student_from_user(
     Raises:
         HTTPException 400: If Student record not found for this user
     """
+    # Safety net: sync RLS tenant_id with actual DB school_id.
+    # After onboarding, the mobile app may still use the old JWT
+    # (school_id=NULL) for a few requests before switching to the new token.
+    # Without this, INSERTs with school_id=N fail RLS because tenant_id=0.
+    ctx = get_tenant_context()
+    if current_user.school_id is not None and ctx.school_id != current_user.school_id:
+        logger.info(
+            f"RLS tenant sync: JWT school_id={ctx.school_id} → "
+            f"DB school_id={current_user.school_id} for user {current_user.id}"
+        )
+        await db.execute(
+            text("SELECT set_config('app.current_tenant_id', :tid, false)"),
+            {"tid": str(current_user.school_id)}
+        )
+
     # RLS is already set by get_db() - just query
     result = await db.execute(
         select(Student).where(Student.user_id == current_user.id)

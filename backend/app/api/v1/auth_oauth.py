@@ -389,17 +389,31 @@ async def complete_onboarding(
     # so tenant_id is empty and RLS would block cross-school operations.
     # This is safe because the user is authenticated and data comes from
     # a validated invitation code.
+    #
+    # IMPORTANT: We use flush() instead of commit() for all intermediate
+    # operations to keep the same DB connection and RLS context throughout.
+    # The final commit happens in get_db() when the endpoint returns.
+    # This prevents partial onboarding (student created but join request missing)
+    # that occurred when commit() released the connection, losing RLS settings,
+    # and the subsequent refresh() failed.
     await db.execute(text("SELECT set_config('app.is_super_admin', 'true', false)"))
+    await db.execute(
+        text("SELECT set_config('app.current_tenant_id', :tid, false)"),
+        {"tid": str(invitation_code.school_id)}
+    )
+    await db.execute(
+        text("SELECT set_config('app.current_user_id', :uid, false)"),
+        {"uid": str(current_user.id)}
+    )
 
-    # Update user profile
-    user_repo = UserRepository(db)
+    # Update user profile (flush only, no commit)
     current_user.first_name = data.first_name
     current_user.last_name = data.last_name
     if data.middle_name:
         current_user.middle_name = data.middle_name
     current_user.school_id = invitation_code.school_id
     current_user.is_verified = True  # Mark as verified after onboarding
-    await user_repo.update(current_user)
+    await db.flush()
 
     # Create student record
     student_repo = StudentRepository(db)
@@ -410,7 +424,7 @@ async def complete_onboarding(
         student = existing_student
         student.school_id = invitation_code.school_id
         student.grade_level = invitation_code.grade_level
-        await student_repo.update(student)
+        await db.flush()
     else:
         # Generate student code
         student_code = await student_repo.generate_student_code(invitation_code.school_id)
@@ -422,13 +436,15 @@ async def complete_onboarding(
             grade_level=invitation_code.grade_level,
             birth_date=data.birth_date
         )
-        student = await student_repo.create(student)
+        db.add(student)
+        await db.flush()
 
     # Create join request instead of auto-adding to class
     # Teacher will approve/reject the request
     pending_request = None
     if invitation_code.class_id and invitation_code.school_class:
         from app.repositories.join_request_repo import JoinRequestRepository
+        from app.models.student_join_request import StudentJoinRequest, JoinRequestStatus
         join_repo = JoinRequestRepository(db)
 
         # Check if already has a request for this class
@@ -436,12 +452,15 @@ async def complete_onboarding(
             student.id, invitation_code.class_id
         )
         if not existing_request:
-            pending_request = await join_repo.create(
+            pending_request = StudentJoinRequest(
                 student_id=student.id,
                 class_id=invitation_code.class_id,
                 school_id=invitation_code.school_id,
-                invitation_code_id=invitation_code.id
+                invitation_code_id=invitation_code.id,
+                status=JoinRequestStatus.PENDING,
             )
+            db.add(pending_request)
+            await db.flush()
 
     # Restore RLS context after onboarding operations
     await db.execute(text("SELECT set_config('app.is_super_admin', 'false', false)"))
