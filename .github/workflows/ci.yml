@@ -78,7 +78,7 @@ jobs:
             tests/test_onboarding_atomicity.py \
             tests/test_join_request_approval.py \
             tests/test_route_conflicts.py \
-            tests/test_quiz_service.py::TestJoinSession \
+            tests/test_quiz_service.py \
             -v \
             --tb=short \
             -x

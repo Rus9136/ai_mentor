@@ -6,7 +6,7 @@ import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.quiz_service import QuizService
-from app.services.quiz_scoring import MAX_QUESTION_SCORE, calculate_xp
+from app.services.quiz_scoring import MAX_QUESTION_SCORE, calculate_xp, calculate_score
 from app.models.quiz import QuizSession, QuizParticipant, QuizAnswer, QuizSessionStatus
 
 
@@ -18,39 +18,39 @@ class TestCalculateScore:
 
     def test_correct_mid_time(self):
         """5000ms out of 30000ms → 917."""
-        score = QuizService._calculate_score(is_correct=True, answer_time_ms=5000, time_limit_ms=30000)
+        score = calculate_score(is_correct=True, answer_time_ms=5000, time_limit_ms=30000)
         assert score == 917
 
     def test_correct_instant(self):
         """0ms → max score 1000."""
-        score = QuizService._calculate_score(is_correct=True, answer_time_ms=0, time_limit_ms=30000)
+        score = calculate_score(is_correct=True, answer_time_ms=0, time_limit_ms=30000)
         assert score == 1000
 
     def test_correct_at_time_limit(self):
         """30000ms out of 30000ms → 500."""
-        score = QuizService._calculate_score(is_correct=True, answer_time_ms=30000, time_limit_ms=30000)
+        score = calculate_score(is_correct=True, answer_time_ms=30000, time_limit_ms=30000)
         assert score == 500
 
     def test_incorrect_returns_zero(self):
         """Incorrect answer always returns 0 regardless of time."""
-        assert QuizService._calculate_score(is_correct=False, answer_time_ms=0, time_limit_ms=30000) == 0
-        assert QuizService._calculate_score(is_correct=False, answer_time_ms=5000, time_limit_ms=30000) == 0
-        assert QuizService._calculate_score(is_correct=False, answer_time_ms=30000, time_limit_ms=30000) == 0
+        assert calculate_score(is_correct=False, answer_time_ms=0, time_limit_ms=30000) == 0
+        assert calculate_score(is_correct=False, answer_time_ms=5000, time_limit_ms=30000) == 0
+        assert calculate_score(is_correct=False, answer_time_ms=30000, time_limit_ms=30000) == 0
 
     def test_correct_over_time_limit(self):
         """Answer time > time_limit → clamp at 0 via max(0, ...)."""
-        score = QuizService._calculate_score(is_correct=True, answer_time_ms=60000, time_limit_ms=30000)
+        score = calculate_score(is_correct=True, answer_time_ms=60000, time_limit_ms=30000)
         assert score == 0
 
     def test_score_always_integer(self):
         """Score is always rounded to int."""
-        score = QuizService._calculate_score(is_correct=True, answer_time_ms=7777, time_limit_ms=30000)
+        score = calculate_score(is_correct=True, answer_time_ms=7777, time_limit_ms=30000)
         assert isinstance(score, int)
 
     def test_different_time_limits(self):
         """Score scales with different time limits."""
         # 10s out of 60s → time_factor = 1 - (10000/60000)/2 = 1 - 0.0833 = 0.9167
-        score = QuizService._calculate_score(is_correct=True, answer_time_ms=10000, time_limit_ms=60000)
+        score = calculate_score(is_correct=True, answer_time_ms=10000, time_limit_ms=60000)
         assert score == 917
 
 
