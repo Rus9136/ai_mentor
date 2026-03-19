@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * AI Mentor Lab - Design System
+ * Same color palette as student-app
+ */
+
+:root {
+  --background: 30 45% 96%;
+  --foreground: 15 43% 23%;
+  --card: 0 0% 100%;
+  --card-foreground: 15 43% 23%;
+  --primary: 25 80% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 30 30% 92%;
+  --secondary-foreground: 15 43% 23%;
+  --muted: 30 20% 90%;
+  --muted-foreground: 15 20% 45%;
+  --accent: 88 46% 60%;
+  --accent-foreground: 15 43% 23%;
+  --success: 88 46% 60%;
+  --success-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 30 15% 88%;
+  --input: 30 15% 88%;
+  --ring: 25 80% 55%;
+  --radius: 1rem;
+}
+
+.dark {
+  --background: 15 20% 10%;
+  --foreground: 30 20% 92%;
+  --card: 15 20% 14%;
+  --card-foreground: 30 20% 92%;
+  --primary: 25 80% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 15 15% 20%;
+  --secondary-foreground: 30 20% 92%;
+  --muted: 15 15% 20%;
+  --muted-foreground: 30 10% 60%;
+  --accent: 88 46% 50%;
+  --accent-foreground: 0 0% 100%;
+  --success: 88 46% 50%;
+  --success-foreground: 0 0% 100%;
+  --destructive: 0 62% 40%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 15 15% 25%;
+  --input: 15 15% 25%;
+  --ring: 25 80% 55%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Lab-specific: full-height map containers */
+@layer components {
+  .lab-map-container {
+    @apply w-full h-full;
+  }
+
+  .lab-map-container .leaflet-container {
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+  }
+
+  .card-elevated {
+    @apply bg-card rounded-2xl shadow-lg shadow-black/5;
+  }
+
+  .card-flat {
+    @apply bg-card rounded-2xl border border-border;
+  }
+
+  .btn-pill {
+    @apply rounded-full px-6 py-3 font-semibold transition-all;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98];
+  }
+}

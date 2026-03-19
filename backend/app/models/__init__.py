@@ -119,6 +119,9 @@ from app.models.gamification import (
     QuestType,
 )
 
+# Lab (interactive laboratories)
+from app.models.lab import Lab, LabProgress, LabTask, LabTaskAnswer
+
 __all__ = [
     # Base
     "BaseModel",
@@ -256,4 +259,9 @@ __all__ = [
     "QuizAnswer",
     "QuizTeam",
     "QuizSessionStatus",
+    # Lab
+    "Lab",
+    "LabProgress",
+    "LabTask",
+    "LabTaskAnswer",
 ]
