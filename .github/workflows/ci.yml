@@ -75,6 +75,7 @@ jobs:
         run: |
           poetry run pytest \
             tests/test_onboarding_partial_state.py \
+            tests/test_onboarding_atomicity.py \
             tests/test_join_request_approval.py \
             tests/test_route_conflicts.py \
             -v \
