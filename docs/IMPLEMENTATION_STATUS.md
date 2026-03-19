@@ -239,6 +239,24 @@ backend/app/
 
 **Pending:** Деплой на teacher.ai-mentor.kz
 
+### Модуль: Coding Challenges — Python-практика (2026-03-19) ✅
+
+**Этап 0 — Песочница:**
+- CodeMirror 6 + Pyodide (Python в WebAssembly, ~11MB, cached)
+- Поддержка `input()`, таймаут 10 сек, интеграция в homework CODE
+- Страница: `/sandbox`
+
+**Этап 1 — Задачи с автопроверкой:**
+- 3 таблицы: `coding_topics`, `coding_challenges`, `coding_submissions` (миграция `065`)
+- 6 API endpoints: topics, challenges, detail, submit, submissions, stats
+- Клиентская автопроверка через Pyodide (challenge-runner.ts)
+- Каталог задач (`/sandbox/challenges`) + страница задачи (`/sandbox/challenges/[id]`)
+- 50 задач по 7 темам (Переменные, Условия, Циклы, Строки, Списки, Функции, ООП)
+- XP за первое решение, подсказки, RU/KK локализация
+- 11 интеграционных тестов
+
+**План:** `docs/CODING_MODULE_PLAN.md` (этапы 2-5: курсы, AI-ментор, визуализация, геймификация)
+
 ### ⏳ Итерация 12: Offline Sync Service
 **Задачи:**
 - [ ] SyncQueue management

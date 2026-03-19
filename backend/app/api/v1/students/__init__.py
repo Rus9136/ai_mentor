@@ -33,6 +33,7 @@ from .prerequisites import router as prerequisites_router
 from .usage import router as usage_router
 from .gamification import router as gamification_router
 from .lab import router as lab_router
+from .coding import router as coding_router
 
 
 router = APIRouter()
@@ -81,3 +82,6 @@ router.include_router(gamification_router, tags=["Student Gamification"])
 
 # Lab (interactive laboratories)
 router.include_router(lab_router, tags=["Student Lab"])
+
+# Coding challenges (Python practice)
+router.include_router(coding_router, tags=["Student Coding"])

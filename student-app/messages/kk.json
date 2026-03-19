@@ -754,7 +754,32 @@
     "executionTime": "Уақыт: {ms}мс",
     "timeout": "Орындау уақыты асып кетті (10 сек)",
     "emptyOutput": "Кодты орындау үшін «Іске қосу» басыңыз",
-    "starterCode": "# Python кодыңызды осында жазыңыз\nprint(\"Сәлем, Әлем!\")"
+    "starterCode": "# Python кодыңызды осында жазыңыз\nprint(\"Сәлем, Әлем!\")",
+    "challenges": "Есептер"
+  },
+  "challenges": {
+    "title": "Python есептері",
+    "subtitle": "Есептерді шеш, XP жина",
+    "freeCoding": "Еркін режим",
+    "noChallenges": "Есептер әзірше жоқ",
+    "notFound": "Есеп табылмады",
+    "description": "Шарт",
+    "examples": "Мысалдар",
+    "input": "Кіріс",
+    "output": "Шығыс",
+    "expected": "Күтілген",
+    "actual": "Алынған",
+    "check": "Тексеру",
+    "solved": "Есеп шешілді!",
+    "testsPassed": "{passed} / {total} тест өтті",
+    "testN": "Тест {n}",
+    "showHint": "Кеңес көрсету",
+    "showNextHint": "Кеңес {n}/{total}",
+    "hint": "Кеңес",
+    "easy": "Оңай",
+    "medium": "Орташа",
+    "hard": "Қиын",
+    "grade": "{n} сынып"
   },
   "gamification": {
     "title": "Геймификация",

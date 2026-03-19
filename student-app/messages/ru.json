@@ -754,7 +754,32 @@
     "executionTime": "Время: {ms}мс",
     "timeout": "Превышено время выполнения (10 сек)",
     "emptyOutput": "Нажмите «Запустить» чтобы выполнить код",
-    "starterCode": "# Напишите ваш Python код здесь\nprint(\"Привет, мир!\")"
+    "starterCode": "# Напишите ваш Python код здесь\nprint(\"Привет, мир!\")",
+    "challenges": "Задачи"
+  },
+  "challenges": {
+    "title": "Задачи по Python",
+    "subtitle": "Решай задачи, набирай XP",
+    "freeCoding": "Свободный режим",
+    "noChallenges": "Задач пока нет",
+    "notFound": "Задача не найдена",
+    "description": "Условие",
+    "examples": "Примеры",
+    "input": "Вход",
+    "output": "Выход",
+    "expected": "Ожидалось",
+    "actual": "Получено",
+    "check": "Проверить",
+    "solved": "Задача решена!",
+    "testsPassed": "{passed} / {total} тестов пройдено",
+    "testN": "Тест {n}",
+    "showHint": "Показать подсказку",
+    "showNextHint": "Подсказка {n}/{total}",
+    "hint": "Подсказка",
+    "easy": "Легко",
+    "medium": "Средне",
+    "hard": "Сложно",
+    "grade": "{n} класс"
   },
   "gamification": {
     "title": "Геймификация",
