@@ -449,3 +449,67 @@ class TestJoinSession:
         # add_participant should NOT be called (already joined)
         service.repo.add_participant.assert_not_called()
         assert result["participant_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_join_repairs_rls_tenant_mismatch(self):
+        """
+        Regression test: when app.current_tenant_id is wrong (e.g. '0' due
+        to BaseHTTPMiddleware context propagation failure), join_session must
+        detect the mismatch, repair tenant_id, and successfully find the quiz.
+        Without the fix, this scenario returns 'Invalid quiz code' even though
+        the code is correct.
+        """
+        from unittest.mock import call
+        from sqlalchemy import text as sa_text
+
+        db = AsyncMock()
+        # First db.execute call: current_setting query → returns wrong tenant_id
+        mock_row_wrong = MagicMock()
+        mock_row_wrong.scalar.return_value = "0"  # wrong tenant!
+        # Second db.execute call: set_config repair → returns anything
+        mock_set_config_result = MagicMock()
+        db.execute = AsyncMock(side_effect=[mock_row_wrong, mock_set_config_result])
+
+        service = QuizService(db)
+        session = _make_session(status=QuizSessionStatus.LOBBY, school_id=100)
+
+        service.repo = AsyncMock()
+        service.repo.get_session_by_join_code = AsyncMock(return_value=session)
+        service.repo.get_participant = AsyncMock(return_value=None)
+        service.repo.add_participant = AsyncMock()
+        service.repo.get_participant_count = AsyncMock(return_value=1)
+
+        result = await service.join_session(join_code="123456", student_id=20, school_id=100)
+
+        # Verify: must have called set_config to repair tenant
+        assert db.execute.call_count == 2
+        repair_call = db.execute.call_args_list[1]
+        repair_sql = str(repair_call.args[0].text)
+        assert "set_config" in repair_sql
+
+        # Must still join successfully
+        assert result["quiz_session_id"] == 1
+
+    @pytest.mark.asyncio
+    async def test_join_no_repair_when_tenant_correct(self):
+        """When tenant_id is already correct, no repair should happen."""
+        db = AsyncMock()
+        # current_setting query → returns correct tenant_id
+        mock_row = MagicMock()
+        mock_row.scalar.return_value = "100"  # correct!
+        db.execute = AsyncMock(return_value=mock_row)
+
+        service = QuizService(db)
+        session = _make_session(status=QuizSessionStatus.LOBBY, school_id=100)
+
+        service.repo = AsyncMock()
+        service.repo.get_session_by_join_code = AsyncMock(return_value=session)
+        service.repo.get_participant = AsyncMock(return_value=None)
+        service.repo.add_participant = AsyncMock()
+        service.repo.get_participant_count = AsyncMock(return_value=1)
+
+        result = await service.join_session(join_code="123456", student_id=20, school_id=100)
+
+        # Only 1 db.execute call (current_setting check), no set_config repair
+        assert db.execute.call_count == 1
+        assert result["quiz_session_id"] == 1

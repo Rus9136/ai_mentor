@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 
 from app.models.quiz import QuizSession, QuizParticipant, QuizSessionStatus
 from app.models.test import QuestionType
@@ -155,6 +156,28 @@ class QuizService:
         return session
 
     async def join_session(self, join_code: str, student_id: int, school_id: int) -> dict:
+        # Verify RLS tenant context matches the student's school_id.
+        # Under concurrent load, BaseHTTPMiddleware (Starlette) may fail to
+        # propagate contextvars to the subtask, leaving app.current_tenant_id
+        # at '0' (default).  Tables with a user_id fallback (users, students)
+        # still work, but quiz_sessions has only a school_id check — so the
+        # SELECT silently returns nothing and we get "Invalid quiz code".
+        row = await self.db.execute(
+            text("SELECT current_setting('app.current_tenant_id', true)")
+        )
+        current_tid = row.scalar()
+        expected_tid = str(school_id)
+        if current_tid != expected_tid:
+            logger.warning(
+                f"Quiz join: RLS tenant mismatch! "
+                f"current_tenant_id='{current_tid}', expected='{expected_tid}' "
+                f"(student_id={student_id}). Repairing."
+            )
+            await self.db.execute(
+                text("SELECT set_config('app.current_tenant_id', :tid, false)"),
+                {"tid": expected_tid},
+            )
+
         session = await self.repo.get_session_by_join_code(join_code)
         if not session:
             raise ValueError("Invalid quiz code")
