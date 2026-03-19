@@ -3,6 +3,7 @@ export { HomeworkCard } from './HomeworkCard';
 export { TaskCard } from './TaskCard';
 export { ChoiceQuestion } from './ChoiceQuestion';
 export { TextQuestion } from './TextQuestion';
+export { CodeQuestion } from './CodeQuestion';
 export { QuestionFeedback } from './QuestionFeedback';
 export { SubmissionResultCard } from './SubmissionResultCard';
 export { LateWarning } from './LateWarning';

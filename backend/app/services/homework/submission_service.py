@@ -169,7 +169,8 @@ class SubmissionService:
         question_id: int,
         answer_text: str,
         selected_options: Optional[List[str]] = None,
-        student_id: int = None
+        student_id: int = None,
+        answer_code: Optional[str] = None
     ) -> SubmissionResult:
         """
         Submit an answer for a question.
@@ -200,7 +201,8 @@ class SubmissionService:
             question_id=question_id,
             student_id=student_id,
             school_id=submission.school_id,
-            answer_text=answer_text,
+            answer_text=answer_text or answer_code,
+            answer_code=answer_code,
             selected_options=selected_options
         )
 

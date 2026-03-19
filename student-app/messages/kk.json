@@ -140,6 +140,7 @@
     "homework": "Тапсырмалар",
     "profile": "Профиль",
     "gamification": "Жетістіктер",
+    "sandbox": "Код",
     "logout": "Шығу"
   },
   "textbook": {
@@ -737,6 +738,23 @@
     "untitled": "Атаусыз",
     "goToPrerequisite": "Тақырыпқа өту",
     "proceedAnyway": "Бәрібір жалғастыру"
+  },
+  "sandbox": {
+    "title": "Python Құмсалғыш",
+    "run": "Іске қосу",
+    "stop": "Тоқтату",
+    "clear": "Тазалау",
+    "loading": "Python жүктелуде...",
+    "loadingHint": "Бірінші жүктеу бірнеше секунд алуы мүмкін",
+    "running": "Орындалуда...",
+    "output": "Нәтиже",
+    "errors": "Қателер",
+    "testInput": "Кіріс деректері",
+    "testInputHint": "input() үшін деректер — әр жол = жеке енгізу",
+    "executionTime": "Уақыт: {ms}мс",
+    "timeout": "Орындау уақыты асып кетті (10 сек)",
+    "emptyOutput": "Кодты орындау үшін «Іске қосу» басыңыз",
+    "starterCode": "# Python кодыңызды осында жазыңыз\nprint(\"Сәлем, Әлем!\")"
   },
   "gamification": {
     "title": "Геймификация",

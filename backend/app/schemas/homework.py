@@ -520,12 +520,13 @@ class AnswerSubmit(BaseModel):
 
     question_id: int = Field(..., description="Question ID")
     answer_text: Optional[str] = Field(None, description="Text answer")
+    answer_code: Optional[str] = Field(None, description="Code answer (for CODE questions)")
     selected_options: Optional[List[str]] = Field(None, description="Selected option IDs")
 
     @model_validator(mode='after')
     def validate_answer(self):
-        if not self.answer_text and not self.selected_options:
-            raise ValueError('Either answer_text or selected_options is required')
+        if not self.answer_text and not self.answer_code and not self.selected_options:
+            raise ValueError('Either answer_text, answer_code, or selected_options is required')
         return self
 
 

@@ -27,6 +27,7 @@ import {
   QuestionFeedback,
   SubmissionResultCard,
   AttachmentsList,
+  CodeQuestion,
 } from '@/components/homework';
 import { cn } from '@/lib/utils';
 
@@ -200,6 +201,19 @@ export default function TaskExecutionPage() {
           questionNumber={index + 1}
           onAnswer={async (selectedOptions) => {
             return handleAnswer(question, undefined, selectedOptions);
+          }}
+        />
+      );
+    }
+
+    if (question.question_type === QuestionType.CODE) {
+      return (
+        <CodeQuestion
+          key={question.id}
+          question={question}
+          questionNumber={index + 1}
+          onAnswer={async (answerCode) => {
+            return handleAnswer(question, answerCode, undefined);
           }}
         />
       );

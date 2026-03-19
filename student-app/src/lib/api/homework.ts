@@ -140,6 +140,7 @@ export interface StudentHomeworkResponse {
 export interface AnswerSubmit {
   question_id: number;
   answer_text?: string;
+  answer_code?: string;
   selected_options?: string[];
 }
 

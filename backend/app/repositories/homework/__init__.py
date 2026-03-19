@@ -230,11 +230,12 @@ class HomeworkRepository:
         student_id: int,
         school_id: int,
         answer_text: Optional[str] = None,
+        answer_code: Optional[str] = None,
         selected_options: Optional[List[str]] = None
     ):
         return await self._answer.save_answer(
             submission_id, question_id, student_id, school_id,
-            answer_text, selected_options
+            answer_text, answer_code, selected_options
         )
 
     async def get_answer_by_id(self, answer_id: int):

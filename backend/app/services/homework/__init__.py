@@ -252,11 +252,13 @@ class HomeworkService:
         question_id: int,
         answer_text: str,
         selected_options: Optional[List[str]] = None,
+        answer_code: Optional[str] = None,
         student_id: int = None
     ) -> SubmissionResult:
         try:
             return await self._submission.submit_answer(
-                submission_id, question_id, answer_text, selected_options, student_id
+                submission_id, question_id, answer_text, selected_options, student_id,
+                answer_code=answer_code
             )
         except SubmissionServiceError as e:
             raise HomeworkServiceError(str(e)) from e

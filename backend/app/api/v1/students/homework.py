@@ -399,6 +399,7 @@ async def submit_answer(
             question_id=data.question_id,
             answer_text=data.answer_text,
             selected_options=data.selected_options,
+            answer_code=data.answer_code,
             student_id=student.id
         )
     except HomeworkServiceError as e:

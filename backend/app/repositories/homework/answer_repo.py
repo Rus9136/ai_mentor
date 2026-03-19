@@ -23,6 +23,7 @@ class AnswerRepository:
         student_id: int,
         school_id: int,
         answer_text: Optional[str] = None,
+        answer_code: Optional[str] = None,
         selected_options: Optional[List[str]] = None
     ) -> StudentTaskAnswer:
         """Save an answer to a question."""
@@ -34,9 +35,13 @@ class AnswerRepository:
         )
         answer = result.scalar_one_or_none()
 
+        answer_type = "code" if answer_code else ("selected_option" if selected_options else "text")
+
         if answer:
             answer.answer_text = answer_text
+            answer.answer_code = answer_code
             answer.selected_option_ids = selected_options
+            answer.answer_type = answer_type
             answer.answered_at = datetime.utcnow()
         else:
             answer = StudentTaskAnswer(
@@ -45,6 +50,8 @@ class AnswerRepository:
                 student_id=student_id,
                 school_id=school_id,
                 answer_text=answer_text,
+                answer_code=answer_code,
+                answer_type=answer_type,
                 selected_option_ids=selected_options,
                 answered_at=datetime.utcnow()
             )

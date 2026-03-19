@@ -140,6 +140,7 @@
     "homework": "Задания",
     "profile": "Профиль",
     "gamification": "Достижения",
+    "sandbox": "Код",
     "logout": "Выйти"
   },
   "textbook": {
@@ -737,6 +738,23 @@
     "untitled": "Без названия",
     "goToPrerequisite": "Перейти к теме",
     "proceedAnyway": "Всё равно продолжить"
+  },
+  "sandbox": {
+    "title": "Python Песочница",
+    "run": "Запустить",
+    "stop": "Остановить",
+    "clear": "Очистить",
+    "loading": "Загрузка Python...",
+    "loadingHint": "Первая загрузка может занять несколько секунд",
+    "running": "Выполнение...",
+    "output": "Вывод",
+    "errors": "Ошибки",
+    "testInput": "Входные данные",
+    "testInputHint": "Данные для input() — каждая строка = отдельный ввод",
+    "executionTime": "Время: {ms}мс",
+    "timeout": "Превышено время выполнения (10 сек)",
+    "emptyOutput": "Нажмите «Запустить» чтобы выполнить код",
+    "starterCode": "# Напишите ваш Python код здесь\nprint(\"Привет, мир!\")"
   },
   "gamification": {
     "title": "Геймификация",

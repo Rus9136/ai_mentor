@@ -15,9 +15,11 @@
     "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
+    "@codemirror/lang-python": "^6.2.1",
     "@radix-ui/react-slot": "^1.1.1",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-query": "^5.64.1",
+    "@uiw/react-codemirror": "^4.25.8",
     "axios": "^1.7.9",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",

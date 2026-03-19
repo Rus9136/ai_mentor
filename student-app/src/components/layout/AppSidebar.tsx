@@ -11,6 +11,7 @@ import {
   GraduationCap,
   User,
   Trophy,
+  Code2,
 } from 'lucide-react';
 import { SidebarChapterProgress } from './SidebarChapterProgress';
 import { useChapterParagraphs, useParagraphNavigation } from '@/lib/hooks/use-textbooks';
@@ -78,6 +79,7 @@ function DefaultNav() {
     { href: '/gamification', icon: Trophy, label: t('gamification') },
     { href: '/tests', icon: FileCheck, label: t('tests') },
     { href: '/homework', icon: ClipboardList, label: t('homework') },
+    { href: '/sandbox', icon: Code2, label: t('sandbox') },
   ];
 
   const isActive = (href: string) => {
