@@ -247,7 +247,10 @@ class TestRLSSuperAdminBypass:
         """Regression: SUPER_ADMIN must see all llm_usage_logs regardless of school_id."""
         # Skip if table or role doesn't exist (CI environment)
         table_check = await rls_db.execute(
-            text("SELECT to_regclass('public.llm_usage_logs')")
+            text(
+                "SELECT 1 FROM information_schema.tables "
+                "WHERE table_schema = 'public' AND table_name = 'llm_usage_logs'"
+            )
         )
         if table_check.scalar() is None:
             pytest.skip("llm_usage_logs table does not exist in test DB")
