@@ -2,8 +2,9 @@
 Global User Management API for SUPER_ADMIN.
 """
 
-from typing import Optional
+from typing import Optional, Dict
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -15,6 +16,33 @@ from app.schemas.pagination import PaginatedResponse, PaginationParams
 
 
 router = APIRouter(prefix="/users", tags=["Global Users"])
+
+
+@router.get("/stats")
+async def get_user_stats(
+    current_user: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, int]:
+    """
+    Get user counts by role (SUPER_ADMIN only).
+    Returns: {"total": N, "super_admin": N, "admin": N, "teacher": N, "student": N, "parent": N}
+    """
+    result = await db.execute(
+        select(User.role, func.count(User.id))
+        .where(User.is_deleted == False)  # noqa: E712
+        .group_by(User.role)
+    )
+    counts = {row[0].value if hasattr(row[0], 'value') else row[0]: row[1] for row in result.all()}
+
+    total = sum(counts.values())
+    return {
+        "total": total,
+        "super_admin": counts.get("super_admin", 0),
+        "admin": counts.get("admin", 0),
+        "teacher": counts.get("teacher", 0),
+        "student": counts.get("student", 0),
+        "parent": counts.get("parent", 0),
+    }
 
 
 @router.get("", response_model=PaginatedResponse[GlobalUserListResponse])

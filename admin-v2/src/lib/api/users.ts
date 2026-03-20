@@ -25,12 +25,26 @@ export interface UsersListParams {
   search?: string;
 }
 
+export interface UserStats {
+  total: number;
+  super_admin: number;
+  admin: number;
+  teacher: number;
+  student: number;
+  parent: number;
+}
+
 export const globalUsersApi = {
   getList: async (params?: UsersListParams): Promise<PaginatedResponse<GlobalUser>> => {
     const { data } = await apiClient.get<PaginatedResponse<GlobalUser>>(
       '/admin/global/users',
       { params }
     );
+    return data;
+  },
+
+  getStats: async (): Promise<UserStats> => {
+    const { data } = await apiClient.get<UserStats>('/admin/global/users/stats');
     return data;
   },
 };

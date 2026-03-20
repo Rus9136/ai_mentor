@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useGlobalUsers } from '@/lib/hooks/use-global-users';
+import { useGlobalUsers, useGlobalUserStats } from '@/lib/hooks/use-global-users';
 
 const ROLES = [
   { value: 'all', label: 'Все роли', labelKz: 'Барлық рөлдер' },
@@ -80,6 +80,8 @@ export default function UsersPage() {
     search: search || undefined,
   });
 
+  const { data: stats } = useGlobalUserStats();
+
   const users = data?.items || [];
   const total = data?.total || 0;
   const totalPages = data?.total_pages || 1;
@@ -93,31 +95,32 @@ export default function UsersPage() {
     if (e.key === 'Enter') handleSearch();
   };
 
-  const roleCounts = users.reduce(
-    (acc, u) => {
-      acc[u.role] = (acc[u.role] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>
-  );
-
   return (
     <RoleGuard allowedRoles={['super_admin']}>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{tUsers('title')}</h1>
-          <p className="text-muted-foreground">{tUsers('description')}</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">{tUsers('title')}</h1>
+            <p className="text-muted-foreground">{tUsers('description')}</p>
+          </div>
+          {stats && (
+            <div className="text-right">
+              <div className="text-2xl font-bold">{stats.total}</div>
+              <p className="text-sm text-muted-foreground">{tUsers('totalUsers')}</p>
+            </div>
+          )}
         </div>
 
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           {ROLES.filter((r) => r.value !== 'all').map((r) => {
             const Icon = ROLE_ICONS[r.value] || Users;
+            const count = stats ? stats[r.value as keyof typeof stats] : null;
             return (
               <Card
                 key={r.value}
-                className={`cursor-pointer transition-colors ${role === r.value ? 'border-primary' : ''}`}
+                className={`cursor-pointer transition-colors ${role === r.value ? 'border-primary ring-1 ring-primary' : 'hover:border-muted-foreground/30'}`}
                 onClick={() => {
                   setRole(role === r.value ? 'all' : r.value);
                   setPage(1);
@@ -129,7 +132,7 @@ export default function UsersPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {role === r.value ? total : '—'}
+                    {count !== null ? count : <Skeleton className="h-8 w-12" />}
                   </div>
                 </CardContent>
               </Card>

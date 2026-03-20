@@ -5,6 +5,7 @@ export const globalUserKeys = {
   all: ['global-users'] as const,
   lists: () => [...globalUserKeys.all, 'list'] as const,
   list: (params?: UsersListParams) => [...globalUserKeys.lists(), params] as const,
+  stats: () => [...globalUserKeys.all, 'stats'] as const,
 };
 
 export function useGlobalUsers(params?: UsersListParams) {
@@ -12,5 +13,12 @@ export function useGlobalUsers(params?: UsersListParams) {
     queryKey: globalUserKeys.list(params),
     queryFn: () => globalUsersApi.getList(params),
     placeholderData: keepPreviousData,
+  });
+}
+
+export function useGlobalUserStats() {
+  return useQuery({
+    queryKey: globalUserKeys.stats(),
+    queryFn: () => globalUsersApi.getStats(),
   });
 }
