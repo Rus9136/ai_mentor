@@ -42,6 +42,7 @@
     "learningOutcomes": "Оқу мақсаттары",
     "llmUsage": "LLM Мониторинг",
     "subscriptions": "Жазылымдар",
+    "users": "Пайдаланушылар",
     "students": "Оқушылар",
     "teachers": "Мұғалімдер",
     "parents": "Ата-аналар",
@@ -169,6 +170,17 @@
     "maxLength": "Ең көп {max} таңба",
     "min": "Кемінде {min}",
     "max": "Ең көп {max}"
+  },
+  "users": {
+    "title": "Пайдаланушылар",
+    "description": "Қосымша мен сайттың барлық пайдаланушылары",
+    "searchPlaceholder": "Аты, email немесе телефон бойынша іздеу...",
+    "fullName": "Аты-жөні",
+    "role": "Рөл",
+    "school": "Мектеп",
+    "authProvider": "Авторизация",
+    "registeredAt": "Тіркелу күні",
+    "totalUsers": "Барлық пайдаланушылар"
   },
   "roles": {
     "super_admin": "Суперәкімші",

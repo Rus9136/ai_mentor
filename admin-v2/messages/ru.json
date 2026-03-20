@@ -42,6 +42,7 @@
     "learningOutcomes": "Цели обучения",
     "llmUsage": "LLM Мониторинг",
     "subscriptions": "Подписки",
+    "users": "Пользователи",
     "students": "Ученики",
     "teachers": "Учителя",
     "parents": "Родители",
@@ -169,6 +170,17 @@
     "maxLength": "Максимум {max} символов",
     "min": "Минимум {min}",
     "max": "Максимум {max}"
+  },
+  "users": {
+    "title": "Пользователи",
+    "description": "Все пользователи приложения и сайта",
+    "searchPlaceholder": "Поиск по имени, email или телефону...",
+    "fullName": "ФИО",
+    "role": "Роль",
+    "school": "Школа",
+    "authProvider": "Авторизация",
+    "registeredAt": "Дата регистрации",
+    "totalUsers": "Всего пользователей"
   },
   "roles": {
     "super_admin": "Суперадмин",

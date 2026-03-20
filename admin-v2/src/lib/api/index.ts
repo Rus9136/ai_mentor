@@ -14,3 +14,4 @@ export { schoolTextbooksApi } from './school-textbooks';
 export { schoolTestsApi } from './school-tests';
 export { settingsApi } from './settings';
 export { llmUsageApi } from './llm-usage';
+export { globalUsersApi } from './users';

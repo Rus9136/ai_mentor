@@ -60,3 +60,23 @@ class UserListResponse(BaseModel):
     last_name: str
     is_active: bool
     created_at: datetime
+
+
+class GlobalUserListResponse(BaseModel):
+    """Schema for global user list response (SUPER_ADMIN view with school info)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    role: str
+    school_id: Optional[int]
+    school_name: Optional[str] = None
+    first_name: str
+    last_name: str
+    middle_name: Optional[str] = None
+    phone: Optional[str] = None
+    is_active: bool
+    is_verified: bool
+    auth_provider: Optional[str] = None
+    created_at: datetime

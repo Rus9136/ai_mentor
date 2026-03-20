@@ -2,8 +2,9 @@
 User repository for database operations.
 """
 from typing import Optional, List, Tuple
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.user import User
 
@@ -231,6 +232,66 @@ class UserRepository:
 
         # Apply ordering and pagination
         query = query.order_by(User.last_name, User.first_name)
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        result = await self.db.execute(query)
+        users = list(result.scalars().all())
+
+        return users, total
+
+    async def get_all_paginated(
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        role: Optional[str] = None,
+        is_active: Optional[bool] = None,
+        search: Optional[str] = None,
+    ) -> Tuple[List[User], int]:
+        """
+        Get all users with pagination, filters, and search (for SUPER_ADMIN).
+
+        Args:
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+            role: Filter by role
+            is_active: Filter by active status
+            search: Search by name, email, or phone
+
+        Returns:
+            Tuple of (list of users with school loaded, total count)
+        """
+        filters = [User.is_deleted == False]  # noqa: E712
+
+        if role is not None:
+            filters.append(User.role == role)
+
+        if is_active is not None:
+            filters.append(User.is_active == is_active)
+
+        if search:
+            search_term = f"%{search}%"
+            filters.append(
+                or_(
+                    User.first_name.ilike(search_term),
+                    User.last_name.ilike(search_term),
+                    User.email.ilike(search_term),
+                    User.phone.ilike(search_term),
+                )
+            )
+
+        query = (
+            select(User)
+            .options(selectinload(User.school))
+            .where(and_(*filters))
+        )
+
+        count_query = select(func.count()).select_from(
+            select(User).where(and_(*filters)).subquery()
+        )
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        query = query.order_by(User.created_at.desc())
         offset = (page - 1) * page_size
         query = query.offset(offset).limit(page_size)
 

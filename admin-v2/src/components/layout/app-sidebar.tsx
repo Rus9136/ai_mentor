@@ -92,6 +92,12 @@ const navItems: NavItem[] = [
     roles: ['super_admin'],
   },
   {
+    title: 'users',
+    href: '/users',
+    icon: Users,
+    roles: ['super_admin'],
+  },
+  {
     title: 'dailyQuests',
     href: '/daily-quests',
     icon: Zap,
