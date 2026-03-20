@@ -87,6 +87,7 @@ export interface Textbook {
   subject: string; // backward compatibility
   subject_rel: SubjectBrief | null;
   grade_level: number;
+  language: string;
   author?: string;
   publisher?: string;
   isbn?: string;
@@ -103,6 +104,7 @@ export interface TextbookCreate {
   title: string;
   subject_id: number;
   grade_level: number;
+  language: string;
   author?: string;
   publisher?: string;
   year?: number;
@@ -425,6 +427,7 @@ export interface SchoolClass {
   name: string;
   code: string;
   grade_level: number;
+  language: string;
   academic_year: string;
   students?: Student[];
   teachers?: Teacher[];
@@ -440,6 +443,7 @@ export interface SchoolClassCreate {
   name: string;
   code: string;
   grade_level: number;
+  language: string;
   academic_year: string;
 }
 

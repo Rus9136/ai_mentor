@@ -3,7 +3,7 @@
 import { type ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { BookOpen, CheckCircle, XCircle, Globe, Building2 } from 'lucide-react';
+import { BookOpen, CheckCircle, XCircle, Globe, Building2, Languages } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -105,6 +105,24 @@ export function getColumns({
       ),
       filterFn: (row, id, value) => {
         return value.includes(String(row.getValue(id)));
+      },
+    },
+    {
+      accessorKey: 'language',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Язык" />
+      ),
+      cell: ({ row }) => {
+        const lang = row.getValue('language') as string;
+        return (
+          <Badge variant="outline">
+            <Languages className="mr-1 h-3 w-3" />
+            {lang === 'ru' ? 'Рус' : 'Қаз'}
+          </Badge>
+        );
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
       },
     },
     {

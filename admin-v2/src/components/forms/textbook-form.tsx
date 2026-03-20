@@ -40,6 +40,14 @@ interface TextbookFormProps {
 
 const GRADES = [5, 6, 7, 8, 9, 10, 11];
 
+const PUBLISHERS = [
+  'Алматыкітап',
+  'Атамура',
+  'Мектеп',
+  'Express Publishing',
+  'EDU Stream и Express Publishing',
+];
+
 export function TextbookForm({ textbook, onSubmit, isLoading }: TextbookFormProps) {
   const t = useTranslations('textbooks');
   const tCommon = useTranslations('common');
@@ -52,6 +60,7 @@ export function TextbookForm({ textbook, onSubmit, isLoading }: TextbookFormProp
           title: textbook.title,
           subject_id: textbook.subject_id || 0,
           grade_level: textbook.grade_level,
+          language: (textbook.language || 'kk') as 'kk' | 'ru',
           is_school: textbook.school_id !== null,
           author: textbook.author || '',
           publisher: textbook.publisher || '',
@@ -140,6 +149,31 @@ export function TextbookForm({ textbook, onSubmit, isLoading }: TextbookFormProp
 
           <FormField
             control={form.control}
+            name="language"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Язык *</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите язык" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="kk">Казахский</SelectItem>
+                    <SelectItem value="ru">Русский</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
             name="is_school"
             render={({ field }) => (
               <FormItem>
@@ -183,9 +217,23 @@ export function TextbookForm({ textbook, onSubmit, isLoading }: TextbookFormProp
             render={({ field }) => (
               <FormItem>
                 <FormLabel>{t('publisher')}</FormLabel>
-                <FormControl>
-                  <Input placeholder="Издательство" {...field} />
-                </FormControl>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value || undefined}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите издательство" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {PUBLISHERS.map((pub) => (
+                      <SelectItem key={pub} value={pub}>
+                        {pub}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

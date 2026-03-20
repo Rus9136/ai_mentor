@@ -31,6 +31,7 @@ class Textbook(SoftDeleteModel):
     subject = Column(String(100), nullable=False, index=True)  # Kept for backward compatibility
     grade_level = Column(Integer, nullable=False, index=True)  # 1-11
     author = Column(String(255), nullable=True)
+    language = Column(String(2), nullable=False, server_default="kk")  # 'kk' or 'ru'
     publisher = Column(String(255), nullable=True)
     year = Column(Integer, nullable=True)
     isbn = Column(String(50), nullable=True)

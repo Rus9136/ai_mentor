@@ -14,6 +14,7 @@ class TextbookCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255, description="Textbook title")
     subject_id: int = Field(..., description="Subject ID from subjects table")
     grade_level: int = Field(..., ge=1, le=11, description="Grade level (1-11)")
+    language: str = Field(default="kk", pattern="^(kk|ru)$", description="Textbook language: kk or ru")
     author: Optional[str] = Field(None, max_length=255, description="Author name")
     publisher: Optional[str] = Field(None, max_length=255, description="Publisher name")
     year: Optional[int] = Field(None, ge=1900, le=2100, description="Publication year")
@@ -28,6 +29,7 @@ class TextbookUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255, description="Textbook title")
     subject_id: Optional[int] = Field(None, description="Subject ID from subjects table")
     grade_level: Optional[int] = Field(None, ge=1, le=11, description="Grade level (1-11)")
+    language: Optional[str] = Field(None, pattern="^(kk|ru)$", description="Textbook language: kk or ru")
     author: Optional[str] = Field(None, max_length=255, description="Author name")
     publisher: Optional[str] = Field(None, max_length=255, description="Publisher name")
     year: Optional[int] = Field(None, ge=1900, le=2100, description="Publication year")
@@ -53,6 +55,7 @@ class TextbookResponse(BaseModel):
     subject: str = Field(description="Subject name (for backward compatibility)")
     subject_rel: Optional[SubjectBrief] = Field(None, description="Subject details")
     grade_level: int
+    language: str = Field(default="kk", description="Textbook language: kk or ru")
     author: Optional[str]
     publisher: Optional[str]
     year: Optional[int]
@@ -78,6 +81,7 @@ class TextbookListResponse(BaseModel):
     subject: str = Field(description="Subject name (for backward compatibility)")
     subject_rel: Optional[SubjectBrief] = Field(None, description="Subject details")
     grade_level: int
+    language: str = Field(default="kk", description="Textbook language: kk or ru")
     is_customized: bool
     is_active: bool
     version: int

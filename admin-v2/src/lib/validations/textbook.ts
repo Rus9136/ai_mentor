@@ -16,6 +16,7 @@ export const textbookCreateSchema = z.object({
     .int()
     .min(1, 'Минимум 1 класс')
     .max(11, 'Максимум 11 класс'),
+  language: z.enum(['kk', 'ru'], { message: 'Язык обязателен' }),
   is_school: z.boolean(),
   author: z.string().max(255, 'Максимум 255 символов').optional().or(z.literal('')),
   publisher: z.string().max(255, 'Максимум 255 символов').optional().or(z.literal('')),
@@ -39,6 +40,7 @@ export const textbookCreateDefaults: TextbookCreateInput = {
   title: '',
   subject_id: 0, // Will be selected from dropdown
   grade_level: 7,
+  language: 'kk' as const,
   is_school: false,
   author: '',
   publisher: '',
