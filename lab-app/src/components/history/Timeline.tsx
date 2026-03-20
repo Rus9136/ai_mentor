@@ -6,10 +6,13 @@ interface TimelineProps {
   epochs: EpochData[];
   currentEpochId: string;
   onEpochChange: (id: string) => void;
+  locale: string;
 }
 
-export function Timeline({ epochs, currentEpochId, onEpochChange }: TimelineProps) {
+export function Timeline({ epochs, currentEpochId, onEpochChange, locale }: TimelineProps) {
   const currentIndex = epochs.findIndex((e) => e.id === currentEpochId);
+  const isKk = locale === 'kz';
+  const currentEpoch = epochs[currentIndex];
 
   return (
     <div className="bg-card/95 backdrop-blur-sm border-t border-border px-4 py-3 pb-[env(safe-area-inset-bottom,0.75rem)]">
@@ -52,11 +55,11 @@ export function Timeline({ epochs, currentEpochId, onEpochChange }: TimelineProp
 
       {/* Current epoch label */}
       <div className="flex items-center justify-between mt-1 px-1">
-        <span className="text-[10px] text-muted-foreground">{epochs[0].period.split('—')[0]}</span>
-        <span className="text-xs font-semibold" style={{ color: epochs[currentIndex]?.color }}>
-          {epochs[currentIndex]?.name}
+        <span className="text-[10px] text-muted-foreground">VII {isKk ? 'ғ. б.з.д.' : 'в. до н.э.'}</span>
+        <span className="text-xs font-semibold" style={{ color: currentEpoch?.color }}>
+          {currentEpoch ? (isKk ? currentEpoch.name_kk : currentEpoch.name) : ''}
         </span>
-        <span className="text-[10px] text-muted-foreground">2026</span>
+        <span className="text-[10px] text-muted-foreground">1991</span>
       </div>
     </div>
   );

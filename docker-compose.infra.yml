@@ -308,8 +308,8 @@ services:
       NEXT_PUBLIC_API_URL: https://api.ai-mentor.kz/api/v1
 
     ports:
-      # Доступен ТОЛЬКО локально на хосте для Nginx (порт 3008)
-      - "127.0.0.1:3008:3000"
+      # Доступен ТОЛЬКО локально на хосте для Nginx (порт 3012)
+      - "127.0.0.1:3012:3000"
 
     networks:
       - infrastructure_network

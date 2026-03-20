@@ -68,7 +68,13 @@ export default function CatalogPage() {
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">{t('common.loading')}</div>
+      </div>
+    );
+  }
 
   // Detect locale from URL
   const locale = (typeof window !== 'undefined' && window.location.pathname.startsWith('/kz')) ? 'kz' : 'ru';

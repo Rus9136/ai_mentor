@@ -396,55 +396,31 @@ fi
 
 ---
 
-### Фаза 2.5. Деплой фронтенда lab.ai-mentor.kz (предстоит)
+### Фаза 2.5. Деплой фронтенда lab.ai-mentor.kz — ВЫПОЛНЕНО (20.03.2026)
 
 **Цель:** lab-app доступен по адресу `https://lab.ai-mentor.kz` с валидным SSL.
 
-**Предусловие:** DNS-запись `lab.ai-mentor.kz` добавлена и указывает на сервер.
-
-**Задачи:**
+**Что сделано:**
 
 1. SSL-сертификат:
-   - Проверить что DNS уже резолвится: `dig lab.ai-mentor.kz` или `nslookup lab.ai-mentor.kz`
-   - Добавить Nginx server block для `lab.ai-mentor.kz` (сначала на порт 80 для certbot)
-   - Получить сертификат: `sudo certbot --nginx -d lab.ai-mentor.kz`
-   - Проверить автообновление: `sudo certbot renew --dry-run`
+   - DNS `lab.ai-mentor.kz` резолвится на `207.180.243.173`
+   - Расширен существующий сертификат `ai-mentor.kz` через `certbot --expand` (добавлен `lab.ai-mentor.kz`)
+   - Сертификат: `/etc/letsencrypt/live/ai-mentor.kz/fullchain.pem` (истекает 2026-06-18)
 
-2. Nginx конфигурация (после certbot):
-   ```nginx
-   server {
-       server_name lab.ai-mentor.kz;
-       listen 443 ssl;
-       ssl_certificate /etc/letsencrypt/live/lab.ai-mentor.kz/fullchain.pem;
-       ssl_certificate_key /etc/letsencrypt/live/lab.ai-mentor.kz/privkey.pem;
+2. Nginx конфигурация:
+   - Конфиг: `nginx/lab.ai-mentor.kz.conf` (в репо)
+   - Симлинк: `/etc/nginx/sites-enabled/ai-mentor-lab.conf` → `nginx/lab.ai-mentor.kz.conf`
+   - HTTP→HTTPS редирект, SSL, gzip, rate limiting, CSP (CartoDB tiles, unpkg CDN для Leaflet)
+   - Upstream: `127.0.0.1:3012` (порт 3008 был занят `sbcheck_frontend`)
 
-       location / {
-           proxy_pass http://127.0.0.1:3008;
-           proxy_http_version 1.1;
-           proxy_set_header Upgrade $http_upgrade;
-           proxy_set_header Connection 'upgrade';
-           proxy_set_header Host $host;
-           proxy_set_header X-Real-IP $remote_addr;
-           proxy_cache_bypass $http_upgrade;
-       }
-   }
-   server {
-       server_name lab.ai-mentor.kz;
-       listen 80;
-       return 301 https://$host$request_uri;
-   }
-   ```
+3. Docker контейнер:
+   - Контейнер: `ai_mentor_lab_app_prod` (порт `127.0.0.1:3012:3000`)
+   - Деплой: `./deploy.sh lab-app`
 
-3. Сборка и запуск контейнера:
-   - `docker compose -f docker-compose.infra.yml build lab-app`
-   - `docker compose -f docker-compose.infra.yml up -d lab-app`
-   - Или через deploy script: `./deploy.sh lab-app`
-
-4. Проверка:
-   - `curl -s https://lab.ai-mentor.kz/ru` — должен вернуть HTML
-   - Проверить логин через браузер
-   - Проверить что карта загружается на странице лаборатории
-   - Health check: `curl -s http://127.0.0.1:3008/ru`
+4. Проверено:
+   - `curl -s https://lab.ai-mentor.kz/ru` → 200 OK, HTTP/2
+   - `curl -s http://127.0.0.1:3012/ru` → 200 OK
+   - i18n: `/ru` и `/kz` работают
 
 ---
 

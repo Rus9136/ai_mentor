@@ -29,6 +29,7 @@ EMOJI_DATABASE="🗄️"
 EMOJI_TIMER="⏱️"
 EMOJI_STUDENT="📱"
 EMOJI_TEACHER="🎓"
+EMOJI_LAB="🧪"
 EMOJI_DOCKER="🐳"
 EMOJI_CHECK="✓"
 EMOJI_CROSS="✗"
@@ -75,6 +76,10 @@ log_student_app() {
 
 log_teacher_app() {
     echo -e "${BLUE}${EMOJI_TEACHER} Teacher App:${NC} $1"
+}
+
+log_lab_app() {
+    echo -e "${MAGENTA}${EMOJI_LAB} Lab App:${NC} $1"
 }
 
 log_separator() {
@@ -294,6 +299,12 @@ show_troubleshooting() {
             echo "   3. Review logs: docker compose -f docker-compose.infra.yml logs teacher-app"
             echo "   4. Check Next.js build output"
             ;;
+        lab-app)
+            echo "   1. Check TypeScript/Next.js syntax errors"
+            echo "   2. Check package.json dependencies"
+            echo "   3. Review logs: docker compose -f docker-compose.infra.yml logs lab-app"
+            echo "   4. Check Next.js build output"
+            ;;
         postgres)
             echo "   1. Check database credentials in backend/.env"
             echo "   2. Review logs: docker compose -f docker-compose.infra.yml logs postgres"
@@ -333,14 +344,15 @@ ask_confirmation() {
 # ==========================================
 
 # Показать итоговую статистику деплоя
-# Аргументы: backend_deployed, frontend_deployed, student_app_deployed, teacher_app_deployed, migrations_applied, success
+# Аргументы: backend_deployed, frontend_deployed, student_app_deployed, teacher_app_deployed, lab_app_deployed, migrations_applied, success
 show_deploy_summary() {
     local backend_deployed=$1
     local frontend_deployed=$2
     local student_app_deployed=$3
     local teacher_app_deployed=$4
-    local migrations_applied=$5
-    local success=$6
+    local lab_app_deployed=$5
+    local migrations_applied=$6
+    local success=$7
 
     echo ""
     log_header "📊 DEPLOY SUMMARY"
@@ -349,6 +361,7 @@ show_deploy_summary() {
     echo -e "   ${EMOJI_FRONTEND} Frontend:    $([ "$frontend_deployed" = "true" ] && echo "${GREEN}DEPLOYED${NC}" || echo "${GRAY}Skipped${NC}")"
     echo -e "   ${EMOJI_STUDENT} Student App: $([ "$student_app_deployed" = "true" ] && echo "${GREEN}DEPLOYED${NC}" || echo "${GRAY}Skipped${NC}")"
     echo -e "   ${EMOJI_TEACHER} Teacher App: $([ "$teacher_app_deployed" = "true" ] && echo "${GREEN}DEPLOYED${NC}" || echo "${GRAY}Skipped${NC}")"
+    echo -e "   ${EMOJI_LAB} Lab App:     $([ "$lab_app_deployed" = "true" ] && echo "${GREEN}DEPLOYED${NC}" || echo "${GRAY}Skipped${NC}")"
     echo -e "   ${EMOJI_DATABASE} Migrations:  $([ "$migrations_applied" = "true" ] && echo "${GREEN}APPLIED${NC}" || echo "${GRAY}Skipped${NC}")"
 
     echo ""
@@ -360,6 +373,7 @@ show_deploy_summary() {
         echo -e "${CYAN}🌐 Services:${NC}"
         echo -e "   • Student App:  ${GREEN}https://ai-mentor.kz${NC}"
         echo -e "   • Teacher App:  ${GREEN}https://teacher.ai-mentor.kz${NC}"
+        echo -e "   • Lab App:      ${GREEN}https://lab.ai-mentor.kz${NC}"
         echo -e "   • Admin Panel:  ${GREEN}https://admin.ai-mentor.kz${NC}"
         echo -e "   • API:          ${GREEN}https://api.ai-mentor.kz${NC}"
         echo -e "   • API Docs:     ${GREEN}https://api.ai-mentor.kz/docs${NC}"
@@ -379,7 +393,7 @@ show_deploy_summary() {
 # ==========================================
 
 export -f log_info log_success log_error log_warning log_step
-export -f log_backend log_frontend log_database log_student_app log_teacher_app
+export -f log_backend log_frontend log_database log_student_app log_teacher_app log_lab_app
 export -f log_separator log_header
 export -f show_progress show_status show_service_status
 export -f start_timer show_elapsed

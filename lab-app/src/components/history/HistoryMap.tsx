@@ -3,25 +3,30 @@
 import { useEffect } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import type { EpochData } from '@/types/lab';
+import { TerritoryLayer } from './TerritoryLayer';
+import { MapMarkers } from './MapMarkers';
 import 'leaflet/dist/leaflet.css';
 
 interface HistoryMapProps {
   epoch: EpochData;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  territories: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  markers: any;
+  locale: string;
 }
 
-// Component to handle map view changes
 function MapController({ epoch }: { epoch: EpochData }) {
   const map = useMap();
 
   useEffect(() => {
-    // Fly to Kazakhstan center when epoch changes
     map.flyTo([48.0196, 66.9237], 5, { duration: 1 });
   }, [epoch.id, map]);
 
   return null;
 }
 
-export function HistoryMap({ epoch }: HistoryMapProps) {
+export function HistoryMap({ epoch, territories, markers, locale }: HistoryMapProps) {
   return (
     <div className="lab-map-container w-full h-full">
       <MapContainer
@@ -44,9 +49,12 @@ export function HistoryMap({ epoch }: HistoryMapProps) {
         />
         <MapController epoch={epoch} />
 
-        {/* Territory GeoJSON layers will be added in Phase 3 */}
-        {/* <TerritoryLayer epoch={epoch} /> */}
-        {/* <MapMarkers epoch={epoch} /> */}
+        {territories && (
+          <TerritoryLayer data={territories} currentEpochId={epoch.epoch_id} />
+        )}
+        {markers && (
+          <MapMarkers data={markers} currentEpochId={epoch.epoch_id} locale={locale} />
+        )}
       </MapContainer>
 
       {/* Epoch color indicator */}

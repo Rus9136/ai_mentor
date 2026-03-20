@@ -517,7 +517,7 @@ deploy_teacher_app() {
 # ==========================================
 
 deploy_lab_app() {
-    echo -e "   🧪 Starting lab app deployment..."
+    log_lab_app "Starting lab app deployment..."
 
     # Build lab-app image
     log_step "Building lab-app Docker image..."
@@ -548,7 +548,7 @@ deploy_lab_app() {
     local max_retries=12
 
     while [ $retries -lt $max_retries ]; do
-        if check_http_endpoint "http://127.0.0.1:3008/ru" 5; then
+        if check_http_endpoint "http://127.0.0.1:3012/ru" 5; then
             log_success "Lab app is healthy"
             return 0
         fi
@@ -643,7 +643,7 @@ check_services() {
         show_service_status "Lab App" "$lab_app_status"
     fi
 
-    if check_http_endpoint "http://127.0.0.1:3008/ru" 5; then
+    if check_http_endpoint "http://127.0.0.1:3012/ru" 5; then
         show_service_status "Lab App Health" "healthy"
     else
         show_service_status "Lab App Health" "unhealthy"
@@ -746,7 +746,7 @@ main() {
         else
             DEPLOY_SUCCESS=false
             # Stop deployment on backend failure
-            show_deploy_summary "$DEPLOYED_BACKEND" "$DEPLOYED_FRONTEND" "$DEPLOYED_STUDENT_APP" "$DEPLOYED_TEACHER_APP" "$APPLIED_MIGRATIONS" "false"
+            show_deploy_summary "$DEPLOYED_BACKEND" "$DEPLOYED_FRONTEND" "$DEPLOYED_STUDENT_APP" "$DEPLOYED_TEACHER_APP" "$DEPLOYED_LAB_APP" "$APPLIED_MIGRATIONS" "false"
             exit 1
         fi
         echo ""
@@ -798,7 +798,7 @@ main() {
     check_services
 
     # Show summary
-    show_deploy_summary "$DEPLOYED_BACKEND" "$DEPLOYED_FRONTEND" "$DEPLOYED_STUDENT_APP" "$DEPLOYED_TEACHER_APP" "$APPLIED_MIGRATIONS" "$DEPLOY_SUCCESS"
+    show_deploy_summary "$DEPLOYED_BACKEND" "$DEPLOYED_FRONTEND" "$DEPLOYED_STUDENT_APP" "$DEPLOYED_TEACHER_APP" "$DEPLOYED_LAB_APP" "$APPLIED_MIGRATIONS" "$DEPLOY_SUCCESS"
 
     # Exit with appropriate code
     if [ "$DEPLOY_SUCCESS" = "true" ]; then

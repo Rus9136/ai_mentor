@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isLoading) return;
 
     const isAuthPage = pathname === '/login';
-    const isPublicPage = pathname === '/' || pathname.startsWith('/webview');
+    const isPublicPage = pathname.startsWith('/webview');
 
     if (!user && !isAuthPage && !isPublicPage) {
       router.replace('/login');

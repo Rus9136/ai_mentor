@@ -12,6 +12,7 @@
 | Admin Panel | `admin-v2/` | SUPER_ADMIN, School ADMIN | admin.ai-mentor.kz |
 | Student App | `student-app/` | STUDENT | ai-mentor.kz |
 | Teacher App | `teacher-app/` | TEACHER | teacher.ai-mentor.kz |
+| Lab App | `lab-app/` | STUDENT | lab.ai-mentor.kz |
 | Backend API | `backend/` | Все | api.ai-mentor.kz |
 
 **SUPER_ADMIN:** глобальный контент, школы, ГОСО
@@ -30,6 +31,7 @@
 | `docs/TASK_SELF_ASSESSMENT_BACKEND.md` | ТЗ самооценки ученика (этапы 1-2 готовы) |
 | `docs/API_SELF_ASSESSMENT.md` | API документация самооценки для мобильных |
 | `docs/AI_MEMORY.md` | 3-слойная память ИИ-репетитора (MVP) |
+| `docs/LAB_APP_PLAN.md` | Лаборатория — интерактивный режим обучения (карты, 3D, симуляции) |
 
 ---
 
@@ -120,6 +122,7 @@ CI автоматически запускается при **push в main** и 
 | Teacher App | `ai_mentor_teacher_app_prod` | 3007 | 3007 |
 | Student App | `ai_mentor_student_app_prod` | 3000 | 3000 |
 | Admin Panel | `ai_mentor_admin_v2_prod` | 3000 | 3001 |
+| Lab App | `ai_mentor_lab_app_prod` | 3000 | **3012** |
 | PostgreSQL | `ai_mentor_postgres_prod` | 5432 | **5435** |
 
 **ВАЖНО:** Backend слушает на порту **8020** локально, не 8000!
@@ -186,6 +189,7 @@ Nginx проксирует запросы:
 - `teacher.ai-mentor.kz` → `localhost:3007`
 - `ai-mentor.kz` → `localhost:3000`
 - `admin.ai-mentor.kz` → `localhost:3001`
+- `lab.ai-mentor.kz` → `localhost:3012`
 
 ### Code Quality
 ```bash
@@ -332,6 +336,18 @@ SELECT tablename FROM pg_policies WHERE schemaname='public' AND cmd='w'
 ```
 
 **Автотест:** `backend/tests/test_rls_policy_audit.py` — запускать перед деплоем.
+
+---
+
+## Bug Fix Workflow
+
+When fixing any bug:
+1. Always trace the full request flow before writing any fix
+2. Confirm root cause explicitly — do not guess or fix based on hypothesis
+3. Apply minimal targeted fix only
+4. Run existing tests, then write a regression test for the bug
+5. Fix one bug at a time — do not proceed to next until current is tested and confirmed fixed
+6. If real root cause differs from initial hypothesis — state it clearly before fixing
 
 ---
 

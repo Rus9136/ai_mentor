@@ -36,11 +36,16 @@ export interface LabTaskAnswerResponse {
 
 export interface EpochData {
   id: string;
+  epoch_id: number;
   name: string;
+  name_kk: string;
   period: string;
   start_year: number;
   end_year: number;
   description: string;
+  description_kk: string;
+  capital: string | null;
+  key_events: string[];
   paragraph_id: number | null;
   color: string;
 }
