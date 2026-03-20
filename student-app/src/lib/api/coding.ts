@@ -138,3 +138,92 @@ export async function getCodingStats(): Promise<CodingStats> {
   const { data } = await apiClient.get(`${BASE}/stats`);
   return data;
 }
+
+// =============================================================================
+// Course Types
+// =============================================================================
+
+export interface CodingCourse {
+  id: number;
+  title: string;
+  title_kk: string | null;
+  description: string | null;
+  description_kk: string | null;
+  slug: string;
+  grade_level: number | null;
+  total_lessons: number;
+  estimated_hours: number | null;
+  sort_order: number;
+  icon: string | null;
+  is_active: boolean;
+  completed_lessons: number;
+  last_lesson_id: number | null;
+  started: boolean;
+  completed: boolean;
+}
+
+export interface LessonListItem {
+  id: number;
+  title: string;
+  title_kk: string | null;
+  sort_order: number;
+  has_challenge: boolean;
+  challenge_id: number | null;
+  is_completed: boolean;
+}
+
+export interface LessonDetail {
+  id: number;
+  course_id: number;
+  title: string;
+  title_kk: string | null;
+  sort_order: number;
+  theory_content: string;
+  theory_content_kk: string | null;
+  starter_code: string | null;
+  challenge_id: number | null;
+  challenge: ChallengeDetail | null;
+  is_completed: boolean;
+}
+
+export interface LessonCompleteResponse {
+  lesson_id: number;
+  course_id: number;
+  completed_lessons: number;
+  total_lessons: number;
+  course_completed: boolean;
+}
+
+// =============================================================================
+// Course API Functions
+// =============================================================================
+
+export async function listCourses(): Promise<CodingCourse[]> {
+  const { data } = await apiClient.get(`${BASE}/courses`);
+  return data;
+}
+
+export async function listLessons(
+  courseSlug: string
+): Promise<LessonListItem[]> {
+  const { data } = await apiClient.get(
+    `${BASE}/courses/${courseSlug}/lessons`
+  );
+  return data;
+}
+
+export async function getLessonDetail(
+  lessonId: number
+): Promise<LessonDetail> {
+  const { data } = await apiClient.get(`${BASE}/courses/lessons/${lessonId}`);
+  return data;
+}
+
+export async function completeLesson(
+  lessonId: number
+): Promise<LessonCompleteResponse> {
+  const { data } = await apiClient.post(
+    `${BASE}/courses/lessons/${lessonId}/complete`
+  );
+  return data;
+}

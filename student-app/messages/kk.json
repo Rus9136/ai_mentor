@@ -755,7 +755,8 @@
     "timeout": "Орындау уақыты асып кетті (10 сек)",
     "emptyOutput": "Кодты орындау үшін «Іске қосу» басыңыз",
     "starterCode": "# Python кодыңызды осында жазыңыз\nprint(\"Сәлем, Әлем!\")",
-    "challenges": "Есептер"
+    "challenges": "Есептер",
+    "courses": "Курстар"
   },
   "challenges": {
     "title": "Python есептері",
@@ -780,6 +781,32 @@
     "medium": "Орташа",
     "hard": "Қиын",
     "grade": "{n} сынып"
+  },
+  "courses": {
+    "title": "Python курстары",
+    "subtitle": "Python-ды қадам-қадам үйрен",
+    "challenges": "Есептер",
+    "sandbox": "Құмсалғыш",
+    "noCourses": "Курстар әзірше жоқ",
+    "noLessons": "Сабақтар әзірше жоқ",
+    "lessonsCount": "{n} сабақ",
+    "hours": "~{n} сағ",
+    "lessons": "сабақ",
+    "grade": "{n} сынып",
+    "progress": "Прогресс",
+    "start": "Бастау",
+    "continue": "Жалғастыру",
+    "reviewCourse": "Қайталау",
+    "theory": "Теория",
+    "practice": "Тәжірибе",
+    "prevLesson": "Артқа",
+    "nextLesson": "Келесі",
+    "completeAndNext": "Оқыдым, келесі",
+    "markRead": "Оқыдым",
+    "completed": "Аяқталды",
+    "hasPractice": "Есеп",
+    "lessonOf": "Сабақ {n} / {total}",
+    "lessonNotFound": "Сабақ табылмады"
   },
   "gamification": {
     "title": "Геймификация",

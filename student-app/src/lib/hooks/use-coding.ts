@@ -1,5 +1,5 @@
 /**
- * React Query hooks for Coding Challenges
+ * React Query hooks for Coding Challenges & Courses
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +10,10 @@ import {
   submitSolution,
   listSubmissions,
   getCodingStats,
+  listCourses,
+  listLessons,
+  getLessonDetail,
+  completeLesson,
   type SubmitSolutionRequest,
 } from '@/lib/api/coding';
 
@@ -26,6 +30,12 @@ export const codingKeys = {
   submissions: (id: number) =>
     [...codingKeys.all, 'submissions', id] as const,
   stats: () => [...codingKeys.all, 'stats'] as const,
+  // Courses
+  courses: () => [...codingKeys.all, 'courses'] as const,
+  lessons: (slug: string) =>
+    [...codingKeys.all, 'lessons', slug] as const,
+  lessonDetail: (id: number) =>
+    [...codingKeys.all, 'lesson', id] as const,
 };
 
 // =============================================================================
@@ -97,6 +107,59 @@ export function useSubmitSolution(challengeId: number) {
       });
       queryClient.invalidateQueries({
         queryKey: codingKeys.stats(),
+      });
+    },
+  });
+}
+
+// =============================================================================
+// Course Queries
+// =============================================================================
+
+export function useCodingCourses() {
+  return useQuery({
+    queryKey: codingKeys.courses(),
+    queryFn: listCourses,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useCourseLessons(courseSlug: string) {
+  return useQuery({
+    queryKey: codingKeys.lessons(courseSlug),
+    queryFn: () => listLessons(courseSlug),
+    enabled: !!courseSlug,
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useLessonDetail(lessonId: number | undefined) {
+  return useQuery({
+    queryKey: codingKeys.lessonDetail(lessonId!),
+    queryFn: () => getLessonDetail(lessonId!),
+    enabled: !!lessonId,
+    staleTime: 30 * 1000,
+  });
+}
+
+// =============================================================================
+// Course Mutations
+// =============================================================================
+
+export function useCompleteLesson(lessonId: number, courseSlug: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => completeLesson(lessonId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: codingKeys.lessonDetail(lessonId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: codingKeys.lessons(courseSlug),
+      });
+      queryClient.invalidateQueries({
+        queryKey: codingKeys.courses(),
       });
     },
   });

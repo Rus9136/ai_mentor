@@ -1,5 +1,5 @@
 """
-Pydantic schemas for the coding challenges module.
+Pydantic schemas for the coding challenges and courses module.
 """
 from datetime import datetime
 from typing import Optional
@@ -114,3 +114,79 @@ class CodingStats(BaseModel):
     total_attempts: int = 0
     total_xp: int = 0
     topics_progress: list[TopicWithProgress] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Courses (Learning Paths)
+# ---------------------------------------------------------------------------
+
+class CourseResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    title_kk: Optional[str] = None
+    description: Optional[str] = None
+    description_kk: Optional[str] = None
+    slug: str
+    grade_level: Optional[int] = None
+    total_lessons: int = 0
+    estimated_hours: Optional[float] = None
+    sort_order: int
+    icon: Optional[str] = None
+    is_active: bool
+
+
+class CourseWithProgress(CourseResponse):
+    """Course enriched with student progress."""
+    completed_lessons: int = 0
+    last_lesson_id: Optional[int] = None
+    started: bool = False
+    completed: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Lessons
+# ---------------------------------------------------------------------------
+
+class LessonListItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    title_kk: Optional[str] = None
+    sort_order: int
+    has_challenge: bool = False
+    challenge_id: Optional[int] = None
+    # Student-specific
+    is_completed: bool = False
+
+
+class LessonDetail(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    course_id: int
+    title: str
+    title_kk: Optional[str] = None
+    sort_order: int
+    theory_content: str
+    theory_content_kk: Optional[str] = None
+    starter_code: Optional[str] = None
+    challenge_id: Optional[int] = None
+    challenge: Optional[ChallengeDetail] = None
+    # Student-specific
+    is_completed: bool = False
+
+
+class LessonCompleteRequest(BaseModel):
+    """Sent when student finishes reading theory (challenge completion is separate)."""
+    pass
+
+
+class LessonCompleteResponse(BaseModel):
+    lesson_id: int
+    course_id: int
+    completed_lessons: int
+    total_lessons: int
+    course_completed: bool = False

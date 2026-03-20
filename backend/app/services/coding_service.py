@@ -1,12 +1,14 @@
 """
-Service layer for coding challenges.
+Service layer for coding challenges and courses.
 
-Handles business logic: XP calculation, submission validation, progress tracking.
+Handles business logic: XP calculation, submission validation, progress tracking,
+course enrollment, lesson completion.
 """
+from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.coding_repo import CodingRepository
+from app.repositories.coding_repo import CodingRepository, CourseRepository
 from app.models.coding import CodingTopic, CodingChallenge, CodingSubmission
 from app.schemas.coding import (
     TopicWithProgress,
@@ -16,6 +18,10 @@ from app.schemas.coding import (
     SubmissionCreate,
     SubmissionResponse,
     CodingStats,
+    CourseWithProgress,
+    LessonListItem,
+    LessonDetail,
+    LessonCompleteResponse,
 )
 
 
@@ -231,4 +237,182 @@ class CodingService:
             total_attempts=totals["total_attempts"],
             total_xp=totals["total_xp"],
             topics_progress=topics,
+        )
+
+
+# ===========================================================================
+# Course Service (Learning Paths)
+# ===========================================================================
+
+
+class CourseService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self.repo = CourseRepository(db)
+        self.coding_repo = CodingRepository(db)
+
+    # -----------------------------------------------------------------------
+    # List courses with progress
+    # -----------------------------------------------------------------------
+
+    async def list_courses_with_progress(
+        self, student_id: int
+    ) -> list[CourseWithProgress]:
+        courses = await self.repo.list_courses(active_only=True)
+        if not courses:
+            return []
+
+        course_ids = [c.id for c in courses]
+        progress_map = await self.repo.get_all_progress(student_id, course_ids)
+
+        result = []
+        for c in courses:
+            p = progress_map.get(c.id)
+            result.append(CourseWithProgress(
+                id=c.id,
+                title=c.title,
+                title_kk=c.title_kk,
+                description=c.description,
+                description_kk=c.description_kk,
+                slug=c.slug,
+                grade_level=c.grade_level,
+                total_lessons=c.total_lessons,
+                estimated_hours=c.estimated_hours,
+                sort_order=c.sort_order,
+                icon=c.icon,
+                is_active=c.is_active,
+                completed_lessons=p.completed_lessons if p else 0,
+                last_lesson_id=p.last_lesson_id if p else None,
+                started=p is not None,
+                completed=p.completed_at is not None if p else False,
+            ))
+        return result
+
+    # -----------------------------------------------------------------------
+    # List lessons with completion status
+    # -----------------------------------------------------------------------
+
+    async def list_lessons(
+        self, course_slug: str, student_id: int
+    ) -> list[LessonListItem]:
+        course = await self.repo.get_course_by_slug(course_slug)
+        if not course:
+            raise CodingServiceError("Course not found")
+
+        lessons = await self.repo.list_lessons(course.id)
+        if not lessons:
+            return []
+
+        completed_ids = await self.repo.get_completed_lesson_ids(student_id, course.id)
+
+        result = []
+        for lesson in lessons:
+            result.append(LessonListItem(
+                id=lesson.id,
+                title=lesson.title,
+                title_kk=lesson.title_kk,
+                sort_order=lesson.sort_order,
+                has_challenge=lesson.challenge_id is not None,
+                challenge_id=lesson.challenge_id,
+                is_completed=lesson.id in completed_ids,
+            ))
+        return result
+
+    # -----------------------------------------------------------------------
+    # Lesson detail
+    # -----------------------------------------------------------------------
+
+    async def get_lesson_detail(
+        self, lesson_id: int, student_id: int
+    ) -> LessonDetail:
+        lesson = await self.repo.get_lesson_by_id(lesson_id)
+        if not lesson or not lesson.is_active:
+            raise CodingServiceError("Lesson not found")
+
+        completed_ids = await self.repo.get_completed_lesson_ids(
+            student_id, lesson.course_id
+        )
+
+        # Optionally include challenge detail
+        challenge_detail = None
+        if lesson.challenge_id:
+            coding_svc = CodingService(self.db)
+            try:
+                challenge_detail = await coding_svc.get_challenge_detail(
+                    lesson.challenge_id, student_id
+                )
+            except CodingServiceError:
+                pass  # challenge not found/inactive — skip
+
+        return LessonDetail(
+            id=lesson.id,
+            course_id=lesson.course_id,
+            title=lesson.title,
+            title_kk=lesson.title_kk,
+            sort_order=lesson.sort_order,
+            theory_content=lesson.theory_content,
+            theory_content_kk=lesson.theory_content_kk,
+            starter_code=lesson.starter_code,
+            challenge_id=lesson.challenge_id,
+            challenge=challenge_detail,
+            is_completed=lesson.id in completed_ids,
+        )
+
+    # -----------------------------------------------------------------------
+    # Complete a lesson
+    # -----------------------------------------------------------------------
+
+    async def complete_lesson(
+        self, lesson_id: int, student_id: int
+    ) -> LessonCompleteResponse:
+        lesson = await self.repo.get_lesson_by_id(lesson_id)
+        if not lesson or not lesson.is_active:
+            raise CodingServiceError("Lesson not found")
+
+        course = await self.repo.get_course_by_id(lesson.course_id)
+        if not course:
+            raise CodingServiceError("Course not found")
+
+        # Get all active lessons for this course to calculate position
+        all_lessons = await self.repo.list_lessons(course.id)
+        lesson_ids = [l.id for l in all_lessons]
+
+        if lesson.id not in lesson_ids:
+            raise CodingServiceError("Lesson not in course")
+
+        # Current progress
+        completed_ids = await self.repo.get_completed_lesson_ids(
+            student_id, course.id
+        )
+
+        # Add this lesson if not already completed
+        if lesson.id not in completed_ids:
+            completed_ids.add(lesson.id)
+
+        # Count completed (based on order — only contiguous from start)
+        completed_count = 0
+        for l in all_lessons:
+            if l.id in completed_ids:
+                completed_count += 1
+            else:
+                break
+
+        course_completed = completed_count >= len(all_lessons)
+        completed_at = datetime.now(timezone.utc) if course_completed else None
+
+        await self.repo.upsert_progress(
+            student_id=student_id,
+            course_id=course.id,
+            last_lesson_id=lesson.id,
+            completed_lessons=completed_count,
+            completed_at=completed_at,
+        )
+        await self.db.commit()
+
+        return LessonCompleteResponse(
+            lesson_id=lesson.id,
+            course_id=course.id,
+            completed_lessons=completed_count,
+            total_lessons=len(all_lessons),
+            course_completed=course_completed,
         )

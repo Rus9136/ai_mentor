@@ -755,7 +755,8 @@
     "timeout": "Превышено время выполнения (10 сек)",
     "emptyOutput": "Нажмите «Запустить» чтобы выполнить код",
     "starterCode": "# Напишите ваш Python код здесь\nprint(\"Привет, мир!\")",
-    "challenges": "Задачи"
+    "challenges": "Задачи",
+    "courses": "Курсы"
   },
   "challenges": {
     "title": "Задачи по Python",
@@ -780,6 +781,32 @@
     "medium": "Средне",
     "hard": "Сложно",
     "grade": "{n} класс"
+  },
+  "courses": {
+    "title": "Курсы по Python",
+    "subtitle": "Изучай Python пошагово",
+    "challenges": "Задачи",
+    "sandbox": "Песочница",
+    "noCourses": "Курсов пока нет",
+    "noLessons": "Уроков пока нет",
+    "lessonsCount": "{n} уроков",
+    "hours": "~{n} ч",
+    "lessons": "уроков",
+    "grade": "{n} класс",
+    "progress": "Прогресс",
+    "start": "Начать",
+    "continue": "Продолжить",
+    "reviewCourse": "Повторить",
+    "theory": "Теория",
+    "practice": "Практика",
+    "prevLesson": "Назад",
+    "nextLesson": "Далее",
+    "completeAndNext": "Прочитал, далее",
+    "markRead": "Прочитал",
+    "completed": "Пройдено",
+    "hasPractice": "Задача",
+    "lessonOf": "Урок {n} из {total}",
+    "lessonNotFound": "Урок не найден"
   },
   "gamification": {
     "title": "Геймификация",

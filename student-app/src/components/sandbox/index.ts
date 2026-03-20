@@ -4,3 +4,5 @@ export { PythonSandbox } from './PythonSandbox';
 export { ChallengeCard } from './ChallengeCard';
 export { ChallengeRunner } from './ChallengeRunner';
 export { TestResults } from './TestResults';
+export { CourseCard } from './CourseCard';
+export { LessonView } from './LessonView';

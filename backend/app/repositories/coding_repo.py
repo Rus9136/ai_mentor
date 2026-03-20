@@ -1,12 +1,19 @@
 """
-Repository for coding challenges data access.
+Repository for coding challenges and courses data access.
 """
 from typing import Optional
 from sqlalchemy import select, func, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.coding import CodingTopic, CodingChallenge, CodingSubmission
+from app.models.coding import (
+    CodingTopic,
+    CodingChallenge,
+    CodingSubmission,
+    CodingCourse,
+    CodingLesson,
+    CodingCourseProgress,
+)
 
 
 class CodingRepository:
@@ -257,3 +264,135 @@ class CodingRepository:
             "total_attempts": attempts.scalar() or 0,
             "total_xp": xp.scalar() or 0,
         }
+
+
+class CourseRepository:
+    """Data access for coding courses (learning paths)."""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    # -----------------------------------------------------------------------
+    # Courses
+    # -----------------------------------------------------------------------
+
+    async def list_courses(self, active_only: bool = True) -> list[CodingCourse]:
+        query = select(CodingCourse).order_by(CodingCourse.sort_order)
+        if active_only:
+            query = query.where(CodingCourse.is_active == True)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_course_by_slug(self, slug: str) -> Optional[CodingCourse]:
+        result = await self.db.execute(
+            select(CodingCourse).where(CodingCourse.slug == slug)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_course_by_id(self, course_id: int) -> Optional[CodingCourse]:
+        result = await self.db.execute(
+            select(CodingCourse).where(CodingCourse.id == course_id)
+        )
+        return result.scalar_one_or_none()
+
+    # -----------------------------------------------------------------------
+    # Lessons
+    # -----------------------------------------------------------------------
+
+    async def list_lessons(
+        self, course_id: int, active_only: bool = True
+    ) -> list[CodingLesson]:
+        query = (
+            select(CodingLesson)
+            .where(CodingLesson.course_id == course_id)
+            .order_by(CodingLesson.sort_order)
+        )
+        if active_only:
+            query = query.where(CodingLesson.is_active == True)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_lesson_by_id(self, lesson_id: int) -> Optional[CodingLesson]:
+        result = await self.db.execute(
+            select(CodingLesson).where(CodingLesson.id == lesson_id)
+        )
+        return result.scalar_one_or_none()
+
+    # -----------------------------------------------------------------------
+    # Progress
+    # -----------------------------------------------------------------------
+
+    async def get_progress(
+        self, student_id: int, course_id: int
+    ) -> Optional[CodingCourseProgress]:
+        result = await self.db.execute(
+            select(CodingCourseProgress).where(
+                CodingCourseProgress.student_id == student_id,
+                CodingCourseProgress.course_id == course_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_all_progress(
+        self, student_id: int, course_ids: list[int]
+    ) -> dict[int, CodingCourseProgress]:
+        """Return {course_id: progress} for the student."""
+        if not course_ids:
+            return {}
+        result = await self.db.execute(
+            select(CodingCourseProgress).where(
+                CodingCourseProgress.student_id == student_id,
+                CodingCourseProgress.course_id.in_(course_ids),
+            )
+        )
+        return {p.course_id: p for p in result.scalars().all()}
+
+    async def upsert_progress(
+        self,
+        student_id: int,
+        course_id: int,
+        last_lesson_id: int,
+        completed_lessons: int,
+        completed_at=None,
+    ) -> CodingCourseProgress:
+        progress = await self.get_progress(student_id, course_id)
+        if progress:
+            progress.last_lesson_id = last_lesson_id
+            progress.completed_lessons = completed_lessons
+            if completed_at:
+                progress.completed_at = completed_at
+        else:
+            progress = CodingCourseProgress(
+                student_id=student_id,
+                course_id=course_id,
+                last_lesson_id=last_lesson_id,
+                completed_lessons=completed_lessons,
+                completed_at=completed_at,
+            )
+            self.db.add(progress)
+        await self.db.flush()
+        await self.db.refresh(progress)
+        return progress
+
+    async def get_completed_lesson_ids(
+        self, student_id: int, course_id: int
+    ) -> set[int]:
+        """Return set of lesson IDs that the student has completed.
+
+        A lesson is complete if its sort_order <= progress.completed_lessons - 1.
+        We store completed_lessons count, so we retrieve lessons up to that count.
+        """
+        progress = await self.get_progress(student_id, course_id)
+        if not progress or progress.completed_lessons == 0:
+            return set()
+
+        result = await self.db.execute(
+            select(CodingLesson.id)
+            .where(
+                CodingLesson.course_id == course_id,
+                CodingLesson.is_active == True,
+            )
+            .order_by(CodingLesson.sort_order)
+            .limit(progress.completed_lessons)
+        )
+        return {row[0] for row in result.all()}

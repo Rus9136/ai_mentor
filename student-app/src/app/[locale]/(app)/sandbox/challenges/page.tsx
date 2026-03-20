@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Code2, Loader2, Trophy, Star, Zap } from 'lucide-react';
+import { Code2, Loader2, Trophy, Star, Zap, GraduationCap } from 'lucide-react';
 import { useCodingTopics, useChallenges } from '@/lib/hooks/use-coding';
 import { ChallengeCard } from '@/components/sandbox/ChallengeCard';
 import type { CodingTopic } from '@/lib/api/coding';
@@ -42,12 +42,20 @@ export default function ChallengesPage() {
             <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
           </div>
         </div>
-        <button
-          onClick={() => router.push('/sandbox')}
-          className="px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
-        >
-          {t('freeCoding')}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.push('/sandbox/courses')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+          >
+            <GraduationCap className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => router.push('/sandbox')}
+            className="px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+          >
+            {t('freeCoding')}
+          </button>
+        </div>
       </div>
 
       {/* Topics tabs */}

@@ -1,8 +1,8 @@
 # Модуль программирования — план доработки
 
 > Дата: 2026-03-19
-> Обновлено: 2026-03-19
-> Статус: Этапы 0-1 реализованы, этапы 2-5 запланированы
+> Обновлено: 2026-03-20
+> Статус: Этапы 0-2 реализованы, этапы 3-5 запланированы
 
 ## Текущее состояние (Этап 0 + Этап 1) ✅
 
@@ -54,6 +54,45 @@
 | `src/components/sandbox/TestResults.tsx` | Результаты тестов |
 | `src/app/[locale]/(app)/sandbox/challenges/page.tsx` | Каталог задач |
 | `src/app/[locale]/(app)/sandbox/challenges/[id]/page.tsx` | Страница задачи |
+
+---
+
+### Этап 2 — Пошаговые курсы ✅
+
+Реализовано:
+- **3 таблицы БД:** `coding_courses`, `coding_lessons`, `coding_course_progress` (миграция `066_coding_courses`)
+- **Backend API:** 4 endpoints (`/students/coding/courses`, `.../lessons`, `.../lessons/{id}`, `.../lessons/{id}/complete`)
+- **CourseService:** бизнес-логика прогресса, завершение уроков, автозавершение курса
+- **Каталог курсов:** страница `/sandbox/courses` с карточками курсов и прогрессом
+- **Список уроков:** страница `/sandbox/courses/[slug]` с индикаторами выполнения
+- **Страница урока:** `/sandbox/courses/[slug]/lessons/[id]` — теория (markdown) + вкладка практики с ChallengeRunner
+- **Навигация:** кнопки prev/next между уроками, автоматическое завершение курса
+- **Seed-скрипт:** `scripts/seed_coding_courses.py` — курс "Основы Python" (20 уроков)
+- **11 интеграционных тестов** (все проходят)
+- **Локализация:** русский + казахский (namespace `courses`)
+
+**Файлы backend:**
+| Файл | Описание |
+|------|----------|
+| `alembic/versions/066_coding_courses.py` | Миграция: 3 таблицы + GRANT |
+| `app/models/coding.py` | + CodingCourse, CodingLesson, CodingCourseProgress |
+| `app/schemas/coding.py` | + CourseWithProgress, LessonDetail, LessonCompleteResponse |
+| `app/repositories/coding_repo.py` | + CourseRepository |
+| `app/services/coding_service.py` | + CourseService |
+| `app/api/v1/students/courses.py` | 4 API endpoints |
+| `scripts/seed_coding_courses.py` | Скрипт генерации SQL для курса "Основы Python" |
+| `tests/test_coding_courses.py` | 11 интеграционных тестов |
+
+**Файлы frontend (`student-app/`):**
+| Файл | Описание |
+|------|----------|
+| `src/lib/api/coding.ts` | + типы и API функции для курсов |
+| `src/lib/hooks/use-coding.ts` | + React Query хуки для курсов |
+| `src/components/sandbox/CourseCard.tsx` | Карточка курса с прогрессом |
+| `src/components/sandbox/LessonView.tsx` | Компонент урока (теория + практика) |
+| `src/app/[locale]/(app)/sandbox/courses/page.tsx` | Каталог курсов |
+| `src/app/[locale]/(app)/sandbox/courses/[slug]/page.tsx` | Список уроков курса |
+| `src/app/[locale]/(app)/sandbox/courses/[slug]/lessons/[id]/page.tsx` | Страница урока |
 
 ---
 
@@ -606,7 +645,7 @@ Sidebar:
 |------|-----|--------|-----------|-------------|
 | **0** | Песочница | ✅ Готово | — | — |
 | **1** | Задачи с автопроверкой | ✅ Готово | — | — |
-| **2** | Пошаговые курсы | 📋 План | 🟡 Средний | Этап 1 ✅ |
+| **2** | Пошаговые курсы | ✅ Готово | — | Этап 1 ✅ |
 | **3** | AI-ментор для кода | 📋 План | 🟡 Средний | Этап 1 ✅ |
 | **4** | Визуализация выполнения | 📋 План | 🟢 Низкий | — |
 | **5** | Геймификация | 📋 План | 🟡 Средний | Этап 1 ✅ |

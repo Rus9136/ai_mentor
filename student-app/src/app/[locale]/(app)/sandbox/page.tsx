@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
-import { Code2, Loader2, ListChecks } from 'lucide-react';
+import { Code2, Loader2, ListChecks, GraduationCap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const PythonSandbox = dynamic(
@@ -29,13 +29,22 @@ export default function SandboxPage() {
           <Code2 className="h-6 w-6 text-primary" />
           <h1 className="text-xl font-bold text-foreground">{t('title')}</h1>
         </div>
-        <button
-          onClick={() => router.push('/sandbox/challenges')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <ListChecks className="h-4 w-4" />
-          {t('challenges')}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.push('/sandbox/courses')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+          >
+            <GraduationCap className="h-4 w-4" />
+            {t('courses')}
+          </button>
+          <button
+            onClick={() => router.push('/sandbox/challenges')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <ListChecks className="h-4 w-4" />
+            {t('challenges')}
+          </button>
+        </div>
       </div>
 
       {/* Sandbox */}

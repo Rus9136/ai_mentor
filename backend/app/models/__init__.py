@@ -122,8 +122,15 @@ from app.models.gamification import (
 # Lab (interactive laboratories)
 from app.models.lab import Lab, LabProgress, LabTask, LabTaskAnswer
 
-# Coding challenges
-from app.models.coding import CodingTopic, CodingChallenge, CodingSubmission
+# Coding challenges & courses
+from app.models.coding import (
+    CodingTopic,
+    CodingChallenge,
+    CodingSubmission,
+    CodingCourse,
+    CodingLesson,
+    CodingCourseProgress,
+)
 
 __all__ = [
     # Base
@@ -271,4 +278,7 @@ __all__ = [
     "CodingTopic",
     "CodingChallenge",
     "CodingSubmission",
+    "CodingCourse",
+    "CodingLesson",
+    "CodingCourseProgress",
 ]
