@@ -295,7 +295,12 @@ class TestRLSSuperAdminBypass:
                 "is_super_admin bypass is broken!"
             )
         except Exception as e:
-            await rls_db.execute(text("RESET ROLE"))
-            if "does not exist" in str(e) or "permission denied" in str(e):
+            await rls_db.rollback()
+            try:
+                await rls_db.execute(text("RESET ROLE"))
+            except Exception:
+                pass
+            err_msg = str(e)
+            if "does not exist" in err_msg or "permission denied" in err_msg:
                 pytest.skip(f"RLS test environment not available: {e}")
             raise
