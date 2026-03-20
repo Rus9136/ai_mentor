@@ -366,7 +366,7 @@ export interface Teacher {
 }
 
 export interface TeacherCreate {
-  email: string;
+  email?: string;
   password: string;
   first_name: string;
   last_name: string;

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.api.dependencies import require_admin, get_current_user_school_id, get_pagination_params
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, AuthProvider
 from app.models.teacher import Teacher
 from app.repositories.user_repo import UserRepository
 from app.repositories.teacher_repo import TeacherRepository
@@ -97,12 +97,32 @@ async def create_school_teacher(
         subject_name = subject.name_ru
 
     # Check if email already exists
-    existing_user = await user_repo.get_by_email(data.email)
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"User with email {data.email} already exists"
-        )
+    email = data.email
+    if email:
+        existing_user = await user_repo.get_by_email(email)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"User with email {email} already exists"
+            )
+    else:
+        # Phone-only teacher — generate synthetic email
+        email = f"phone_{data.phone}@phone.local"
+        existing_user = await user_repo.get_by_email(email)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"User with phone {data.phone} already exists"
+            )
+
+    # Check phone uniqueness
+    if data.phone:
+        existing_phone_user = await user_repo.get_by_phone(data.phone)
+        if existing_phone_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"User with phone {data.phone} already exists"
+            )
 
     # Check if teacher_code already exists (if provided)
     if data.teacher_code:
@@ -113,9 +133,12 @@ async def create_school_teacher(
                 detail=f"Teacher with code {data.teacher_code} already exists"
             )
 
+    # Determine auth provider
+    auth_provider = AuthProvider.PHONE if not data.email and data.phone else AuthProvider.LOCAL
+
     # Create user first
     user = User(
-        email=data.email,
+        email=email,
         password_hash=get_password_hash(data.password),
         first_name=data.first_name,
         last_name=data.last_name,
@@ -123,7 +146,8 @@ async def create_school_teacher(
         phone=data.phone,
         role=UserRole.TEACHER,
         school_id=school_id,
-        is_active=True
+        is_active=True,
+        auth_provider=auth_provider,
     )
     user = await user_repo.create(user)
 

@@ -1,14 +1,17 @@
 import { z } from 'zod';
 
+const KZ_PHONE_RE = /^\+7\d{10}$/;
+
 // Schema for creating a new teacher
 export const teacherCreateSchema = z.object({
   email: z
     .string()
-    .min(1, 'Email обязателен')
-    .email('Неверный формат email'),
+    .email('Неверный формат email')
+    .optional()
+    .or(z.literal('')),
   password: z
     .string()
-    .min(6, 'Минимум 6 символов')
+    .min(8, 'Минимум 8 символов')
     .max(100, 'Максимум 100 символов'),
   first_name: z
     .string()
@@ -44,7 +47,17 @@ export const teacherCreateSchema = z.object({
     .max(1000, 'Максимум 1000 символов')
     .optional()
     .or(z.literal('')),
-});
+}).refine(
+  (data) => {
+    const hasEmail = !!data.email && data.email.length > 0;
+    const hasPhone = !!data.phone && KZ_PHONE_RE.test(data.phone);
+    return hasEmail || hasPhone;
+  },
+  {
+    message: 'Укажите email или телефон в формате +7XXXXXXXXXX',
+    path: ['phone'],
+  }
+);
 
 // Schema for updating a teacher (without email/password)
 export const teacherUpdateSchema = z.object({

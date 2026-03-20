@@ -2,24 +2,28 @@
 Pydantic schemas for Teacher management.
 """
 
+import re
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator, model_validator
 
 from app.schemas.user import UserResponseSchema
 from app.schemas.goso import SubjectBrief
+
+# Kazakhstan phone format: +7XXXXXXXXXX
+_KZ_PHONE_RE = re.compile(r"^\+7\d{10}$")
 
 
 class TeacherCreate(BaseModel):
     """Schema for creating a new teacher (includes user data)."""
 
-    # User fields
-    email: EmailStr = Field(..., description="Teacher email address")
+    # User fields — at least one of email/phone must be provided
+    email: Optional[EmailStr] = Field(None, description="Teacher email address")
     password: str = Field(..., min_length=8, description="Teacher password (min 8 characters)")
     first_name: str = Field(..., min_length=1, max_length=100, description="First name")
     last_name: str = Field(..., min_length=1, max_length=100, description="Last name")
     middle_name: Optional[str] = Field(None, max_length=100, description="Middle name")
-    phone: Optional[str] = Field(None, max_length=50, description="Phone number")
+    phone: Optional[str] = Field(None, max_length=50, description="Phone number (+7XXXXXXXXXX)")
 
     # Teacher fields
     teacher_code: Optional[str] = Field(
@@ -29,6 +33,20 @@ class TeacherCreate(BaseModel):
     )
     subject_id: Optional[int] = Field(None, description="Subject ID from subjects table")
     bio: Optional[str] = Field(None, description="Teacher biography")
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v != "":
+            if not _KZ_PHONE_RE.match(v):
+                raise ValueError("Phone must be in +7XXXXXXXXXX format")
+        return v or None
+
+    @model_validator(mode='after')
+    def check_email_or_phone(self):
+        if not self.email and not self.phone:
+            raise ValueError("Either email or phone must be provided")
+        return self
 
 
 class TeacherUpdate(BaseModel):

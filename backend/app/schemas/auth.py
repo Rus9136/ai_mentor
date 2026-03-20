@@ -3,14 +3,27 @@ Authentication schemas.
 """
 import re
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 class LoginRequest(BaseModel):
-    """Login request schema."""
+    """Login request schema. Accepts email or phone (+7XXXXXXXXXX) as login identifier."""
 
-    email: EmailStr = Field(..., description="User email address")
+    login: str = Field(..., description="Email or phone number (+7XXXXXXXXXX)")
     password: str = Field(..., min_length=6, description="User password")
+
+    @model_validator(mode='before')
+    @classmethod
+    def handle_email_compat(cls, data):
+        """Backward compatibility: map {email, password} → {login, password}."""
+        if isinstance(data, dict) and 'email' in data and 'login' not in data:
+            data['login'] = data['email']
+        return data
+
+    @property
+    def is_phone(self) -> bool:
+        """Check if login is a phone number."""
+        return self.login.startswith('+')
 
 
 class TokenResponse(BaseModel):

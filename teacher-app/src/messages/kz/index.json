@@ -63,9 +63,12 @@
     "login": "Мұғалімдерге кіру",
     "loginDescription": "Мектеп әкімшісінен алған деректерді енгізіңіз",
     "email": "Email",
+    "phone": "Телефон",
     "password": "Құпия сөз",
     "signIn": "Кіру",
     "loggingIn": "Кіру...",
+    "loginByEmail": "Email арқылы",
+    "loginByPhone": "Телефон арқылы",
     "loginError": "Кіру қатесі. Қайта көріңіз.",
     "accessDenied": "Тек мұғалімдерге рұқсат"
   },

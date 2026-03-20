@@ -63,9 +63,12 @@
     "login": "Вход для учителей",
     "loginDescription": "Введите учётные данные, полученные от администратора школы",
     "email": "Email",
+    "phone": "Телефон",
     "password": "Пароль",
     "signIn": "Войти",
     "loggingIn": "Вход...",
+    "loginByEmail": "По email",
+    "loginByPhone": "По телефону",
     "loginError": "Ошибка входа. Попробуйте снова.",
     "accessDenied": "Доступ разрешён только для учителей"
   },

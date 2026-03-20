@@ -9,16 +9,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, GraduationCap, AlertCircle } from 'lucide-react';
+import { Loader2, GraduationCap, AlertCircle, Mail, Phone } from 'lucide-react';
+
+type LoginMode = 'email' | 'phone';
 
 export default function LoginPage() {
   const t = useTranslations('auth');
   const { login } = useAuth();
 
+  const [mode, setMode] = useState<LoginMode>('email');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const loginValue = mode === 'email' ? email : phone;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +32,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await login(email, password);
+      await login(loginValue, password);
     } catch (err) {
       if (err instanceof Error && err.message === 'ACCESS_DENIED') {
         setError(t('accessDenied'));
@@ -56,6 +62,34 @@ export default function LoginPage() {
           <CardDescription>{t('loginDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Login mode tabs */}
+          <div className="mb-4 flex rounded-lg border p-1">
+            <button
+              type="button"
+              onClick={() => setMode('email')}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                mode === 'email'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Mail className="h-4 w-4" />
+              {t('loginByEmail')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('phone')}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                mode === 'phone'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Phone className="h-4 w-4" />
+              {t('loginByPhone')}
+            </button>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -64,19 +98,35 @@ export default function LoginPage() {
               </Alert>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="email">{t('email')}</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="teacher@school.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isLoading}
-                autoComplete="email"
-              />
-            </div>
+            {mode === 'email' ? (
+              <div className="space-y-2">
+                <Label htmlFor="email">{t('email')}</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="teacher@school.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  autoComplete="email"
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="phone">{t('phone')}</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="+77771234567"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  autoComplete="tel"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="password">{t('password')}</Label>

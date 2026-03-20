@@ -42,14 +42,19 @@ async def login(
     Authenticates user with email and password, returns access and refresh tokens.
     """
     user_repo = UserRepository(db)
-    user = await user_repo.get_by_email(credentials.email)
+
+    # Lookup by phone or email
+    if credentials.is_phone:
+        user = await user_repo.get_by_phone(credentials.login)
+    else:
+        user = await user_repo.get_by_email(credentials.login)
 
     # Check if user exists
     if not user:
         raise APIError(ErrorCode.AUTH_001)  # Incorrect email or password
 
-    # Verify password
-    if not verify_password(credentials.password, user.password_hash):
+    # Verify password (password_hash can be None for OAuth/phone-only users)
+    if not user.password_hash or not verify_password(credentials.password, user.password_hash):
         raise APIError(ErrorCode.AUTH_001)  # Incorrect email or password
 
     # Check if user is active
