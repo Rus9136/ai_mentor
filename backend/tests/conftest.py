@@ -74,6 +74,25 @@ async def db_session():
         await conn.execute(text("CREATE SCHEMA public"))
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
+        # Pre-create enum types used with create_type=False in models
+        # (create_all won't create them, but tables referencing them need them)
+        await conn.execute(text(
+            "CREATE TYPE xp_source_type AS ENUM ("
+            "'test_passed','mastery_up','streak_bonus','chapter_complete',"
+            "'daily_quest','self_assessment','review_completed','paragraph_complete',"
+            "'quiz_battle','powerup_purchase','weekly_tournament','achievement',"
+            "'coding_challenge','course_complete')"
+        ))
+        await conn.execute(text(
+            "CREATE TYPE achievement_category AS ENUM ('learning','streak','mastery','social','milestone')"
+        ))
+        await conn.execute(text(
+            "CREATE TYPE achievement_rarity AS ENUM ('common','rare','epic','legendary')"
+        ))
+        await conn.execute(text(
+            "CREATE TYPE quest_type AS ENUM ('complete_tests','study_time','master_paragraph','review_spaced','solve_challenge')"
+        ))
+
         # Pre-create test_attempts as a non-partitioned table (simple PK for tests)
         await conn.execute(text("""
             CREATE TABLE test_attempts (

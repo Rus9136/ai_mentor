@@ -376,6 +376,68 @@ class GamificationService:
         # Check achievements
         await self.check_achievements(student_id, school_id)
 
+    async def on_coding_challenge_solved(
+        self,
+        student_id: int,
+        school_id: int,
+        challenge_id: int,
+        xp_earned: int,
+        difficulty: str = "easy",
+        execution_time_ms: Optional[int] = None,
+    ) -> None:
+        """Hook: called when student solves a coding challenge for the first time."""
+        # 1. Award XP
+        await self.award_xp(
+            student_id=student_id,
+            school_id=school_id,
+            amount=xp_earned,
+            source_type=XpSourceType.CODING_CHALLENGE,
+            source_id=challenge_id,
+            extra_data={
+                "difficulty": difficulty,
+                "execution_time_ms": execution_time_ms,
+            },
+        )
+
+        # 2. Update streak
+        await self.update_streak(student_id, school_id)
+
+        # 3. Check achievements
+        await self.check_achievements(student_id, school_id)
+
+        # 4. Increment daily quest (solve_challenge)
+        today = date.today()
+        completed_quests = await self.repo.increment_daily_quest(
+            student_id, school_id, "solve_challenge", today,
+        )
+        # 5. Award XP for completed daily quests
+        for cq in completed_quests:
+            quest = cq.quest
+            if quest and quest.xp_reward > 0:
+                await self.award_xp(
+                    student_id=student_id,
+                    school_id=school_id,
+                    amount=quest.xp_reward,
+                    source_type=XpSourceType.DAILY_QUEST,
+                    source_id=cq.id,
+                )
+
+    async def on_course_completed(
+        self,
+        student_id: int,
+        school_id: int,
+        course_id: int,
+    ) -> None:
+        """Hook: called when student completes a coding course."""
+        await self.award_xp(
+            student_id=student_id,
+            school_id=school_id,
+            amount=100,
+            source_type=XpSourceType.COURSE_COMPLETE,
+            source_id=course_id,
+        )
+        await self.check_achievements(student_id, school_id)
+
     # ══════════════════════════════════════════════════════════════════════
     # STREAK
     # ══════════════════════════════════════════════════════════════════════
@@ -432,7 +494,7 @@ class GamificationService:
             threshold = criteria.get("threshold", 0)
 
             progress = await self._get_achievement_progress(
-                student_id, criteria_type, school_id
+                student_id, criteria_type, school_id, criteria=criteria
             )
 
             normalized = min(progress / threshold, 1.0) if threshold > 0 else 0.0
@@ -474,7 +536,8 @@ class GamificationService:
         return newly_earned
 
     async def _get_achievement_progress(
-        self, student_id: int, criteria_type: str, school_id: int
+        self, student_id: int, criteria_type: str, school_id: int,
+        criteria: Optional[dict] = None,
     ) -> float:
         """Get numeric progress for a specific achievement criteria type."""
 
@@ -529,6 +592,103 @@ class GamificationService:
                     MasteryHistory.previous_level == "struggling",
                     MasteryHistory.new_level == "mastered",
                     MasteryHistory.paragraph_id.isnot(None),
+                )
+            )
+            return float(result.scalar() or 0)
+
+        # ── Coding achievements ──
+
+        elif criteria_type == "challenges_solved":
+            from app.models.coding import CodingSubmission
+            result = await self.db.execute(
+                select(func.count(func.distinct(CodingSubmission.challenge_id))).where(
+                    CodingSubmission.student_id == student_id,
+                    CodingSubmission.status == "passed",
+                )
+            )
+            return float(result.scalar() or 0)
+
+        elif criteria_type == "topic_completed":
+            # All challenges in topic solved
+            topic_slug = (criteria or {}).get("topic_slug")
+            if not topic_slug:
+                return 0.0
+            from app.models.coding import CodingTopic, CodingChallenge, CodingSubmission
+            # Count total active challenges in topic
+            total_q = await self.db.execute(
+                select(func.count(CodingChallenge.id))
+                .join(CodingTopic, CodingTopic.id == CodingChallenge.topic_id)
+                .where(CodingTopic.slug == topic_slug, CodingChallenge.is_active == True)
+            )
+            total = total_q.scalar() or 0
+            if total == 0:
+                return 0.0
+            # Count solved by student
+            solved_q = await self.db.execute(
+                select(func.count(func.distinct(CodingSubmission.challenge_id)))
+                .join(CodingChallenge, CodingChallenge.id == CodingSubmission.challenge_id)
+                .join(CodingTopic, CodingTopic.id == CodingChallenge.topic_id)
+                .where(
+                    CodingSubmission.student_id == student_id,
+                    CodingSubmission.status == "passed",
+                    CodingTopic.slug == topic_slug,
+                )
+            )
+            solved = solved_q.scalar() or 0
+            return 1.0 if solved >= total else 0.0
+
+        elif criteria_type == "topic_first_solved":
+            # At least 1 challenge in topic solved
+            topic_slug = (criteria or {}).get("topic_slug")
+            if not topic_slug:
+                return 0.0
+            from app.models.coding import CodingTopic, CodingChallenge, CodingSubmission
+            result = await self.db.execute(
+                select(func.count(func.distinct(CodingSubmission.challenge_id)))
+                .join(CodingChallenge, CodingChallenge.id == CodingSubmission.challenge_id)
+                .join(CodingTopic, CodingTopic.id == CodingChallenge.topic_id)
+                .where(
+                    CodingSubmission.student_id == student_id,
+                    CodingSubmission.status == "passed",
+                    CodingTopic.slug == topic_slug,
+                )
+            )
+            count = result.scalar() or 0
+            return 1.0 if count >= 1 else 0.0
+
+        elif criteria_type == "hard_challenges_solved":
+            from app.models.coding import CodingChallenge, CodingSubmission
+            result = await self.db.execute(
+                select(func.count(func.distinct(CodingSubmission.challenge_id)))
+                .join(CodingChallenge, CodingChallenge.id == CodingSubmission.challenge_id)
+                .where(
+                    CodingSubmission.student_id == student_id,
+                    CodingSubmission.status == "passed",
+                    CodingChallenge.difficulty == "hard",
+                )
+            )
+            return float(result.scalar() or 0)
+
+        elif criteria_type == "fast_challenge":
+            # Count challenges solved faster than time_limit_ms
+            from app.models.coding import CodingSubmission
+            time_limit = (criteria or {}).get("time_limit_ms", 120000)
+            result = await self.db.execute(
+                select(func.count(func.distinct(CodingSubmission.challenge_id))).where(
+                    CodingSubmission.student_id == student_id,
+                    CodingSubmission.status == "passed",
+                    CodingSubmission.execution_time_ms.isnot(None),
+                    CodingSubmission.execution_time_ms < time_limit,
+                )
+            )
+            return float(result.scalar() or 0)
+
+        elif criteria_type == "courses_completed":
+            from app.models.coding import CodingCourseProgress
+            result = await self.db.execute(
+                select(func.count(CodingCourseProgress.id)).where(
+                    CodingCourseProgress.student_id == student_id,
+                    CodingCourseProgress.completed_at.isnot(None),
                 )
             )
             return float(result.scalar() or 0)

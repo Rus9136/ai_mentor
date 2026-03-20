@@ -213,6 +213,20 @@ class CodingService:
         )
         await self.db.commit()
 
+        # Gamification hook: award XP + streak + achievements + daily quest
+        if xp_earned > 0:
+            from app.services.gamification_service import GamificationService
+            gam = GamificationService(self.db)
+            await gam.on_coding_challenge_solved(
+                student_id=student_id,
+                school_id=school_id,
+                challenge_id=challenge_id,
+                xp_earned=xp_earned,
+                difficulty=ch.difficulty,
+                execution_time_ms=data.execution_time_ms,
+            )
+            await self.db.commit()
+
         return SubmissionResponse.model_validate(sub)
 
     # -----------------------------------------------------------------------
@@ -363,7 +377,7 @@ class CourseService:
     # -----------------------------------------------------------------------
 
     async def complete_lesson(
-        self, lesson_id: int, student_id: int
+        self, lesson_id: int, student_id: int, school_id: int = 0
     ) -> LessonCompleteResponse:
         lesson = await self.repo.get_lesson_by_id(lesson_id)
         if not lesson or not lesson.is_active:
@@ -408,6 +422,17 @@ class CourseService:
             completed_at=completed_at,
         )
         await self.db.commit()
+
+        # Gamification hook: award XP when full course is completed
+        if course_completed and school_id:
+            from app.services.gamification_service import GamificationService
+            gam = GamificationService(self.db)
+            await gam.on_course_completed(
+                student_id=student_id,
+                school_id=school_id,
+                course_id=course.id,
+            )
+            await self.db.commit()
 
         return LessonCompleteResponse(
             lesson_id=lesson.id,

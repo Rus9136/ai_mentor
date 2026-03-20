@@ -25,6 +25,8 @@ class XpSourceType(str, enum.Enum):
     POWERUP_PURCHASE = "powerup_purchase"
     WEEKLY_TOURNAMENT = "weekly_tournament"
     ACHIEVEMENT = "achievement"
+    CODING_CHALLENGE = "coding_challenge"
+    COURSE_COMPLETE = "course_complete"
 
 
 class AchievementCategory(str, enum.Enum):
@@ -47,6 +49,7 @@ class QuestType(str, enum.Enum):
     STUDY_TIME = "study_time"
     MASTER_PARAGRAPH = "master_paragraph"
     REVIEW_SPACED = "review_spaced"
+    SOLVE_CHALLENGE = "solve_challenge"
 
 
 # ── Models ──

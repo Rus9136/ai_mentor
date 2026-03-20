@@ -100,6 +100,6 @@ async def complete_lesson(
     service: CourseService = Depends(get_course_service),
 ):
     try:
-        return await service.complete_lesson(lesson_id, student.id)
+        return await service.complete_lesson(lesson_id, student.id, school_id=student.school_id)
     except CodingServiceError as e:
         raise HTTPException(status_code=400, detail=str(e))
