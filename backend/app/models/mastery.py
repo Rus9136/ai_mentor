@@ -28,6 +28,12 @@ class MasteryHistory(BaseModel):
 
     # Trigger (what caused this change)
     test_attempt_id = Column(Integer, ForeignKey("test_attempts.id", ondelete="SET NULL"), nullable=True, index=True)
+    source_type = Column(String(30), nullable=False, server_default='formative', index=True)  # diagnostic/formative/summative/self_assessment
+
+    # Score snapshots for analytics
+    score_delta = Column(Float, nullable=True)  # new_score - previous_score
+    best_score_at_time = Column(Float, nullable=True)  # snapshot of best_score
+    attempts_count_at_time = Column(Integer, nullable=True)  # snapshot of attempts_count
 
     # Legacy fields (kept for backward compatibility)
     mastery_score = Column(Float, nullable=False)  # 0.0 to 1.0

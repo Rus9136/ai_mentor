@@ -45,7 +45,8 @@ class MasteryService:
         paragraph_id: int,
         test_score: float,
         test_attempt_id: int,
-        school_id: int
+        school_id: int,
+        source_type: str = "formative"
     ) -> ParagraphMastery:
         """
         Update paragraph mastery after a formative test.
@@ -146,31 +147,34 @@ class MasteryService:
             **update_fields
         )
 
-        # 5. Create MasteryHistory if status changed
-        if old_status != new_status:
-            history = MasteryHistory(
-                student_id=student_id,
-                paragraph_id=paragraph_id,
-                school_id=school_id,
-                previous_level=old_status,
-                new_level=new_status,
-                previous_score=old_score,
-                new_score=test_score,
-                test_attempt_id=test_attempt_id,
-                # Legacy fields (for backward compatibility)
-                mastery_score=test_score,
-                attempts_count=mastery.attempts_count,
-                success_rate=mastery.average_score or 0.0
-            )
-            self.db.add(history)
-            await self.db.commit()
+        # 5. Always create MasteryHistory for progress tracking
+        history = MasteryHistory(
+            student_id=student_id,
+            paragraph_id=paragraph_id,
+            school_id=school_id,
+            previous_level=old_status,
+            new_level=new_status,
+            previous_score=old_score,
+            new_score=test_score,
+            score_delta=test_score - (old_score or 0.0),
+            best_score_at_time=mastery.best_score,
+            attempts_count_at_time=mastery.attempts_count,
+            source_type=source_type,
+            test_attempt_id=test_attempt_id,
+            # Legacy fields (for backward compatibility)
+            mastery_score=test_score,
+            attempts_count=mastery.attempts_count,
+            success_rate=mastery.average_score or 0.0
+        )
+        self.db.add(history)
+        await self.db.commit()
 
+        # 5b. Gamification hook only on STATUS change
+        if old_status != new_status:
             logger.info(
                 f"Mastery status changed for student {student_id}, "
                 f"paragraph {paragraph_id}: {old_status} -> {new_status}"
             )
-
-            # Gamification hook: award XP for mastery change
             try:
                 from app.services.gamification_service import GamificationService
                 gamification = GamificationService(self.db)
@@ -187,7 +191,7 @@ class MasteryService:
         else:
             logger.info(
                 f"Mastery status unchanged: {new_status} "
-                f"(score: {test_score:.2f})"
+                f"(score: {test_score:.2f}, source: {source_type})"
             )
 
         # 6. Activate spaced repetition when mastered
@@ -618,32 +622,33 @@ class MasteryService:
         old_level = getattr(mastery, '_old_level', None)
         old_score = getattr(mastery, '_old_score', None)
 
-        # Only create history if level changed (and not first creation)
+        # Always create chapter-level history for progress tracking
+        history = MasteryHistory(
+            student_id=mastery.student_id,
+            chapter_id=mastery.chapter_id,
+            paragraph_id=None,  # chapter-level history
+            school_id=school_id,
+            previous_level=old_level,
+            new_level=new_level,
+            previous_score=old_score,
+            new_score=new_score,
+            score_delta=new_score - (old_score or 0.0),
+            source_type="summative" if test_attempt_id else "formative",
+            test_attempt_id=test_attempt_id,
+            # Legacy fields for backward compatibility
+            mastery_score=new_score,
+            attempts_count=1,
+            success_rate=new_score / 100.0
+        )
+        self.db.add(history)
+        await self.db.commit()
+
+        # Gamification hook only on LEVEL change
         if old_level and old_level != new_level:
-            history = MasteryHistory(
-                student_id=mastery.student_id,
-                chapter_id=mastery.chapter_id,
-                paragraph_id=None,  # chapter-level history
-                school_id=school_id,
-                previous_level=old_level,
-                new_level=new_level,
-                previous_score=old_score,
-                new_score=new_score,
-                test_attempt_id=test_attempt_id,
-                # Legacy fields for backward compatibility
-                mastery_score=new_score,
-                attempts_count=1,
-                success_rate=new_score / 100.0
-            )
-            self.db.add(history)
-            await self.db.commit()
-
             logger.info(
-                f"MasteryHistory created: {old_level} → {new_level} "
-                f"(score: {old_score:.2f} → {new_score:.2f})"
+                f"Chapter mastery level changed: {old_level} → {new_level} "
+                f"(score: {old_score} → {new_score:.2f})"
             )
-
-            # Gamification hook: award XP for chapter level change
             try:
                 from app.services.gamification_service import GamificationService
                 gamification = GamificationService(self.db)
@@ -658,6 +663,6 @@ class MasteryService:
                 logger.warning(f"Gamification hook failed (chapter_level_change): {e}")
         else:
             logger.info(
-                f"MasteryHistory NOT created: level unchanged ({new_level}) "
-                f"or first creation"
+                f"Chapter mastery level unchanged ({new_level}), "
+                f"history recorded for analytics"
             )

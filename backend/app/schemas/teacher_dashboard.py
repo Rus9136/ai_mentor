@@ -114,6 +114,10 @@ class MasteryHistoryItem(BaseModel):
     new_level: Optional[str] = None
     previous_score: Optional[float] = None
     new_score: Optional[float] = None
+    score_delta: Optional[float] = None
+    source_type: str = "formative"
+    best_score_at_time: Optional[float] = None
+    attempts_count_at_time: Optional[int] = None
     chapter_id: Optional[int] = None
     paragraph_id: Optional[int] = None
     test_attempt_id: Optional[int] = None

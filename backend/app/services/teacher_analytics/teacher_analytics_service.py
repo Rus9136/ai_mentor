@@ -249,7 +249,12 @@ class TeacherAnalyticsService:
         self,
         user_id: int,
         school_id: int,
-        student_id: int
+        student_id: int,
+        paragraph_id: Optional[int] = None,
+        chapter_id: Optional[int] = None,
+        source_type: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> Optional[MasteryHistoryResponse]:
         """
         Get mastery history timeline for a student.
@@ -258,13 +263,25 @@ class TeacherAnalyticsService:
             user_id: Teacher's user ID
             school_id: School ID
             student_id: Student ID
+            paragraph_id: Optional filter by paragraph
+            chapter_id: Optional filter by chapter
+            source_type: Optional filter by source (diagnostic/formative/summative)
+            limit: Max records
+            offset: Pagination offset
 
         Returns:
             MasteryHistoryResponse or None
         """
         logger.info(f"Getting mastery history: student_id={student_id}")
 
-        return await self._progress.get_mastery_history(school_id, student_id)
+        return await self._progress.get_mastery_history(
+            school_id, student_id,
+            paragraph_id=paragraph_id,
+            chapter_id=chapter_id,
+            source_type=source_type,
+            limit=limit,
+            offset=offset,
+        )
 
     # ========================================================================
     # ANALYTICS

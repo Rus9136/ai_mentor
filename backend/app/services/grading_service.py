@@ -240,8 +240,8 @@ class GradingService:
             f"score={attempt.score:.2f}, passed={attempt.passed}"
         )
 
-        # 8. Trigger mastery update (CRITICAL: Only for FORMATIVE and SUMMATIVE tests!)
-        if test_purpose in (TestPurpose.FORMATIVE, TestPurpose.SUMMATIVE):
+        # 8. Trigger mastery update (DIAGNOSTIC sets baseline, FORMATIVE/SUMMATIVE update progress)
+        if test_purpose in (TestPurpose.DIAGNOSTIC, TestPurpose.FORMATIVE, TestPurpose.SUMMATIVE):
             from app.services.mastery_service import MasteryService
             mastery_service = MasteryService(self.db)
 
@@ -252,7 +252,8 @@ class GradingService:
                     paragraph_id=paragraph_id,
                     test_score=attempt.score,
                     test_attempt_id=attempt.id,
-                    school_id=attempt.school_id
+                    school_id=attempt.school_id,
+                    source_type=test_purpose.value
                 )
                 logger.info(
                     f"Updated paragraph mastery for student {student_id}, "
@@ -287,8 +288,8 @@ class GradingService:
                 )
         else:
             logger.info(
-                f"Skipping mastery update: test purpose is {attempt.test.test_purpose} "
-                "(only FORMATIVE and SUMMATIVE affect mastery)"
+                f"Skipping mastery update: test purpose is {test_purpose} "
+                "(only DIAGNOSTIC, FORMATIVE and SUMMATIVE affect mastery)"
             )
 
         # 9. Gamification hook: award XP for test passed

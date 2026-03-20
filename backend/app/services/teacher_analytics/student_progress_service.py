@@ -125,7 +125,12 @@ class StudentProgressService:
     async def get_mastery_history(
         self,
         school_id: int,
-        student_id: int
+        student_id: int,
+        paragraph_id: Optional[int] = None,
+        chapter_id: Optional[int] = None,
+        source_type: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> Optional[MasteryHistoryResponse]:
         """
         Get mastery history timeline for a student.
@@ -133,6 +138,11 @@ class StudentProgressService:
         Args:
             school_id: School ID
             student_id: Student ID
+            paragraph_id: Optional filter by paragraph
+            chapter_id: Optional filter by chapter
+            source_type: Optional filter by source (diagnostic/formative/summative)
+            limit: Max records to return
+            offset: Pagination offset
 
         Returns:
             MasteryHistoryResponse or None
@@ -153,13 +163,20 @@ class StudentProgressService:
         if not student:
             return None
 
-        # Get history
-        history_result = await self.db.execute(
-            select(MasteryHistory)
-            .where(MasteryHistory.student_id == student_id)
-            .order_by(desc(MasteryHistory.recorded_at))
-            .limit(50)
+        # Build query with optional filters
+        query = select(MasteryHistory).where(
+            MasteryHistory.student_id == student_id
         )
+        if paragraph_id is not None:
+            query = query.where(MasteryHistory.paragraph_id == paragraph_id)
+        if chapter_id is not None:
+            query = query.where(MasteryHistory.chapter_id == chapter_id)
+        if source_type is not None:
+            query = query.where(MasteryHistory.source_type == source_type)
+
+        query = query.order_by(desc(MasteryHistory.recorded_at)).offset(offset).limit(limit)
+
+        history_result = await self.db.execute(query)
 
         history = []
         for h in history_result.scalars().all():
@@ -170,6 +187,10 @@ class StudentProgressService:
                 new_level=h.new_level,
                 previous_score=h.previous_score,
                 new_score=h.new_score,
+                score_delta=h.score_delta,
+                source_type=h.source_type or "formative",
+                best_score_at_time=h.best_score_at_time,
+                attempts_count_at_time=h.attempts_count_at_time,
                 chapter_id=h.chapter_id,
                 paragraph_id=h.paragraph_id,
                 test_attempt_id=h.test_attempt_id

@@ -307,6 +307,11 @@ async def get_student_progress(
 )
 async def get_student_mastery_history(
     student_id: int,
+    paragraph_id: Optional[int] = Query(None, description="Filter by paragraph"),
+    chapter_id: Optional[int] = Query(None, description="Filter by chapter"),
+    source_type: Optional[str] = Query(None, description="Filter by source: diagnostic/formative/summative"),
+    limit: int = Query(50, ge=1, le=200, description="Max records"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
     current_user: User = Depends(require_teacher),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db)
@@ -314,13 +319,20 @@ async def get_student_mastery_history(
     """
     Get mastery history timeline.
 
-    Returns list of mastery level changes with:
-    - Previous and new levels
-    - Score changes
-    - When the change occurred
+    Returns list of all mastery changes (every test attempt) with:
+    - Previous and new levels/scores
+    - Source type (diagnostic/formative/summative)
+    - Score delta and snapshots for charting
     """
     service = TeacherAnalyticsService(db)
-    result = await service.get_mastery_history(current_user.id, school_id, student_id)
+    result = await service.get_mastery_history(
+        current_user.id, school_id, student_id,
+        paragraph_id=paragraph_id,
+        chapter_id=chapter_id,
+        source_type=source_type,
+        limit=limit,
+        offset=offset,
+    )
 
     if not result:
         raise HTTPException(
