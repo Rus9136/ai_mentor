@@ -63,11 +63,17 @@ jobs:
         working-directory: backend
         run: poetry install --no-interaction
 
-      - name: Init test database (extensions)
+      - name: Init test database (extensions + roles)
         run: |
           PGPASSWORD=ai_mentor_pass psql -h localhost -U ai_mentor_user -d ai_mentor_test_db -c "
             CREATE EXTENSION IF NOT EXISTS vector;
             CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";
+            DO \$\$ BEGIN
+              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ai_mentor_app') THEN
+                CREATE ROLE ai_mentor_app LOGIN PASSWORD 'ai_mentor_pass';
+              END IF;
+            END \$\$;
+            GRANT ALL ON DATABASE ai_mentor_test_db TO ai_mentor_app;
           "
 
       - name: Run tests
