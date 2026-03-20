@@ -14,6 +14,7 @@ export const classCreateSchema = z.object({
     .number()
     .min(1, 'Минимум 1 класс')
     .max(11, 'Максимум 11 класс'),
+  language: z.enum(['kk', 'ru'], { message: 'Язык обязателен' }),
   academic_year: z
     .string()
     .min(1, 'Учебный год обязателен')
@@ -32,5 +33,6 @@ export const classCreateDefaults: ClassCreateInput = {
   name: '',
   code: '',
   grade_level: 7,
+  language: 'kk' as const,
   academic_year: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
 };

@@ -19,6 +19,7 @@ class SchoolClass(SoftDeleteModel):
     name = Column(String(100), nullable=False)
     code = Column(String(50), nullable=False, index=True)
     grade_level = Column(Integer, nullable=False, index=True)  # 1-11
+    language = Column(String(2), nullable=False, server_default="kk")  # 'kk' or 'ru'
     academic_year = Column(String(20), nullable=False, index=True)  # e.g., "2024-2025"
 
     # Relationships

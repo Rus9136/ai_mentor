@@ -54,6 +54,7 @@ export function ClassForm({ schoolClass, onSubmit, isLoading }: ClassFormProps) 
           name: schoolClass.name,
           code: schoolClass.code,
           grade_level: schoolClass.grade_level,
+          language: (schoolClass.language || 'kk') as 'kk' | 'ru',
           academic_year: schoolClass.academic_year,
         }
       : classCreateDefaults,
@@ -123,6 +124,33 @@ export function ClassForm({ schoolClass, onSubmit, isLoading }: ClassFormProps) 
             )}
           />
 
+          <FormField
+            control={form.control}
+            name="language"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Язык обучения *</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите язык" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="kk">Казахский</SelectItem>
+                    <SelectItem value="ru">Русский</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
           <FormField
             control={form.control}
             name="academic_year"

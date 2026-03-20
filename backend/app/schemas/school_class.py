@@ -19,6 +19,7 @@ class SchoolClassCreate(BaseModel):
         description="Class code (unique within school, e.g., '7a-2024')",
     )
     grade_level: int = Field(..., ge=1, le=11, description="Grade level (1-11)")
+    language: str = Field(default="kk", pattern="^(kk|ru)$", description="Class language: kk or ru")
     academic_year: str = Field(
         ...,
         min_length=7,
@@ -42,6 +43,7 @@ class SchoolClassUpdate(BaseModel):
 
     name: Optional[str] = Field(None, min_length=1, max_length=100, description="Class name")
     grade_level: Optional[int] = Field(None, ge=1, le=11, description="Grade level (1-11)")
+    language: Optional[str] = Field(None, pattern="^(kk|ru)$", description="Class language: kk or ru")
     academic_year: Optional[str] = Field(
         None,
         min_length=7,
@@ -73,6 +75,7 @@ class SchoolClassResponse(BaseModel):
     name: str
     code: str
     grade_level: int
+    language: str = Field(default="kk", description="Class language: kk or ru")
     academic_year: str
     created_at: datetime
     updated_at: datetime
@@ -104,6 +107,7 @@ class SchoolClassListResponse(BaseModel):
     name: str
     code: str
     grade_level: int
+    language: str = Field(default="kk", description="Class language: kk or ru")
     academic_year: str
     students_count: Optional[int] = 0
     teachers_count: Optional[int] = 0
