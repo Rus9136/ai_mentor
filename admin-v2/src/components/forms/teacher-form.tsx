@@ -74,7 +74,14 @@ export function TeacherForm(props: TeacherFormProps) {
   });
 
   const handleFormSubmit = (data: TeacherCreateInput | TeacherUpdateInput) => {
-    onSubmit(data as never);
+    // Clean empty strings → undefined so backend doesn't receive invalid empty email/phone
+    const cleaned = { ...data };
+    if ('email' in cleaned && !cleaned.email) delete cleaned.email;
+    if ('phone' in cleaned && !cleaned.phone) delete cleaned.phone;
+    if ('middle_name' in cleaned && !cleaned.middle_name) delete cleaned.middle_name;
+    if ('teacher_code' in cleaned && !cleaned.teacher_code) delete cleaned.teacher_code;
+    if ('bio' in cleaned && !cleaned.bio) delete cleaned.bio;
+    onSubmit(cleaned as never);
   };
 
   return (

@@ -114,6 +114,19 @@ class PhoneLoginRequest(BaseModel):
         return v
 
 
+class ChangePasswordRequest(BaseModel):
+    """Change password request schema."""
+
+    current_password: str = Field(..., min_length=1, description="Current password")
+    new_password: str = Field(..., min_length=8, description="New password (min 8 characters)")
+
+
+class ChangePasswordResponse(BaseModel):
+    """Change password response schema."""
+
+    message: str = "Password changed successfully"
+
+
 class PhoneAuthResponse(BaseModel):
     """Phone auth response (register/login)."""
 

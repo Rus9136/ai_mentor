@@ -55,6 +55,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: '/ai-chat', icon: MessageSquare, label: t('aiChat') },
     { href: '/quiz', icon: Swords, label: t('quiz') },
     { href: '/tests', icon: FileQuestion, label: t('tests') },
+    { href: '/settings', icon: Settings, label: t('settings') },
   ];
 
   const isActive = (href: string) => {

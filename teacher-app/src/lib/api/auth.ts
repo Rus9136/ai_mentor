@@ -23,6 +23,7 @@ export interface UserResponse {
   auth_provider: string;
   is_active: boolean;
   is_verified: boolean;
+  phone: string | null;
 }
 
 // Email/Password login
@@ -44,6 +45,14 @@ export async function getCurrentUser(): Promise<UserResponse> {
 // Logout
 export function logout(): void {
   clearTokens();
+}
+
+// Change password
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await apiClient.put('/auth/me/password', {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
 }
 
 // Get error message from API response

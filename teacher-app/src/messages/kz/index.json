@@ -697,5 +697,24 @@
     "saveQuestion": "Сұрақты сақтау",
     "cancel": "Болдырмау",
     "loading": "Жүктелуде..."
+  },
+  "settings": {
+    "title": "Параметрлер",
+    "description": "Аккаунт пен қауіпсіздікті басқару",
+    "profile": "Профиль",
+    "profileDescription": "Сіздің деректеріңіз",
+    "fullName": "Аты-жөні",
+    "phone": "Телефон",
+    "changePassword": "Құпия сөзді өзгерту",
+    "changePasswordDescription": "Ағымдағы құпия сөзді және жаңа құпия сөзді енгізіңіз",
+    "currentPassword": "Ағымдағы құпия сөз",
+    "newPassword": "Жаңа құпия сөз",
+    "confirmPassword": "Құпия сөзді растаңыз",
+    "minChars": "Кемінде 8 таңба",
+    "savePassword": "Құпия сөзді сақтау",
+    "saving": "Сақталуда...",
+    "passwordChanged": "Құпия сөз сәтті өзгертілді",
+    "passwordMismatch": "Құпия сөздер сәйкес келмейді",
+    "passwordTooShort": "Құпия сөз кемінде 8 таңбадан тұруы керек"
   }
 }

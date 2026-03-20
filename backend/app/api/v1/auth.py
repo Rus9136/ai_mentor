@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import (
     verify_password,
+    get_password_hash,
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -23,6 +24,8 @@ from app.schemas.auth import (
     TokenResponse,
     RefreshTokenRequest,
     UserResponse,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
 )
 
 
@@ -149,6 +152,29 @@ async def get_current_user_info(
     Returns information about the authenticated user.
     """
     return UserResponse.model_validate(current_user)
+
+
+@router.put("/me/password", response_model=ChangePasswordResponse)
+async def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Change current user's password.
+
+    Requires current password verification.
+    """
+    # Verify current password
+    if not current_user.password_hash or not verify_password(data.current_password, current_user.password_hash):
+        raise APIError(ErrorCode.AUTH_001, message="Неверный текущий пароль")
+
+    # Update password
+    current_user.password_hash = get_password_hash(data.new_password)
+    user_repo = UserRepository(db)
+    await user_repo.update(current_user)
+
+    return ChangePasswordResponse()
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)

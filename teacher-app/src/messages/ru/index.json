@@ -711,5 +711,24 @@
     "saveQuestion": "Сохранить вопрос",
     "cancel": "Отмена",
     "loading": "Загрузка..."
+  },
+  "settings": {
+    "title": "Настройки",
+    "description": "Управление аккаунтом и безопасностью",
+    "profile": "Профиль",
+    "profileDescription": "Ваши данные",
+    "fullName": "ФИО",
+    "phone": "Телефон",
+    "changePassword": "Смена пароля",
+    "changePasswordDescription": "Введите текущий пароль и новый пароль",
+    "currentPassword": "Текущий пароль",
+    "newPassword": "Новый пароль",
+    "confirmPassword": "Подтвердите пароль",
+    "minChars": "Минимум 8 символов",
+    "savePassword": "Сохранить пароль",
+    "saving": "Сохранение...",
+    "passwordChanged": "Пароль успешно изменён",
+    "passwordMismatch": "Пароли не совпадают",
+    "passwordTooShort": "Пароль должен содержать минимум 8 символов"
   }
 }
