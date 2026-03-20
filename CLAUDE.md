@@ -101,6 +101,7 @@ CI автоматически запускается при **push в main** и 
 | `test_onboarding_partial_state.py` | Partial onboarding (school_id без Student) | 4 |
 | `test_join_request_approval.py` | Одобрение заявки (MissingGreenlet fix) | 6 |
 | `test_route_conflicts.py` | Route ordering (/{id} vs /static-path) | 6 |
+| `test_rls_super_admin_bypass.py` | RLS: is_super_admin bypass + корректные переменные (static lint) | 2 |
 
 ### ВАЖНО для агента
 
@@ -320,11 +321,35 @@ class StudentResponse(BaseModel):
 
 ### КРИТИЧНО — RLS-политики при миграциях
 
-При создании или изменении RLS-политик **обязательно проверяй консистентность** всех 4 операций (SELECT, INSERT, UPDATE, DELETE):
+При создании или изменении RLS-политик **обязательно соблюдай ВСЕ правила ниже:**
 
-**Правило:** если SELECT-политика разрешает доступ по `user_id`, то UPDATE и DELETE тоже **обязаны** включать `user_id`. Иначе пользователь сможет прочитать запись, но не сможет её изменить → `StaleDataError`.
+#### Правило 1: Консистентность операций
+Если SELECT-политика разрешает доступ по `user_id`, то UPDATE и DELETE тоже **обязаны** включать `user_id`. Иначе → `StaleDataError`.
 
-**Проверочный запрос после каждой RLS-миграции:**
+#### Правило 2: SUPER_ADMIN bypass (ОБЯЗАТЕЛЬНО!)
+**Каждая** RLS-политика с `current_tenant_id` или `school_id` фильтрацией **ОБЯЗАНА** содержать bypass для SUPER_ADMIN. Без него SUPER_ADMIN видит 0 строк (tenant_id=NULL → school_id=0 → ничего не найдено).
+
+**Стандартный шаблон для USING clause:**
+```sql
+CREATE POLICY policy_name ON table_name
+FOR ALL USING (
+    -- 1. SUPER_ADMIN bypass (ОБЯЗАТЕЛЬНО!)
+    (COALESCE(current_setting('app.is_super_admin', true), 'false') = 'true')
+    -- 2. Глобальный контент (school_id = NULL)
+    OR (school_id IS NULL)
+    -- 3. Школьная изоляция
+    OR (school_id = COALESCE(NULLIF(current_setting('app.current_tenant_id', true), ''), '0')::INTEGER)
+);
+```
+
+**ЗАПРЕЩЕНО** создавать RLS-политику с `current_tenant_id` без `is_super_admin` — CI тест упадёт!
+
+#### Правило 3: Правильные переменные
+- `app.current_tenant_id` — школа (НЕ `app.current_school_id`)
+- `app.is_super_admin` — 'true'/'false' строка (НЕ boolean)
+- `app.current_user_id` — ID пользователя
+
+#### Проверочный запрос после каждой RLS-миграции:
 ```sql
 -- Таблицы, где SELECT имеет user_id, а UPDATE — нет (баг!)
 SELECT tablename FROM pg_policies WHERE schemaname='public' AND cmd='r'
@@ -335,7 +360,9 @@ SELECT tablename FROM pg_policies WHERE schemaname='public' AND cmd='w'
 -- Результат должен быть пустым (0 rows)
 ```
 
-**Автотест:** `backend/tests/test_rls_policy_audit.py` — запускать перед деплоем.
+#### Автотесты (CI):
+- `backend/tests/test_rls_super_admin_bypass.py` — проверяет is_super_admin bypass во всех миграциях (**запускается в CI**)
+- `backend/tests/test_rls_policy_audit.py` — проверяет консистентность операций (запускать перед деплоем)
 
 ---
 

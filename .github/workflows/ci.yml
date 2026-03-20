@@ -80,6 +80,7 @@ jobs:
             tests/test_route_conflicts.py \
             tests/test_quiz_service.py \
             tests/test_phone_login.py \
+            tests/test_rls_super_admin_bypass.py \
             -v \
             --tb=short \
             -x
