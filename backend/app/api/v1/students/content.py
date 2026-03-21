@@ -38,6 +38,8 @@ from app.models.paragraph import Paragraph
 from app.models.paragraph_content import ParagraphContent
 from app.models.mastery import ParagraphMastery
 from app.models.learning import StudentParagraph as StudentParagraphModel
+from app.models.school_class import SchoolClass
+from app.models.class_student import ClassStudent
 from app.services.student_content_service import StudentContentService
 from app.schemas.student_content import (
     StudentTextbookResponse,
@@ -81,13 +83,26 @@ async def get_student_textbooks(
     student = await get_student_from_user(current_user, db)
     student_id = student.id
 
-    # All textbooks available to student (UI handles grouping by grade)
+    # Get student's class language to filter textbooks
+    class_lang_result = await db.execute(
+        select(SchoolClass.language)
+        .join(ClassStudent, ClassStudent.class_id == SchoolClass.id)
+        .where(
+            ClassStudent.student_id == student.id,
+            SchoolClass.is_deleted == False,
+        )
+        .limit(1)
+    )
+    class_language = class_lang_result.scalar_one_or_none()
+
+    # All textbooks available to student, filtered by class language
     textbooks_data, total = await service.get_textbooks_with_progress(
         student_id,
         school_id,
         page=pagination.page,
         page_size=pagination.page_size,
         subject_id=subject_id,
+        language=class_language,
     )
 
     result = []

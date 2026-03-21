@@ -61,6 +61,7 @@ class StudentContentService:
         page_size: int = 20,
         subject_id: Optional[int] = None,
         grade_level: Optional[int] = None,
+        language: Optional[str] = None,
     ) -> Tuple[List[Dict[str, Any]], int]:
         """
         Get available textbooks with student's progress.
@@ -74,6 +75,8 @@ class StudentContentService:
             page_size: Number of items per page
             subject_id: Optional filter by subject
             grade_level: Optional filter by grade level (1-11)
+            language: Optional filter by textbook language ('kk' or 'ru'),
+                      derived from student's class language
 
         Returns:
             Tuple of (list of dicts with textbook and progress data, total count)
@@ -93,6 +96,8 @@ class StudentContentService:
             conditions.append(Textbook.subject_id == subject_id)
         if grade_level is not None:
             conditions.append(Textbook.grade_level == grade_level)
+        if language is not None:
+            conditions.append(Textbook.language == language)
 
         base_query = select(Textbook).where(and_(*conditions))
 
