@@ -197,6 +197,7 @@
     "backToChapter": "Тарауға",
     "finishChapter": "Тарауды аяқтау",
     "finishStudying": "Оқуды аяқтау",
+    "completePreviousFirst": "Алдымен алдыңғы параграфтарды кезекпен аяқтаңыз",
     "viewMode": {
       "split": "Сплит",
       "reading": "Оқу",
@@ -780,7 +781,20 @@
     "easy": "Оңай",
     "medium": "Орташа",
     "hard": "Қиын",
-    "grade": "{n} сынып"
+    "grade": "{n} сынып",
+    "aiMentor": "AI Тәлімгер"
+  },
+  "codingAI": {
+    "title": "AI-тәлімгер",
+    "hint": "Кеңес",
+    "explainError": "Қатені түсіндір",
+    "codeReview": "Кодты тексер",
+    "stepByStep": "Қадамдап",
+    "placeholder": "AI көмегін алу үшін жоғарыдағы батырманы басыңыз",
+    "noError": "Қате жоқ. Алдымен кодты іске қосыңыз.",
+    "thinking": "Ойланып жатырмын...",
+    "inputPlaceholder": "Сұрақ қойыңыз...",
+    "sessionRestored": "Әңгімені жалғастырамыз"
   },
   "courses": {
     "title": "Python курстары",

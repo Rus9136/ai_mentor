@@ -30,6 +30,7 @@ class LLMFeature(str, enum.Enum):
     MEMORY = "memory"
     SYSTEM = "system"
     TEACHER_CHAT = "teacher_chat"
+    CODING_CHAT = "coding_chat"
 
 
 class LLMUsageLog(BaseModel):

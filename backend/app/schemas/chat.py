@@ -16,7 +16,7 @@ class ChatSessionCreate(BaseModel):
     """Request to create a new chat session."""
     session_type: str = Field(
         default="general_tutor",
-        pattern="^(reading_help|post_paragraph|test_help|general_tutor)$",
+        pattern="^(reading_help|post_paragraph|test_help|general_tutor|coding)$",
         description="Type of chat session"
     )
     paragraph_id: Optional[int] = Field(
@@ -30,6 +30,10 @@ class ChatSessionCreate(BaseModel):
     test_id: Optional[int] = Field(
         None,
         description="Test context (for test_help)"
+    )
+    challenge_id: Optional[int] = Field(
+        None,
+        description="Coding challenge context (for coding)"
     )
     title: Optional[str] = Field(
         None,
@@ -60,6 +64,7 @@ class ChatSessionResponse(BaseModel):
     paragraph_id: Optional[int]
     chapter_id: Optional[int]
     test_id: Optional[int]
+    challenge_id: Optional[int] = None
     title: Optional[str]
     mastery_level: Optional[str]
     language: str

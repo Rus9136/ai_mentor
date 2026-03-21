@@ -1339,6 +1339,7 @@ class ChatService:
             paragraph_id=session.paragraph_id,
             chapter_id=session.chapter_id,
             test_id=session.test_id,
+            challenge_id=session.challenge_id,
             title=session.title,
             mastery_level=session.mastery_level,
             language=session.language,

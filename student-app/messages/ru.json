@@ -197,6 +197,7 @@
     "backToChapter": "К главе",
     "finishChapter": "Завершить главу",
     "finishStudying": "Завершить изучение",
+    "completePreviousFirst": "Сначала завершите предыдущие параграфы по порядку",
     "viewMode": {
       "split": "Сплит",
       "reading": "Чтение",
@@ -780,7 +781,20 @@
     "easy": "Легко",
     "medium": "Средне",
     "hard": "Сложно",
-    "grade": "{n} класс"
+    "grade": "{n} класс",
+    "aiMentor": "AI Ментор"
+  },
+  "codingAI": {
+    "title": "AI-ментор",
+    "hint": "Подсказка",
+    "explainError": "Объясни ошибку",
+    "codeReview": "Проверь код",
+    "stepByStep": "Пошагово",
+    "placeholder": "Нажмите на кнопку выше, чтобы получить помощь AI",
+    "noError": "Нет ошибки. Сначала запустите код.",
+    "thinking": "Думаю...",
+    "inputPlaceholder": "Задайте вопрос...",
+    "sessionRestored": "Продолжаем разговор"
   },
   "courses": {
     "title": "Курсы по Python",

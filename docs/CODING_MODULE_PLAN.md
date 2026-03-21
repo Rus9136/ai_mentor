@@ -1,8 +1,8 @@
 # Модуль программирования — план доработки
 
 > Дата: 2026-03-19
-> Обновлено: 2026-03-20
-> Статус: Этапы 0-2 реализованы, этапы 3-5 запланированы
+> Обновлено: 2026-03-21
+> Статус: Этапы 0-3 реализованы, этапы 4-5 запланированы
 
 ## Текущее состояние (Этап 0 + Этап 1) ✅
 
@@ -519,9 +519,19 @@ CREATE TABLE coding_course_progress (
 
 ---
 
-## Этап 3. AI-ментор для кода
+## Этап 3. AI-ментор для кода ✅
 
 **Цель:** помощь ученику в момент затруднения без выдачи готового ответа.
+
+Реализовано:
+- **Отдельный `CodingChatService`** (~250 строк) — не расширяет ChatService (1500 строк), работает напрямую с ChatSession/ChatMessage + LLMService
+- **4 AI-действия:** подсказка, объяснение ошибки, code review, пошаговая трассировка
+- **1 сессия на задачу** — все действия и follow-up в одном потоке (переиспользование в течение 24ч)
+- **SSE streaming** — как в основном чате
+- **Без RAG/Memory** — не нужны для coding задач
+- **Без solution_code в промпте** — защита от утечки решения
+- **Двуязычные промпты** — русский + казахский
+- **16 интеграционных тестов** (все проходят)
 
 ### 3.1 Функции
 
@@ -534,11 +544,29 @@ CREATE TABLE coding_course_progress (
 
 ### 3.2 Реализация
 
-- Переиспользуем существующий `ChatService` + `LLMService`
-- Новый тип чата: `chat_type = "coding"`
-- Системный промпт: "Ты — учитель информатики. Помогаешь школьнику 7-11 класса. Никогда не давай готовое решение. Отвечай на казахском/русском."
-- UI: кнопка в редакторе → slide-over панель с чатом
+- Отдельный `CodingChatService` (не расширяет ChatService) + `LLMService`
+- Новый тип чата: `chat_type = "coding"`, миграция `072_coding_chat` (challenge_id в chat_sessions)
+- Системный промпт с правилами: никогда не давать готовое решение, наводящие вопросы, простой язык
+- UI: кнопка "AI Ментор" в toolbar ChallengeRunner → slide-over панель с чатом
 - Контекст: условие задачи + код ученика + ошибка (автоматически)
+- API: `POST /students/coding/ai/start`, `POST .../messages/stream`, `GET .../sessions/{id}`, `GET .../challenge/{id}/session`
+
+**Файлы backend:**
+| Файл | Описание |
+|------|----------|
+| `alembic/versions/072_coding_chat.py` | Миграция: challenge_id в chat_sessions |
+| `app/schemas/coding_chat.py` | CodingAction enum, request schemas |
+| `app/services/coding_chat_service.py` | Сервис: сессии, streaming, промпты ru/kk |
+| `app/api/v1/students/coding_chat.py` | 4 API endpoints |
+| `tests/test_coding_chat.py` | 16 интеграционных тестов |
+
+**Файлы frontend (`student-app/`):**
+| Файл | Описание |
+|------|----------|
+| `src/lib/api/coding-chat.ts` | API клиент + SSE streaming |
+| `src/lib/hooks/use-coding-chat.ts` | React хуки для AI чата |
+| `src/components/sandbox/CodingAIPanel.tsx` | Slide-over панель AI-ментора |
+| `src/components/sandbox/ChallengeRunner.tsx` | + кнопка "AI Ментор" в toolbar |
 
 ---
 
@@ -646,7 +674,7 @@ Sidebar:
 | **0** | Песочница | ✅ Готово | — | — |
 | **1** | Задачи с автопроверкой | ✅ Готово | — | — |
 | **2** | Пошаговые курсы | ✅ Готово | — | Этап 1 ✅ |
-| **3** | AI-ментор для кода | 📋 План | 🟡 Средний | Этап 1 ✅ |
+| **3** | AI-ментор для кода | ✅ Готово | — | Этап 1 ✅ |
 | **4** | Визуализация выполнения | 📋 План | 🟢 Низкий | — |
 | **5** | Геймификация | 📋 План | 🟡 Средний | Этап 1 ✅ |
 

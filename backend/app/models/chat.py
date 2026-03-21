@@ -15,6 +15,7 @@ class ChatSessionType(str, enum.Enum):
     POST_PARAGRAPH = "post_paragraph"   # Обсуждение после прочтения
     TEST_HELP = "test_help"             # Помощь с тестом
     GENERAL_TUTOR = "general_tutor"     # Общий репетитор
+    CODING = "coding"                    # AI-ментор для кода
 
 
 class ChatSession(SoftDeleteModel):
@@ -73,6 +74,12 @@ class ChatSession(SoftDeleteModel):
         ForeignKey("tests.id", ondelete="SET NULL"),
         nullable=True
     )
+    challenge_id = Column(
+        Integer,
+        ForeignKey("coding_challenges.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
 
     # Session metadata
     title = Column(String(255), nullable=True)
@@ -90,6 +97,7 @@ class ChatSession(SoftDeleteModel):
     paragraph = relationship("Paragraph", backref="chat_sessions")
     chapter = relationship("Chapter", backref="chat_sessions")
     test = relationship("Test", backref="chat_sessions")
+    challenge = relationship("CodingChallenge", backref="chat_sessions")
     messages = relationship(
         "ChatMessage",
         back_populates="session",

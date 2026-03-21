@@ -12,6 +12,7 @@ import {
   Lightbulb,
   Trophy,
   Sparkles,
+  Bot,
 } from 'lucide-react';
 import { CodeOutput } from './CodeOutput';
 import { TestResults } from './TestResults';
@@ -27,6 +28,7 @@ import {
   type TestCaseInput,
 } from '@/lib/pyodide/challenge-runner';
 import { useSubmitSolution } from '@/lib/hooks/use-coding';
+import { CodingAIPanel } from './CodingAIPanel';
 import type { ChallengeDetail } from '@/lib/api/coding';
 
 const CodeEditor = dynamic(
@@ -60,6 +62,7 @@ export function ChallengeRunner({ challenge }: ChallengeRunnerProps) {
   const [testResult, setTestResult] = useState<ChallengeRunResult | null>(null);
   const [showHints, setShowHints] = useState<number>(0);
   const [justSolved, setJustSolved] = useState(false);
+  const [showAIPanel, setShowAIPanel] = useState(false);
 
   const [pyodideStatus, setPyodideStatus] = useState<
     'idle' | 'loading' | 'ready' | 'error'
@@ -206,6 +209,19 @@ export function ChallengeRunner({ challenge }: ChallengeRunnerProps) {
             )}
             {t('check')}
           </button>
+
+          {/* AI Mentor */}
+          <button
+            onClick={() => setShowAIPanel(!showAIPanel)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              showAIPanel
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/60'
+            }`}
+          >
+            <Bot className="h-4 w-4" />
+            {t('aiMentor')}
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -308,6 +324,26 @@ export function ChallengeRunner({ challenge }: ChallengeRunnerProps) {
           <CodeOutput result={runResult} isRunning={false} />
         </div>
       )}
+
+      {/* AI Mentor Panel (slide-over) */}
+      {showAIPanel && (
+        <CodingAIPanel
+          challenge={challenge}
+          code={code}
+          error={runResult?.error || runResult?.stderr || undefined}
+          testResults={testResult ? formatTestResults(testResult) : undefined}
+          onClose={() => setShowAIPanel(false)}
+        />
+      )}
     </div>
   );
+}
+
+function formatTestResults(result: ChallengeRunResult): string {
+  const lines = [`${result.passed}/${result.total} tests passed`];
+  for (const tr of result.testResults) {
+    const status = tr.passed ? 'PASS' : 'FAIL';
+    lines.push(`${status}: ${tr.description || `Test ${tr.index + 1}`}${!tr.passed && tr.actual ? ` (got: ${tr.actual.slice(0, 100)})` : ''}`);
+  }
+  return lines.join('\n');
 }
