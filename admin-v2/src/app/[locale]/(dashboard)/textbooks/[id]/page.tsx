@@ -15,6 +15,7 @@ import {
   Building2,
   Globe,
   GitBranch,
+  Languages,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -149,6 +150,16 @@ export default function TextbookShowPage() {
               <CardDescription>Данные учебника</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Languages className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Язык</p>
+                  <p className="text-sm text-muted-foreground">
+                    {textbook.language === 'ru' ? 'Русский' : textbook.language === 'kk' ? 'Қазақша' : textbook.language === 'en' ? 'English' : textbook.language}
+                  </p>
+                </div>
+              </div>
+
               {textbook.author && (
                 <div className="flex items-center gap-3">
                   <User className="h-4 w-4 text-muted-foreground" />

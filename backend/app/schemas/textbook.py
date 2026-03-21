@@ -82,6 +82,8 @@ class TextbookListResponse(BaseModel):
     subject_rel: Optional[SubjectBrief] = Field(None, description="Subject details")
     grade_level: int
     language: str = Field(default="kk", description="Textbook language: kk or ru")
+    author: Optional[str] = None
+    publisher: Optional[str] = None
     is_customized: bool
     is_active: bool
     version: int

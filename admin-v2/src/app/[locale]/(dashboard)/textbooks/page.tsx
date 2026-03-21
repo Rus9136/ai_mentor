@@ -81,6 +81,16 @@ export default function TextbooksPage() {
       .map((s) => ({ label: s, value: s }));
   }, [textbooks]);
 
+  const publisherOptions = useMemo(() => {
+    const publishers = new Set<string>();
+    textbooks.forEach((tb) => {
+      if (tb.publisher) publishers.add(tb.publisher);
+    });
+    return Array.from(publishers)
+      .sort()
+      .map((p) => ({ label: p, value: p }));
+  }, [textbooks]);
+
   const filterableColumns = [
     {
       id: 'subject',
@@ -99,6 +109,20 @@ export default function TextbooksPage() {
         { label: '10 класс', value: '10' },
         { label: '11 класс', value: '11' },
       ],
+    },
+    {
+      id: 'language',
+      title: 'Язык',
+      options: [
+        { label: 'Қазақша', value: 'kk' },
+        { label: 'Русский', value: 'ru' },
+        { label: 'English', value: 'en' },
+      ],
+    },
+    {
+      id: 'publisher',
+      title: 'Издательство',
+      options: publisherOptions,
     },
     {
       id: 'is_active',

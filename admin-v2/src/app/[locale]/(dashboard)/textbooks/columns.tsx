@@ -179,13 +179,21 @@ export function getColumns({
       },
     },
     {
-      accessorKey: 'version',
+      accessorKey: 'publisher',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Версия" />
+        <DataTableColumnHeader column={column} title="Издательство" />
       ),
-      cell: ({ row }) => (
-        <span className="text-muted-foreground">v{row.getValue('version')}</span>
-      ),
+      cell: ({ row }) => {
+        const publisher = row.getValue('publisher') as string | null;
+        return (
+          <span className="text-muted-foreground">
+            {publisher || '—'}
+          </span>
+        );
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
     },
     {
       accessorKey: 'created_at',
