@@ -61,6 +61,7 @@ async def list_school_classes(
             "name": school_class.name,
             "code": school_class.code,
             "grade_level": school_class.grade_level,
+            "language": school_class.language,
             "academic_year": school_class.academic_year,
             "students_count": len(school_class.students) if school_class.students else 0,
             "teachers_count": len(school_class.teachers) if school_class.teachers else 0,
@@ -102,6 +103,7 @@ async def create_school_class(
         name=data.name,
         code=data.code,
         grade_level=data.grade_level,
+        language=data.language,
         academic_year=data.academic_year
     )
     school_class = await class_repo.create(school_class)
@@ -113,6 +115,7 @@ async def create_school_class(
         "name": school_class.name,
         "code": school_class.code,
         "grade_level": school_class.grade_level,
+        "language": school_class.language,
         "academic_year": school_class.academic_year,
         "created_at": school_class.created_at,
         "updated_at": school_class.updated_at,
@@ -154,6 +157,8 @@ async def update_school_class(
         school_class.name = data.name
     if data.grade_level is not None:
         school_class.grade_level = data.grade_level
+    if data.language is not None:
+        school_class.language = data.language
     if data.academic_year is not None:
         school_class.academic_year = data.academic_year
 
