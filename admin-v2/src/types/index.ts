@@ -526,9 +526,9 @@ export interface LearningOutcome {
   grade: number;
   code: string;
   title_ru: string;
-  title_kk?: string;
+  title_kz?: string;
   description_ru?: string;
-  description_kk?: string;
+  description_kz?: string;
   cognitive_level?: string;
   display_order: number;
   is_active: boolean;

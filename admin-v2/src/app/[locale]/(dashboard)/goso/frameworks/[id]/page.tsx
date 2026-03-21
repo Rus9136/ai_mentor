@@ -14,10 +14,12 @@ import {
   Target,
 } from 'lucide-react';
 
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Collapsible,
   CollapsibleContent,
@@ -194,72 +196,84 @@ export default function FrameworkShowPage() {
                 Разделы не загружены
               </p>
             ) : (
-              <div className="space-y-4">
-                {sections
-                  .sort((a, b) => a.display_order - b.display_order)
-                  .map((section) => (
-                    <Collapsible key={section.id} className="border rounded-lg">
-                      <CollapsibleTrigger className="flex w-full items-center justify-between p-4 hover:bg-muted/50">
-                        <div className="flex items-center gap-3">
-                          <Badge variant="outline">{section.code}</Badge>
-                          <span className="font-medium">{section.name_ru}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary">
-                            {section.subsections?.length || 0} подразд.
-                          </Badge>
-                          <ChevronRight className="h-4 w-4 transition-transform duration-200 [[data-state=open]>div>&]:rotate-90" />
-                        </div>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <div className="border-t px-4 py-2 space-y-2">
-                          {section.subsections
-                            ?.sort((a, b) => a.display_order - b.display_order)
-                            .map((subsection) => (
-                              <div
-                                key={subsection.id}
-                                className="ml-4 p-3 rounded-md bg-muted/30"
-                              >
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    {subsection.code}
-                                  </Badge>
-                                  <span className="text-sm font-medium">
-                                    {subsection.name_ru}
-                                  </span>
-                                  <Badge variant="secondary" className="text-xs ml-auto">
-                                    {subsection.outcomes?.length || 0} целей
-                                  </Badge>
-                                </div>
-                                {subsection.outcomes && subsection.outcomes.length > 0 && (
-                                  <div className="ml-4 mt-2 space-y-1">
-                                    {subsection.outcomes
-                                      .sort((a, b) => a.display_order - b.display_order)
-                                      .map((outcome) => (
-                                        <div
-                                          key={outcome.id}
-                                          className="text-xs text-muted-foreground flex items-start gap-2"
-                                        >
-                                          <Badge
-                                            variant="outline"
-                                            className="shrink-0 text-[10px]"
-                                          >
-                                            {outcome.grade} кл.
-                                          </Badge>
-                                          <span className="line-clamp-1">
-                                            {outcome.title_ru}
-                                          </span>
-                                        </div>
-                                      ))}
-                                  </div>
-                                )}
+              <Tabs defaultValue="ru">
+                <TabsList className="mb-4">
+                  <TabsTrigger value="ru">Русский</TabsTrigger>
+                  <TabsTrigger value="kz">Қазақша</TabsTrigger>
+                </TabsList>
+                {(['ru', 'kz'] as const).map((lang) => (
+                  <TabsContent key={lang} value={lang}>
+                    <div className="space-y-4">
+                      {sections
+                        .sort((a, b) => a.display_order - b.display_order)
+                        .map((section) => (
+                          <Collapsible key={section.id} className="border rounded-lg">
+                            <CollapsibleTrigger className="flex w-full items-center justify-between p-4 hover:bg-muted/50">
+                              <div className="flex items-center gap-3">
+                                <Badge variant="outline">{section.code}</Badge>
+                                <span className="font-medium">
+                                  {lang === 'kz' ? (section.name_kz || section.name_ru) : section.name_ru}
+                                </span>
                               </div>
-                            ))}
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  ))}
-              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary">
+                                  {section.subsections?.length || 0} {lang === 'kz' ? 'бөлімше' : 'подразд.'}
+                                </Badge>
+                                <ChevronRight className="h-4 w-4 transition-transform duration-200 [[data-state=open]>div>&]:rotate-90" />
+                              </div>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <div className="border-t px-4 py-2 space-y-2">
+                                {section.subsections
+                                  ?.sort((a, b) => a.display_order - b.display_order)
+                                  .map((subsection) => (
+                                    <div
+                                      key={subsection.id}
+                                      className="ml-4 p-3 rounded-md bg-muted/30"
+                                    >
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <Badge variant="outline" className="text-xs">
+                                          {subsection.code}
+                                        </Badge>
+                                        <span className="text-sm font-medium">
+                                          {lang === 'kz' ? (subsection.name_kz || subsection.name_ru) : subsection.name_ru}
+                                        </span>
+                                        <Badge variant="secondary" className="text-xs ml-auto">
+                                          {subsection.outcomes?.length || 0} {lang === 'kz' ? 'мақсат' : 'целей'}
+                                        </Badge>
+                                      </div>
+                                      {subsection.outcomes && subsection.outcomes.length > 0 && (
+                                        <div className="ml-4 mt-2 space-y-1">
+                                          {subsection.outcomes
+                                            .sort((a, b) => a.display_order - b.display_order)
+                                            .map((outcome) => (
+                                              <div
+                                                key={outcome.id}
+                                                className="text-xs text-muted-foreground flex items-start gap-2"
+                                              >
+                                                <Badge
+                                                  variant="outline"
+                                                  className="shrink-0 text-[10px]"
+                                                >
+                                                  {outcome.grade} {lang === 'kz' ? 'сын.' : 'кл.'}
+                                                </Badge>
+                                                <span className="line-clamp-1">
+                                                  {lang === 'kz' ? (outcome.title_kz || outcome.title_ru) : outcome.title_ru}
+                                                </span>
+                                              </div>
+                                            ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                              </div>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        ))}
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
             )}
           </CardContent>
         </Card>
