@@ -228,8 +228,8 @@ class GamificationService:
         # Update streak
         await self.update_streak(student_id, school_id)
 
-        # Check achievements
-        await self.check_achievements(student_id, school_id)
+        # Check achievements (learning only — not coding)
+        await self.check_achievements(student_id, school_id, context="learning")
 
         # Resolve content chain if we have paragraph_id but not subject/textbook
         if paragraph_id and not subject_id:
@@ -282,8 +282,8 @@ class GamificationService:
                 extra_data={"old_status": old_status, "new_status": new_status},
             )
 
-        # Check mastery-related achievements
-        await self.check_achievements(student_id, school_id)
+        # Check mastery-related achievements (learning only)
+        await self.check_achievements(student_id, school_id, context="learning")
 
         # Daily quest: master_paragraph
         if new_status == "mastered":
@@ -332,7 +332,7 @@ class GamificationService:
                 source_id=chapter_id,
                 extra_data={"old_level": old_level, "new_level": new_level},
             )
-            await self.check_achievements(student_id, school_id)
+            await self.check_achievements(student_id, school_id, context="learning")
 
     async def on_self_assessment(
         self,
@@ -352,8 +352,8 @@ class GamificationService:
         # Update streak
         await self.update_streak(student_id, school_id)
 
-        # Check achievements
-        await self.check_achievements(student_id, school_id)
+        # Check achievements (learning only)
+        await self.check_achievements(student_id, school_id, context="learning")
 
     async def on_paragraph_complete(
         self,
@@ -373,8 +373,8 @@ class GamificationService:
         # Update streak
         await self.update_streak(student_id, school_id)
 
-        # Check achievements
-        await self.check_achievements(student_id, school_id)
+        # Check achievements (learning only)
+        await self.check_achievements(student_id, school_id, context="learning")
 
     async def on_coding_challenge_solved(
         self,
@@ -402,8 +402,8 @@ class GamificationService:
         # 2. Update streak
         await self.update_streak(student_id, school_id)
 
-        # 3. Check achievements
-        await self.check_achievements(student_id, school_id)
+        # 3. Check achievements (coding only — not learning)
+        await self.check_achievements(student_id, school_id, context="coding")
 
         # 4. Increment daily quest (solve_challenge)
         today = date.today()
@@ -436,7 +436,7 @@ class GamificationService:
             source_type=XpSourceType.COURSE_COMPLETE,
             source_id=course_id,
         )
-        await self.check_achievements(student_id, school_id)
+        await self.check_achievements(student_id, school_id, context="coding")
 
     # ══════════════════════════════════════════════════════════════════════
     # STREAK
@@ -481,17 +481,48 @@ class GamificationService:
     # ACHIEVEMENTS
     # ══════════════════════════════════════════════════════════════════════
 
-    async def check_achievements(self, student_id: int, school_id: int) -> List[Achievement]:
+    # Criteria types that belong to coding domain
+    CODING_CRITERIA = {
+        "challenges_solved", "topic_completed", "topic_first_solved",
+        "hard_challenges_solved", "fast_challenge", "courses_completed",
+    }
+    # Criteria types that belong to learning domain
+    LEARNING_CRITERIA = {
+        "tests_passed", "perfect_test", "paragraphs_mastered",
+        "chapter_a", "struggling_to_mastered",
+    }
+    # Shared criteria (both domains update streak)
+    SHARED_CRITERIA = {"streak_days"}
+
+    async def check_achievements(
+        self, student_id: int, school_id: int, context: Optional[str] = None
+    ) -> List[Achievement]:
         """
-        Check all achievements and update progress. Returns newly earned achievements.
+        Check achievements and update progress. Returns newly earned achievements.
+
+        context: "coding" — only check coding + shared achievements
+                 "learning" — only check learning + shared achievements
+                 None — check all (backward compat)
         """
         achievements = await self.repo.get_all_active_achievements()
         newly_earned = []
+
+        # Determine which criteria types to check based on context
+        if context == "coding":
+            allowed = self.CODING_CRITERIA | self.SHARED_CRITERIA
+        elif context == "learning":
+            allowed = self.LEARNING_CRITERIA | self.SHARED_CRITERIA
+        else:
+            allowed = None  # check all
 
         for achievement in achievements:
             criteria = achievement.criteria
             criteria_type = criteria.get("type")
             threshold = criteria.get("threshold", 0)
+
+            # Skip achievements not relevant to this context
+            if allowed is not None and criteria_type not in allowed:
+                continue
 
             progress = await self._get_achievement_progress(
                 student_id, criteria_type, school_id, criteria=criteria
