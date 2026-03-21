@@ -152,7 +152,11 @@ export function MyQuizzesWidget() {
   const t = useTranslations('quizWidget');
   const { data, isLoading } = useMyQuizzes();
 
-  if (isLoading || !data || data.length === 0) {
+  const activeQuizzes = data?.filter(
+    (q) => q.status === 'lobby' || q.status === 'in_progress'
+  );
+
+  if (isLoading || !activeQuizzes || activeQuizzes.length === 0) {
     return null;
   }
 
@@ -177,7 +181,7 @@ export function MyQuizzesWidget() {
 
         {/* Quiz items */}
         <div className="divide-y divide-border px-4">
-          {data.map((quiz) => (
+          {activeQuizzes.map((quiz) => (
             <QuizItem key={quiz.id} quiz={quiz} />
           ))}
         </div>
