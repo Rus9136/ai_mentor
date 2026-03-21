@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
-  Lock,
   Loader2,
   AlertCircle,
   PlayCircle,
@@ -36,12 +35,6 @@ const STATUS_CONFIG = {
     color: 'text-muted-foreground',
     bgColor: 'bg-muted',
     borderColor: 'border-border',
-  },
-  locked: {
-    icon: Lock,
-    color: 'text-muted-foreground/50',
-    bgColor: 'bg-muted/50',
-    borderColor: 'border-border/50',
   },
 };
 
@@ -163,58 +156,54 @@ export default function TextbookPage({ params }: PageProps) {
         ) : (
           <div className="space-y-3">
             {chapters?.map((chapter, index) => {
-              const StatusIcon = STATUS_CONFIG[chapter.status].icon;
-              const isLocked = chapter.status === 'locked';
+              const statusKey = chapter.status === 'locked' ? 'not_started' : chapter.status;
+              const StatusIcon = STATUS_CONFIG[statusKey].icon;
 
-              const ChapterContent = (
-                <div
-                  className={`card-flat group overflow-hidden border transition-all ${
-                    STATUS_CONFIG[chapter.status].borderColor
-                  } ${!isLocked ? 'hover:shadow-soft hover:border-primary/30' : 'opacity-60'}`}
-                >
-                  <div className="flex items-center gap-4 p-4">
-                    {/* Chapter Number & Status Icon */}
-                    <div
-                      className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl ${
-                        STATUS_CONFIG[chapter.status].bgColor
-                      }`}
-                    >
-                      {chapter.status === 'completed' ? (
-                        <StatusIcon className={`h-6 w-6 ${STATUS_CONFIG[chapter.status].color}`} />
-                      ) : (
-                        <span className={`text-lg font-bold ${STATUS_CONFIG[chapter.status].color}`}>
-                          {chapter.number}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Chapter Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3
-                          className={`font-bold truncate ${
-                            isLocked ? 'text-muted-foreground' : 'text-foreground group-hover:text-primary'
-                          }`}
-                        >
-                          {chapter.title}
-                        </h3>
-                        {chapter.mastery_level && (
-                          <span
-                            className={`flex-shrink-0 rounded px-1.5 py-0.5 text-xs font-bold ${
-                              chapter.mastery_level === 'A'
-                                ? 'bg-success/10 text-success'
-                                : chapter.mastery_level === 'B'
-                                  ? 'bg-primary/10 text-primary'
-                                  : 'bg-orange-100 text-orange-600'
-                            }`}
-                          >
-                            {chapter.mastery_level}
+              return (
+                <Link key={chapter.id} href={`/chapters/${chapter.id}`}>
+                  <div
+                    className={`card-flat group overflow-hidden border transition-all ${
+                      STATUS_CONFIG[statusKey].borderColor
+                    } hover:shadow-soft hover:border-primary/30`}
+                  >
+                    <div className="flex items-center gap-4 p-4">
+                      {/* Chapter Number & Status Icon */}
+                      <div
+                        className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl ${
+                          STATUS_CONFIG[statusKey].bgColor
+                        }`}
+                      >
+                        {chapter.status === 'completed' ? (
+                          <StatusIcon className={`h-6 w-6 ${STATUS_CONFIG[statusKey].color}`} />
+                        ) : (
+                          <span className={`text-lg font-bold ${STATUS_CONFIG[statusKey].color}`}>
+                            {chapter.number}
                           </span>
                         )}
                       </div>
 
-                      {/* Progress Bar */}
-                      {!isLocked && (
+                      {/* Chapter Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold truncate text-foreground group-hover:text-primary">
+                            {chapter.title}
+                          </h3>
+                          {chapter.mastery_level && (
+                            <span
+                              className={`flex-shrink-0 rounded px-1.5 py-0.5 text-xs font-bold ${
+                                chapter.mastery_level === 'A'
+                                  ? 'bg-success/10 text-success'
+                                  : chapter.mastery_level === 'B'
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'bg-orange-100 text-orange-600'
+                              }`}
+                            >
+                              {chapter.mastery_level}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Progress Bar */}
                         <div className="mt-2 flex items-center gap-2">
                           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                             <div
@@ -228,57 +217,39 @@ export default function TextbookPage({ params }: PageProps) {
                             {chapter.progress.paragraphs_completed}/{chapter.progress.paragraphs_total}
                           </span>
                         </div>
-                      )}
 
-                      {/* Status Text */}
-                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        {chapter.status === 'completed' && (
-                          <>
-                            <CheckCircle2 className="h-3 w-3 text-success" />
-                            <span>{t('status.completed')}</span>
-                          </>
-                        )}
-                        {chapter.status === 'in_progress' && (
-                          <>
-                            <PlayCircle className="h-3 w-3 text-primary" />
-                            <span>{t('status.inProgress')}</span>
-                          </>
-                        )}
-                        {chapter.status === 'not_started' && (
-                          <span>{t('status.notStarted')}</span>
-                        )}
-                        {chapter.status === 'locked' && (
-                          <>
-                            <Lock className="h-3 w-3" />
-                            <span>{t('status.locked')}</span>
-                          </>
-                        )}
+                        {/* Status Text */}
+                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                          {chapter.status === 'completed' && (
+                            <>
+                              <CheckCircle2 className="h-3 w-3 text-success" />
+                              <span>{t('status.completed')}</span>
+                            </>
+                          )}
+                          {chapter.status === 'in_progress' && (
+                            <>
+                              <PlayCircle className="h-3 w-3 text-primary" />
+                              <span>{t('status.inProgress')}</span>
+                            </>
+                          )}
+                          {(chapter.status === 'not_started' || chapter.status === 'locked') && (
+                            <span>{t('status.notStarted')}</span>
+                          )}
 
-                        {chapter.has_summative_test && (
-                          <>
-                            <span className="text-muted-foreground/50">•</span>
-                            <Trophy className={`h-3 w-3 ${chapter.summative_passed ? 'text-success' : 'text-muted-foreground'}`} />
-                            <span>{t('hasTest')}</span>
-                          </>
-                        )}
+                          {chapter.has_summative_test && (
+                            <>
+                              <span className="text-muted-foreground/50">•</span>
+                              <Trophy className={`h-3 w-3 ${chapter.summative_passed ? 'text-success' : 'text-muted-foreground'}`} />
+                              <span>{t('hasTest')}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Arrow */}
-                    {!isLocked && (
+                      {/* Arrow */}
                       <ChevronRight className="h-5 w-5 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
-                    )}
+                    </div>
                   </div>
-                </div>
-              );
-
-              if (isLocked) {
-                return <div key={chapter.id}>{ChapterContent}</div>;
-              }
-
-              return (
-                <Link key={chapter.id} href={`/chapters/${chapter.id}`}>
-                  {ChapterContent}
                 </Link>
               );
             })}

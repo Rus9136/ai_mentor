@@ -101,6 +101,7 @@ export interface StudentParagraph {
   needs_review: boolean;
   has_unmet_prerequisites: boolean;
   prerequisite_warnings: PrerequisiteWarning[] | null;
+  can_complete: boolean;
   learning_objective: string | null;
   key_terms: string[] | null;
 }
@@ -294,6 +295,7 @@ export interface ParagraphProgress {
   embedded_questions_total: number;
   embedded_questions_answered: number;
   embedded_questions_correct: number;
+  can_complete: boolean;
 }
 
 export interface StepProgressResponse {

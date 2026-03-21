@@ -478,7 +478,8 @@ export default function ParagraphPage({ params }: PageProps) {
                     ) : (
                       <button
                         onClick={handleFinishStudying}
-                        disabled={updateStepMutation.isPending}
+                        disabled={updateStepMutation.isPending || progress?.can_complete === false}
+                        title={progress?.can_complete === false ? t('completePreviousFirst') : undefined}
                         className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-all disabled:opacity-50"
                       >
                         <span>{t('finishStudying')}</span>

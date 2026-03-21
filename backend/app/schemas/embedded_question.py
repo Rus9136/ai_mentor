@@ -207,3 +207,6 @@ class ParagraphProgressResponse(BaseModel):
     embedded_questions_total: int = 0
     embedded_questions_answered: int = 0
     embedded_questions_correct: int = 0
+
+    # Sequential completion control
+    can_complete: bool = Field(default=True, description="Whether student can complete this paragraph (sequential order)")

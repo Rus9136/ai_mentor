@@ -129,6 +129,9 @@ class StudentParagraphResponse(BaseModel):
     has_unmet_prerequisites: bool = Field(default=False, description="Has unmet required prerequisites")
     prerequisite_warnings: Optional[List[Any]] = Field(None, description="List of prerequisite warnings")
 
+    # Sequential completion control
+    can_complete: bool = Field(default=True, description="Whether student can complete this paragraph (sequential order)")
+
     # Learning objectives preview
     learning_objective: Optional[str] = None
     key_terms: Optional[List[str]] = None

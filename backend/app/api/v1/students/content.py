@@ -215,7 +215,10 @@ async def get_chapter_paragraphs(
 
     # Get paragraphs with progress using batch queries
     paragraphs_data, total = await service.get_paragraphs_with_progress(
-        chapter.id, student_id, school_id, page=pagination.page, page_size=pagination.page_size
+        chapter.id, student_id, school_id,
+        student_grade_level=student.grade_level,
+        textbook_grade_level=chapter.textbook.grade_level if chapter.textbook else None,
+        page=pagination.page, page_size=pagination.page_size,
     )
 
     result = []
@@ -239,6 +242,7 @@ async def get_chapter_paragraphs(
                 needs_review=item.get("needs_review", False),
                 has_unmet_prerequisites=item.get("has_unmet_prerequisites", False),
                 prerequisite_warnings=item.get("prerequisite_warnings"),
+                can_complete=item.get("can_complete", True),
                 learning_objective=para.learning_objective,
                 key_terms=para.key_terms,
             )

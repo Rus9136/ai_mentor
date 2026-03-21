@@ -404,9 +404,8 @@ class StudentContentService:
         # Batch: summative test availability
         has_summative = await self._get_summative_test_batch(chapter_ids)
 
-        # Build response with status calculation
+        # Build response with status calculation (all chapters accessible)
         result = []
-        prev_completed = True  # First chapter is always unlocked
 
         for chapter in chapters:
             cid = chapter.id
@@ -419,18 +418,13 @@ class StudentContentService:
             mastery_score = mastery.get("score")
             summative_passed = mastery.get("summative_passed")
 
-            # Determine status
+            # Determine status (no more "locked" — all chapters accessible for reading)
             if ch_para_completed >= ch_para_total and ch_para_total > 0:
                 ch_status = "completed"
             elif ch_para_completed > 0:
                 ch_status = "in_progress"
-            elif prev_completed:
-                ch_status = "not_started"
             else:
-                ch_status = "locked"
-
-            # Update for next iteration
-            prev_completed = (ch_status == "completed")
+                ch_status = "not_started"
 
             result.append({
                 "chapter": chapter,
@@ -542,6 +536,8 @@ class StudentContentService:
         chapter_id: int,
         student_id: int,
         school_id: int,
+        student_grade_level: Optional[int] = None,
+        textbook_grade_level: Optional[int] = None,
         page: int = 1,
         page_size: int = 50,
     ) -> Tuple[List[Dict[str, Any]], int]:
@@ -593,8 +589,16 @@ class StudentContentService:
             student_id, paragraph_ids
         )
 
-        # Build response
+        # Grade match check: student can only complete paragraphs from their grade
+        grade_matches = (
+            student_grade_level is None
+            or textbook_grade_level is None
+            or student_grade_level == textbook_grade_level
+        )
+
+        # Build response with sequential completion control (within chapter only)
         result = []
+        found_next_completable = False
         for para in paragraphs:
             pid = para.id
             mastery = paragraph_mastery.get(pid, {})
@@ -606,6 +610,17 @@ class StudentContentService:
                 para_status = "in_progress"
             else:
                 para_status = "not_started"
+
+            # can_complete: sequential within chapter + grade must match
+            if not grade_matches:
+                can_complete = False
+            elif para_status == "completed":
+                can_complete = False  # already done
+            elif not found_next_completable:
+                can_complete = True
+                found_next_completable = True
+            else:
+                can_complete = False
 
             # Estimate reading time
             word_count = len(para.content.split()) if para.content else 0
@@ -626,6 +641,7 @@ class StudentContentService:
                 "has_practice": has_practice.get(pid, False),
                 "prerequisite_warnings": warnings,
                 "has_unmet_prerequisites": has_unmet,
+                "can_complete": can_complete,
             })
 
         logger.info(

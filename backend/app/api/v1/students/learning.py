@@ -14,7 +14,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
@@ -135,6 +135,40 @@ async def get_paragraph_progress(
     )
     embedded_questions_correct = correct_result.scalar() or 0
 
+    # Compute can_complete: sequential within chapter + grade must match
+    is_completed = student_para.is_completed if student_para else False
+    # Grade check: student can only complete paragraphs from their grade level
+    grade_matches = (student.grade_level == textbook.grade_level)
+
+    if is_completed:
+        can_complete = False  # already done
+    elif not grade_matches:
+        can_complete = False  # wrong grade — read-only access
+    else:
+        para_order = paragraph.order
+        chapter_id = paragraph.chapter_id
+
+        # Count uncompleted paragraphs before this one in the same chapter
+        uncompleted_before_result = await db.execute(
+            select(func.count(Paragraph.id))
+            .outerjoin(
+                ParagraphMastery,
+                and_(
+                    ParagraphMastery.paragraph_id == Paragraph.id,
+                    ParagraphMastery.student_id == student_id,
+                    ParagraphMastery.is_completed == True,
+                )
+            )
+            .where(
+                Paragraph.chapter_id == chapter_id,
+                Paragraph.is_deleted == False,
+                Paragraph.order < para_order,
+                ParagraphMastery.id.is_(None),  # not completed
+            )
+        )
+        uncompleted_count = uncompleted_before_result.scalar() or 0
+        can_complete = uncompleted_count == 0
+
     if student_para:
         return ParagraphProgressResponse(
             paragraph_id=paragraph_id,
@@ -148,7 +182,8 @@ async def get_paragraph_progress(
             available_steps=available_steps,
             embedded_questions_total=embedded_questions_total,
             embedded_questions_answered=embedded_questions_answered,
-            embedded_questions_correct=embedded_questions_correct
+            embedded_questions_correct=embedded_questions_correct,
+            can_complete=can_complete,
         )
     else:
         return ParagraphProgressResponse(
@@ -163,7 +198,8 @@ async def get_paragraph_progress(
             available_steps=available_steps,
             embedded_questions_total=embedded_questions_total,
             embedded_questions_answered=embedded_questions_answered,
-            embedded_questions_correct=embedded_questions_correct
+            embedded_questions_correct=embedded_questions_correct,
+            can_complete=can_complete,
         )
 
 
@@ -202,6 +238,13 @@ async def update_paragraph_progress(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied to this paragraph"
+        )
+
+    # Block completion for textbooks from other grade levels
+    if request.step == "completed" and student.grade_level != textbook.grade_level:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot complete paragraphs from a different grade level"
         )
 
     # Get or create student's paragraph progress
