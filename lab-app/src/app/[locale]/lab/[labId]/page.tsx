@@ -7,7 +7,6 @@ import { ArrowLeft } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import dynamic from 'next/dynamic';
 
-// Leaflet must be loaded client-side only (no SSR)
 const HistoryLab = dynamic(() => import('@/components/history/HistoryLab'), {
   ssr: false,
   loading: () => (
@@ -16,6 +15,21 @@ const HistoryLab = dynamic(() => import('@/components/history/HistoryLab'), {
     </div>
   ),
 });
+
+const ChemistryLab = dynamic(() => import('@/components/chemistry/ChemistryLab'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-screen">
+      <div className="text-muted-foreground">Loading 3D...</div>
+    </div>
+  ),
+});
+
+// Lab ID → component mapping
+const LAB_COMPONENTS: Record<number, React.ComponentType> = {
+  1: HistoryLab,
+  2: ChemistryLab,
+};
 
 interface LabPageProps {
   params: Promise<{ labId: string }>;
@@ -36,9 +50,10 @@ export default function LabPage({ params }: LabPageProps) {
 
   if (!user) return null;
 
-  // For MVP — lab 1 is always the history map
   const labIdNum = parseInt(labId);
-  if (labIdNum !== 1) {
+  const LabComponent = LAB_COMPONENTS[labIdNum];
+
+  if (!LabComponent) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <p className="text-muted-foreground">{t('lab.empty')}</p>
@@ -50,5 +65,5 @@ export default function LabPage({ params }: LabPageProps) {
     );
   }
 
-  return <HistoryLab />;
+  return <LabComponent />;
 }

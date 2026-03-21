@@ -28,7 +28,7 @@ const DEMO_LABS = [
     icon: Atom,
     color: 'bg-blue-500',
     lab_type: 'molecule_3d' as const,
-    available: false,
+    available: true,
   },
   {
     id: 3,

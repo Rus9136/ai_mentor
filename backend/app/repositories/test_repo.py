@@ -360,6 +360,7 @@ class TestRepository:
         school_id: int,
         page: int = 1,
         page_size: int = 20,
+        textbook_id: Optional[int] = None,
         chapter_id: Optional[int] = None,
         paragraph_id: Optional[int] = None,
         test_purpose: Optional[TestPurpose] = None,
@@ -395,6 +396,9 @@ class TestRepository:
 
         if is_active_only:
             filters.append(Test.is_active == True)
+
+        if textbook_id is not None:
+            filters.append(Test.textbook_id == textbook_id)
 
         if chapter_id is not None:
             filters.append(Test.chapter_id == chapter_id)

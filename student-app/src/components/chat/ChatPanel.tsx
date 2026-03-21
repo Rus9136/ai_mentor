@@ -60,18 +60,12 @@ export function ChatPanel({
     );
   };
 
-  // Create session on mount
-  useEffect(() => {
-    if (!sessionId && !showHistory && !createSessionMutation.isPending) {
-      createNewSession();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Reset session when paragraph changes
+  // Create session on mount and when paragraph/sessionType changes
   useEffect(() => {
     setSessionId(null);
     setShowHistory(false);
+    createNewSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paragraphId, sessionType]);
 
   // Track the prompt to pass to ChatWindow

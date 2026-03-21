@@ -42,6 +42,7 @@ poetry.lock
 .vscode/
 .idea/
 *.swp
+pyrightconfig.json
 *.swo
 *~
 .DS_Store
