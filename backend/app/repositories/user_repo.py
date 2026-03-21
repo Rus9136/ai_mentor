@@ -45,7 +45,7 @@ class UserRepository:
         """
         result = await self.db.execute(
             select(User).where(
-                User.email == email,
+                func.lower(User.email) == email.lower(),
                 User.is_deleted == False  # noqa: E712
             )
         )
@@ -152,7 +152,7 @@ class UserRepository:
             User object or None if not found
         """
         result = await self.db.execute(
-            select(User).where(User.email == email)
+            select(User).where(func.lower(User.email) == email.lower())
         )
         return result.scalar_one_or_none()
 
