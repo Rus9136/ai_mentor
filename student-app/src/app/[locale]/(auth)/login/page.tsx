@@ -5,21 +5,27 @@ import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/auth-provider';
 import { GoogleSignInButton } from '@/components/auth/google-signin-button';
 import { useRouter } from '@/i18n/routing';
-import { Loader2, BookOpen, Sparkles, GraduationCap } from 'lucide-react';
+import { Loader2, BookOpen, Sparkles, GraduationCap, Phone, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+type LoginTab = 'phone' | 'email';
+
 export default function LoginPage() {
   const t = useTranslations('auth.login');
-  const { login, loginWithPassword, isLoading: authLoading } = useAuth();
+  const { login, loginWithPassword, loginWithPhone, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<LoginTab>('phone');
 
   // Email/Password form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // Phone form state — store only the 10 digits after +7
+  const [phoneDigits, setPhoneDigits] = useState('');
 
   const handleGoogleSuccess = async (idToken: string) => {
     setIsLoading(true);
@@ -53,7 +59,6 @@ export default function LoginPage() {
       if (result.success) {
         router.push('/home');
       } else {
-        // Map error codes to user-friendly messages
         if (result.error === 'ACCESS_DENIED') {
           setError(t('accessDenied'));
         } else {
@@ -65,6 +70,42 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handlePhoneLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (phoneDigits.length !== 10) return;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const phone = `+7${phoneDigits}`;
+      const result = await loginWithPhone(phone);
+      if (result.success) {
+        router.push('/home');
+      } else {
+        if (result.error === 'ACCESS_DENIED') {
+          setError(t('accessDenied'));
+        } else {
+          setError(t('phoneNotRegistered'));
+        }
+      }
+    } catch {
+      setError(t('error'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePhoneInput = (value: string) => {
+    // Only allow digits, limit to 10
+    const digits = value.replace(/\D/g, '').slice(0, 10);
+    setPhoneDigits(digits);
+  };
+
+  const switchTab = (tab: LoginTab) => {
+    setActiveTab(tab);
+    setError(null);
   };
 
   if (authLoading) {
@@ -109,51 +150,123 @@ export default function LoginPage() {
             </div>
 
             <div className="flex flex-col space-y-4">
-              {/* Email/Password Form */}
-              <form onSubmit={handlePasswordLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">{t('email')}</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="student@school.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    disabled={isLoading}
-                    autoComplete="email"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="password">{t('password')}</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    disabled={isLoading}
-                    autoComplete="current-password"
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isLoading}
+              {/* Tabs */}
+              <div className="flex rounded-lg bg-muted p-1">
+                <button
+                  type="button"
+                  onClick={() => switchTab('phone')}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    activeTab === 'phone'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {t('loading')}
-                    </>
-                  ) : (
-                    t('signIn')
-                  )}
-                </Button>
-              </form>
+                  <Phone className="h-4 w-4" />
+                  {t('tabPhone')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchTab('email')}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    activeTab === 'email'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Mail className="h-4 w-4" />
+                  {t('tabEmail')}
+                </button>
+              </div>
+
+              {/* Phone Login Form */}
+              {activeTab === 'phone' && (
+                <form onSubmit={handlePhoneLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">{t('phone')}</Label>
+                    <div className="flex">
+                      <span className="inline-flex items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground">
+                        +7
+                      </span>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        inputMode="numeric"
+                        placeholder="7001234567"
+                        value={phoneDigits}
+                        onChange={(e) => handlePhoneInput(e.target.value)}
+                        required
+                        disabled={isLoading}
+                        autoComplete="tel"
+                        className="rounded-l-none"
+                        maxLength={10}
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isLoading || phoneDigits.length !== 10}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t('loading')}
+                      </>
+                    ) : (
+                      t('signIn')
+                    )}
+                  </Button>
+                </form>
+              )}
+
+              {/* Email/Password Form */}
+              {activeTab === 'email' && (
+                <form onSubmit={handlePasswordLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">{t('email')}</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="student@school.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      disabled={isLoading}
+                      autoComplete="email"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password">{t('password')}</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={isLoading}
+                      autoComplete="current-password"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t('loading')}
+                      </>
+                    ) : (
+                      t('signIn')
+                    )}
+                  </Button>
+                </form>
+              )}
 
               {/* Divider */}
               <div className="relative">

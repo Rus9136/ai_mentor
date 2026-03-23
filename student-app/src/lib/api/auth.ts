@@ -143,6 +143,33 @@ export async function loginWithPassword(credentials: LoginCredentials): Promise<
   return response.data;
 }
 
+// Phone login types
+export interface PhoneLoginRequest {
+  phone: string;
+}
+
+export interface PhoneAuthResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  requires_onboarding: boolean;
+  user: {
+    id: number;
+    email: string;
+    first_name: string;
+    last_name: string;
+    role: string;
+    school_id: number | null;
+  };
+}
+
+// Phone login
+export async function loginWithPhone(phone: string): Promise<PhoneAuthResponse> {
+  const response = await apiClient.post<PhoneAuthResponse>('/auth/phone/login', { phone });
+  setTokens(response.data.access_token, response.data.refresh_token);
+  return response.data;
+}
+
 // Logout
 export function logout(): void {
   clearTokens();

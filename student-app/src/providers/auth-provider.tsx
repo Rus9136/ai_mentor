@@ -13,6 +13,7 @@ import {
   getCurrentUser,
   logout as logoutApi,
   loginWithPassword as loginWithPasswordApi,
+  loginWithPhone as loginWithPhoneApi,
   deleteAccount as deleteAccountApi,
   UserResponse,
 } from '@/lib/api/auth';
@@ -25,6 +26,7 @@ interface AuthContextType {
   requiresOnboarding: boolean;
   login: (idToken: string) => Promise<boolean>;
   loginWithPassword: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithPhone: (phone: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   deleteAccount: () => Promise<boolean>;
   refreshUser: () => Promise<void>;
@@ -142,6 +144,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginWithPhone = async (phone: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const response = await loginWithPhoneApi(phone);
+
+      // Only allow students
+      if (response.user.role !== 'student') {
+        logoutApi();
+        return { success: false, error: 'ACCESS_DENIED' };
+      }
+
+      const userData = await getCurrentUser();
+      setUser(userData);
+
+      if (response.requires_onboarding) {
+        setRequiresOnboarding(true);
+      }
+
+      return { success: true };
+    } catch (error) {
+      const axiosError = error as { response?: { data?: { detail?: string } } };
+      const errorMessage = axiosError.response?.data?.detail || 'PHONE_NOT_FOUND';
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const logout = () => {
     logoutApi();
     // Clear skipped onboarding flag
@@ -191,6 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         requiresOnboarding,
         login,
         loginWithPassword,
+        loginWithPhone,
         logout,
         deleteAccount,
         refreshUser,

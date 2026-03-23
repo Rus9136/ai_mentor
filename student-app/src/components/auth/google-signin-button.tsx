@@ -48,52 +48,57 @@ export function GoogleSignInButton({
   const [isLoading, setIsLoading] = useState(true);
   const [scriptLoaded, setScriptLoaded] = useState(false);
 
+  // Use refs to avoid re-running effects when callbacks change
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  onSuccessRef.current = onSuccess;
+  onErrorRef.current = onError;
+
   useEffect(() => {
-    // Load Google Identity Services script
-    console.log('[GoogleSignIn] Loading script...');
+    // Check if script is already loaded
+    if (window.google?.accounts?.id) {
+      setScriptLoaded(true);
+      return;
+    }
+
+    // Check if script tag already exists
+    const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if (existing) {
+      existing.addEventListener('load', () => setScriptLoaded(true));
+      return;
+    }
+
     const script = document.createElement('script');
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.defer = true;
     script.onload = () => {
-      console.log('[GoogleSignIn] Script loaded successfully');
       setScriptLoaded(true);
     };
-    script.onerror = (e) => {
-      console.error('[GoogleSignIn] Script load error:', e);
+    script.onerror = () => {
       setIsLoading(false);
-      onError?.('Failed to load Google Sign-In');
+      onErrorRef.current?.('Failed to load Google Sign-In');
     };
     document.head.appendChild(script);
-
-    return () => {
-      if (script.parentNode) {
-        document.head.removeChild(script);
-      }
-    };
-  }, [onError]);
+  }, []);
 
   useEffect(() => {
-    console.log('[GoogleSignIn] Init effect - scriptLoaded:', scriptLoaded, 'buttonRef:', !!buttonRef.current);
     if (!scriptLoaded || !buttonRef.current) return;
 
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    console.log('[GoogleSignIn] Client ID:', clientId ? clientId.substring(0, 20) + '...' : 'NOT SET');
 
     if (!clientId) {
       setIsLoading(false);
-      onError?.('Google Client ID not configured');
+      onErrorRef.current?.('Google Client ID not configured');
       return;
     }
 
     try {
-      console.log('[GoogleSignIn] window.google:', !!window.google);
       window.google?.accounts.id.initialize({
         client_id: clientId,
         callback: (response) => {
-          console.log('[GoogleSignIn] Callback received, has credential:', !!response.credential);
           if (response.credential) {
-            onSuccess(response.credential);
+            onSuccessRef.current(response.credential);
           }
         },
         auto_select: false,
@@ -108,14 +113,13 @@ export function GoogleSignInButton({
         width: 280,
       });
 
-      console.log('[GoogleSignIn] Button rendered, setting isLoading=false');
       setIsLoading(false);
     } catch (err) {
       console.error('[GoogleSignIn] Init error:', err);
       setIsLoading(false);
-      onError?.('Failed to initialize Google Sign-In');
+      onErrorRef.current?.('Failed to initialize Google Sign-In');
     }
-  }, [scriptLoaded, onSuccess, onError]);
+  }, [scriptLoaded]);
 
   return (
     <div className="flex justify-center">
