@@ -186,6 +186,9 @@ class Settings(BaseSettings):
     MATHPIX_APP_ID: Optional[str] = None
     MATHPIX_APP_KEY: Optional[str] = None
 
+    # Deploy API key for build scripts (version update from CI/local build)
+    DEPLOY_API_KEY: Optional[str] = None
+
     model_config = ConfigDict(
         env_file=str(ENV_PATH) if ENV_PATH.exists() else None,
         case_sensitive=True,

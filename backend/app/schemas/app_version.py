@@ -29,6 +29,18 @@ class AppVersionResponse(BaseModel):
 # --- Admin schemas ---
 
 
+class AppVersionDeploy(BaseModel):
+    """Schema for POST /api/version/deploy — called from build scripts."""
+
+    platform: PlatformEnum
+    version: str = Field(..., pattern=r"^\d+\.\d+\.\d+$", examples=["1.0.7"])
+    min_version: Optional[str] = Field(
+        None, pattern=r"^\d+\.\d+\.\d+$",
+        description="If omitted, keeps current min_version",
+    )
+    release_notes: Optional[str] = None
+
+
 class AppVersionAdminCreate(BaseModel):
     """Create / update a version record (SUPER_ADMIN)."""
 
