@@ -157,6 +157,7 @@ nginx/nginx-temp.conf
 backups/
 *.sql
 *.sql.gz
+*.dump
 
 # Production secrets
 secrets/
@@ -188,6 +189,10 @@ docs/adilet_*.json
 # Screenshots
 scrin/
 *.png
+
+# Large Adilet ГОСО HTML files
+book_parser/adilet*.html
+adilet*.html
 
 # Node.js
 node_modules/

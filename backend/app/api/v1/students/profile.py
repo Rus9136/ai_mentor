@@ -50,11 +50,22 @@ class StudentProfileResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    first_name: str
+    last_name: str
+    middle_name: Optional[str] = None
     student_code: str
     grade_level: int
     birth_date: Optional[date] = None
     school_name: Optional[str] = None
     classes: List[ClassInfo] = []
+
+
+class UpdateProfileRequest(BaseModel):
+    """Request to update student's FIO."""
+
+    first_name: str
+    last_name: str
+    middle_name: Optional[str] = None
 
 
 # =============================================================================
@@ -87,6 +98,9 @@ async def get_student_profile(
         # Return empty profile if student record not found
         return StudentProfileResponse(
             id=0,
+            first_name=current_user.first_name,
+            last_name=current_user.last_name,
+            middle_name=current_user.middle_name,
             student_code="",
             grade_level=0,
             classes=[],
@@ -94,6 +108,59 @@ async def get_student_profile(
 
     return StudentProfileResponse(
         id=student.id,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        middle_name=current_user.middle_name,
+        student_code=student.student_code,
+        grade_level=student.grade_level,
+        birth_date=student.birth_date,
+        school_name=student.school.name if student.school else None,
+        classes=[
+            ClassInfo(
+                id=cls.id,
+                name=cls.name,
+                grade_level=cls.grade_level,
+            )
+            for cls in student.classes
+        ],
+    )
+
+
+@router.put("/profile", response_model=StudentProfileResponse)
+async def update_student_profile(
+    data: UpdateProfileRequest,
+    current_user: User = Depends(require_student),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update current student's FIO (first_name, last_name, middle_name).
+    """
+    # Update user FIO
+    current_user.first_name = data.first_name
+    current_user.last_name = data.last_name
+    current_user.middle_name = data.middle_name
+    db.add(current_user)
+    await db.commit()
+
+    # Reload student with relationships for response
+    result = await db.execute(
+        select(Student)
+        .where(Student.user_id == current_user.id)
+        .options(selectinload(Student.classes), selectinload(Student.school))
+    )
+    student = result.scalar_one_or_none()
+
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student record not found",
+        )
+
+    return StudentProfileResponse(
+        id=student.id,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        middle_name=current_user.middle_name,
         student_code=student.student_code,
         grade_level=student.grade_level,
         birth_date=student.birth_date,

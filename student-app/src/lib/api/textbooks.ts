@@ -174,7 +174,9 @@ export interface ParagraphNavigation {
  * Get all textbooks available to the student with progress.
  */
 export async function getStudentTextbooks(): Promise<StudentTextbook[]> {
-  const response = await apiClient.get<PaginatedResponse<StudentTextbook>>('/students/textbooks');
+  const response = await apiClient.get<PaginatedResponse<StudentTextbook>>('/students/textbooks', {
+    params: { page_size: 100 },
+  });
   return response.data.items;
 }
 

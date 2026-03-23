@@ -380,8 +380,8 @@ export default function ParagraphPage({ params }: PageProps) {
                 </div>
               )}
 
-              {/* === PHASE: READING === */}
-              {flowPhase === 'reading' && (
+              {/* === PHASE: READING or CHAT (show content so student can reference it) === */}
+              {(flowPhase === 'reading' || flowPhase === 'chat') && (
                 <ParagraphContent
                   paragraph={paragraph}
                   richContent={richContent}
