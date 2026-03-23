@@ -3,6 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
+import { X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -16,13 +17,13 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   teacherCreateSchema,
   teacherUpdateSchema,
@@ -58,6 +59,15 @@ export function TeacherForm(props: TeacherFormProps) {
   const isEdit = mode === 'edit';
   const schema = isEdit ? teacherUpdateSchema : teacherCreateSchema;
 
+  // Resolve initial subject_ids from teacher data (prefer subject_ids, fallback to subject_id)
+  const initialSubjectIds = teacher
+    ? teacher.subject_ids && teacher.subject_ids.length > 0
+      ? teacher.subject_ids
+      : teacher.subject_id
+        ? [teacher.subject_id]
+        : []
+    : [];
+
   const form = useForm({
     resolver: zodResolver(schema),
     defaultValues: teacher
@@ -67,7 +77,7 @@ export function TeacherForm(props: TeacherFormProps) {
           middle_name: teacher.user?.middle_name || '',
           phone: teacher.user?.phone || '',
           teacher_code: teacher.teacher_code || '',
-          subject_id: teacher.subject_id || null,
+          subject_ids: initialSubjectIds,
           bio: teacher.bio || '',
         }
       : teacherCreateDefaults,
@@ -184,31 +194,84 @@ export function TeacherForm(props: TeacherFormProps) {
         <div className="grid gap-6 md:grid-cols-3">
           <FormField
             control={form.control}
-            name="subject_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('subject')}</FormLabel>
-                <Select
-                  onValueChange={(v) => field.onChange(v ? parseInt(v) : null)}
-                  defaultValue={field.value ? String(field.value) : undefined}
-                  disabled={subjectsLoading}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder={subjectsLoading ? 'Загрузка...' : 'Выберите предмет'} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {subjects?.map((subject) => (
-                      <SelectItem key={subject.id} value={String(subject.id)}>
-                        {subject.name_ru}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
+            name="subject_ids"
+            render={({ field }) => {
+              const selectedIds: number[] = field.value || [];
+              const selectedSubjects = subjects?.filter((s) => selectedIds.includes(s.id)) || [];
+
+              const toggleSubject = (subjectId: number) => {
+                const current = field.value || [];
+                if (current.includes(subjectId)) {
+                  field.onChange(current.filter((id: number) => id !== subjectId));
+                } else {
+                  field.onChange([...current, subjectId]);
+                }
+              };
+
+              return (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>{t('subject')}</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          type="button"
+                          className="w-full justify-start font-normal min-h-[40px] h-auto"
+                          disabled={subjectsLoading}
+                        >
+                          {selectedSubjects.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {selectedSubjects.map((s) => (
+                                <Badge
+                                  key={s.id}
+                                  variant="secondary"
+                                  className="mr-1"
+                                >
+                                  {s.name_ru}
+                                  <button
+                                    type="button"
+                                    className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleSubject(s.id);
+                                    }}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">
+                              {subjectsLoading ? 'Загрузка...' : 'Выберите предметы'}
+                            </span>
+                          )}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start">
+                      <div className="max-h-[300px] overflow-y-auto p-2 space-y-1">
+                        {subjects?.map((subject) => (
+                          <label
+                            key={subject.id}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={selectedIds.includes(subject.id)}
+                              onCheckedChange={() => toggleSubject(subject.id)}
+                            />
+                            <span className="text-sm">{subject.name_ru}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
 
           <FormField

@@ -84,9 +84,15 @@ export default function TeacherDetailPage({ params }: PageProps) {
             </Button>
             <div>
               <h1 className="text-3xl font-bold tracking-tight">{fullName}</h1>
-              {teacher.subject && (
+              {(teacher.subjects && teacher.subjects.length > 0) ? (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {teacher.subjects.map((s) => (
+                    <Badge key={s.id} variant="outline">{s.name_ru}</Badge>
+                  ))}
+                </div>
+              ) : teacher.subject ? (
                 <p className="text-muted-foreground">{teacher.subject}</p>
-              )}
+              ) : null}
             </div>
           </div>
           <Button onClick={() => router.push(`/${locale}/teachers/${teacher.id}/edit`)}>
@@ -112,12 +118,21 @@ export default function TeacherDetailPage({ params }: PageProps) {
                   <span>{user.phone}</span>
                 </div>
               )}
-              {teacher.subject && (
+              {(teacher.subjects && teacher.subjects.length > 0) ? (
+                <div className="flex items-center gap-3">
+                  <BookOpen className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-wrap gap-1">
+                    {teacher.subjects.map((s) => (
+                      <Badge key={s.id} variant="secondary">{s.name_ru}</Badge>
+                    ))}
+                  </div>
+                </div>
+              ) : teacher.subject ? (
                 <div className="flex items-center gap-3">
                   <BookOpen className="h-4 w-4 text-muted-foreground" />
                   <span>Предмет: {teacher.subject}</span>
                 </div>
-              )}
+              ) : null}
               {teacher.teacher_code && (
                 <div className="flex items-center gap-3">
                   <Hash className="h-4 w-4 text-muted-foreground" />

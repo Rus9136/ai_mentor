@@ -29,6 +29,20 @@ class Teacher(SoftDeleteModel):
     user = relationship("User", back_populates="teacher")
     subject_rel = relationship("Subject", back_populates="teachers", lazy="joined")
 
+    # Many-to-many: teacher ↔ subjects (new, via junction table)
+    teacher_subjects = relationship("TeacherSubject", back_populates="teacher", cascade="all, delete-orphan")
+    subjects = relationship(
+        "Subject",
+        secondary="teacher_subjects",
+        viewonly=True,
+        lazy="selectin",
+    )
+
+    @property
+    def subject_ids(self) -> list:
+        """List of subject IDs from the many-to-many relationship."""
+        return [s.id for s in (self.subjects or [])]
+
     # Many-to-many via association object
     class_teachers = relationship("ClassTeacher", back_populates="teacher", cascade="all, delete-orphan")
 

@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.api.dependencies import require_admin, get_current_user_school_id, get_pagination_params
 from app.models.user import User, UserRole, AuthProvider
 from app.models.teacher import Teacher
+from app.models.teacher_subject import TeacherSubject
 from app.repositories.user_repo import UserRepository
 from app.repositories.teacher_repo import TeacherRepository
 from app.repositories.goso_repo import GosoRepository
@@ -85,16 +86,29 @@ async def create_school_teacher(
     teacher_repo = TeacherRepository(db)
     goso_repo = GosoRepository(db)
 
-    # Validate subject_id if provided
-    subject_name = None
-    if data.subject_id:
-        subject = await goso_repo.get_subject_by_id(data.subject_id)
-        if not subject:
+    # Resolve subject IDs: prefer subject_ids (new), fall back to subject_id (legacy)
+    resolved_subject_ids = []
+    if data.subject_ids:
+        for sid in data.subject_ids:
+            subj = await goso_repo.get_subject_by_id(sid)
+            if not subj:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Subject with ID {sid} not found"
+                )
+            resolved_subject_ids.append(subj)
+    elif data.subject_id:
+        subj = await goso_repo.get_subject_by_id(data.subject_id)
+        if not subj:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Subject with ID {data.subject_id} not found"
             )
-        subject_name = subject.name_ru
+        resolved_subject_ids.append(subj)
+
+    # Legacy fields: first subject for backward compat
+    first_subject_id = resolved_subject_ids[0].id if resolved_subject_ids else None
+    subject_name = resolved_subject_ids[0].name_ru if resolved_subject_ids else None
 
     # Check if email already exists
     email = data.email
@@ -158,16 +172,23 @@ async def create_school_teacher(
         count = await teacher_repo.count_by_school(school_id)
         teacher_code = f"TCHR{year:02d}{count+1:04d}"
 
-    # Create teacher
+    # Create teacher (legacy subject_id = first subject for backward compat)
     teacher = Teacher(
         school_id=school_id,
         user_id=user.id,
         teacher_code=teacher_code,
-        subject_id=data.subject_id,
+        subject_id=first_subject_id,
         subject=subject_name,
         bio=data.bio
     )
     teacher = await teacher_repo.create(teacher)
+
+    # Create junction table entries for multi-subject
+    for subj in resolved_subject_ids:
+        ts = TeacherSubject(teacher_id=teacher.id, subject_id=subj.id)
+        db.add(ts)
+    if resolved_subject_ids:
+        await db.commit()
 
     # Load user relationship and classes
     teacher = await teacher_repo.get_by_id(teacher.id, school_id, load_user=True, load_classes=True)
@@ -199,20 +220,58 @@ async def update_school_teacher(
     Can update: teacher_code, subject_id, bio.
     """
     teacher_repo = TeacherRepository(db)
+    goso_repo = GosoRepository(db)
 
     # Update fields
     update_data = data.model_dump(exclude_unset=True)
 
-    # If subject_id is being updated, validate and populate text field
-    if "subject_id" in update_data and update_data["subject_id"] is not None:
-        goso_repo = GosoRepository(db)
-        subject = await goso_repo.get_subject_by_id(update_data["subject_id"])
-        if not subject:
+    # Handle multi-subject update
+    if "subject_ids" in update_data and update_data["subject_ids"] is not None:
+        new_subject_ids = update_data.pop("subject_ids")
+        # Validate all subject IDs
+        resolved_subjects = []
+        for sid in new_subject_ids:
+            subj = await goso_repo.get_subject_by_id(sid)
+            if not subj:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Subject with ID {sid} not found"
+                )
+            resolved_subjects.append(subj)
+
+        # Replace junction table entries
+        from sqlalchemy import delete
+        await db.execute(
+            delete(TeacherSubject).where(TeacherSubject.teacher_id == teacher.id)
+        )
+        for subj in resolved_subjects:
+            db.add(TeacherSubject(teacher_id=teacher.id, subject_id=subj.id))
+
+        # Update legacy fields for backward compat
+        if resolved_subjects:
+            update_data["subject_id"] = resolved_subjects[0].id
+            update_data["subject"] = resolved_subjects[0].name_ru
+        else:
+            update_data["subject_id"] = None
+            update_data["subject"] = None
+    elif "subject_id" in update_data and update_data["subject_id"] is not None:
+        # Legacy single subject update — also update junction table
+        subj = await goso_repo.get_subject_by_id(update_data["subject_id"])
+        if not subj:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Subject with ID {update_data['subject_id']} not found"
             )
-        update_data["subject"] = subject.name_ru
+        update_data["subject"] = subj.name_ru
+
+        from sqlalchemy import delete
+        await db.execute(
+            delete(TeacherSubject).where(TeacherSubject.teacher_id == teacher.id)
+        )
+        db.add(TeacherSubject(teacher_id=teacher.id, subject_id=subj.id))
+
+    # Remove subject_ids from update_data if still present (not a model column)
+    update_data.pop("subject_ids", None)
 
     for field, value in update_data.items():
         setattr(teacher, field, value)

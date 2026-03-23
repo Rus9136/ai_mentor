@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.teacher import Teacher
+from app.models.teacher_subject import TeacherSubject
 from app.models.user import User
 from app.models.subject import Subject
 
@@ -50,6 +51,7 @@ class TeacherRepository:
             query = query.options(selectinload(Teacher.classes))
         if load_subject:
             query = query.options(selectinload(Teacher.subject_rel))
+        query = query.options(selectinload(Teacher.subjects))
 
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
@@ -84,6 +86,7 @@ class TeacherRepository:
             query = query.options(selectinload(Teacher.classes))
         if load_subject:
             query = query.options(selectinload(Teacher.subject_rel))
+        query = query.options(selectinload(Teacher.subjects))
 
         result = await self.db.execute(query)
         return result.scalars().all()
@@ -116,13 +119,14 @@ class TeacherRepository:
             Teacher.is_deleted == False  # noqa: E712
         ]
 
-        if subject_id is not None:
-            filters.append(Teacher.subject_id == subject_id)
-
         if is_active is not None:
             filters.append(User.is_active == is_active)
 
         query = select(Teacher).join(Teacher.user).where(and_(*filters))
+
+        # Filter by subject via junction table
+        if subject_id is not None:
+            query = query.join(TeacherSubject).where(TeacherSubject.subject_id == subject_id)
 
         # For class_id filter, need to check the association table
         if class_id is not None:
@@ -135,6 +139,7 @@ class TeacherRepository:
             query = query.options(selectinload(Teacher.user))
         if load_subject:
             query = query.options(selectinload(Teacher.subject_rel))
+        query = query.options(selectinload(Teacher.subjects))
 
         result = await self.db.execute(query)
         return result.scalars().all()
@@ -176,11 +181,12 @@ class TeacherRepository:
             Teacher.is_deleted == False,  # noqa: E712
         ]
 
-        if subject_id is not None:
-            filters.append(Teacher.subject_id == subject_id)
-
         # Base query for items - always join User for search
         query = select(Teacher).join(Teacher.user)
+
+        # Filter by subject via junction table
+        if subject_id is not None:
+            query = query.join(TeacherSubject).where(TeacherSubject.subject_id == subject_id)
 
         # Handle is_active filter
         if is_active is not None:
@@ -218,6 +224,7 @@ class TeacherRepository:
             query = query.options(selectinload(Teacher.subject_rel))
         if load_classes:
             query = query.options(selectinload(Teacher.classes))
+        query = query.options(selectinload(Teacher.subjects))
 
         # Apply pagination
         offset = (page - 1) * page_size

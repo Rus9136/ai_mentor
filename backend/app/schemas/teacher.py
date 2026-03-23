@@ -31,7 +31,8 @@ class TeacherCreate(BaseModel):
         max_length=50,
         description="Teacher code (auto-generated if not provided)",
     )
-    subject_id: Optional[int] = Field(None, description="Subject ID from subjects table")
+    subject_id: Optional[int] = Field(None, description="Subject ID (legacy, single subject)")
+    subject_ids: Optional[List[int]] = Field(None, description="List of subject IDs (multi-subject)")
     bio: Optional[str] = Field(None, description="Teacher biography")
 
     @field_validator("phone")
@@ -55,7 +56,8 @@ class TeacherUpdate(BaseModel):
     # Only teacher-specific fields can be updated
     # User fields are updated via UserUpdate schema
     teacher_code: Optional[str] = Field(None, max_length=50, description="Teacher code")
-    subject_id: Optional[int] = Field(None, description="Subject ID from subjects table")
+    subject_id: Optional[int] = Field(None, description="Subject ID (legacy, single subject)")
+    subject_ids: Optional[List[int]] = Field(None, description="List of subject IDs (multi-subject)")
     bio: Optional[str] = Field(None, description="Teacher biography")
 
 
@@ -68,9 +70,11 @@ class TeacherResponse(BaseModel):
     school_id: int
     user_id: int
     teacher_code: str
-    subject_id: Optional[int] = Field(None, description="Subject ID (normalized)")
+    subject_id: Optional[int] = Field(None, description="Subject ID (legacy, first subject)")
     subject: Optional[str] = Field(None, description="Subject name (for backward compatibility)")
-    subject_rel: Optional[SubjectBrief] = Field(None, description="Subject details")
+    subject_rel: Optional[SubjectBrief] = Field(None, description="Subject details (legacy)")
+    subject_ids: List[int] = Field(default_factory=list, description="All subject IDs")
+    subjects: List[SubjectBrief] = Field(default_factory=list, description="All subjects")
     bio: Optional[str]
     created_at: datetime
     updated_at: datetime
@@ -89,9 +93,11 @@ class TeacherListResponse(BaseModel):
 
     id: int
     teacher_code: str
-    subject_id: Optional[int] = Field(None, description="Subject ID (normalized)")
+    subject_id: Optional[int] = Field(None, description="Subject ID (legacy, first subject)")
     subject: Optional[str] = Field(None, description="Subject name (for backward compatibility)")
-    subject_rel: Optional[SubjectBrief] = Field(None, description="Subject details")
+    subject_rel: Optional[SubjectBrief] = Field(None, description="Subject details (legacy)")
+    subject_ids: List[int] = Field(default_factory=list, description="All subject IDs")
+    subjects: List[SubjectBrief] = Field(default_factory=list, description="All subjects")
     created_at: datetime
 
     # Nested user data (brief)

@@ -36,12 +36,10 @@ export const teacherCreateSchema = z.object({
     .max(50, 'Максимум 50 символов')
     .optional()
     .or(z.literal('')),
-  subject_id: z
-    .number()
-    .int()
-    .positive()
+  subject_ids: z
+    .array(z.number().int().positive())
     .optional()
-    .nullable(),
+    .default([]),
   bio: z
     .string()
     .max(1000, 'Максимум 1000 символов')
@@ -86,12 +84,10 @@ export const teacherUpdateSchema = z.object({
     .max(50, 'Максимум 50 символов')
     .optional()
     .or(z.literal('')),
-  subject_id: z
-    .number()
-    .int()
-    .positive()
+  subject_ids: z
+    .array(z.number().int().positive())
     .optional()
-    .nullable(),
+    .default([]),
   bio: z
     .string()
     .max(1000, 'Максимум 1000 символов')
@@ -112,6 +108,6 @@ export const teacherCreateDefaults: TeacherCreateInput = {
   middle_name: '',
   phone: '',
   teacher_code: '',
-  subject_id: null,
+  subject_ids: [],
   bio: '',
 };

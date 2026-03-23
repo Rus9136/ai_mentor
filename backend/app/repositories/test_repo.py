@@ -201,6 +201,7 @@ class TestRepository:
         include_global: bool = False,
         chapter_id: Optional[int] = None,
         subject_id: Optional[int] = None,
+        subject_ids: Optional[List[int]] = None,
         grade_level: Optional[int] = None,
     ) -> Tuple[List[Test], int]:
         """
@@ -212,12 +213,17 @@ class TestRepository:
             page_size: Number of items per page
             include_global: Whether to include global tests
             chapter_id: Optional filter by chapter
-            subject_id: Optional filter by subject (via textbook)
+            subject_id: Optional filter by single subject (via textbook, legacy)
+            subject_ids: Optional filter by multiple subjects (via textbook)
             grade_level: Optional filter by grade level (via textbook)
 
         Returns:
             Tuple of (list of tests, total count)
         """
+        # Normalize single subject_id to list
+        if subject_id is not None and subject_ids is None:
+            subject_ids = [subject_id]
+
         # Build filters
         filters = [Test.is_deleted == False]  # noqa: E712
 
@@ -232,11 +238,11 @@ class TestRepository:
         if chapter_id is not None:
             filters.append(Test.chapter_id == chapter_id)
 
-        if subject_id is not None:
+        if subject_ids is not None and len(subject_ids) > 0:
             filters.append(
                 Test.textbook_id.in_(
                     select(Textbook.id).where(
-                        Textbook.subject_id == subject_id,
+                        Textbook.subject_id.in_(subject_ids),
                         Textbook.is_deleted == False,
                     )
                 )

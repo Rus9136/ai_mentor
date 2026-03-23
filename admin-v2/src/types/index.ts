@@ -355,9 +355,11 @@ export interface Teacher {
   school_id: number;
   user_id: number;
   teacher_code: string;
-  subject_id?: number | null;
+  subject_id?: number | null; // legacy (first subject)
   subject?: string | null; // backward compatibility
-  subject_rel?: SubjectBrief | null;
+  subject_rel?: SubjectBrief | null; // legacy
+  subject_ids?: number[]; // all subject IDs
+  subjects?: SubjectBrief[]; // all subjects
   bio?: string | null;
   user?: User;
   classes?: SchoolClassBrief[];
@@ -375,7 +377,8 @@ export interface TeacherCreate {
   middle_name?: string;
   phone?: string;
   teacher_code?: string;
-  subject_id?: number | null;
+  subject_id?: number | null; // legacy
+  subject_ids?: number[]; // multi-subject
   bio?: string;
 }
 
@@ -385,7 +388,8 @@ export interface TeacherUpdate {
   middle_name?: string;
   phone?: string;
   teacher_code?: string;
-  subject_id?: number | null;
+  subject_id?: number | null; // legacy
+  subject_ids?: number[]; // multi-subject
   bio?: string;
 }
 

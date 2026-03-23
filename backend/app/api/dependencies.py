@@ -379,8 +379,11 @@ async def get_teacher_from_user(
         HTTPException 400: If Teacher record not found for this user
     """
     # RLS is already set by get_db() - just query
+    # Eager load subjects for multi-subject access control (used in teachers_tests.py)
     result = await db.execute(
-        select(Teacher).where(Teacher.user_id == current_user.id)
+        select(Teacher)
+        .where(Teacher.user_id == current_user.id)
+        .options(selectinload(Teacher.subjects))
     )
     teacher = result.scalar_one_or_none()
 

@@ -87,6 +87,17 @@ export function getColumns({
       ),
       cell: ({ row }) => {
         const teacher = row.original;
+        const subjects = teacher.subjects || [];
+        if (subjects.length > 0) {
+          return (
+            <div className="flex flex-wrap gap-1">
+              {subjects.map((s) => (
+                <Badge key={s.id} variant="outline">{s.name_ru}</Badge>
+              ))}
+            </div>
+          );
+        }
+        // Fallback to legacy single subject
         const subjectName = teacher.subject_rel?.name_ru || teacher.subject;
         return subjectName ? (
           <Badge variant="outline">{subjectName}</Badge>

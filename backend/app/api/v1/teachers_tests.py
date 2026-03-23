@@ -68,12 +68,13 @@ async def _get_test_for_teacher(
     if test.school_id is not None and test.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Check subject match via textbook
-    if test.textbook_id and teacher.subject_id:
+    # Check subject match via textbook (multi-subject)
+    teacher_sids = teacher.subject_ids
+    if test.textbook_id and teacher_sids:
         textbook_repo = TextbookRepository(db)
         textbook = await textbook_repo.get_by_id(test.textbook_id)
-        if textbook and textbook.subject_id != teacher.subject_id:
-            raise HTTPException(status_code=403, detail="Test does not belong to your subject")
+        if textbook and textbook.subject_id not in teacher_sids:
+            raise HTTPException(status_code=403, detail="Test does not belong to your subjects")
 
     return test
 
@@ -289,18 +290,19 @@ async def list_teacher_tests(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    List tests filtered by teacher's subject.
-    Returns global + school tests for textbooks matching teacher.subject_id.
+    List tests filtered by teacher's subjects.
+    Returns global + school tests for textbooks matching teacher's subject(s).
     """
     test_repo = TestRepository(db)
 
+    teacher_sids = teacher.subject_ids or None
     tests, total = await test_repo.get_by_school_paginated(
         school_id=school_id,
         page=page,
         page_size=page_size,
         include_global=include_global,
         chapter_id=chapter_id,
-        subject_id=teacher.subject_id,
+        subject_ids=teacher_sids,
         grade_level=grade_level,
     )
 
@@ -335,9 +337,10 @@ async def create_teacher_test(
     if textbook.school_id is not None and textbook.school_id != school_id:
         raise HTTPException(status_code=403, detail="Cannot create test for textbook from another school")
 
-    # Validate textbook subject matches teacher's subject
-    if teacher.subject_id and textbook.subject_id != teacher.subject_id:
-        raise HTTPException(status_code=403, detail="Textbook does not belong to your subject")
+    # Validate textbook subject matches teacher's subjects
+    teacher_sids = teacher.subject_ids
+    if teacher_sids and textbook.subject_id not in teacher_sids:
+        raise HTTPException(status_code=403, detail="Textbook does not belong to your subjects")
 
     # Validate chapter hierarchy
     if data.chapter_id:
@@ -415,8 +418,9 @@ async def update_teacher_test(
             raise HTTPException(status_code=404, detail=f"Textbook {update_data['textbook_id']} not found")
         if textbook.school_id is not None and textbook.school_id != school_id:
             raise HTTPException(status_code=403, detail="Cannot assign test to textbook from another school")
-        if teacher.subject_id and textbook.subject_id != teacher.subject_id:
-            raise HTTPException(status_code=403, detail="Textbook does not belong to your subject")
+        teacher_sids = teacher.subject_ids
+        if teacher_sids and textbook.subject_id not in teacher_sids:
+            raise HTTPException(status_code=403, detail="Textbook does not belong to your subjects")
 
     # Validate chapter
     if new_chapter_id:
