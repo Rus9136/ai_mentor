@@ -9,7 +9,7 @@ from typing import Optional, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.homework import StudentTaskAnswer
+from app.models.homework import StudentTaskAnswer, HomeworkStudent
 from app.repositories.homework import HomeworkRepository
 
 
@@ -40,6 +40,17 @@ class ReviewService:
         return await self.repo.get_answers_for_review(
             school_id=school_id,
             limit=limit
+        )
+
+    async def get_homework_submissions(
+        self,
+        homework_id: int,
+        school_id: int,
+    ) -> List[HomeworkStudent]:
+        """Get all student submissions for a homework."""
+        return await self.repo.get_submissions_for_homework(
+            homework_id=homework_id,
+            school_id=school_id,
         )
 
     async def review_answer(

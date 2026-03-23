@@ -14,6 +14,8 @@ from app.models.homework import (
     HomeworkStudent,
     HomeworkStatus,
     HomeworkStudentStatus,
+    StudentTaskSubmission,
+    StudentTaskAnswer,
 )
 
 
@@ -140,6 +142,33 @@ class StudentAssignmentRepository:
 
         result = await self.db.execute(query)
         return list(result.unique().scalars().all()), total
+
+    async def get_submissions_for_homework(
+        self,
+        homework_id: int,
+        school_id: int,
+    ) -> List[HomeworkStudent]:
+        """Get all student assignments for a homework with submissions and answers."""
+        from app.models.student import Student
+        from app.models.user import User
+
+        result = await self.db.execute(
+            select(HomeworkStudent)
+            .options(
+                selectinload(HomeworkStudent.student)
+                .selectinload(Student.user),
+                selectinload(HomeworkStudent.task_submissions)
+                .selectinload(StudentTaskSubmission.answers)
+                .selectinload(StudentTaskAnswer.question),
+            )
+            .where(
+                HomeworkStudent.homework_id == homework_id,
+                HomeworkStudent.school_id == school_id,
+                HomeworkStudent.is_deleted == False,
+            )
+            .order_by(HomeworkStudent.status.desc(), HomeworkStudent.submitted_at.desc().nulls_last())
+        )
+        return list(result.unique().scalars().all())
 
     async def update_student_homework_status(
         self,

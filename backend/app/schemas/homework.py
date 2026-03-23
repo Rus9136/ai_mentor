@@ -625,6 +625,81 @@ class TeacherReviewResponse(BaseModel):
 
 
 # =============================================================================
+# Teacher Submissions View Schemas
+# =============================================================================
+
+class StudentAnswerDetail(BaseModel):
+    """Individual answer detail for teacher view."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    question_id: int
+    question_text: str
+    question_type: QuestionType
+    points: int
+
+    # Student answer
+    answer_text: Optional[str] = None
+    answer_code: Optional[str] = None
+    selected_option_ids: Optional[List[str]] = None
+    answered_at: Optional[datetime] = None
+
+    # Correct answer (for comparison)
+    correct_answer: Optional[str] = None
+    options: Optional[List[QuestionOption]] = None
+
+    # Auto grading
+    is_correct: Optional[bool] = None
+    partial_score: Optional[float] = None
+
+    # AI grading
+    ai_score: Optional[float] = None
+    ai_confidence: Optional[float] = None
+    ai_feedback: Optional[str] = None
+
+    # Teacher review
+    teacher_override_score: Optional[float] = None
+    teacher_comment: Optional[str] = None
+    flagged_for_review: bool = False
+
+
+class StudentSubmissionDetail(BaseModel):
+    """A student's submission summary for a homework."""
+    model_config = ConfigDict(from_attributes=True)
+
+    student_id: int
+    student_name: str
+    status: StudentHomeworkStatus
+
+    assigned_at: datetime
+    started_at: Optional[datetime] = None
+    submitted_at: Optional[datetime] = None
+    graded_at: Optional[datetime] = None
+
+    total_score: Optional[float] = None
+    max_score: Optional[float] = None
+    percentage: Optional[float] = None
+    time_spent_seconds: int = 0
+
+    late_submitted: bool = False
+    ai_graded: bool = False
+    teacher_reviewed: bool = False
+
+    answers: List[StudentAnswerDetail] = []
+
+
+class HomeworkSubmissionsResponse(BaseModel):
+    """Response for homework submissions list."""
+    homework_id: int
+    homework_title: str
+    total_students: int
+    submitted_count: int
+    graded_count: int
+    average_percentage: Optional[float] = None
+    students: List[StudentSubmissionDetail] = []
+
+
+# =============================================================================
 # Analytics Schemas
 # =============================================================================
 

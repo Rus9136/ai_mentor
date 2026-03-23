@@ -294,6 +294,15 @@ class HomeworkService:
             school_id, homework_id, limit
         )
 
+    async def get_homework_submissions(
+        self,
+        homework_id: int,
+        school_id: int,
+    ) -> list:
+        return await self._review.get_homework_submissions(
+            homework_id, school_id
+        )
+
     async def review_answer(
         self,
         answer_id: int,

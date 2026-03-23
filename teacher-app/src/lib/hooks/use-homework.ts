@@ -16,6 +16,7 @@ import {
   generateQuestions,
   getReviewQueue,
   reviewAnswer,
+  getHomeworkSubmissions,
   getTextbooks,
   getChapters,
   getParagraphs,
@@ -42,6 +43,7 @@ export const homeworkKeys = {
   details: () => [...homeworkKeys.all, 'detail'] as const,
   detail: (id: number) => [...homeworkKeys.details(), id] as const,
   reviewQueue: (params?: ReviewQueueParams) => [...homeworkKeys.all, 'review-queue', params] as const,
+  submissions: (id: number) => [...homeworkKeys.all, 'submissions', id] as const,
   textbooks: () => ['textbooks'] as const,
   chapters: (textbookId: number) => ['textbooks', textbookId, 'chapters'] as const,
   paragraphs: (chapterId: number) => ['chapters', chapterId, 'paragraphs'] as const,
@@ -70,6 +72,14 @@ export function useReviewQueue(params?: ReviewQueueParams) {
   return useQuery({
     queryKey: homeworkKeys.reviewQueue(params),
     queryFn: () => getReviewQueue(params),
+  });
+}
+
+export function useHomeworkSubmissions(homeworkId: number) {
+  return useQuery({
+    queryKey: homeworkKeys.submissions(homeworkId),
+    queryFn: () => getHomeworkSubmissions(homeworkId),
+    enabled: !!homeworkId,
   });
 }
 

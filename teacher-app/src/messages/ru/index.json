@@ -477,6 +477,35 @@
       "step3": "Вопросы",
       "step4": "Предпросмотр"
     },
+    "detailTab": {
+      "details": "Задание",
+      "results": "Результаты"
+    },
+    "results": {
+      "noStudents": "Ученики не назначены",
+      "noSubmissions": "Ещё никто не сдал",
+      "studentName": "Ученик",
+      "status": "Статус",
+      "score": "Балл",
+      "submittedAt": "Время сдачи",
+      "averageScore": "Средний балл",
+      "needsReview": "Требует проверки",
+      "correct": "Верно",
+      "incorrect": "Неверно",
+      "noAnswer": "Нет ответа",
+      "aiFeedback": "Комментарий AI",
+      "teacherFeedback": "Комментарий учителя",
+      "question": "Вопрос",
+      "studentAnswer": "Ответ ученика",
+      "correctAnswer": "Правильный ответ",
+      "submissionStatus": {
+        "assigned": "Назначено",
+        "in_progress": "В процессе",
+        "submitted": "Сдано",
+        "graded": "Оценено",
+        "returned": "Возвращено"
+      }
+    },
     "stats": {
       "totalStudents": "Всего учеников",
       "submitted": "Сдали",

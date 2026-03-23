@@ -353,3 +353,66 @@ export interface ReviewQueueParams {
   homework_id?: number;
   limit?: number;
 }
+
+// =============================================================================
+// Submissions (Student Results) Types
+// =============================================================================
+
+export interface StudentAnswerDetail {
+  id: number;
+  question_id: number;
+  question_text: string;
+  question_type: QuestionType;
+  points: number;
+
+  answer_text?: string;
+  answer_code?: string;
+  selected_option_ids?: string[];
+  answered_at?: string;
+
+  correct_answer?: string;
+  options?: QuestionOption[];
+
+  is_correct?: boolean;
+  partial_score?: number;
+
+  ai_score?: number;
+  ai_confidence?: number;
+  ai_feedback?: string;
+
+  teacher_override_score?: number;
+  teacher_comment?: string;
+  flagged_for_review: boolean;
+}
+
+export interface StudentSubmissionDetail {
+  student_id: number;
+  student_name: string;
+  status: StudentHomeworkStatus;
+
+  assigned_at: string;
+  started_at?: string;
+  submitted_at?: string;
+  graded_at?: string;
+
+  total_score?: number;
+  max_score?: number;
+  percentage?: number;
+  time_spent_seconds: number;
+
+  late_submitted: boolean;
+  ai_graded: boolean;
+  teacher_reviewed: boolean;
+
+  answers: StudentAnswerDetail[];
+}
+
+export interface HomeworkSubmissionsResponse {
+  homework_id: number;
+  homework_title: string;
+  total_students: number;
+  submitted_count: number;
+  graded_count: number;
+  average_percentage?: number;
+  students: StudentSubmissionDetail[];
+}

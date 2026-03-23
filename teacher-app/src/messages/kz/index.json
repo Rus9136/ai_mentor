@@ -477,6 +477,35 @@
       "step3": "Сұрақтар",
       "step4": "Алдын ала қарау"
     },
+    "detailTab": {
+      "details": "Тапсырма",
+      "results": "Нәтижелер"
+    },
+    "results": {
+      "noStudents": "Оқушылар тағайындалмаған",
+      "noSubmissions": "Әлі ешкім тапсырмаған",
+      "studentName": "Оқушы",
+      "status": "Күйі",
+      "score": "Балл",
+      "submittedAt": "Тапсырған уақыт",
+      "averageScore": "Орташа балл",
+      "needsReview": "Тексеру қажет",
+      "correct": "Дұрыс",
+      "incorrect": "Қате",
+      "noAnswer": "Жауап жоқ",
+      "aiFeedback": "AI пікірі",
+      "teacherFeedback": "Мұғалім пікірі",
+      "question": "Сұрақ",
+      "studentAnswer": "Оқушы жауабы",
+      "correctAnswer": "Дұрыс жауап",
+      "submissionStatus": {
+        "assigned": "Тағайындалды",
+        "in_progress": "Орындалуда",
+        "submitted": "Тапсырылды",
+        "graded": "Бағаланды",
+        "returned": "Қайтарылды"
+      }
+    },
     "stats": {
       "totalStudents": "Барлық оқушылар",
       "submitted": "Тапсырды",

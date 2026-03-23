@@ -29,14 +29,18 @@ from app.schemas.homework import (
     HomeworkListResponse,
     HomeworkResponse,
     HomeworkStatus,
+    HomeworkSubmissionsResponse,
     HomeworkTaskCreate,
     HomeworkTaskResponse,
     HomeworkUpdate,
     QuestionCreate,
     QuestionResponseWithAnswer,
+    StudentAnswerDetail,
+    StudentSubmissionDetail,
     TeacherReviewRequest,
     TeacherReviewResponse,
 )
+from app.models.homework import HomeworkStudentStatus
 from app.services.homework import HomeworkService, HomeworkServiceError
 from app.services.homework.ai import HomeworkAIServiceError
 from app.services.homework.publishing_service import PublishingServiceError
@@ -379,6 +383,106 @@ async def close_homework(
     # Get final statistics
     stats = await service.get_homework_stats(closed.id, school_id)
     return HomeworkResponseBuilder.build_homework_response(closed, stats=stats)
+
+
+# =============================================================================
+# Submissions (Student Results)
+# =============================================================================
+
+@router.get(
+    "/{homework_id}/submissions",
+    response_model=HomeworkSubmissionsResponse,
+    summary="Get student submissions for homework",
+    description="Get all student submissions with their answers and scores."
+)
+async def get_homework_submissions(
+    homework: Homework = Depends(verify_homework_ownership),
+    school_id: int = Depends(get_current_user_school_id),
+    service: HomeworkService = Depends(get_homework_service),
+) -> HomeworkSubmissionsResponse:
+    """Get all student submissions for a homework assignment."""
+    hw_students = await service.get_homework_submissions(
+        homework_id=homework.id,
+        school_id=school_id,
+    )
+
+    submitted_count = 0
+    graded_count = 0
+    percentages = []
+    students_response = []
+
+    for hs in hw_students:
+        student_name = ""
+        if hs.student and hs.student.user:
+            student_name = f"{hs.student.user.first_name} {hs.student.user.last_name}"
+
+        if hs.status in (HomeworkStudentStatus.SUBMITTED, HomeworkStudentStatus.GRADED):
+            submitted_count += 1
+        if hs.status == HomeworkStudentStatus.GRADED:
+            graded_count += 1
+        if hs.percentage is not None:
+            percentages.append(hs.percentage)
+
+        # Collect answers from all task submissions
+        answers_detail = []
+        for ts in (hs.task_submissions or []):
+            for answer in (ts.answers or []):
+                q = answer.question
+                answers_detail.append(
+                    StudentAnswerDetail(
+                        id=answer.id,
+                        question_id=answer.question_id,
+                        question_text=q.question_text if q else "",
+                        question_type=q.question_type if q else "open_ended",
+                        points=q.points if q else 0,
+                        answer_text=answer.answer_text,
+                        answer_code=answer.answer_code,
+                        selected_option_ids=answer.selected_option_ids,
+                        answered_at=answer.answered_at,
+                        correct_answer=q.correct_answer if q else None,
+                        options=q.options if q else None,
+                        is_correct=answer.is_correct,
+                        partial_score=answer.partial_score,
+                        ai_score=answer.ai_score,
+                        ai_confidence=answer.ai_confidence,
+                        ai_feedback=answer.ai_feedback,
+                        teacher_override_score=answer.teacher_override_score,
+                        teacher_comment=answer.teacher_comment,
+                        flagged_for_review=answer.flagged_for_review,
+                    )
+                )
+
+        students_response.append(
+            StudentSubmissionDetail(
+                student_id=hs.student_id,
+                student_name=student_name,
+                status=hs.status,
+                assigned_at=hs.assigned_at,
+                started_at=hs.started_at,
+                submitted_at=hs.submitted_at,
+                graded_at=hs.graded_at,
+                total_score=hs.total_score,
+                max_score=hs.max_score,
+                percentage=hs.percentage,
+                time_spent_seconds=hs.time_spent_seconds,
+                late_submitted=hs.late_submitted,
+                ai_graded=hs.ai_graded,
+                teacher_reviewed=hs.teacher_reviewed,
+                answers=answers_detail,
+            )
+        )
+
+    avg_pct = round(sum(percentages) / len(percentages), 2) if percentages else None
+
+    return HomeworkSubmissionsResponse(
+        homework_id=homework.id,
+        homework_title=homework.title,
+        total_students=len(hw_students),
+        submitted_count=submitted_count,
+        graded_count=graded_count,
+        average_percentage=avg_pct,
+        students=students_response,
+    )
 
 
 # =============================================================================

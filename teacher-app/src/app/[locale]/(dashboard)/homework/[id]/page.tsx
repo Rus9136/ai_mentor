@@ -15,7 +15,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { HomeworkStatusBadge, QuestionCard } from '@/components/homework';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { HomeworkStatusBadge, QuestionCard, StudentResultsTab } from '@/components/homework';
 import { useHomework, usePublishHomework, useCloseHomework } from '@/lib/hooks/use-homework';
 import { HomeworkStatus } from '@/types/homework';
 
@@ -169,63 +170,81 @@ export default function HomeworkDetailPage() {
         </Card>
       </div>
 
-      {/* Description */}
-      {homework.description && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t('form.description')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm">{homework.description}</p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Tabs: Details / Results */}
+      <Tabs defaultValue="details">
+        <TabsList>
+          <TabsTrigger value="details">{t('detailTab.details')}</TabsTrigger>
+          {homework.status !== HomeworkStatus.DRAFT && (
+            <TabsTrigger value="results">{t('detailTab.results')}</TabsTrigger>
+          )}
+        </TabsList>
 
-      {/* Tasks and Questions */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">{t('task.title')}</h2>
-        {homework.tasks.length > 0 ? (
-          homework.tasks.map((task, taskIndex) => (
-            <Card key={task.id}>
+        <TabsContent value="details" className="space-y-4 mt-4">
+          {/* Description */}
+          {homework.description && (
+            <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">
-                    {taskIndex + 1}. {task.paragraph_title || task.chapter_title || t(`task.types.${task.task_type}`)}
-                  </CardTitle>
-                  <span className="text-sm text-muted-foreground">
-                    {task.points} {t('task.points')}
-                  </span>
-                </div>
-                {task.instructions && (
-                  <p className="text-sm text-muted-foreground">{task.instructions}</p>
-                )}
+                <CardTitle className="text-base">{t('form.description')}</CardTitle>
               </CardHeader>
               <CardContent>
-                {task.questions.length > 0 ? (
-                  <div className="space-y-3">
-                    {task.questions.map((question, qIndex) => (
-                      <QuestionCard
-                        key={question.id}
-                        question={question}
-                        index={qIndex}
-                        showAnswer={true}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">{t('question.noQuestions')}</p>
-                )}
+                <p className="text-sm">{homework.description}</p>
               </CardContent>
             </Card>
-          ))
-        ) : (
-          <Card>
-            <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">{t('task.noTasks')}</p>
-            </CardContent>
-          </Card>
+          )}
+
+          {/* Tasks and Questions */}
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">{t('task.title')}</h2>
+            {homework.tasks.length > 0 ? (
+              homework.tasks.map((task, taskIndex) => (
+                <Card key={task.id}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">
+                        {taskIndex + 1}. {task.paragraph_title || task.chapter_title || t(`task.types.${task.task_type}`)}
+                      </CardTitle>
+                      <span className="text-sm text-muted-foreground">
+                        {task.points} {t('task.points')}
+                      </span>
+                    </div>
+                    {task.instructions && (
+                      <p className="text-sm text-muted-foreground">{task.instructions}</p>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    {task.questions.length > 0 ? (
+                      <div className="space-y-3">
+                        {task.questions.map((question, qIndex) => (
+                          <QuestionCard
+                            key={question.id}
+                            question={question}
+                            index={qIndex}
+                            showAnswer={true}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">{t('question.noQuestions')}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center">
+                  <p className="text-muted-foreground">{t('task.noTasks')}</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        {homework.status !== HomeworkStatus.DRAFT && (
+          <TabsContent value="results" className="mt-4">
+            <StudentResultsTab homeworkId={homeworkId} />
+          </TabsContent>
         )}
-      </div>
+      </Tabs>
     </div>
   );
 }

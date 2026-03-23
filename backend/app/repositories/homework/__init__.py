@@ -163,6 +163,13 @@ class HomeworkRepository:
             student_id, school_id, status, page, page_size
         )
 
+    async def get_submissions_for_homework(
+        self, homework_id: int, school_id: int
+    ) -> list:
+        return await self._assignment.get_submissions_for_homework(
+            homework_id, school_id
+        )
+
     async def update_student_homework_status(self, homework_student_id: int, status):
         return await self._assignment.update_student_homework_status(
             homework_student_id, status

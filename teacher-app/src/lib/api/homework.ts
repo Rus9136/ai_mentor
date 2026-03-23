@@ -18,6 +18,7 @@ import type {
   TeacherReviewRequest,
   TeacherReviewResponse,
   Attachment,
+  HomeworkSubmissionsResponse,
 } from '@/types/homework';
 
 // =============================================================================
@@ -141,6 +142,19 @@ export async function reviewAnswer(
   const response = await apiClient.post<TeacherReviewResponse>(
     `/teachers/homework/answers/${answerId}/review`,
     data
+  );
+  return response.data;
+}
+
+// =============================================================================
+// Submissions (Student Results)
+// =============================================================================
+
+export async function getHomeworkSubmissions(
+  homeworkId: number
+): Promise<HomeworkSubmissionsResponse> {
+  const response = await apiClient.get<HomeworkSubmissionsResponse>(
+    `/teachers/homework/${homeworkId}/submissions`
   );
   return response.data;
 }

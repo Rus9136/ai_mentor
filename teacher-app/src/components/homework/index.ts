@@ -11,3 +11,4 @@ export { FileUpload } from './FileUpload';
 export { ParagraphSearchCombobox } from './ParagraphSearchCombobox';
 export { HomeworkTemplates, HOMEWORK_TEMPLATES } from './HomeworkTemplates';
 export { QuickTaskCard } from './QuickTaskCard';
+export { StudentResultsTab } from './StudentResultsTab';
