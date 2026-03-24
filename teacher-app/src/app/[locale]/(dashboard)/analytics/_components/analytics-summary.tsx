@@ -5,11 +5,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Users, Target, AlertTriangle, Bell, Activity } from 'lucide-react';
 import type { AnalyticsSummaryResponse } from '@/lib/api/teachers';
 
+export type AnalyticsTab = 'struggling' | 'trends' | 'feedback';
+
 interface AnalyticsSummaryProps {
   data?: AnalyticsSummaryResponse;
+  onNavigate?: (tab: AnalyticsTab) => void;
 }
 
-export function AnalyticsSummary({ data }: AnalyticsSummaryProps) {
+export function AnalyticsSummary({ data, onNavigate }: AnalyticsSummaryProps) {
   const t = useTranslations('analytics');
 
   const metrics = [
@@ -19,6 +22,7 @@ export function AnalyticsSummary({ data }: AnalyticsSummaryProps) {
       icon: Users,
       color: 'text-blue-600',
       bg: 'bg-blue-50',
+      tab: undefined as AnalyticsTab | undefined,
     },
     {
       label: t('summaryMastery'),
@@ -26,6 +30,7 @@ export function AnalyticsSummary({ data }: AnalyticsSummaryProps) {
       icon: Target,
       color: 'text-emerald-600',
       bg: 'bg-emerald-50',
+      tab: 'trends' as AnalyticsTab,
     },
     {
       label: t('summaryStruggling'),
@@ -33,6 +38,7 @@ export function AnalyticsSummary({ data }: AnalyticsSummaryProps) {
       icon: AlertTriangle,
       color: 'text-amber-600',
       bg: 'bg-amber-50',
+      tab: 'struggling' as AnalyticsTab,
     },
     {
       label: t('summaryAlerts'),
@@ -40,6 +46,7 @@ export function AnalyticsSummary({ data }: AnalyticsSummaryProps) {
       icon: Bell,
       color: 'text-red-600',
       bg: 'bg-red-50',
+      tab: 'feedback' as AnalyticsTab,
     },
     {
       label: t('summaryActive'),
@@ -47,24 +54,32 @@ export function AnalyticsSummary({ data }: AnalyticsSummaryProps) {
       icon: Activity,
       color: 'text-violet-600',
       bg: 'bg-violet-50',
+      tab: undefined as AnalyticsTab | undefined,
     },
   ];
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-      {metrics.map((m) => (
-        <Card key={m.label} className="border-0 shadow-sm">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${m.bg}`}>
-              <m.icon className={`h-5 w-5 ${m.color}`} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-2xl font-bold leading-none">{m.value}</p>
-              <p className="mt-1 truncate text-xs text-muted-foreground">{m.label}</p>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+      {metrics.map((m) => {
+        const clickable = !!m.tab && !!onNavigate;
+        return (
+          <Card
+            key={m.label}
+            className={`border-0 shadow-sm transition-shadow ${clickable ? 'cursor-pointer hover:shadow-md' : ''}`}
+            onClick={clickable ? () => onNavigate!(m.tab!) : undefined}
+          >
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${m.bg}`}>
+                <m.icon className={`h-5 w-5 ${m.color}`} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-2xl font-bold leading-none">{m.value}</p>
+                <p className="mt-1 truncate text-xs text-muted-foreground">{m.label}</p>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

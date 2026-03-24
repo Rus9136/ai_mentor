@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Loader2, MessageSquare } from 'lucide-react';
 
-import { AnalyticsSummary } from './_components/analytics-summary';
+import { AnalyticsSummary, type AnalyticsTab } from './_components/analytics-summary';
 import { StrugglingTopicsTab } from './_components/struggling-topics-tab';
 import { MasteryTrendsTab } from './_components/mastery-trends-tab';
 import { FeedbackTab } from './_components/feedback-tab';
@@ -29,6 +29,7 @@ export default function AnalyticsPage() {
   const t = useTranslations('analytics');
   const [period, setPeriod] = useState<'weekly' | 'monthly'>('weekly');
   const [selectedClassId, setSelectedClassId] = useState<number | undefined>(undefined);
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>('struggling');
 
   // Load teacher's classes for filter dropdown
   const { data: classes } = useClasses();
@@ -76,11 +77,11 @@ export default function AnalyticsPage() {
         )}
       </div>
 
-      {/* Summary cards */}
-      <AnalyticsSummary data={summary} />
+      {/* Summary cards — clickable to navigate to tabs */}
+      <AnalyticsSummary data={summary} onNavigate={setActiveTab} />
 
       {/* Tabs */}
-      <Tabs defaultValue="struggling" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AnalyticsTab)} className="space-y-6">
         <TabsList>
           <TabsTrigger value="struggling">{t('strugglingTopics')}</TabsTrigger>
           <TabsTrigger value="trends">{t('masteryTrends')}</TabsTrigger>
