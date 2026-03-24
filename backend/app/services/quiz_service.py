@@ -109,7 +109,7 @@ class QuizService:
                 settings=settings_dict,
             )
 
-            if mode == "team":
+            if mode in ("team", "factile"):
                 from app.services.quiz_team_service import QuizTeamService
                 team_service = QuizTeamService(self.db)
                 team_count = settings_obj.team_count or 2
@@ -195,7 +195,7 @@ class QuizService:
         team_info = {}
         if not existing:
             participant = await self.repo.add_participant(session.id, student_id, school_id)
-            if mode == "team":
+            if mode in ("team", "factile"):
                 from app.services.quiz_team_service import QuizTeamService
                 team_service = QuizTeamService(self.db)
                 team = await team_service.assign_to_team(session.id, participant.id)
@@ -203,7 +203,7 @@ class QuizService:
                     team_info = {"team_id": team.id, "team_name": team.name, "team_color": team.color}
             await self.db.commit()
         else:
-            if mode == "team" and existing.team_id:
+            if mode in ("team", "factile") and existing.team_id:
                 from app.repositories.quiz_team_repo import QuizTeamRepository
                 team_repo = QuizTeamRepository(self.db)
                 team = await team_repo.get_team_by_id(existing.team_id)

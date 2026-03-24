@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { useQuizSessions } from '@/lib/hooks/use-quiz';
-import { Plus, Loader2, Users, Clock, Zap } from 'lucide-react';
+import { Plus, Loader2, Users, Clock, Zap, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WeeklyTournamentWidget from '@/components/quiz/WeeklyTournamentWidget';
 
@@ -36,6 +36,12 @@ export default function QuizListPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t('title')}</h1>
         <div className="flex gap-2">
+          <Link href="/quiz/factile">
+            <Button variant="outline">
+              <LayoutGrid className="mr-2 h-4 w-4" />
+              Factile
+            </Button>
+          </Link>
           <Link href="/quiz/quick">
             <Button variant="outline">
               <Zap className="mr-2 h-4 w-4" />

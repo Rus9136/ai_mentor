@@ -14,6 +14,7 @@ import QuizReportDownloads from '@/components/quiz/QuizReportDownloads';
 import QuizResults from '@/components/quiz/QuizResults';
 import QuizSelfPacedProgress from '@/components/quiz/QuizSelfPacedProgress';
 import SpaceRaceTrack from '@/components/quiz/SpaceRaceTrack';
+import FactileBoard from '@/components/quiz/FactileBoard';
 
 interface Params {
   id: string;
@@ -30,7 +31,10 @@ export default function QuizDetailPage({ params }: { params: Promise<Params> }) 
   const cancelQuiz = useCancelQuiz();
 
   const joinCode = session?.join_code || null;
-  const { lastMessage, sendNextQuestion, sendFinishQuiz, sendGoToQuestion, connected } = useTeacherQuizWebSocket(
+  const {
+    lastMessage, sendNextQuestion, sendFinishQuiz, sendGoToQuestion, connected,
+    sendSelectCell, sendJudgeCorrect, sendJudgeWrong, sendRevealAnswer, sendSkipCell,
+  } = useTeacherQuizWebSocket(
     session?.status === 'lobby' || session?.status === 'in_progress' ? joinCode : null
   );
 
@@ -112,6 +116,39 @@ export default function QuizDetailPage({ params }: { params: Promise<Params> }) 
   if (status === 'in_progress') {
     const mode = session.settings?.mode || 'classic';
     const pacing = session.settings?.pacing || 'timed';
+
+    // Factile mode: show game board
+    if (mode === 'factile') {
+      // Build initial board state from session data (REST) so board renders
+      // immediately without waiting for WS factile_board message
+      const boardState = session.board_state;
+      const teams = session.teams || [];
+      const initialBoard = boardState ? {
+        categories: boardState.categories || [],
+        team_scores: teams.map((t: { id: number; name: string; color: string; total_score: number; correct_answers: number }) => ({
+          id: t.id, name: t.name, color: t.color, score: t.total_score, correct_answers: t.correct_answers,
+        })),
+        current_team_index: boardState.current_team_index ?? 0,
+        current_team_name: teams[boardState.current_team_index ?? 0]?.name || '',
+        cells_remaining: boardState.cells_remaining ?? 0,
+        active_cell: boardState.active_cell || null,
+        pass_to_other: boardState.pass_to_other || false,
+      } : null;
+
+      return (
+        <FactileBoard
+          sessionId={sessionId}
+          lastMessage={lastMessage}
+          initialBoardState={initialBoard}
+          onSelectCell={sendSelectCell}
+          onJudgeCorrect={sendJudgeCorrect}
+          onJudgeWrong={sendJudgeWrong}
+          onRevealAnswer={sendRevealAnswer}
+          onSkipCell={sendSkipCell}
+          onFinishQuiz={handleEndQuiz}
+        />
+      );
+    }
 
     // Self-paced mode: show student progress dashboard
     if (mode === 'self_paced') {

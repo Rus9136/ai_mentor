@@ -16,7 +16,7 @@ class QuizSessionSettings(BaseModel):
     shuffle_answers: bool = Field(default=False, description="Randomize answer options per question")
     scoring_mode: str = Field(default="speed", description="'speed' (time-based) or 'accuracy' (1000 per correct)")
     # Phase 2.2: game modes
-    mode: str = Field(default="classic", description="classic|team|self_paced|quick_question")
+    mode: str = Field(default="classic", description="classic|team|self_paced|quick_question|factile")
     # Phase 2.3: pacing
     pacing: str = Field(default="timed", description="'timed' (countdown) or 'teacher_paced' (manual, no timer)")
     team_count: Optional[int] = Field(default=None, ge=2, le=6, description="Number of teams (team mode)")
@@ -115,6 +115,7 @@ class QuizSessionResponse(BaseModel):
     finished_at: Optional[datetime] = None
     created_at: datetime
     teams: list[QuizTeamResponse] = []
+    board_state: Optional[dict] = None  # Factile mode: board grid state
 
 
 class QuizSessionDetailResponse(QuizSessionResponse):

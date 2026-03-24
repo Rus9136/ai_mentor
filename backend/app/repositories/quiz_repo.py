@@ -373,8 +373,11 @@ class QuizRepository:
                 (QuizSession.status != QuizSessionStatus.FINISHED)
                 | (QuizSession.created_at >= seven_days_ago)
             )
-            # Exclude quick_question mode (ephemeral, no test)
-            .where(QuizSession.test_id.isnot(None))
+            # Exclude quick_question mode (ephemeral, no test) but allow factile (also no test_id)
+            .where(
+                (QuizSession.test_id.isnot(None))
+                | (QuizSession.settings["mode"].astext == "factile")
+            )
             .order_by(
                 # in_progress first, then lobby, then finished
                 case(

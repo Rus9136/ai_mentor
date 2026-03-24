@@ -92,6 +92,24 @@ export async function getChapterQuestions(chapterId: number): Promise<ParagraphQ
   return response.data;
 }
 
+// Factile (Jeopardy-style) mode
+export interface FactileCategoryInput {
+  name: string;
+  question_ids: number[];
+}
+
+export interface FactileCreateData {
+  class_id?: number;
+  categories: FactileCategoryInput[];
+  point_values?: number[];
+  team_names?: string[];
+}
+
+export async function createFactileSession(data: FactileCreateData) {
+  const response = await apiClient.post('/teachers/quiz-sessions/factile', data);
+  return response.data;
+}
+
 export async function createQuickQuestion(data: QuickQuestionCreate) {
   const response = await apiClient.post('/teachers/quiz-sessions/quick-question', data);
   return response.data;

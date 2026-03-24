@@ -12,8 +12,10 @@ import {
   getTeamLeaderboard,
   getQuizMatrix,
   createQuickQuestion,
+  createFactileSession,
   type QuizSessionCreate,
   type QuickQuestionCreate,
+  type FactileCreateData,
 } from '@/lib/api/quiz';
 
 export const quizKeys = {
@@ -129,6 +131,16 @@ export function useQuizMatrix(sessionId: number, status?: string) {
     queryFn: () => getQuizMatrix(sessionId),
     enabled: sessionId > 0,
     refetchInterval: status && ACTIVE_STATUSES.includes(status) ? 5000 : false,
+  });
+}
+
+export function useCreateFactile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: FactileCreateData) => createFactileSession(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: quizKeys.lists() });
+    },
   });
 }
 

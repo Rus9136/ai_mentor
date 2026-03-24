@@ -30,6 +30,7 @@ from app.schemas.quiz import (
     QuestionPreview,
     QuestionOptionPreview,
 )
+from app.schemas.quiz_factile import FactileCreateRequest
 
 logger = logging.getLogger(__name__)
 
@@ -224,6 +225,77 @@ async def list_chapter_questions(
     ]
 
 
+# ── Factile (MUST be before /{session_id} to avoid route conflict) ──
+
+@router.post("/factile", response_model=QuizSessionResponse, status_code=status.HTTP_201_CREATED)
+async def create_factile_session(
+    data: FactileCreateRequest,
+    teacher: Teacher = Depends(get_teacher_from_user),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a Factile (Jeopardy-style) quiz session with a board of categories."""
+    from app.services.quiz_factile_service import QuizFactileService
+    from app.schemas.quiz import QuizSessionSettings
+
+    # Validate all question_ids exist
+    all_question_ids = []
+    for cat in data.categories:
+        all_question_ids.extend(cat.question_ids)
+
+    if not all_question_ids:
+        raise HTTPException(status_code=400, detail="No questions provided")
+
+    # Create session with factile mode settings
+    settings = QuizSessionSettings(
+        mode="factile",
+        pacing="teacher_paced",
+        team_count=2,
+    )
+
+    service = QuizService(db)
+    try:
+        session = await service.create_session(
+            teacher_id=teacher.id,
+            school_id=school_id,
+            test_id=None,
+            class_id=data.class_id,
+            settings=settings,
+            question_ids=all_question_ids,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Initialize the board
+    factile_service = QuizFactileService(db)
+    categories_data = [
+        {"name": cat.name, "question_ids": cat.question_ids}
+        for cat in data.categories
+    ]
+    await factile_service.init_board(session.id, categories_data, data.point_values)
+    await db.commit()
+
+    # Refresh session to include board_state
+    session = await service.repo.get_session(session.id)
+
+    return QuizSessionResponse(
+        id=session.id,
+        school_id=session.school_id,
+        teacher_id=session.teacher_id,
+        class_id=session.class_id,
+        test_id=session.test_id,
+        join_code=session.join_code,
+        status=session.status.value if hasattr(session.status, 'value') else session.status,
+        settings=session.settings,
+        question_count=session.question_count,
+        current_question_index=session.current_question_index,
+        participant_count=0,
+        started_at=session.started_at,
+        finished_at=session.finished_at,
+        created_at=session.created_at,
+    )
+
+
 # ── Tournaments (MUST be before /{session_id} to avoid route conflict) ──
 
 @router.get("/tournaments")
@@ -287,6 +359,14 @@ async def get_quiz_session(
 
     participants_data = await service.repo.get_participants_with_names(session_id)
 
+    # Load teams for team/factile modes
+    teams_response = []
+    mode = (session.settings or {}).get("mode", "classic")
+    if mode in ("team", "factile"):
+        from app.services.quiz_team_service import QuizTeamService
+        team_service = QuizTeamService(db)
+        teams_response = await team_service.get_team_leaderboard(session_id)
+
     return QuizSessionDetailResponse(
         id=session.id,
         school_id=session.school_id,
@@ -302,6 +382,8 @@ async def get_quiz_session(
         started_at=session.started_at,
         finished_at=session.finished_at,
         created_at=session.created_at,
+        board_state=session.board_state,
+        teams=teams_response,
         participants=[
             QuizParticipantResponse(
                 id=d["participant"].id,
@@ -346,6 +428,17 @@ async def start_quiz(
             "auto_advance": settings.get("auto_advance", False),
         },
     })
+
+    # Factile mode: broadcast board instead of first question
+    if mode == "factile":
+        from app.services.quiz_factile_service import QuizFactileService
+        factile_service = QuizFactileService(db)
+        board_msg = await factile_service.get_board_message(session_id)
+        await manager.broadcast_to_all(session.join_code, {
+            "type": "factile_board",
+            "data": board_msg,
+        })
+        return {"status": "in_progress", "message": "Factile game started"}
 
     # Self-paced: don't send first question (students fetch via REST)
     has_questions = session.test_id or session.settings.get("question_ids") or session.settings.get("custom_questions")

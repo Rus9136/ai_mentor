@@ -28,6 +28,13 @@ from app.api.v1.ws_quiz_handlers import (
     handle_go_to_question,
     handle_activate_powerup,
 )
+from app.api.v1.ws_quiz_factile_handlers import (
+    handle_factile_select_cell,
+    handle_factile_judge_correct,
+    handle_factile_judge_wrong,
+    handle_factile_reveal_answer,
+    handle_factile_skip_cell,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +157,8 @@ async def _authenticate_ws(token: str) -> Optional[dict]:
         return None
 
     async with AsyncSessionLocal() as db:
+        # Set RLS bypass for auth lookup (users/teachers may have RLS)
+        await db.execute(text("SELECT set_config('app.is_super_admin', 'true', false)"))
         result = await db.execute(select(User).where(User.id == int(user_id)))
         user = result.scalar_one_or_none()
         if not user:
@@ -269,6 +278,7 @@ async def quiz_websocket(
         while True:
             data = await websocket.receive_json()
             msg_type = data.get("type")
+            logger.info(f"WS message from {'teacher' if is_teacher else 'student'} in {join_code}: type={msg_type}")
 
             if msg_type == "answer" and not is_teacher:
                 await handle_student_answer(manager, join_code, student_id, data.get("data", {}), school_id, session.id)
@@ -294,6 +304,22 @@ async def quiz_websocket(
 
             elif msg_type == "end_quick_question" and is_teacher:
                 await handle_end_quick_question(manager, join_code)
+
+            # Factile mode handlers (teacher only)
+            elif msg_type == "select_cell" and is_teacher:
+                await handle_factile_select_cell(manager, join_code, auth_info.get("teacher_id"), data.get("data", {}), school_id, session.id)
+
+            elif msg_type == "judge_correct" and is_teacher:
+                await handle_factile_judge_correct(manager, join_code, auth_info.get("teacher_id"), school_id, session.id)
+
+            elif msg_type == "judge_wrong" and is_teacher:
+                await handle_factile_judge_wrong(manager, join_code, auth_info.get("teacher_id"), school_id, session.id)
+
+            elif msg_type == "reveal_answer" and is_teacher:
+                await handle_factile_reveal_answer(manager, join_code, auth_info.get("teacher_id"), school_id, session.id)
+
+            elif msg_type == "skip_cell" and is_teacher:
+                await handle_factile_skip_cell(manager, join_code, auth_info.get("teacher_id"), school_id, session.id)
 
     except WebSocketDisconnect:
         logger.info(f"{'Teacher' if is_teacher else 'Student'} disconnected from quiz {join_code}")

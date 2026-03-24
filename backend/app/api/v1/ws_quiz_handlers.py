@@ -197,9 +197,16 @@ async def handle_finish_quiz(manager, join_code: str, teacher_id: int, school_id
 
         results = await service.finish_session(session_id, teacher_id)
 
+        # Factile mode: include winner data
+        factile_winner = {}
+        if mode == "factile":
+            from app.services.quiz_factile_service import QuizFactileService
+            factile_service = QuizFactileService(db)
+            factile_winner = await factile_service.get_winner(session_id)
+
         # Team leaderboard for team modes
         team_leaderboard = []
-        if mode == "team":
+        if mode in ("team", "factile"):
             team_service = QuizTeamService(db)
             team_lb = await team_service.get_team_leaderboard(session_id)
             team_leaderboard = [t.model_dump() for t in team_lb]
@@ -231,6 +238,8 @@ async def handle_finish_quiz(manager, join_code: str, teacher_id: int, school_id
                 }
                 if team_leaderboard:
                     student_data["team_leaderboard"] = team_leaderboard
+                if factile_winner:
+                    student_data.update(factile_winner)
 
                 await manager.send_to_student(join_code, student_id, {
                     "type": "quiz_finished",
@@ -244,6 +253,8 @@ async def handle_finish_quiz(manager, join_code: str, teacher_id: int, school_id
         }
         if team_leaderboard:
             teacher_data["team_leaderboard"] = team_leaderboard
+        if factile_winner:
+            teacher_data.update(factile_winner)
 
         await manager.send_to_teacher(join_code, {
             "type": "quiz_finished",

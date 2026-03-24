@@ -17,6 +17,12 @@ interface UseTeacherQuizWebSocketReturn {
   sendGoToQuestion: (index: number) => void;
   sendQuickQuestion: (questionText: string, options: string[]) => void;
   sendEndQuickQuestion: () => void;
+  // Factile mode
+  sendSelectCell: (category: number, row: number) => void;
+  sendJudgeCorrect: () => void;
+  sendJudgeWrong: () => void;
+  sendRevealAnswer: () => void;
+  sendSkipCell: () => void;
   error: string | null;
 }
 
@@ -104,5 +110,20 @@ export function useTeacherQuizWebSocket(joinCode: string | null): UseTeacherQuiz
   );
   const sendEndQuickQuestion = useCallback(() => send({ type: 'end_quick_question' }), [send]);
 
-  return { connected, lastMessage, sendNextQuestion, sendFinishQuiz, sendGoToQuestion, sendQuickQuestion, sendEndQuickQuestion, error };
+  // Factile mode
+  const sendSelectCell = useCallback(
+    (category: number, row: number) => send({ type: 'select_cell', data: { category, row } }),
+    [send],
+  );
+  const sendJudgeCorrect = useCallback(() => send({ type: 'judge_correct' }), [send]);
+  const sendJudgeWrong = useCallback(() => send({ type: 'judge_wrong' }), [send]);
+  const sendRevealAnswer = useCallback(() => send({ type: 'reveal_answer' }), [send]);
+  const sendSkipCell = useCallback(() => send({ type: 'skip_cell' }), [send]);
+
+  return {
+    connected, lastMessage, sendNextQuestion, sendFinishQuiz, sendGoToQuestion,
+    sendQuickQuestion, sendEndQuickQuestion,
+    sendSelectCell, sendJudgeCorrect, sendJudgeWrong, sendRevealAnswer, sendSkipCell,
+    error,
+  };
 }

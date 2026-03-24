@@ -36,6 +36,7 @@ class QuizSession(BaseModel):
         server_default='lobby',
     )
     settings = Column(JSONB, nullable=False, server_default='{}')
+    board_state = Column(JSONB, nullable=True)  # Factile mode: categories grid, cell statuses, turns
     question_count = Column(Integer, nullable=False, default=0)
     current_question_index = Column(Integer, nullable=False, default=-1, server_default='-1')
     started_at = Column(DateTime(timezone=True), nullable=True)
