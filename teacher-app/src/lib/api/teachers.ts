@@ -175,6 +175,23 @@ export interface AnalyticsSummaryResponse {
   active_students_count: number;
 }
 
+// Paragraph Assessment Detail
+export interface ParagraphAssessmentStudent {
+  student_id: number;
+  first_name: string;
+  last_name: string;
+  rating: string;
+  practice_score: number | null;
+  mastery_impact: number;
+  created_at: string;
+}
+
+export interface ParagraphAssessmentDetailResponse {
+  paragraph_id: number;
+  paragraph_title: string;
+  students: ParagraphAssessmentStudent[];
+}
+
 // Self-Assessment Analytics
 export interface SelfAssessmentParagraphSummary {
   paragraph_id: number;
@@ -314,6 +331,17 @@ export async function getSelfAssessmentSummary(classId?: number): Promise<SelfAs
   const params = classId ? `?class_id=${classId}` : '';
   const response = await apiClient.get<SelfAssessmentSummaryResponse>(
     `/teachers/analytics/self-assessment-summary${params}`
+  );
+  return response.data;
+}
+
+export async function getParagraphAssessments(
+  paragraphId: number,
+  classId?: number
+): Promise<ParagraphAssessmentDetailResponse> {
+  const params = classId ? `?class_id=${classId}` : '';
+  const response = await apiClient.get<ParagraphAssessmentDetailResponse>(
+    `/teachers/analytics/paragraph/${paragraphId}/assessments${params}`
   );
   return response.data;
 }

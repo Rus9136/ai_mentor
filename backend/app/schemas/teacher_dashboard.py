@@ -351,6 +351,26 @@ class SelfAssessmentSummaryResponse(BaseModel):
     paragraphs: List[SelfAssessmentParagraphSummary] = []
 
 
+class ParagraphAssessmentStudent(BaseModel):
+    """Single student's assessment for a paragraph."""
+
+    student_id: int
+    first_name: str
+    last_name: str
+    rating: str
+    practice_score: Optional[float] = None
+    mastery_impact: float = 0.0
+    created_at: datetime
+
+
+class ParagraphAssessmentDetailResponse(BaseModel):
+    """Detailed student assessments for a single paragraph."""
+
+    paragraph_id: int
+    paragraph_title: str
+    students: List[ParagraphAssessmentStudent] = []
+
+
 class MetacognitiveAlertStudent(BaseModel):
     """Student with metacognitive mismatch."""
 

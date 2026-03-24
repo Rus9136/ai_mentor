@@ -17,6 +17,8 @@ from app.schemas.teacher_dashboard import (
     MasteryTrendsResponse,
     MetacognitiveAlertStudent,
     MetacognitiveAlertsResponse,
+    ParagraphAssessmentDetailResponse,
+    ParagraphAssessmentStudent,
     SelfAssessmentParagraphSummary,
     SelfAssessmentSummaryResponse,
     StudentSelfAssessmentHistory,
@@ -438,6 +440,66 @@ class TeacherAnalyticsService:
         return MetacognitiveAlertsResponse(
             overconfident=await build_alerts(overconfident_records),
             underconfident=await build_alerts(underconfident_records),
+        )
+
+    async def get_paragraph_assessments(
+        self,
+        user_id: int,
+        school_id: int,
+        paragraph_id: int,
+        class_id: Optional[int] = None,
+    ) -> ParagraphAssessmentDetailResponse:
+        """Get per-student assessment details for a specific paragraph."""
+        teacher, class_ids, student_ids = await self._resolve_student_ids(
+            user_id, school_id, class_id
+        )
+        if not student_ids:
+            return ParagraphAssessmentDetailResponse(
+                paragraph_id=paragraph_id, paragraph_title="", students=[]
+            )
+
+        records = await self._sa_repo.get_assessments_for_paragraph(student_ids, paragraph_id)
+
+        from app.models.student import Student
+        from app.models.paragraph import Paragraph
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+
+        # Get paragraph title
+        p_res = await self.db.execute(
+            select(Paragraph.title).where(Paragraph.id == paragraph_id)
+        )
+        p_title = p_res.scalar_one_or_none() or ""
+
+        students = []
+        for rec in records:
+            res = await self.db.execute(
+                select(Student)
+                .options(selectinload(Student.user))
+                .where(Student.id == rec.student_id)
+            )
+            student = res.scalar_one_or_none()
+            if not student or not student.user:
+                continue
+
+            students.append(ParagraphAssessmentStudent(
+                student_id=student.id,
+                first_name=student.user.first_name,
+                last_name=student.user.last_name,
+                rating=rec.rating,
+                practice_score=rec.practice_score,
+                mastery_impact=rec.mastery_impact,
+                created_at=rec.created_at,
+            ))
+
+        # Sort: difficult first, then questions, then understood
+        rating_order = {"difficult": 0, "questions": 1, "understood": 2}
+        students.sort(key=lambda s: rating_order.get(s.rating, 3))
+
+        return ParagraphAssessmentDetailResponse(
+            paragraph_id=paragraph_id,
+            paragraph_title=p_title,
+            students=students,
         )
 
     async def get_student_self_assessments(

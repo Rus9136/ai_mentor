@@ -1,17 +1,172 @@
 'use client';
 
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { MessageSquare, XCircle, HelpCircle, ThumbsUp, Loader2 } from 'lucide-react';
-import type { SelfAssessmentSummaryResponse, MetacognitiveAlertsResponse } from '@/lib/api/teachers';
+import { MessageSquare, XCircle, HelpCircle, ThumbsUp, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { getParagraphAssessments } from '@/lib/api/teachers';
+import type {
+  SelfAssessmentSummaryResponse,
+  MetacognitiveAlertsResponse,
+  SelfAssessmentParagraphSummary,
+} from '@/lib/api/teachers';
 
 interface FeedbackTabProps {
   summary?: SelfAssessmentSummaryResponse;
   alerts?: MetacognitiveAlertsResponse;
   isLoading: boolean;
+  classId?: number;
 }
 
-export function FeedbackTab({ summary, alerts, isLoading }: FeedbackTabProps) {
+const ratingColors: Record<string, { bg: string; text: string; dot: string }> = {
+  understood: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  questions: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-400' },
+  difficult: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500' },
+};
+
+function ParagraphItem({
+  p,
+  classId,
+}: {
+  p: SelfAssessmentParagraphSummary;
+  classId?: number;
+}) {
+  const t = useTranslations('analytics');
+  const [expanded, setExpanded] = useState(false);
+
+  const { data: detail, isLoading: detailLoading } = useQuery({
+    queryKey: ['teacher', 'analytics', 'paragraph-assessments', p.paragraph_id, classId],
+    queryFn: () => getParagraphAssessments(p.paragraph_id, classId),
+    enabled: expanded,
+  });
+
+  const ratingLabel = (rating: string) => {
+    switch (rating) {
+      case 'understood':
+        return t('understood');
+      case 'questions':
+        return t('hasQuestions');
+      case 'difficult':
+        return t('difficult');
+      default:
+        return rating;
+    }
+  };
+
+  return (
+    <div className="rounded-lg border transition-shadow hover:shadow-sm">
+      {/* Clickable header */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-start justify-between p-4 text-left"
+      >
+        <div className="flex items-start gap-2">
+          {expanded ? (
+            <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          )}
+          <div>
+            <p className="font-medium">{p.paragraph_title}</p>
+            <p className="text-sm text-muted-foreground">{p.chapter_title}</p>
+          </div>
+        </div>
+        <span className="ml-2 shrink-0 text-sm text-muted-foreground">
+          {p.total_assessments} {t('totalAssessments').toLowerCase()}
+        </span>
+      </button>
+
+      {/* Stacked bar + legend (always visible) */}
+      <div className="px-4 pb-3">
+        <div className="flex h-3 overflow-hidden rounded-full">
+          {p.understood_pct > 0 && (
+            <div
+              className="bg-emerald-500 transition-all"
+              style={{ width: `${p.understood_pct}%` }}
+              title={`${t('understood')}: ${p.understood_pct}%`}
+            />
+          )}
+          {p.questions_pct > 0 && (
+            <div
+              className="bg-amber-400 transition-all"
+              style={{ width: `${p.questions_pct}%` }}
+              title={`${t('hasQuestions')}: ${p.questions_pct}%`}
+            />
+          )}
+          {p.difficult_pct > 0 && (
+            <div
+              className="bg-red-500 transition-all"
+              style={{ width: `${p.difficult_pct}%` }}
+              title={`${t('difficult')}: ${p.difficult_pct}%`}
+            />
+          )}
+        </div>
+
+        <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+            {t('understood')} {p.understood_pct}%
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
+            {t('hasQuestions')} {p.questions_pct}%
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
+            {t('difficult')} {p.difficult_pct}%
+          </span>
+        </div>
+      </div>
+
+      {/* Expanded: student list */}
+      {expanded && (
+        <div className="border-t px-4 py-3">
+          {detailLoading ? (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : detail?.students && detail.students.length > 0 ? (
+            <div className="space-y-1.5">
+              {detail.students.map((s) => {
+                const colors = ratingColors[s.rating] || ratingColors.understood;
+                return (
+                  <div
+                    key={s.student_id}
+                    className="flex items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-muted/50"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-block h-2 w-2 rounded-full ${colors.dot}`} />
+                      <span className="font-medium">
+                        {s.last_name} {s.first_name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${colors.bg} ${colors.text}`}
+                      >
+                        {ratingLabel(s.rating)}
+                      </span>
+                      {s.practice_score !== null && (
+                        <span className="text-xs text-muted-foreground">
+                          {t('practiceScore')}: {Math.round(s.practice_score)}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="py-2 text-center text-sm text-muted-foreground">—</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function FeedbackTab({ summary, alerts, isLoading, classId }: FeedbackTabProps) {
   const t = useTranslations('analytics');
 
   if (isLoading) {
@@ -37,58 +192,7 @@ export function FeedbackTab({ summary, alerts, isLoading }: FeedbackTabProps) {
           {summary && summary.paragraphs.length > 0 ? (
             <div className="space-y-3">
               {summary.paragraphs.map((p) => (
-                <div key={p.paragraph_id} className="rounded-lg border p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-medium">{p.paragraph_title}</p>
-                      <p className="text-sm text-muted-foreground">{p.chapter_title}</p>
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      {p.total_assessments} {t('totalAssessments').toLowerCase()}
-                    </span>
-                  </div>
-
-                  {/* Stacked bar */}
-                  <div className="mt-3 flex h-3 overflow-hidden rounded-full">
-                    {p.understood_pct > 0 && (
-                      <div
-                        className="bg-emerald-500 transition-all"
-                        style={{ width: `${p.understood_pct}%` }}
-                        title={`${t('understood')}: ${p.understood_pct}%`}
-                      />
-                    )}
-                    {p.questions_pct > 0 && (
-                      <div
-                        className="bg-amber-400 transition-all"
-                        style={{ width: `${p.questions_pct}%` }}
-                        title={`${t('hasQuestions')}: ${p.questions_pct}%`}
-                      />
-                    )}
-                    {p.difficult_pct > 0 && (
-                      <div
-                        className="bg-red-500 transition-all"
-                        style={{ width: `${p.difficult_pct}%` }}
-                        title={`${t('difficult')}: ${p.difficult_pct}%`}
-                      />
-                    )}
-                  </div>
-
-                  {/* Legend */}
-                  <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                      {t('understood')} {p.understood_pct}%
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
-                      {t('hasQuestions')} {p.questions_pct}%
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
-                      {t('difficult')} {p.difficult_pct}%
-                    </span>
-                  </div>
-                </div>
+                <ParagraphItem key={p.paragraph_id} p={p} classId={classId} />
               ))}
             </div>
           ) : (

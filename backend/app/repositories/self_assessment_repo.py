@@ -213,6 +213,34 @@ class SelfAssessmentRepository:
             list(under_result.scalars().all()),
         )
 
+    async def get_assessments_for_paragraph(
+        self,
+        student_ids: List[int],
+        paragraph_id: int,
+    ) -> List[ParagraphSelfAssessment]:
+        """
+        Get all self-assessments for a paragraph across given students.
+        Returns the latest assessment per student, newest first.
+        """
+        if not student_ids:
+            return []
+
+        # Get latest assessment per student for this paragraph
+        from sqlalchemy import distinct
+        result = await self.db.execute(
+            select(ParagraphSelfAssessment)
+            .where(
+                ParagraphSelfAssessment.student_id.in_(student_ids),
+                ParagraphSelfAssessment.paragraph_id == paragraph_id,
+            )
+            .distinct(ParagraphSelfAssessment.student_id)
+            .order_by(
+                ParagraphSelfAssessment.student_id,
+                ParagraphSelfAssessment.created_at.desc(),
+            )
+        )
+        return list(result.scalars().all())
+
     async def get_student_assessments(
         self,
         student_id: int,

@@ -32,6 +32,7 @@ from app.schemas.chapter import ChapterListResponse
 from app.schemas.paragraph import ParagraphListResponse, ParagraphSearchResult
 from app.schemas.teacher_dashboard import (
     AnalyticsSummaryResponse,
+    ParagraphAssessmentDetailResponse,
     TeacherDashboardResponse,
     TeacherClassResponse,
     TeacherClassDetailResponse,
@@ -435,6 +436,25 @@ async def get_metacognitive_alerts(
 ) -> MetacognitiveAlertsResponse:
     service = TeacherAnalyticsService(db)
     return await service.get_metacognitive_alerts(current_user.id, school_id, class_id)
+
+
+@router.get(
+    "/analytics/paragraph/{paragraph_id}/assessments",
+    response_model=ParagraphAssessmentDetailResponse,
+    summary="Get paragraph assessment details",
+    description="Get per-student assessment details for a specific paragraph."
+)
+async def get_paragraph_assessments(
+    paragraph_id: int,
+    class_id: Optional[int] = Query(None, description="Filter by class ID"),
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> ParagraphAssessmentDetailResponse:
+    service = TeacherAnalyticsService(db)
+    return await service.get_paragraph_assessments(
+        current_user.id, school_id, paragraph_id, class_id
+    )
 
 
 @router.get(

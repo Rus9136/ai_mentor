@@ -104,6 +104,7 @@ export default function AnalyticsPage() {
             summary={selfAssessment}
             alerts={alerts}
             isLoading={summaryLoading || alertsLoading}
+            classId={selectedClassId}
           />
         </TabsContent>
       </Tabs>
