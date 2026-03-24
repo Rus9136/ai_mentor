@@ -139,6 +139,7 @@ export interface StrugglingTopicResponse {
   paragraph_title: string;
   chapter_id: number;
   chapter_title: string;
+  textbook_title?: string;
   struggling_count: number;
   total_students: number;
   struggling_percentage: number;
@@ -163,6 +164,15 @@ export interface MasteryTrendsResponse {
   overall_trend: string;
   overall_change_percentage: number;
   class_trends: ClassTrend[];
+}
+
+// Analytics Summary
+export interface AnalyticsSummaryResponse {
+  total_students: number;
+  average_mastery: number;
+  struggling_topics_count: number;
+  metacognitive_alerts_count: number;
+  active_students_count: number;
 }
 
 // Self-Assessment Analytics
@@ -271,33 +281,47 @@ export async function getMasteryHistory(studentId: number): Promise<MasteryHisto
 }
 
 // Analytics
-export async function getStrugglingTopics(): Promise<StrugglingTopicResponse[]> {
+export async function getAnalyticsSummary(classId?: number): Promise<AnalyticsSummaryResponse> {
+  const params = classId ? `?class_id=${classId}` : '';
+  const response = await apiClient.get<AnalyticsSummaryResponse>(
+    `/teachers/analytics/summary${params}`
+  );
+  return response.data;
+}
+
+export async function getStrugglingTopics(classId?: number): Promise<StrugglingTopicResponse[]> {
+  const params = classId ? `?class_id=${classId}` : '';
   const response = await apiClient.get<{ items: StrugglingTopicResponse[]; total: number }>(
-    '/teachers/analytics/struggling-topics'
+    `/teachers/analytics/struggling-topics${params}`
   );
   return response.data.items;
 }
 
 export async function getMasteryTrends(
-  period: 'weekly' | 'monthly' = 'weekly'
+  period: 'weekly' | 'monthly' = 'weekly',
+  classId?: number
 ): Promise<MasteryTrendsResponse> {
+  const params = new URLSearchParams({ period });
+  if (classId) params.set('class_id', String(classId));
   const response = await apiClient.get<MasteryTrendsResponse>(
-    `/teachers/analytics/mastery-trends?period=${period}`
+    `/teachers/analytics/mastery-trends?${params}`
   );
   return response.data;
 }
 
 // Self-Assessment Analytics
-export async function getSelfAssessmentSummary(): Promise<SelfAssessmentSummaryResponse> {
+export async function getSelfAssessmentSummary(classId?: number): Promise<SelfAssessmentSummaryResponse> {
+  const params = classId ? `?class_id=${classId}` : '';
   const response = await apiClient.get<SelfAssessmentSummaryResponse>(
-    '/teachers/analytics/self-assessment-summary'
+    `/teachers/analytics/self-assessment-summary${params}`
   );
   return response.data;
 }
 
-export async function getMetacognitiveAlerts(): Promise<MetacognitiveAlertsResponse> {
+export async function getMetacognitiveAlerts(classId?: number): Promise<MetacognitiveAlertsResponse> {
+  const params = classId ? `?class_id=${classId}` : '';
   const response = await apiClient.get<MetacognitiveAlertsResponse>(
-    '/teachers/analytics/metacognitive-alerts'
+    `/teachers/analytics/metacognitive-alerts${params}`
   );
   return response.data;
 }

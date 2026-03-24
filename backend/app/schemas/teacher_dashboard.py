@@ -264,6 +264,16 @@ class MasteryHistoryResponse(BaseModel):
 # Analytics response schemas
 # ============================================================================
 
+class AnalyticsSummaryResponse(BaseModel):
+    """Quick summary metrics for analytics dashboard header."""
+
+    total_students: int = 0
+    average_mastery: float = 0.0
+    struggling_topics_count: int = 0
+    metacognitive_alerts_count: int = 0
+    active_students_count: int = Field(0, description="Students with activity in last 7 days")
+
+
 class StrugglingTopicResponse(BaseModel):
     """Topic where many students are struggling."""
 
@@ -271,6 +281,7 @@ class StrugglingTopicResponse(BaseModel):
     paragraph_title: str
     chapter_id: int
     chapter_title: str
+    textbook_title: Optional[str] = None
 
     # Stats
     struggling_count: int = Field(..., description="Number of students in level C")

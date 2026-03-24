@@ -6,6 +6,7 @@ import {
   getClassOverview,
   getStudentProgress,
   getMasteryHistory,
+  getAnalyticsSummary,
   getStrugglingTopics,
   getMasteryTrends,
   getSelfAssessmentSummary,
@@ -63,32 +64,39 @@ export function useMasteryHistory(studentId: number) {
 }
 
 // Analytics
-export function useStrugglingTopics() {
+export function useAnalyticsSummary(classId?: number) {
   return useQuery({
-    queryKey: ['teacher', 'analytics', 'struggling-topics'],
-    queryFn: getStrugglingTopics,
+    queryKey: ['teacher', 'analytics', 'summary', classId],
+    queryFn: () => getAnalyticsSummary(classId),
   });
 }
 
-export function useMasteryTrends(period: 'weekly' | 'monthly' = 'weekly') {
+export function useStrugglingTopics(classId?: number) {
   return useQuery({
-    queryKey: ['teacher', 'analytics', 'mastery-trends', period],
-    queryFn: () => getMasteryTrends(period),
+    queryKey: ['teacher', 'analytics', 'struggling-topics', classId],
+    queryFn: () => getStrugglingTopics(classId),
+  });
+}
+
+export function useMasteryTrends(period: 'weekly' | 'monthly' = 'weekly', classId?: number) {
+  return useQuery({
+    queryKey: ['teacher', 'analytics', 'mastery-trends', period, classId],
+    queryFn: () => getMasteryTrends(period, classId),
   });
 }
 
 // Self-Assessment Analytics
-export function useSelfAssessmentSummary() {
+export function useSelfAssessmentSummary(classId?: number) {
   return useQuery({
-    queryKey: ['teacher', 'analytics', 'self-assessment-summary'],
-    queryFn: getSelfAssessmentSummary,
+    queryKey: ['teacher', 'analytics', 'self-assessment-summary', classId],
+    queryFn: () => getSelfAssessmentSummary(classId),
   });
 }
 
-export function useMetacognitiveAlerts() {
+export function useMetacognitiveAlerts(classId?: number) {
   return useQuery({
-    queryKey: ['teacher', 'analytics', 'metacognitive-alerts'],
-    queryFn: getMetacognitiveAlerts,
+    queryKey: ['teacher', 'analytics', 'metacognitive-alerts', classId],
+    queryFn: () => getMetacognitiveAlerts(classId),
   });
 }
 

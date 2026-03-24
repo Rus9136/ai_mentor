@@ -31,6 +31,7 @@ from app.schemas.textbook import TextbookListResponse
 from app.schemas.chapter import ChapterListResponse
 from app.schemas.paragraph import ParagraphListResponse, ParagraphSearchResult
 from app.schemas.teacher_dashboard import (
+    AnalyticsSummaryResponse,
     TeacherDashboardResponse,
     TeacherClassResponse,
     TeacherClassDetailResponse,
@@ -348,6 +349,22 @@ async def get_student_mastery_history(
 # ============================================================================
 
 @router.get(
+    "/analytics/summary",
+    response_model=AnalyticsSummaryResponse,
+    summary="Get analytics summary",
+    description="Get quick summary metrics for analytics dashboard header."
+)
+async def get_analytics_summary(
+    class_id: Optional[int] = Query(None, description="Filter by class ID"),
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> AnalyticsSummaryResponse:
+    service = TeacherAnalyticsService(db)
+    return await service.get_analytics_summary(current_user.id, school_id, class_id)
+
+
+@router.get(
     "/analytics/struggling-topics",
     response_model=PaginatedResponse[StrugglingTopicResponse],
     summary="Get struggling topics",
@@ -355,27 +372,18 @@ async def get_student_mastery_history(
 )
 async def get_struggling_topics(
     pagination: PaginationParams = Depends(get_pagination_params),
+    class_id: Optional[int] = Query(None, description="Filter by class ID"),
     current_user: User = Depends(require_teacher),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db)
 ) -> PaginatedResponse[StrugglingTopicResponse]:
-    """
-    Get topics where many students are struggling.
-
-    Returns list of paragraphs ordered by struggling count:
-    - Paragraph and chapter info
-    - Number of struggling students
-    - Percentage of students struggling
-    - Average score
-
-    Supports pagination with `page` and `page_size` query parameters.
-    """
     service = TeacherAnalyticsService(db)
     topics, total = await service.get_struggling_topics(
         current_user.id,
         school_id,
         page=pagination.page,
         page_size=pagination.page_size,
+        class_id=class_id,
     )
     return PaginatedResponse.create(topics, total, pagination.page, pagination.page_size)
 
@@ -388,22 +396,13 @@ async def get_struggling_topics(
 )
 async def get_mastery_trends(
     period: str = Query("weekly", regex="^(weekly|monthly)$"),
+    class_id: Optional[int] = Query(None, description="Filter by class ID"),
     current_user: User = Depends(require_teacher),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db)
 ) -> MasteryTrendsResponse:
-    """
-    Get mastery trends across classes.
-
-    Args:
-        period: "weekly" or "monthly"
-
-    Returns:
-    - Overall trend (improving/stable/declining)
-    - Per-class trends with change percentages
-    """
     service = TeacherAnalyticsService(db)
-    return await service.get_mastery_trends(current_user.id, school_id, period)
+    return await service.get_mastery_trends(current_user.id, school_id, period, class_id)
 
 
 @router.get(
@@ -413,12 +412,13 @@ async def get_mastery_trends(
     description="Get aggregated self-assessment breakdown by paragraph for teacher's students."
 )
 async def get_self_assessment_summary(
+    class_id: Optional[int] = Query(None, description="Filter by class ID"),
     current_user: User = Depends(require_teacher),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db)
 ) -> SelfAssessmentSummaryResponse:
     service = TeacherAnalyticsService(db)
-    return await service.get_self_assessment_summary(current_user.id, school_id)
+    return await service.get_self_assessment_summary(current_user.id, school_id, class_id)
 
 
 @router.get(
@@ -428,12 +428,13 @@ async def get_self_assessment_summary(
     description="Get students with overconfidence/underconfidence patterns."
 )
 async def get_metacognitive_alerts(
+    class_id: Optional[int] = Query(None, description="Filter by class ID"),
     current_user: User = Depends(require_teacher),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db)
 ) -> MetacognitiveAlertsResponse:
     service = TeacherAnalyticsService(db)
-    return await service.get_metacognitive_alerts(current_user.id, school_id)
+    return await service.get_metacognitive_alerts(current_user.id, school_id, class_id)
 
 
 @router.get(

@@ -10,6 +10,7 @@ from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.teacher_dashboard import (
+    AnalyticsSummaryResponse,
     ClassOverviewResponse,
     MasteryDistribution,
     MasteryHistoryResponse,
@@ -51,18 +52,47 @@ class TeacherAnalyticsService:
     """
 
     def __init__(self, db: AsyncSession):
-        """
-        Initialize TeacherAnalyticsService.
-
-        Args:
-            db: AsyncSession for database operations
-        """
         self.db = db
         self._access = TeacherAccessService(db)
         self._mastery = MasteryAnalyticsService(db)
         self._classes = ClassAnalyticsService(db, self._access, self._mastery)
         self._progress = StudentProgressService(db, self._access)
         self._sa_repo = SelfAssessmentRepository(db)
+
+    # ========================================================================
+    # HELPERS
+    # ========================================================================
+
+    async def _resolve_student_ids(
+        self,
+        user_id: int,
+        school_id: int,
+        class_id: Optional[int] = None,
+    ) -> tuple[Optional["Teacher"], List[int], List[int]]:
+        """
+        Resolve teacher → class_ids → student_ids with optional class_id filter.
+
+        Returns:
+            (teacher, class_ids, student_ids) — teacher is None if not found.
+        """
+        from app.models.teacher import Teacher
+
+        teacher = await self._access.get_teacher_by_user_id(user_id, school_id)
+        if not teacher:
+            return None, [], []
+
+        class_ids = await self._access.get_teacher_class_ids(teacher.id)
+        if not class_ids:
+            return teacher, [], []
+
+        # Apply class_id filter
+        if class_id is not None:
+            if class_id not in class_ids:
+                return teacher, [], []
+            class_ids = [class_id]
+
+        student_ids = await self._access.get_student_ids_for_classes(class_ids)
+        return teacher, class_ids, student_ids
 
     # ========================================================================
     # DASHBOARD
@@ -73,16 +103,6 @@ class TeacherAnalyticsService:
         user_id: int,
         school_id: int
     ) -> TeacherDashboardResponse:
-        """
-        Get teacher dashboard data.
-
-        Args:
-            user_id: User ID of the teacher
-            school_id: School ID for tenant isolation
-
-        Returns:
-            TeacherDashboardResponse with overview stats
-        """
         logger.info(f"Getting dashboard for user {user_id}")
 
         teacher = await self._access.get_teacher_by_user_id(user_id, school_id)
@@ -111,7 +131,7 @@ class TeacherAnalyticsService:
             students_by_level=distribution,
             average_class_score=round(avg_score, 1),
             students_needing_help=distribution.level_c,
-            recent_activity=[]  # TODO: implement recent activity
+            recent_activity=[]
         )
 
     # ========================================================================
@@ -127,20 +147,6 @@ class TeacherAnalyticsService:
         academic_year: Optional[str] = None,
         grade_level: Optional[int] = None,
     ) -> tuple[List[TeacherClassResponse], int]:
-        """
-        Get list of classes for teacher.
-
-        Args:
-            user_id: User ID of the teacher
-            school_id: School ID
-            page: Page number (1-based)
-            page_size: Items per page
-            academic_year: Optional filter by academic year
-            grade_level: Optional filter by grade level (1-11)
-
-        Returns:
-            Tuple of (list of TeacherClassResponse, total count)
-        """
         logger.info(f"Getting classes for user {user_id}")
 
         teacher = await self._access.get_teacher_by_user_id(user_id, school_id)
@@ -161,17 +167,6 @@ class TeacherAnalyticsService:
         school_id: int,
         class_id: int
     ) -> Optional[TeacherClassDetailResponse]:
-        """
-        Get detailed class info with students.
-
-        Args:
-            user_id: User ID of the teacher
-            school_id: School ID
-            class_id: Class ID
-
-        Returns:
-            TeacherClassDetailResponse or None
-        """
         logger.info(f"Getting class detail: class_id={class_id}")
 
         teacher = await self._access.get_teacher_by_user_id(user_id, school_id)
@@ -186,24 +181,12 @@ class TeacherAnalyticsService:
         school_id: int,
         class_id: int
     ) -> Optional[ClassOverviewResponse]:
-        """
-        Get class overview with analytics.
-
-        Args:
-            user_id: User ID
-            school_id: School ID
-            class_id: Class ID
-
-        Returns:
-            ClassOverviewResponse or None
-        """
         logger.info(f"Getting class overview: class_id={class_id}")
 
         teacher = await self._access.get_teacher_by_user_id(user_id, school_id)
         if not teacher:
             return None
 
-        # Get basic class info
         classes_list, _ = await self._classes.get_classes(teacher.id)
         class_info = next((c for c in classes_list if c.id == class_id), None)
 
@@ -223,18 +206,6 @@ class TeacherAnalyticsService:
         class_id: int,
         student_id: int
     ) -> Optional[StudentProgressDetailResponse]:
-        """
-        Get detailed student progress.
-
-        Args:
-            user_id: Teacher's user ID
-            school_id: School ID
-            class_id: Class ID (for access verification)
-            student_id: Student ID
-
-        Returns:
-            StudentProgressDetailResponse or None
-        """
         logger.info(f"Getting student progress: student_id={student_id}")
 
         teacher = await self._access.get_teacher_by_user_id(user_id, school_id)
@@ -256,22 +227,6 @@ class TeacherAnalyticsService:
         limit: int = 50,
         offset: int = 0,
     ) -> Optional[MasteryHistoryResponse]:
-        """
-        Get mastery history timeline for a student.
-
-        Args:
-            user_id: Teacher's user ID
-            school_id: School ID
-            student_id: Student ID
-            paragraph_id: Optional filter by paragraph
-            chapter_id: Optional filter by chapter
-            source_type: Optional filter by source (diagnostic/formative/summative)
-            limit: Max records
-            offset: Pagination offset
-
-        Returns:
-            MasteryHistoryResponse or None
-        """
         logger.info(f"Getting mastery history: student_id={student_id}")
 
         return await self._progress.get_mastery_history(
@@ -287,36 +242,34 @@ class TeacherAnalyticsService:
     # ANALYTICS
     # ========================================================================
 
+    async def get_analytics_summary(
+        self,
+        user_id: int,
+        school_id: int,
+        class_id: Optional[int] = None,
+    ) -> AnalyticsSummaryResponse:
+        """Get summary metrics for analytics dashboard header."""
+        teacher, class_ids, student_ids = await self._resolve_student_ids(
+            user_id, school_id, class_id
+        )
+        if not student_ids:
+            return AnalyticsSummaryResponse()
+
+        return await self._mastery.get_analytics_summary(student_ids, class_ids)
+
     async def get_struggling_topics(
         self,
         user_id: int,
         school_id: int,
         page: int = 1,
         page_size: int = 20,
+        class_id: Optional[int] = None,
     ) -> tuple[List[StrugglingTopicResponse], int]:
-        """
-        Get topics where many students are struggling.
-
-        Args:
-            user_id: Teacher's user ID
-            school_id: School ID
-            page: Page number (1-based)
-            page_size: Items per page
-
-        Returns:
-            Tuple of (list of StrugglingTopicResponse, total count)
-        """
         logger.info(f"Getting struggling topics for user {user_id}")
 
-        teacher = await self._access.get_teacher_by_user_id(user_id, school_id)
-        if not teacher:
-            return [], 0
-
-        class_ids = await self._access.get_teacher_class_ids(teacher.id)
-        if not class_ids:
-            return [], 0
-
-        student_ids = await self._access.get_student_ids_for_classes(class_ids)
+        teacher, class_ids, student_ids = await self._resolve_student_ids(
+            user_id, school_id, class_id
+        )
         if not student_ids:
             return [], 0
 
@@ -330,25 +283,15 @@ class TeacherAnalyticsService:
         self,
         user_id: int,
         school_id: int,
-        period: str = "weekly"
+        period: str = "weekly",
+        class_id: Optional[int] = None,
     ) -> MasteryTrendsResponse:
-        """
-        Get mastery trends across classes.
-
-        Args:
-            user_id: Teacher's user ID
-            school_id: School ID
-            period: "weekly" or "monthly"
-
-        Returns:
-            MasteryTrendsResponse
-        """
         logger.info(f"Getting mastery trends for user {user_id}, period={period}")
 
         teacher = await self._access.get_teacher_by_user_id(user_id, school_id)
         if not teacher:
-            from datetime import datetime, timedelta
-            end_date = datetime.utcnow().date()
+            from datetime import datetime, timedelta, timezone
+            end_date = datetime.now(timezone.utc).date()
             start_date = end_date - timedelta(days=7 if period == "weekly" else 30)
             return MasteryTrendsResponse(
                 period=period,
@@ -359,37 +302,56 @@ class TeacherAnalyticsService:
                 class_trends=[]
             )
 
+        all_class_ids = await self._access.get_teacher_class_ids(teacher.id)
+
+        # Apply class_id filter
+        if class_id is not None:
+            if class_id not in all_class_ids:
+                from datetime import datetime, timedelta, timezone
+                end_date = datetime.now(timezone.utc).date()
+                start_date = end_date - timedelta(days=7 if period == "weekly" else 30)
+                return MasteryTrendsResponse(
+                    period=period,
+                    start_date=start_date,
+                    end_date=end_date,
+                    overall_trend="stable",
+                    overall_change_percentage=0.0,
+                    class_trends=[]
+                )
+            target_class_ids = [class_id]
+        else:
+            target_class_ids = all_class_ids
+
         classes, _ = await self._classes.get_classes(teacher.id)
         classes_data = [
             {"id": c.id, "name": c.name, "average_score": c.average_score}
             for c in classes
+            if c.id in target_class_ids
         ]
 
-        return await self._mastery.get_mastery_trends(classes_data, period)
+        # Build student_ids per class for trend calculation
+        student_ids_by_class = {}
+        for cid in target_class_ids:
+            student_ids_by_class[cid] = await self._access.get_student_ids_for_classes([cid])
+
+        return await self._mastery.get_mastery_trends(
+            classes_data, student_ids_by_class, period
+        )
 
     # ========================================================================
     # SELF-ASSESSMENT ANALYTICS
     # ========================================================================
 
-    async def _get_teacher_student_ids(
-        self, user_id: int, school_id: int
-    ) -> Optional[list]:
-        """Helper: get student IDs for teacher's classes. Returns None if teacher not found."""
-        teacher = await self._access.get_teacher_by_user_id(user_id, school_id)
-        if not teacher:
-            return None
-        class_ids = await self._access.get_teacher_class_ids(teacher.id)
-        if not class_ids:
-            return []
-        return await self._access.get_student_ids_for_classes(class_ids)
-
     async def get_self_assessment_summary(
         self,
         user_id: int,
         school_id: int,
+        class_id: Optional[int] = None,
     ) -> SelfAssessmentSummaryResponse:
         """Get aggregated self-assessment breakdown by paragraph."""
-        student_ids = await self._get_teacher_student_ids(user_id, school_id)
+        teacher, class_ids, student_ids = await self._resolve_student_ids(
+            user_id, school_id, class_id
+        )
         if not student_ids:
             return SelfAssessmentSummaryResponse()
 
@@ -424,9 +386,12 @@ class TeacherAnalyticsService:
         self,
         user_id: int,
         school_id: int,
+        class_id: Optional[int] = None,
     ) -> MetacognitiveAlertsResponse:
         """Get students with overconfidence/underconfidence patterns."""
-        student_ids = await self._get_teacher_student_ids(user_id, school_id)
+        teacher, class_ids, student_ids = await self._resolve_student_ids(
+            user_id, school_id, class_id
+        )
         if not student_ids:
             return MetacognitiveAlertsResponse()
 
@@ -435,7 +400,6 @@ class TeacherAnalyticsService:
         )
 
         from app.models.student import Student
-        from app.models.user import User
         from app.models.paragraph import Paragraph
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
@@ -443,7 +407,6 @@ class TeacherAnalyticsService:
         async def build_alerts(records):
             alerts = []
             for rec in records:
-                # Fetch student + user info
                 res = await self.db.execute(
                     select(Student)
                     .options(selectinload(Student.user))
@@ -453,7 +416,6 @@ class TeacherAnalyticsService:
                 if not student or not student.user:
                     continue
 
-                # Fetch paragraph title
                 p_res = await self.db.execute(
                     select(Paragraph.title).where(Paragraph.id == rec.paragraph_id)
                 )
@@ -495,7 +457,6 @@ class TeacherAnalyticsService:
         if not teacher:
             return None
 
-        # Fetch student
         res = await self.db.execute(
             select(Student)
             .options(selectinload(Student.user))
@@ -509,7 +470,6 @@ class TeacherAnalyticsService:
 
         records = await self._sa_repo.get_student_assessments(student_id)
 
-        # Build paragraph/chapter title cache
         p_ids = list({r.paragraph_id for r in records})
         p_info = {}
         if p_ids:
