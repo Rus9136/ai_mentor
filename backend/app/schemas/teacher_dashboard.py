@@ -428,6 +428,85 @@ class StudentSelfAssessmentHistory(BaseModel):
 
 
 # ============================================================================
+# Diagnostic Results schemas
+# ============================================================================
+
+class DiagnosticAnswerDetail(BaseModel):
+    """Single question answer in a diagnostic test attempt."""
+
+    question_id: int
+    question_text: str
+    question_type: str
+    options: List[Dict] = Field(
+        default_factory=list,
+        description="List of {id, text, is_correct} for the question"
+    )
+    selected_option_ids: Optional[List[int]] = None
+    answer_text: Optional[str] = None
+    is_correct: Optional[bool] = None
+    points_earned: Optional[float] = None
+    points_possible: float = 1.0
+    explanation: Optional[str] = None
+
+
+class DiagnosticAttemptAnswersResponse(BaseModel):
+    """Detailed answers for a single diagnostic test attempt."""
+
+    attempt_id: int
+    test_id: int
+    test_title: str
+    student_id: int
+    student_name: str
+    score: Optional[float] = None
+    passed: Optional[bool] = None
+    completed_at: Optional[datetime] = None
+    time_spent: Optional[int] = None
+    answers: List[DiagnosticAnswerDetail] = []
+
+
+class DiagnosticStudentResult(BaseModel):
+    """Single student's diagnostic test result."""
+
+    student_id: int
+    student_code: str
+    first_name: str
+    last_name: str
+    attempt_id: int
+    test_id: int
+    test_title: str
+    textbook_title: Optional[str] = None
+    subject_name: Optional[str] = None
+    score: Optional[float] = Field(None, description="0.0 to 1.0")
+    score_percent: Optional[float] = Field(None, description="0 to 100")
+    passed: Optional[bool] = None
+    completed_at: Optional[datetime] = None
+    time_spent: Optional[int] = Field(None, description="Seconds")
+    questions_total: int = 0
+    questions_correct: int = 0
+
+
+class DiagnosticScoreDistribution(BaseModel):
+    """Distribution of diagnostic scores across students."""
+
+    range_0_40: int = Field(0, description="Students scoring 0-39%")
+    range_40_60: int = Field(0, description="Students scoring 40-59%")
+    range_60_85: int = Field(0, description="Students scoring 60-84%")
+    range_85_100: int = Field(0, description="Students scoring 85-100%")
+
+
+class DiagnosticResultsResponse(BaseModel):
+    """Aggregated diagnostic test results for teacher's class(es)."""
+
+    total_students: int = 0
+    students_tested: int = 0
+    average_score: Optional[float] = Field(None, description="Average score 0-100%")
+    distribution: DiagnosticScoreDistribution = Field(
+        default_factory=DiagnosticScoreDistribution
+    )
+    results: List[DiagnosticStudentResult] = []
+
+
+# ============================================================================
 # Assignment schemas
 # ============================================================================
 

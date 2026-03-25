@@ -2,20 +2,34 @@
 
 import { useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
-import { Users, Target, AlertTriangle, Bell, Activity } from 'lucide-react';
-import type { AnalyticsSummaryResponse } from '@/lib/api/teachers';
+import { Users, Target, AlertTriangle, Bell, Activity, ClipboardCheck } from 'lucide-react';
+import type { AnalyticsSummaryResponse, DiagnosticResultsResponse } from '@/lib/api/teachers';
 
-export type AnalyticsTab = 'struggling' | 'trends' | 'feedback';
+export type AnalyticsTab = 'diagnostic' | 'struggling' | 'trends' | 'feedback';
 
 interface AnalyticsSummaryProps {
   data?: AnalyticsSummaryResponse;
+  diagnosticData?: DiagnosticResultsResponse;
   onNavigate?: (tab: AnalyticsTab) => void;
 }
 
-export function AnalyticsSummary({ data, onNavigate }: AnalyticsSummaryProps) {
+export function AnalyticsSummary({ data, diagnosticData, onNavigate }: AnalyticsSummaryProps) {
   const t = useTranslations('analytics');
 
+  const diagnosticAvg = diagnosticData?.average_score;
+  const diagnosticLabel = diagnosticAvg !== null && diagnosticAvg !== undefined
+    ? `${Math.round(diagnosticAvg)}%`
+    : '—';
+
   const metrics = [
+    {
+      label: t('diagnosticBaseline'),
+      value: diagnosticLabel,
+      icon: ClipboardCheck,
+      color: 'text-indigo-600',
+      bg: 'bg-indigo-50',
+      tab: 'diagnostic' as AnalyticsTab,
+    },
     {
       label: t('summaryStudents'),
       value: data?.total_students ?? 0,
@@ -59,7 +73,7 @@ export function AnalyticsSummary({ data, onNavigate }: AnalyticsSummaryProps) {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       {metrics.map((m) => {
         const clickable = !!m.tab && !!onNavigate;
         return (

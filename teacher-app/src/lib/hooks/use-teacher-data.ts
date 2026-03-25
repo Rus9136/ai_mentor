@@ -12,6 +12,8 @@ import {
   getSelfAssessmentSummary,
   getMetacognitiveAlerts,
   getStudentSelfAssessments,
+  getDiagnosticResults,
+  getDiagnosticAttemptAnswers,
 } from '@/lib/api/teachers';
 
 // Dashboard
@@ -105,5 +107,21 @@ export function useStudentSelfAssessments(studentId: number) {
     queryKey: ['teacher', 'students', studentId, 'self-assessments'],
     queryFn: () => getStudentSelfAssessments(studentId),
     enabled: !!studentId,
+  });
+}
+
+// Diagnostic Analytics
+export function useDiagnosticResults(classId?: number) {
+  return useQuery({
+    queryKey: ['teacher', 'analytics', 'diagnostic-results', classId],
+    queryFn: () => getDiagnosticResults(classId),
+  });
+}
+
+export function useDiagnosticAttemptAnswers(attemptId: number | null) {
+  return useQuery({
+    queryKey: ['teacher', 'analytics', 'diagnostic-answers', attemptId],
+    queryFn: () => getDiagnosticAttemptAnswers(attemptId!),
+    enabled: !!attemptId,
   });
 }

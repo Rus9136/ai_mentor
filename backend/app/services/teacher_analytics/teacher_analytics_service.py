@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.teacher_dashboard import (
     AnalyticsSummaryResponse,
     ClassOverviewResponse,
+    DiagnosticAttemptAnswersResponse,
+    DiagnosticResultsResponse,
     MasteryDistribution,
     MasteryHistoryResponse,
     MasteryTrendsResponse,
@@ -38,6 +40,9 @@ from app.services.teacher_analytics.student_progress_service import (
     StudentProgressService,
 )
 from app.services.teacher_analytics.teacher_access_service import TeacherAccessService
+from app.services.teacher_analytics.diagnostic_analytics_service import (
+    DiagnosticAnalyticsService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +56,7 @@ class TeacherAnalyticsService:
     - Mastery calculations (MasteryAnalyticsService)
     - Class analytics (ClassAnalyticsService)
     - Student progress (StudentProgressService)
+    - Diagnostic analytics (DiagnosticAnalyticsService)
     """
 
     def __init__(self, db: AsyncSession):
@@ -60,6 +66,7 @@ class TeacherAnalyticsService:
         self._classes = ClassAnalyticsService(db, self._access, self._mastery)
         self._progress = StudentProgressService(db, self._access)
         self._sa_repo = SelfAssessmentRepository(db)
+        self._diagnostic = DiagnosticAnalyticsService(db)
 
     # ========================================================================
     # HELPERS
@@ -586,4 +593,41 @@ class TeacherAnalyticsService:
             overconfident_count=overconfident,
             underconfident_count=underconfident,
             assessments=items,
+        )
+
+    # ========================================================================
+    # DIAGNOSTIC ANALYTICS
+    # ========================================================================
+
+    async def get_diagnostic_results(
+        self,
+        user_id: int,
+        school_id: int,
+        class_id: Optional[int] = None,
+    ) -> DiagnosticResultsResponse:
+        """Get aggregated diagnostic test results for teacher's students."""
+        teacher, class_ids, student_ids = await self._resolve_student_ids(
+            user_id, school_id, class_id
+        )
+        total_students = len(student_ids)
+        if not student_ids:
+            return DiagnosticResultsResponse()
+
+        return await self._diagnostic.get_diagnostic_results(
+            student_ids, total_students
+        )
+
+    async def get_diagnostic_attempt_answers(
+        self,
+        user_id: int,
+        school_id: int,
+        attempt_id: int,
+    ) -> Optional[DiagnosticAttemptAnswersResponse]:
+        """Get detailed answers for a specific diagnostic test attempt."""
+        teacher = await self._access.get_teacher_by_user_id(user_id, school_id)
+        if not teacher:
+            return None
+
+        return await self._diagnostic.get_diagnostic_attempt_answers(
+            attempt_id, school_id
         )

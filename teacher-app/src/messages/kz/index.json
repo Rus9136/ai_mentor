@@ -198,7 +198,18 @@
     "clickToExpand": "Оқушылар тізімін көру үшін басыңыз",
     "studentRating": "Бағалау",
     "noAlerts": "Сәйкессіздік жоқ",
-    "noAlertsHint": "Барлық оқушылар білімін дұрыс бағалайды"
+    "noAlertsHint": "Барлық оқушылар білімін дұрыс бағалайды",
+    "diagnosticTitle": "Диагностика",
+    "diagnosticDescription": "Диагностикалық тесттер нәтижелері — оқушылардың бастапқы білім деңгейі",
+    "diagnosticBaseline": "Бастапқы деңгей",
+    "diagnosticNoData": "Диагностикалық тесттер әлі тапсырылған жоқ",
+    "diagnosticNoDataHint": "Оқушылар диагностикалық тесттерді тапсырғаннан кейін деректер пайда болады",
+    "diagnosticTested": "Тест тапсырды",
+    "diagnosticAvgScore": "Орташа балл",
+    "diagnosticDistribution": "Балл бөлінісі",
+    "diagnosticStudentResults": "Оқушылар нәтижелері",
+    "diagnosticAnswer": "Жауап",
+    "diagnosticNoAnswers": "Жауаптар табылмады"
   },
   "selfAssessment": {
     "title": "Өзін-өзі бағалау",

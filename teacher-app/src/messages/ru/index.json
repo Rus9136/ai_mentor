@@ -198,7 +198,18 @@
     "clickToExpand": "Нажмите, чтобы увидеть список учеников",
     "studentRating": "Оценка",
     "noAlerts": "Нет расхождений",
-    "noAlertsHint": "Все ученики адекватно оценивают свои знания"
+    "noAlertsHint": "Все ученики адекватно оценивают свои знания",
+    "diagnosticTitle": "Диагностика",
+    "diagnosticDescription": "Результаты диагностических тестов — начальный уровень знаний учеников",
+    "diagnosticBaseline": "Начальный уровень",
+    "diagnosticNoData": "Диагностические тесты ещё не пройдены",
+    "diagnosticNoDataHint": "Данные появятся после прохождения диагностических тестов учениками",
+    "diagnosticTested": "Прошли тест",
+    "diagnosticAvgScore": "Средний балл",
+    "diagnosticDistribution": "Распределение баллов",
+    "diagnosticStudentResults": "Результаты учеников",
+    "diagnosticAnswer": "Ответ",
+    "diagnosticNoAnswers": "Ответы не найдены"
   },
   "selfAssessment": {
     "title": "Самооценка",

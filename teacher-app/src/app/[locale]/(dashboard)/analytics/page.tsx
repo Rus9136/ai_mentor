@@ -9,6 +9,7 @@ import {
   useMasteryTrends,
   useSelfAssessmentSummary,
   useMetacognitiveAlerts,
+  useDiagnosticResults,
 } from '@/lib/hooks/use-teacher-data';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -18,18 +19,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, MessageSquare } from 'lucide-react';
+import { Loader2, MessageSquare, ClipboardCheck } from 'lucide-react';
 
 import { AnalyticsSummary, type AnalyticsTab } from './_components/analytics-summary';
 import { StrugglingTopicsTab } from './_components/struggling-topics-tab';
 import { MasteryTrendsTab } from './_components/mastery-trends-tab';
 import { FeedbackTab } from './_components/feedback-tab';
+import { DiagnosticTab } from './_components/diagnostic-tab';
 
 export default function AnalyticsPage() {
   const t = useTranslations('analytics');
   const [period, setPeriod] = useState<'weekly' | 'monthly'>('weekly');
   const [selectedClassId, setSelectedClassId] = useState<number | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<AnalyticsTab>('struggling');
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>('diagnostic');
 
   // Load teacher's classes for filter dropdown
   const { data: classes } = useClasses();
@@ -40,6 +42,7 @@ export default function AnalyticsPage() {
   const { data: trends, isLoading: trendsLoading } = useMasteryTrends(period, selectedClassId);
   const { data: selfAssessment, isLoading: summaryLoading } = useSelfAssessmentSummary(selectedClassId);
   const { data: alerts, isLoading: alertsLoading } = useMetacognitiveAlerts(selectedClassId);
+  const { data: diagnosticResults, isLoading: diagnosticLoading } = useDiagnosticResults(selectedClassId);
 
   const isLoading = topicsLoading || trendsLoading;
 
@@ -78,11 +81,15 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Summary cards — clickable to navigate to tabs */}
-      <AnalyticsSummary data={summary} onNavigate={setActiveTab} />
+      <AnalyticsSummary data={summary} diagnosticData={diagnosticResults} onNavigate={setActiveTab} />
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AnalyticsTab)} className="space-y-6">
         <TabsList>
+          <TabsTrigger value="diagnostic" className="flex items-center gap-1.5">
+            <ClipboardCheck className="h-3.5 w-3.5" />
+            {t('diagnosticTitle')}
+          </TabsTrigger>
           <TabsTrigger value="struggling">{t('strugglingTopics')}</TabsTrigger>
           <TabsTrigger value="trends">{t('masteryTrends')}</TabsTrigger>
           <TabsTrigger value="feedback" className="flex items-center gap-1.5">
@@ -90,6 +97,10 @@ export default function AnalyticsPage() {
             {t('feedback')}
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="diagnostic">
+          <DiagnosticTab data={diagnosticResults} isLoading={diagnosticLoading} />
+        </TabsContent>
 
         <TabsContent value="struggling">
           <StrugglingTopicsTab data={strugglingTopics} />

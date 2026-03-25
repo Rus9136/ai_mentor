@@ -253,6 +253,67 @@ export interface StudentSelfAssessmentHistory {
   assessments: StudentSelfAssessmentItem[];
 }
 
+// Diagnostic Results
+export interface DiagnosticStudentResult {
+  student_id: number;
+  student_code: string;
+  first_name: string;
+  last_name: string;
+  attempt_id: number;
+  test_id: number;
+  test_title: string;
+  textbook_title: string | null;
+  subject_name: string | null;
+  score: number | null;
+  score_percent: number | null;
+  passed: boolean | null;
+  completed_at: string | null;
+  time_spent: number | null;
+  questions_total: number;
+  questions_correct: number;
+}
+
+export interface DiagnosticScoreDistribution {
+  range_0_40: number;
+  range_40_60: number;
+  range_60_85: number;
+  range_85_100: number;
+}
+
+export interface DiagnosticResultsResponse {
+  total_students: number;
+  students_tested: number;
+  average_score: number | null;
+  distribution: DiagnosticScoreDistribution;
+  results: DiagnosticStudentResult[];
+}
+
+export interface DiagnosticAnswerDetail {
+  question_id: number;
+  question_text: string;
+  question_type: string;
+  options: { id: number; text: string; is_correct: boolean }[];
+  selected_option_ids: number[] | null;
+  answer_text: string | null;
+  is_correct: boolean | null;
+  points_earned: number | null;
+  points_possible: number;
+  explanation: string | null;
+}
+
+export interface DiagnosticAttemptAnswersResponse {
+  attempt_id: number;
+  test_id: number;
+  test_title: string;
+  student_id: number;
+  student_name: string;
+  score: number | null;
+  passed: boolean | null;
+  completed_at: string | null;
+  time_spent: number | null;
+  answers: DiagnosticAnswerDetail[];
+}
+
 // ============================================================================
 // API Functions
 // ============================================================================
@@ -359,6 +420,24 @@ export async function getStudentSelfAssessments(
 ): Promise<StudentSelfAssessmentHistory> {
   const response = await apiClient.get<StudentSelfAssessmentHistory>(
     `/teachers/students/${studentId}/self-assessments`
+  );
+  return response.data;
+}
+
+// Diagnostic Analytics
+export async function getDiagnosticResults(classId?: number): Promise<DiagnosticResultsResponse> {
+  const params = classId ? `?class_id=${classId}` : '';
+  const response = await apiClient.get<DiagnosticResultsResponse>(
+    `/teachers/analytics/diagnostic-results${params}`
+  );
+  return response.data;
+}
+
+export async function getDiagnosticAttemptAnswers(
+  attemptId: number
+): Promise<DiagnosticAttemptAnswersResponse> {
+  const response = await apiClient.get<DiagnosticAttemptAnswersResponse>(
+    `/teachers/analytics/diagnostic-results/${attemptId}/answers`
   );
   return response.data;
 }

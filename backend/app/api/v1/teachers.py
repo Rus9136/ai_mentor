@@ -32,6 +32,8 @@ from app.schemas.chapter import ChapterListResponse
 from app.schemas.paragraph import ParagraphListResponse, ParagraphSearchResult
 from app.schemas.teacher_dashboard import (
     AnalyticsSummaryResponse,
+    DiagnosticAttemptAnswersResponse,
+    DiagnosticResultsResponse,
     ParagraphAssessmentDetailResponse,
     TeacherDashboardResponse,
     TeacherClassResponse,
@@ -477,6 +479,65 @@ async def get_student_self_assessments(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Student not found"
+        )
+    return result
+
+
+# ============================================================================
+# DIAGNOSTIC ANALYTICS
+# ============================================================================
+
+@router.get(
+    "/analytics/diagnostic-results",
+    response_model=DiagnosticResultsResponse,
+    summary="Get diagnostic test results",
+    description="Get aggregated diagnostic test results for teacher's students. Shows baseline knowledge level."
+)
+async def get_diagnostic_results(
+    class_id: Optional[int] = Query(None, description="Filter by class ID"),
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> DiagnosticResultsResponse:
+    """
+    Get diagnostic test results (initial knowledge baseline).
+
+    Returns per-student results with:
+    - Score and pass/fail status
+    - Subject and textbook context
+    - Score distribution across class
+    """
+    service = TeacherAnalyticsService(db)
+    return await service.get_diagnostic_results(current_user.id, school_id, class_id)
+
+
+@router.get(
+    "/analytics/diagnostic-results/{attempt_id}/answers",
+    response_model=DiagnosticAttemptAnswersResponse,
+    summary="Get diagnostic attempt answers",
+    description="Get detailed question-by-question answers for a diagnostic test attempt."
+)
+async def get_diagnostic_attempt_answers(
+    attempt_id: int,
+    current_user: User = Depends(require_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db)
+) -> DiagnosticAttemptAnswersResponse:
+    """
+    Get detailed answers for a diagnostic test attempt.
+
+    Returns each question with:
+    - Student's answer and correct answer
+    - Points earned and explanation
+    """
+    service = TeacherAnalyticsService(db)
+    result = await service.get_diagnostic_attempt_answers(
+        current_user.id, school_id, attempt_id
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Diagnostic attempt not found"
         )
     return result
 
