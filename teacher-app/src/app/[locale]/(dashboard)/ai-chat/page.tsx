@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   Plus,
   Send,
@@ -15,6 +15,7 @@ import {
   Sparkles,
   Zap,
   Brain,
+  ArrowDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -46,6 +47,7 @@ const MODE_TO_MODEL: Record<ChatMode, string | undefined> = {
 export default function AIChatPage() {
   const t = useTranslations('aiChat');
   const tNav = useTranslations('navigation');
+  const locale = useLocale();
 
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -61,7 +63,10 @@ export default function AIChatPage() {
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const userSentMessage = useRef(false);
 
   const { data: sessionsData, isLoading: sessionsLoading } = useChatSessions();
   const createSession = useCreateChatSession();
@@ -69,10 +74,34 @@ export default function AIChatPage() {
 
   const sessions = sessionsData?.items || [];
 
-  // Scroll to bottom on new messages
+  // Check if scroll container is at the bottom
+  const checkIsAtBottom = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  }, []);
+
+  // Handle scroll events on the messages container
+  const handleScroll = useCallback(() => {
+    setIsAtBottom(checkIsAtBottom());
+  }, [checkIsAtBottom]);
+
+  // Scroll to bottom helper
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, []);
+
+  // Smart auto-scroll: only if user is at bottom OR just sent a message
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streamingContent]);
+    if (userSentMessage.current) {
+      scrollToBottom('smooth');
+      userSentMessage.current = false;
+      return;
+    }
+    if (isAtBottom) {
+      scrollToBottom('instant');
+    }
+  }, [messages, streamingContent, isAtBottom, scrollToBottom]);
 
   // Load session messages when active session changes
   const loadSession = useCallback(async (sessionId: number) => {
@@ -125,6 +154,7 @@ export default function AIChatPage() {
     setInput('');
     setIsStreaming(true);
     setStreamingContent('');
+    userSentMessage.current = true;
 
     // Optimistically add user message
     const tempUserMsg: ChatMessage = {
@@ -313,6 +343,8 @@ export default function AIChatPage() {
                     <p className="truncate font-medium">{session.title || t('newChat')}</p>
                     <p className="truncate text-xs text-muted-foreground">
                       {session.message_count} {t('messages') || 'сообщ.'}
+                      {' · '}
+                      {new Date(session.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                   </div>
                   <button
@@ -356,7 +388,7 @@ export default function AIChatPage() {
             )}
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="relative flex-1 overflow-y-auto p-4" ref={scrollContainerRef} onScroll={handleScroll}>
               {loadingSession ? (
                 <div className="flex items-center justify-center p-8">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -445,6 +477,16 @@ export default function AIChatPage() {
 
                   <div ref={messagesEndRef} />
                 </div>
+              )}
+
+              {/* Scroll to bottom button */}
+              {!isAtBottom && (
+                <button
+                  onClick={() => scrollToBottom('smooth')}
+                  className="absolute bottom-4 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border bg-background shadow-md transition-colors hover:bg-muted"
+                >
+                  <ArrowDown className="h-4 w-4 text-muted-foreground" />
+                </button>
               )}
             </div>
 
