@@ -17,7 +17,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select as sa_select
 
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.student import Student
 from app.models.teacher import Teacher
 from app.models.school import School
@@ -188,6 +188,109 @@ class TestApproveJoinRequest:
             )
 
         assert response.status_code == 403
+
+
+class TestCrossSchoolApproval:
+    """
+    REGRESSION: Cross-school join request approval.
+
+    Bug: When a student from school A joins a class in school B,
+    approve_request used multiple commit()s which released DB connections
+    and lost set_config('app.is_super_admin') needed to bypass RLS.
+
+    Fix: All operations now run in a single transaction with flush().
+    """
+
+    @pytest.mark.asyncio
+    async def test_cross_school_approve(
+        self,
+        test_app,
+        db_session,
+        school1,
+        school2,
+        school_class,          # class in school1
+        teacher_user,
+        teacher_in_class,
+    ):
+        """
+        Student from school2 requests to join class in school1.
+        Teacher approves → student moves to school1 and joins the class.
+        """
+        from app.core.security import create_access_token
+
+        # Create student in school2 (different school from teacher/class)
+        cross_user = User(
+            email="cross_student@test.com",
+            password_hash="hashed",
+            first_name="Cross",
+            last_name="Student",
+            role=UserRole.STUDENT,
+            school_id=school2.id,
+            is_active=True,
+        )
+        db_session.add(cross_user)
+        await db_session.flush()
+
+        cross_student = Student(
+            school_id=school2.id,
+            user_id=cross_user.id,
+            student_code="STU_CROSS_001",
+            grade_level=7,
+        )
+        db_session.add(cross_student)
+        await db_session.flush()
+
+        # Create pending join request for school1's class
+        request = StudentJoinRequest(
+            student_id=cross_student.id,
+            class_id=school_class.id,
+            school_id=school1.id,
+            status=JoinRequestStatus.PENDING,
+            first_name="Cross",
+            last_name="Student",
+        )
+        db_session.add(request)
+        await db_session.commit()
+        await db_session.refresh(request)
+
+        teacher_user_obj, _ = teacher_user
+        token = create_access_token(data={
+            "sub": str(teacher_user_obj.id),
+            "email": teacher_user_obj.email,
+            "role": teacher_user_obj.role.value,
+            "school_id": teacher_user_obj.school_id,
+        })
+
+        async with AsyncClient(
+            transport=ASGITransport(app=test_app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                f"/api/v1/teachers/join-requests/{request.id}/approve",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        assert response.status_code == 200, (
+            f"Cross-school approve failed: {response.status_code}: {response.text}"
+        )
+        data = response.json()
+        assert data["status"] == "approved"
+
+        # Verify student moved to school1
+        result = await db_session.execute(
+            sa_select(Student).where(Student.id == cross_student.id)
+        )
+        updated_student = result.scalar_one()
+        assert updated_student.school_id == school1.id
+
+        # Verify student is in the class
+        result = await db_session.execute(
+            sa_select(ClassStudent).where(
+                ClassStudent.class_id == school_class.id,
+                ClassStudent.student_id == cross_student.id,
+            )
+        )
+        cs = result.scalar_one_or_none()
+        assert cs is not None, "Cross-school student should be added to class"
 
 
 class TestRejectJoinRequest:

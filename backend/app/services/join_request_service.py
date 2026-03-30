@@ -4,8 +4,10 @@ Service for student join request operations.
 import logging
 from typing import List, Optional, Tuple
 
+from datetime import datetime, timezone
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.orm import selectinload
 
 from app.models.student_join_request import StudentJoinRequest, JoinRequestStatus
@@ -197,20 +199,9 @@ class JoinRequestService:
         """
         Approve a join request and add student to class.
 
-        When approved:
-        1. Update student's school_id to the new school
-        2. Update student's FIO if provided in the request
-        3. Remove student from all previous classes
-        4. Add student to the new class
-        5. Mark invitation code as used
-
-        Args:
-            request_id: ID of the request
-            reviewer_id: ID of the user approving
-            school_id: School ID for isolation
-
-        Returns:
-            Tuple of (response, error_message)
+        All operations run in a SINGLE transaction (flush, not commit) to keep
+        the same DB connection and preserve set_config RLS overrides.
+        One commit at the end — if anything fails, everything rolls back.
         """
         request = await self._repo.get_by_id(request_id, school_id)
         if not request:
@@ -219,97 +210,111 @@ class JoinRequestService:
         if request.status != JoinRequestStatus.PENDING:
             return None, "request_already_processed"
 
-        # Bypass RLS for cross-school student access during approval.
-        # Using set_config(false) instead of SET LOCAL so it persists across commits.
-        # Safe because we've already validated request ownership and teacher access.
+        # Bypass RLS for cross-school student access.
+        # IMPORTANT: we use flush() (not commit()) for all intermediate steps
+        # so the connection stays the same and this config persists.
         await self.db.execute(text("SELECT set_config('app.is_super_admin', 'true', false)"))
 
-        # Get student with user for FIO update
-        result = await self.db.execute(
-            select(Student)
-            .options(selectinload(Student.user))
-            .where(Student.id == request.student_id)
-        )
-        student = result.scalar_one_or_none()
-
-        if not student:
-            # Reset super admin before returning
-            await self.db.execute(text("SELECT set_config('app.is_super_admin', 'false', false)"))
-            return None, "student_not_found"
-
-        old_school_id = student.school_id
-
-        # 1. Update student's school_id
-        student.school_id = request.school_id
-        logger.info(
-            f"Updating student {student.id} school_id from {old_school_id} "
-            f"to {request.school_id}"
-        )
-
-        # 2. Update student's FIO if provided in request
-        if request.first_name and student.user:
-            student.user.first_name = request.first_name
-        if request.last_name and student.user:
-            student.user.last_name = request.last_name
-        if request.middle_name is not None and student.user:
-            student.user.middle_name = request.middle_name
-
-        await self.db.commit()
-
-        # 3. Remove student from all previous classes
-        # Re-set super_admin: commit() above may have released the connection to pool
-        await self.db.execute(text("SELECT set_config('app.is_super_admin', 'true', false)"))
-        removed_count = await self._class_repo.remove_student_from_all_classes(
-            student.id
-        )
-        if removed_count > 0:
-            logger.info(
-                f"Removed student {student.id} from {removed_count} previous classes"
-            )
-
-        # 4. Add student to new class
-        # Re-set super_admin: remove_student_from_all_classes commits and may release connection
-        await self.db.execute(text("SELECT set_config('app.is_super_admin', 'true', false)"))
         try:
+            # Get student with user for FIO update
+            result = await self.db.execute(
+                select(Student)
+                .options(selectinload(Student.user))
+                .where(Student.id == request.student_id)
+            )
+            student = result.scalar_one_or_none()
+
+            if not student:
+                await self.db.execute(text("SELECT set_config('app.is_super_admin', 'false', false)"))
+                return None, "student_not_found"
+
+            old_school_id = student.school_id
+
+            # 1. Update student's school_id
+            student.school_id = request.school_id
             logger.info(
-                f"Adding student {request.student_id} to class {request.class_id} "
-                f"in school {request.school_id}"
+                f"Updating student {student.id} school_id from {old_school_id} "
+                f"to {request.school_id}"
             )
-            await self._class_repo.add_students(
-                request.class_id,
-                [request.student_id],
-                request.school_id  # Use request's school_id (new school)
+
+            # 2. Update student's FIO if provided in request
+            if request.first_name and student.user:
+                student.user.first_name = request.first_name
+            if request.last_name and student.user:
+                student.user.last_name = request.last_name
+            if request.middle_name is not None and student.user:
+                student.user.middle_name = request.middle_name
+
+            await self.db.flush()
+
+            # 3. Remove student from all previous classes (direct SQL, no commit)
+            from app.models.class_student import ClassStudent
+            delete_stmt = delete(ClassStudent).where(
+                ClassStudent.student_id == student.id
             )
-            logger.info(f"Successfully added student {request.student_id} to class {request.class_id}")
-        except ValueError as e:
-            logger.error(f"Failed to add student to class: {e}")
-            return None, str(e)
+            del_result = await self.db.execute(delete_stmt)
+            if del_result.rowcount > 0:
+                logger.info(
+                    f"Removed student {student.id} from {del_result.rowcount} previous classes"
+                )
+
+            # 4. Add student to new class (direct ORM, no commit)
+            # Check not already in class
+            existing = await self.db.execute(
+                select(ClassStudent.id).where(
+                    ClassStudent.class_id == request.class_id,
+                    ClassStudent.student_id == request.student_id,
+                )
+            )
+            if not existing.scalar_one_or_none():
+                self.db.add(ClassStudent(
+                    class_id=request.class_id,
+                    student_id=request.student_id,
+                ))
+                await self.db.flush()
+            logger.info(
+                f"Added student {request.student_id} to class {request.class_id}"
+            )
+
+            # 5. Mark invitation code as used
+            if request.invitation_code_id:
+                try:
+                    code = await self._code_repo.get_by_id(
+                        request.invitation_code_id, request.school_id
+                    )
+                    if code:
+                        code.uses_count += 1
+                        from app.models.invitation_code import InvitationCodeUse
+                        self.db.add(InvitationCodeUse(
+                            invitation_code_id=code.id,
+                            student_id=request.student_id,
+                        ))
+                        await self.db.flush()
+                except Exception as e:
+                    logger.warning(f"Failed to mark invitation code as used: {e}")
+
+            # 6. Approve the request
+            request.status = JoinRequestStatus.APPROVED
+            request.reviewed_by = reviewer_id
+            request.reviewed_at = datetime.now(timezone.utc)
+
+            # Single commit — all changes on the same connection
+            await self.db.commit()
+
         except Exception as e:
-            logger.error(f"Unexpected error adding student to class: {type(e).__name__}: {e}")
-            return None, f"Failed to add student to class: {str(e)}"
-
-        # 5. Mark code as used if present
-        if request.invitation_code_id:
-            try:
-                # Load invitation code since it wasn't eagerly loaded
-                code = await self._code_repo.get_by_id(request.invitation_code_id, request.school_id)
-                if code:
-                    await self._code_repo.use_code(code, request.student_id)
-            except Exception as e:
-                logger.warning(f"Failed to mark invitation code as used: {e}")
-
-        # Approve request
-        approved = await self._repo.approve(request, reviewer_id)
-
-        # Restore normal RLS context
-        await self.db.execute(text("SELECT set_config('app.is_super_admin', 'false', false)"))
+            await self.db.rollback()
+            logger.error(f"Failed to approve join request {request_id}: {type(e).__name__}: {e}")
+            return None, f"Failed to approve request: {str(e)}"
+        finally:
+            # Restore normal RLS context
+            await self.db.execute(text("SELECT set_config('app.is_super_admin', 'false', false)"))
 
         logger.info(f"Approved join request {request_id} by user {reviewer_id}")
 
         return JoinRequestActionResponse(
-            id=approved.id,
-            status=approved.status.value,
-            reviewed_at=approved.reviewed_at,
+            id=request.id,
+            status=request.status.value,
+            reviewed_at=request.reviewed_at,
             message="Student successfully added to class"
         ), None
 
