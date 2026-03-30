@@ -6,8 +6,10 @@ import { Link } from '@/i18n/routing';
 import { useAuth } from '@/providers/auth-provider';
 import {
   getRegistrationSubjects,
+  getRegistrationClasses,
   getErrorMessage,
   SubjectOption,
+  ClassOption,
 } from '@/lib/api/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,6 +70,12 @@ export default function RegisterPage() {
   );
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
+  const [selectedClasses, setSelectedClasses] = useState<Set<number>>(
+    new Set()
+  );
+  const [classes, setClasses] = useState<ClassOption[]>([]);
+  const [classesLoading, setClassesLoading] = useState(false);
+  const [schoolCodeValidated, setSchoolCodeValidated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -78,8 +86,40 @@ export default function RegisterPage() {
       .finally(() => setSubjectsLoading(false));
   }, []);
 
+  const loadClasses = async (code: string) => {
+    if (!code.trim()) {
+      setClasses([]);
+      setSelectedClasses(new Set());
+      setSchoolCodeValidated(false);
+      return;
+    }
+    setClassesLoading(true);
+    try {
+      const result = await getRegistrationClasses(code.trim());
+      setClasses(result);
+      setSchoolCodeValidated(true);
+    } catch {
+      setClasses([]);
+      setSchoolCodeValidated(false);
+    } finally {
+      setClassesLoading(false);
+    }
+  };
+
   const toggleSubject = (id: number) => {
     setSelectedSubjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleClass = (id: number) => {
+    setSelectedClasses((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -114,6 +154,7 @@ export default function RegisterPage() {
         phone: mode === 'phone' ? `+7${phoneDigits}` : undefined,
         password,
         subject_ids: Array.from(selectedSubjects),
+        class_ids: selectedClasses.size > 0 ? Array.from(selectedClasses) : undefined,
       });
     } catch (err) {
       setError(getErrorMessage(err));
@@ -156,7 +197,11 @@ export default function RegisterPage() {
                 type="text"
                 placeholder={t('schoolCodePlaceholder')}
                 value={schoolCode}
-                onChange={(e) => setSchoolCode(e.target.value)}
+                onChange={(e) => {
+                  setSchoolCode(e.target.value);
+                  setSchoolCodeValidated(false);
+                }}
+                onBlur={() => loadClasses(schoolCode)}
                 required
                 disabled={isLoading}
               />
@@ -304,6 +349,48 @@ export default function RegisterPage() {
                       />
                       <span className="text-sm">
                         {locale === 'kz' ? subject.name_kz : subject.name_ru}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Classes (loaded after school code) */}
+            <div className="space-y-2">
+              <Label>{t('classes')}</Label>
+              <p className="text-xs text-muted-foreground">
+                {t('classesHint')}
+              </p>
+              {!schoolCodeValidated ? (
+                <p className="text-xs text-muted-foreground italic py-2">
+                  {t('classesLoading')}
+                </p>
+              ) : classesLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : classes.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic py-2">
+                  {t('noClasses')}
+                </p>
+              ) : (
+                <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-3">
+                  {classes.map((cls) => (
+                    <label
+                      key={cls.id}
+                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/50"
+                    >
+                      <Checkbox
+                        checked={selectedClasses.has(cls.id)}
+                        onCheckedChange={() => toggleClass(cls.id)}
+                        disabled={isLoading}
+                      />
+                      <span className="text-sm">
+                        {cls.name}
+                        <span className="ml-1 text-muted-foreground">
+                          ({cls.grade_level} класс)
+                        </span>
                       </span>
                     </label>
                   ))}

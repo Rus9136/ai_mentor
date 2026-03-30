@@ -5,8 +5,9 @@ Provides public endpoints for teacher registration using a school code.
 No authentication required — teachers register themselves and get immediate access.
 """
 from datetime import datetime
-from typing import List
-from fastapi import APIRouter, Depends, Request
+from typing import List, Optional
+from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -21,9 +22,11 @@ from app.core.errors import APIError, ErrorCode
 from app.models.user import User, UserRole, AuthProvider
 from app.models.teacher import Teacher
 from app.models.teacher_subject import TeacherSubject
+from app.models.class_teacher import ClassTeacher
 from app.repositories.user_repo import UserRepository
 from app.repositories.teacher_repo import TeacherRepository
 from app.repositories.school_repo import SchoolRepository
+from app.repositories.school_class_repo import SchoolClassRepository
 from app.repositories.goso_repo import GosoRepository
 from app.schemas.auth import (
     TeacherRegisterRequest,
@@ -31,6 +34,16 @@ from app.schemas.auth import (
     UserResponse,
 )
 from app.schemas.goso import SubjectListResponse
+
+
+class ClassOptionResponse(BaseModel):
+    """Class option for registration form."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    grade_level: int
+    code: Optional[str] = None
 
 
 router = APIRouter()
@@ -48,6 +61,26 @@ async def get_subjects_for_registration(
     goso_repo = GosoRepository(db)
     subjects = await goso_repo.get_all_subjects(is_active=True)
     return subjects
+
+
+@router.get("/teacher/classes", response_model=List[ClassOptionResponse])
+async def get_classes_for_registration(
+    school_code: str = Query(..., min_length=1, description="School code"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get classes for a school by school code (public, no auth required).
+
+    Used by the teacher registration form to populate class selection.
+    """
+    school_repo = SchoolRepository(db)
+    school = await school_repo.get_by_code(school_code.strip())
+    if not school or not school.is_active:
+        raise APIError(ErrorCode.VAL_011, message="Invalid school code")
+
+    class_repo = SchoolClassRepository(db)
+    classes = await class_repo.get_all(school_id=school.id)
+    return classes
 
 
 @router.post("/teacher/register", response_model=TeacherRegisterResponse)
@@ -153,9 +186,22 @@ async def register_teacher(
     for subj in resolved_subjects:
         ts = TeacherSubject(teacher_id=teacher.id, subject_id=subj.id)
         db.add(ts)
+
+    # 10. Create ClassTeacher records (optional)
+    if data.class_ids:
+        class_repo = SchoolClassRepository(db)
+        for class_id in data.class_ids:
+            school_class = await class_repo.get_by_id(class_id, school.id)
+            if school_class:
+                ct = ClassTeacher(
+                    class_id=class_id,
+                    teacher_id=teacher.id,
+                )
+                db.add(ct)
+
     await db.commit()
 
-    # 10. Generate tokens
+    # 11. Generate tokens
     token_data = {
         "sub": str(user.id),
         "email": user.email,

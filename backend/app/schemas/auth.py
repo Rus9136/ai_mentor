@@ -188,6 +188,7 @@ class TeacherRegisterRequest(BaseModel):
     phone: Optional[str] = Field(None, description="Phone number in +7XXXXXXXXXX format")
     password: str = Field(..., min_length=8, description="Password (min 8 characters)")
     subject_ids: List[int] = Field(..., min_length=1, description="At least one subject required")
+    class_ids: Optional[List[int]] = Field(None, description="Optional class IDs to join")
 
     @field_validator("phone")
     @classmethod

@@ -82,6 +82,13 @@ export interface SubjectOption {
   is_active: boolean;
 }
 
+export interface ClassOption {
+  id: number;
+  name: string;
+  grade_level: number;
+  code: string | null;
+}
+
 export interface TeacherRegisterRequest {
   school_code: string;
   first_name: string;
@@ -91,6 +98,7 @@ export interface TeacherRegisterRequest {
   phone?: string;
   password: string;
   subject_ids: number[];
+  class_ids?: number[];
 }
 
 export interface TeacherRegisterResponse {
@@ -102,6 +110,13 @@ export interface TeacherRegisterResponse {
 
 export async function getRegistrationSubjects(): Promise<SubjectOption[]> {
   const response = await apiClient.get<SubjectOption[]>('/auth/teacher/subjects');
+  return response.data;
+}
+
+export async function getRegistrationClasses(schoolCode: string): Promise<ClassOption[]> {
+  const response = await apiClient.get<ClassOption[]>('/auth/teacher/classes', {
+    params: { school_code: schoolCode },
+  });
   return response.data;
 }
 
