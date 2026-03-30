@@ -9,6 +9,7 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator, mo
 
 from app.schemas.user import UserResponseSchema
 from app.schemas.goso import SubjectBrief
+from app.schemas.auth import normalize_kz_phone
 
 # Kazakhstan phone format: +7XXXXXXXXXX
 _KZ_PHONE_RE = re.compile(r"^\+7\d{10}$")
@@ -39,9 +40,11 @@ class TeacherCreate(BaseModel):
     @classmethod
     def validate_phone(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v != "":
+            v = normalize_kz_phone(v)
             if not _KZ_PHONE_RE.match(v):
                 raise ValueError("Phone must be in +7XXXXXXXXXX format")
-        return v or None
+            return v
+        return None
 
     @model_validator(mode='after')
     def check_email_or_phone(self):

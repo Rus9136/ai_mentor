@@ -137,6 +137,24 @@ class TestLoginRequestSchema:
         with pytest.raises(Exception):
             LoginRequest(login="test@test.com", password="12345")
 
+    def test_login_phone_normalization_8_prefix(self):
+        """Phone with 8-prefix normalizes to +7 format."""
+        req = LoginRequest(login="87077880094", password="123456")
+        assert req.login == "+77077880094"
+        assert req.is_phone is True
+
+    def test_login_phone_normalization_no_plus(self):
+        """Phone without + normalizes to +7 format."""
+        req = LoginRequest(login="77077880094", password="123456")
+        assert req.login == "+77077880094"
+        assert req.is_phone is True
+
+    def test_login_phone_normalization_formatted(self):
+        """Formatted phone +7 (707) 788-00-94 normalizes."""
+        req = LoginRequest(login="+7 (707) 788-00-94", password="123456")
+        assert req.login == "+77077880094"
+        assert req.is_phone is True
+
 
 # =============================================================================
 # TeacherCreate Schema Tests
@@ -174,13 +192,23 @@ class TestTeacherCreateSchema:
             TeacherCreate(email="", phone="", password="12345678", first_name="A", last_name="B")
 
     def test_create_invalid_phone_format(self):
-        """Invalid phone format — rejected."""
+        """Truly invalid phone format — rejected."""
         with pytest.raises(Exception, match="\\+7XXXXXXXXXX"):
-            TeacherCreate(phone="89991234567", password="12345678", first_name="A", last_name="B")
+            TeacherCreate(phone="123", password="12345678", first_name="A", last_name="B")
 
     def test_create_valid_phone_format(self):
         """Valid KZ phone format +7XXXXXXXXXX."""
         tc = TeacherCreate(phone="+77001234567", password="12345678", first_name="A", last_name="B")
+        assert tc.phone == "+77001234567"
+
+    def test_create_phone_normalization_8_prefix(self):
+        """Phone with 8-prefix normalizes to +7."""
+        tc = TeacherCreate(phone="89991234567", password="12345678", first_name="A", last_name="B")
+        assert tc.phone == "+79991234567"
+
+    def test_create_phone_normalization_no_plus(self):
+        """Phone without + normalizes to +7."""
+        tc = TeacherCreate(phone="77001234567", password="12345678", first_name="A", last_name="B")
         assert tc.phone == "+77001234567"
 
     def test_create_password_min_length(self):

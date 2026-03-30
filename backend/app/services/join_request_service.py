@@ -256,9 +256,9 @@ class JoinRequestService:
 
         await self.db.commit()
 
-        # No need to re-set — using set_config(false) persists across commits
-
         # 3. Remove student from all previous classes
+        # Re-set super_admin: commit() above may have released the connection to pool
+        await self.db.execute(text("SELECT set_config('app.is_super_admin', 'true', false)"))
         removed_count = await self._class_repo.remove_student_from_all_classes(
             student.id
         )
@@ -268,6 +268,8 @@ class JoinRequestService:
             )
 
         # 4. Add student to new class
+        # Re-set super_admin: remove_student_from_all_classes commits and may release connection
+        await self.db.execute(text("SELECT set_config('app.is_super_admin', 'true', false)"))
         try:
             logger.info(
                 f"Adding student {request.student_id} to class {request.class_id} "

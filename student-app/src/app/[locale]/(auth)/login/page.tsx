@@ -98,9 +98,22 @@ export default function LoginPage() {
   };
 
   const handlePhoneInput = (value: string) => {
-    // Only allow digits, limit to 10
-    const digits = value.replace(/\D/g, '').slice(0, 10);
-    setPhoneDigits(digits);
+    // Strip non-digits and any leading country code (8 or 7)
+    let digits = value.replace(/\D/g, '');
+    if (digits.startsWith('87') && digits.length >= 11) digits = digits.slice(1);
+    if (digits.startsWith('7') && digits.length >= 11) digits = digits.slice(1);
+    setPhoneDigits(digits.slice(0, 10));
+  };
+
+  /** Format 10 digits as (XXX) XXX-XX-XX for display */
+  const formatPhoneDigits = (d: string): string => {
+    if (!d) return '';
+    let r = '(' + d.slice(0, 3);
+    if (d.length >= 3) r += ') ';
+    if (d.length > 3) r += d.slice(3, 6);
+    if (d.length > 6) r += '-' + d.slice(6, 8);
+    if (d.length > 8) r += '-' + d.slice(8, 10);
+    return r;
   };
 
   const switchTab = (tab: LoginTab) => {
@@ -191,14 +204,13 @@ export default function LoginPage() {
                         id="phone"
                         type="tel"
                         inputMode="numeric"
-                        placeholder="7001234567"
-                        value={phoneDigits}
+                        placeholder="(700) 123-45-67"
+                        value={formatPhoneDigits(phoneDigits)}
                         onChange={(e) => handlePhoneInput(e.target.value)}
                         required
                         disabled={isLoading}
                         autoComplete="tel"
                         className="rounded-l-none"
-                        maxLength={10}
                       />
                     </div>
                   </div>
