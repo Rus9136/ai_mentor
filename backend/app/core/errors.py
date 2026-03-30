@@ -55,6 +55,7 @@ class ErrorCode(str, Enum):
     VAL_008 = "VAL_008"  # Cannot modify after publishing
     VAL_009 = "VAL_009"  # Late submission not allowed
     VAL_010 = "VAL_010"  # No attempts remaining
+    VAL_011 = "VAL_011"  # Invalid school code
 
     # === RESOURCE (404/409) ===
     RES_001 = "RES_001"  # Generic resource not found
@@ -115,6 +116,7 @@ ERROR_MESSAGES: Dict[ErrorCode, str] = {
     ErrorCode.VAL_008: "Cannot modify after publishing",
     ErrorCode.VAL_009: "Late submission is not allowed",
     ErrorCode.VAL_010: "No attempts remaining",
+    ErrorCode.VAL_011: "Invalid school code",
 
     # RESOURCE
     ErrorCode.RES_001: "Resource not found",

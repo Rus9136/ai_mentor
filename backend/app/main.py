@@ -209,6 +209,7 @@ from app.api.v1 import teachers_quiz_analytics
 from app.api.v1 import teachers_quiz_reports
 from app.api.v1 import teachers_tests
 from app.api.v1 import auth_phone
+from app.api.v1 import auth_teacher
 
 app.include_router(
     auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"]
@@ -220,6 +221,10 @@ app.include_router(
 
 app.include_router(
     auth_phone.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication - Phone"]
+)
+
+app.include_router(
+    auth_teacher.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication - Teacher"]
 )
 
 app.include_router(

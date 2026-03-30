@@ -11,9 +11,11 @@ import {
 import { useRouter, usePathname } from '@/i18n/routing';
 import {
   login as loginApi,
+  registerTeacher as registerTeacherApi,
   getCurrentUser,
   logout as logoutApi,
   UserResponse,
+  TeacherRegisterRequest,
 } from '@/lib/api/auth';
 import { getAccessToken, setTokens } from '@/lib/api/client';
 
@@ -22,6 +24,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (loginStr: string, password: string) => Promise<void>;
+  registerAndLogin: (data: TeacherRegisterRequest) => Promise<void>;
   loginWithToken: (token: string) => Promise<boolean>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -91,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    const isAuthPage = pathname === '/login';
+    const isAuthPage = pathname === '/login' || pathname === '/register';
     const isWebViewPage = pathname.startsWith('/webview');
 
     if (!user && !isAuthPage && !isWebViewPage) {
@@ -107,6 +110,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userData = await getCurrentUser();
 
     // Only allow teachers
+    if (userData.role !== 'teacher') {
+      logoutApi();
+      throw new Error('ACCESS_DENIED');
+    }
+
+    setUser(userData);
+    router.replace('/');
+  }, [router]);
+
+  const registerAndLogin = useCallback(async (data: TeacherRegisterRequest) => {
+    await registerTeacherApi(data);
+    const userData = await getCurrentUser();
+
     if (userData.role !== 'teacher') {
       logoutApi();
       throw new Error('ACCESS_DENIED');
@@ -153,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated,
         login,
+        registerAndLogin,
         loginWithToken,
         logout,
         refreshUser,

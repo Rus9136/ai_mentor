@@ -2,7 +2,7 @@
 Authentication schemas.
 """
 import re
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
@@ -19,6 +19,19 @@ class LoginRequest(BaseModel):
         if isinstance(data, dict) and 'email' in data and 'login' not in data:
             data['login'] = data['email']
         return data
+
+    @field_validator("login")
+    @classmethod
+    def normalize_phone_login(cls, v: str) -> str:
+        """Normalize phone-like inputs (87077880094, 77077880094) to +7XXXXXXXXXX."""
+        v = v.strip()
+        if "@" in v:
+            return v
+        # If it looks like a phone number (digits, optional +, spaces, dashes, parens)
+        cleaned = re.sub(r"\D", "", v)
+        if len(cleaned) >= 10:
+            return normalize_kz_phone(v)
+        return v
 
     @property
     def is_phone(self) -> bool:
@@ -83,6 +96,28 @@ class TokenPayload(BaseModel):
 _KZ_PHONE_RE = re.compile(r"^\+7\d{10}$")
 
 
+def normalize_kz_phone(raw: str) -> str:
+    """Normalize Kazakhstan phone number to +7XXXXXXXXXX format.
+
+    Accepts: +77077880094, 87077880094, 77077880094, 7077880094,
+             +7 (707) 788-00-94 (formatted with spaces/dashes/parens)
+    Returns: +77077880094
+    Raises ValueError if cannot normalize to valid format.
+    """
+    # Strip everything except digits
+    digits = re.sub(r"\D", "", raw.strip())
+    if len(digits) == 11 and digits.startswith("8"):
+        # 87077880094 → 77077880094
+        digits = "7" + digits[1:]
+    if len(digits) == 11 and digits.startswith("7"):
+        return "+" + digits
+    if len(digits) == 10:
+        # 7077880094 → +77077880094
+        return "+7" + digits
+    # Cannot normalize — return with + so regex validator gives clear error
+    return "+" + digits
+
+
 class PhoneRegisterRequest(BaseModel):
     """Phone registration request schema."""
 
@@ -95,6 +130,7 @@ class PhoneRegisterRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
+        v = normalize_kz_phone(v)
         if not _KZ_PHONE_RE.match(v):
             raise ValueError("Phone must be in +7XXXXXXXXXX format")
         return v
@@ -109,6 +145,7 @@ class PhoneLoginRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
+        v = normalize_kz_phone(v)
         if not _KZ_PHONE_RE.match(v):
             raise ValueError("Phone must be in +7XXXXXXXXXX format")
         return v
@@ -138,3 +175,41 @@ class PhoneAuthResponse(BaseModel):
         False,
         description="True if user needs to complete onboarding (enter invitation code)"
     )
+
+
+class TeacherRegisterRequest(BaseModel):
+    """Teacher self-registration request schema."""
+
+    school_code: str = Field(..., min_length=1, description="School code provided by admin")
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    middle_name: Optional[str] = Field(None, max_length=100)
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = Field(None, description="Phone number in +7XXXXXXXXXX format")
+    password: str = Field(..., min_length=8, description="Password (min 8 characters)")
+    subject_ids: List[int] = Field(..., min_length=1, description="At least one subject required")
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v != "":
+            v = normalize_kz_phone(v)
+            if not _KZ_PHONE_RE.match(v):
+                raise ValueError("Phone must be in +7XXXXXXXXXX format")
+            return v
+        return None
+
+    @model_validator(mode="after")
+    def check_email_or_phone(self):
+        if not self.email and not self.phone:
+            raise ValueError("Either email or phone must be provided")
+        return self
+
+
+class TeacherRegisterResponse(BaseModel):
+    """Teacher registration response with tokens."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: UserResponse

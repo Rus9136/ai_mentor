@@ -59,11 +59,54 @@ export async function changePassword(currentPassword: string, newPassword: strin
 export function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     // Check if it's an Axios error with response
-    const axiosError = error as { response?: { data?: { detail?: string } } };
+    const axiosError = error as { response?: { data?: { detail?: string | { message?: string } } } };
     if (axiosError.response?.data?.detail) {
-      return axiosError.response.data.detail;
+      const detail = axiosError.response.data.detail;
+      if (typeof detail === 'string') return detail;
+      if (typeof detail === 'object' && detail.message) return detail.message;
     }
     return error.message;
   }
   return 'Произошла неизвестная ошибка';
+}
+
+// === Teacher Registration ===
+
+export interface SubjectOption {
+  id: number;
+  code: string;
+  name_ru: string;
+  name_kz: string;
+  grade_from: number;
+  grade_to: number;
+  is_active: boolean;
+}
+
+export interface TeacherRegisterRequest {
+  school_code: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  email?: string;
+  phone?: string;
+  password: string;
+  subject_ids: number[];
+}
+
+export interface TeacherRegisterResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  user: UserResponse;
+}
+
+export async function getRegistrationSubjects(): Promise<SubjectOption[]> {
+  const response = await apiClient.get<SubjectOption[]>('/auth/teacher/subjects');
+  return response.data;
+}
+
+export async function registerTeacher(data: TeacherRegisterRequest): Promise<TeacherRegisterResponse> {
+  const response = await apiClient.post<TeacherRegisterResponse>('/auth/teacher/register', data);
+  setTokens(response.data.access_token, response.data.refresh_token);
+  return response.data;
 }

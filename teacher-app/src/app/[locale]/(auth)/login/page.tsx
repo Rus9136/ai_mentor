@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/routing';
 import { useAuth } from '@/providers/auth-provider';
 import { getErrorMessage } from '@/lib/api/auth';
 import { Button } from '@/components/ui/button';
@@ -13,18 +14,39 @@ import { Loader2, GraduationCap, AlertCircle, Mail, Phone } from 'lucide-react';
 
 type LoginMode = 'email' | 'phone';
 
+/** Format 10 raw digits as +7 (XXX) XXX-XX-XX */
+function formatPhoneDisplay(digits: string): string {
+  if (!digits) return '+7';
+  let r = '+7 (';
+  r += digits.slice(0, 3);
+  if (digits.length >= 3) r += ') ';
+  if (digits.length > 3) r += digits.slice(3, 6);
+  if (digits.length > 6) r += '-' + digits.slice(6, 8);
+  if (digits.length > 8) r += '-' + digits.slice(8, 10);
+  return r;
+}
+
+/** Extract up to 10 subscriber digits from any input */
+function extractPhoneDigits(input: string): string {
+  let digits = input.replace(/\D/g, '');
+  // Strip country code prefix if user typed/pasted it
+  if (digits.startsWith('87') && digits.length >= 11) digits = digits.slice(1);
+  if (digits.startsWith('7') && digits.length >= 11) digits = digits.slice(1);
+  return digits.slice(0, 10);
+}
+
 export default function LoginPage() {
   const t = useTranslations('auth');
   const { login } = useAuth();
 
   const [mode, setMode] = useState<LoginMode>('email');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phoneDigits, setPhoneDigits] = useState(''); // raw 10 digits
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const loginValue = mode === 'email' ? email : phone;
+  const loginValue = mode === 'email' ? email : (phoneDigits ? `+7${phoneDigits}` : '');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,9 +140,9 @@ export default function LoginPage() {
                 <Input
                   id="phone"
                   type="tel"
-                  placeholder="+77771234567"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+7 (707) 123-45-67"
+                  value={phoneDigits ? formatPhoneDisplay(phoneDigits) : ''}
+                  onChange={(e) => setPhoneDigits(extractPhoneDigits(e.target.value))}
                   required
                   disabled={isLoading}
                   autoComplete="tel"
@@ -153,6 +175,13 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
+
+          <div className="mt-4 text-center text-sm">
+            <span className="text-muted-foreground">{t('noAccount')}</span>{' '}
+            <Link href="/register" className="text-primary hover:underline font-medium">
+              {t('goToRegister')}
+            </Link>
+          </div>
         </CardContent>
       </Card>
 
