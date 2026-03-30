@@ -149,6 +149,9 @@ async def register_teacher(
 
     # 5.5. Set RLS context — public endpoint has no JWT, so TenancyMiddleware
     # doesn't set tenant. We must set it manually for INSERT to pass RLS policies.
+    # NOTE: Use flush() instead of repo.create() (which does commit+refresh) to keep
+    # all writes in a single transaction. Repo commits can recycle the DB connection,
+    # losing the RLS context set here.
     await set_current_tenant(db, school.id)
 
     # 6. Create User
@@ -164,7 +167,8 @@ async def register_teacher(
         is_active=True,
         auth_provider=auth_provider,
     )
-    user = await user_repo.create(user)
+    db.add(user)
+    await db.flush()
 
     # 7. Generate teacher_code
     year = datetime.now().year % 100
@@ -180,7 +184,8 @@ async def register_teacher(
         subject_id=first_subject.id,
         subject=first_subject.name_ru,
     )
-    teacher = await teacher_repo.create(teacher)
+    db.add(teacher)
+    await db.flush()
 
     # 9. Create TeacherSubject records
     for subj in resolved_subjects:
@@ -199,6 +204,7 @@ async def register_teacher(
                 )
                 db.add(ct)
 
+    # Single commit for all writes — keeps RLS context on one connection
     await db.commit()
 
     # 11. Generate tokens
