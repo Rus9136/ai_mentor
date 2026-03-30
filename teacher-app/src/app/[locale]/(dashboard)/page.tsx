@@ -103,6 +103,11 @@ export default function DashboardPage() {
                         <div>
                           <h3 className="font-medium text-foreground">
                             {cls.name}
+                            {cls.subject_name && (
+                              <span className="ml-2 text-sm font-normal text-primary">
+                                — {cls.subject_name}
+                              </span>
+                            )}
                           </h3>
                           <p className="text-sm text-muted-foreground">
                             {cls.students_count} {tClasses('students')} •{' '}

@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { MasteryDistributionChart } from '@/components/dashboard/MasteryDistributionChart';
 import { Link } from '@/i18n/routing';
-import { Users, ArrowRight, Loader2 } from 'lucide-react';
+import { Users, ArrowRight, Loader2, Star, BookOpen } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 export default function ClassesPage() {
@@ -34,7 +35,23 @@ export default function ClassesPage() {
               <CardHeader className="bg-primary/5 pb-3">
                 <div className="flex items-start justify-between">
                   <div>
-                    <CardTitle className="text-lg">{cls.name}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">{cls.name}</CardTitle>
+                      {cls.is_homeroom && (
+                        <Badge variant="secondary" className="text-xs">
+                          <Star className="mr-1 h-3 w-3" />
+                          КР
+                        </Badge>
+                      )}
+                    </div>
+                    {cls.subject_name && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-sm font-medium text-primary">
+                          {cls.subject_name}
+                        </span>
+                      </div>
+                    )}
                     <p className="text-sm text-muted-foreground">
                       {cls.grade_level} класс • {cls.academic_year}
                     </p>

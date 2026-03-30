@@ -416,6 +416,26 @@ export interface ParentCreate {
   child_ids?: number[];
 }
 
+// Class-Teacher assignment types
+export interface ClassTeacherAssignment {
+  teacher_id: number;
+  subject_id?: number | null;
+  is_homeroom?: boolean;
+}
+
+export interface ClassTeacherInfo {
+  id: number;
+  teacher_id: number;
+  teacher_code: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string | null;
+  email?: string | null;
+  subject_id?: number | null;
+  subject_name?: string | null;
+  is_homeroom: boolean;
+}
+
 // Class types
 export interface SchoolClassBrief {
   id: number;
@@ -435,6 +455,7 @@ export interface SchoolClass {
   academic_year: string;
   students?: Student[];
   teachers?: Teacher[];
+  teacher_assignments?: ClassTeacherInfo[];
   students_count?: number;
   teachers_count?: number;
   created_at: string;

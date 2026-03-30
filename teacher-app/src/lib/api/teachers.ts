@@ -33,6 +33,9 @@ export interface TeacherClassResponse {
   code: string;
   grade_level: number;
   academic_year: string;
+  subject_id?: number | null;
+  subject_name?: string | null;
+  is_homeroom?: boolean;
   students_count: number;
   mastery_distribution: MasteryDistribution;
   average_score: number;

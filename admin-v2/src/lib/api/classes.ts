@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { SchoolClass, SchoolClassCreate, SchoolClassUpdate, PaginatedResponse } from '@/types';
+import type { SchoolClass, SchoolClassCreate, SchoolClassUpdate, ClassTeacherAssignment, PaginatedResponse } from '@/types';
 
 export const classesApi = {
   getList: async (): Promise<SchoolClass[]> => {
@@ -42,16 +42,32 @@ export const classesApi = {
   },
 
   // Teachers management
-  addTeachers: async (classId: number, teacherIds: number[]): Promise<SchoolClass> => {
+  addTeachers: async (classId: number, assignments: ClassTeacherAssignment[]): Promise<SchoolClass> => {
     const { data } = await apiClient.post<SchoolClass>(`/admin/school/classes/${classId}/teachers`, {
-      teacher_ids: teacherIds,
+      assignments,
     });
     return data;
   },
 
-  removeTeacher: async (classId: number, teacherId: number): Promise<SchoolClass> => {
+  removeTeacher: async (classId: number, teacherId: number, subjectId?: number | null): Promise<SchoolClass> => {
+    const params = subjectId != null ? `?subject_id=${subjectId}` : '';
     const { data } = await apiClient.delete<SchoolClass>(
-      `/admin/school/classes/${classId}/teachers/${teacherId}`
+      `/admin/school/classes/${classId}/teachers/${teacherId}${params}`
+    );
+    return data;
+  },
+
+  setHomeroom: async (classId: number, teacherId: number): Promise<SchoolClass> => {
+    const { data } = await apiClient.put<SchoolClass>(
+      `/admin/school/classes/${classId}/homeroom`,
+      { teacher_id: teacherId }
+    );
+    return data;
+  },
+
+  unsetHomeroom: async (classId: number): Promise<SchoolClass> => {
+    const { data } = await apiClient.delete<SchoolClass>(
+      `/admin/school/classes/${classId}/homeroom`
     );
     return data;
   },

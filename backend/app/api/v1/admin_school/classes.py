@@ -19,6 +19,7 @@ from app.schemas.school_class import (
 )
 from app.schemas.pagination import PaginatedResponse, PaginationParams
 from ._dependencies import get_class_for_school_admin
+from .class_members import _build_teacher_assignments
 
 
 router = APIRouter(prefix="/classes", tags=["School Classes"])
@@ -133,7 +134,9 @@ async def get_school_class(
     Get a specific class by ID (ADMIN only).
     Includes students and teachers lists.
     """
-    return school_class
+    response = SchoolClassResponse.model_validate(school_class)
+    response.teacher_assignments = _build_teacher_assignments(school_class)
+    return response
 
 
 @router.put("/{class_id}", response_model=SchoolClassResponse)
@@ -166,7 +169,9 @@ async def update_school_class(
 
     # Reload with relationships
     school_class = await class_repo.get_by_id(class_id, school_id, load_students=True, load_teachers=True)
-    return school_class
+    response = SchoolClassResponse.model_validate(school_class)
+    response.teacher_assignments = _build_teacher_assignments(school_class)
+    return response
 
 
 @router.delete("/{class_id}", status_code=status.HTTP_204_NO_CONTENT)

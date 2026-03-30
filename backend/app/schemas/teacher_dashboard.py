@@ -167,6 +167,11 @@ class TeacherClassResponse(BaseModel):
     grade_level: int
     academic_year: str
 
+    # Subject assignment info (from class_teachers)
+    subject_id: Optional[int] = None
+    subject_name: Optional[str] = None
+    is_homeroom: bool = False
+
     # Stats
     students_count: int = 0
     mastery_distribution: MasteryDistribution = Field(default_factory=MasteryDistribution)

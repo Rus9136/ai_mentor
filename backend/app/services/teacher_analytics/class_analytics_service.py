@@ -15,6 +15,7 @@ from app.models.chapter import Chapter
 from app.models.class_teacher import ClassTeacher
 from app.models.mastery import ChapterMastery, ParagraphMastery
 from app.models.school_class import SchoolClass
+from app.models.subject import Subject
 from app.models.test_attempt import TestAttempt
 from app.schemas.teacher_dashboard import (
     ChapterProgressBrief,
@@ -77,20 +78,27 @@ class ClassAnalyticsService:
         if grade_level is not None:
             conditions.append(SchoolClass.grade_level == grade_level)
 
-        # Get total count
+        # Get total count (one row per ClassTeacher assignment)
         count_query = (
             select(func.count())
-            .select_from(SchoolClass)
-            .join(ClassTeacher, ClassTeacher.class_id == SchoolClass.id)
+            .select_from(ClassTeacher)
+            .join(SchoolClass, SchoolClass.id == ClassTeacher.class_id)
             .where(and_(*conditions))
         )
         total = (await self.db.execute(count_query)).scalar() or 0
 
-        # Get classes with students (paginated)
+        # Get classes with subject info (paginated)
+        # One row per ClassTeacher assignment (teacher may have multiple subjects in a class)
         offset = (page - 1) * page_size
         result = await self.db.execute(
-            select(SchoolClass)
+            select(
+                SchoolClass,
+                ClassTeacher.subject_id,
+                ClassTeacher.is_homeroom,
+                Subject.name_ru.label("subject_name"),
+            )
             .join(ClassTeacher, ClassTeacher.class_id == SchoolClass.id)
+            .outerjoin(Subject, Subject.id == ClassTeacher.subject_id)
             .options(selectinload(SchoolClass.students))
             .where(and_(*conditions))
             .order_by(SchoolClass.grade_level, SchoolClass.name)
@@ -98,10 +106,15 @@ class ClassAnalyticsService:
             .limit(page_size)
         )
 
-        classes = list(result.scalars().all())
+        rows = result.all()
         response = []
 
-        for cls in classes:
+        for row in rows:
+            cls = row[0]
+            subject_id = row[1]
+            is_homeroom = row[2]
+            subject_name = row[3]
+
             student_ids = [s.id for s in cls.students if not s.is_deleted]
 
             distribution = MasteryDistribution()
@@ -125,6 +138,9 @@ class ClassAnalyticsService:
                 code=cls.code,
                 grade_level=cls.grade_level,
                 academic_year=cls.academic_year,
+                subject_id=subject_id,
+                subject_name=subject_name,
+                is_homeroom=is_homeroom,
                 students_count=len(student_ids),
                 mastery_distribution=distribution,
                 average_score=round(avg_score, 1),

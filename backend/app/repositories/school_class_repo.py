@@ -1,16 +1,19 @@
 """
 Repository for SchoolClass data access.
 """
-from typing import Optional, List, Tuple
-from sqlalchemy import select, and_, delete, func
+from typing import Optional, List, Tuple, Any
+from sqlalchemy import select, and_, delete, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
+
+_NOT_SET: Any = object()
 
 from app.models.school_class import SchoolClass
 from app.models.class_student import ClassStudent
 from app.models.class_teacher import ClassTeacher
 from app.models.student import Student
 from app.models.teacher import Teacher
+from app.models.subject import Subject
 
 
 class SchoolClassRepository:
@@ -26,18 +29,7 @@ class SchoolClassRepository:
         load_students: bool = False,
         load_teachers: bool = False
     ) -> Optional[SchoolClass]:
-        """
-        Get school class by ID with school isolation.
-
-        Args:
-            class_id: Class ID
-            school_id: School ID for data isolation
-            load_students: Whether to eager load students
-            load_teachers: Whether to eager load teachers
-
-        Returns:
-            SchoolClass or None if not found
-        """
+        """Get school class by ID with school isolation."""
         query = select(SchoolClass).where(
             SchoolClass.id == class_id,
             SchoolClass.school_id == school_id,
@@ -50,7 +42,10 @@ class SchoolClassRepository:
             )
         if load_teachers:
             query = query.options(
-                selectinload(SchoolClass.teachers).selectinload(Teacher.user)
+                selectinload(SchoolClass.teachers).selectinload(Teacher.user),
+                selectinload(SchoolClass.class_teachers)
+                .joinedload(ClassTeacher.teacher)
+                .selectinload(Teacher.user),
             )
 
         result = await self.db.execute(query)
@@ -62,17 +57,7 @@ class SchoolClassRepository:
         load_students: bool = False,
         load_teachers: bool = False
     ) -> List[SchoolClass]:
-        """
-        Get all classes for a specific school.
-
-        Args:
-            school_id: School ID for data isolation
-            load_students: Whether to eager load students
-            load_teachers: Whether to eager load teachers
-
-        Returns:
-            List of school classes
-        """
+        """Get all classes for a specific school."""
         query = select(SchoolClass).where(
             SchoolClass.school_id == school_id,
             SchoolClass.is_deleted == False  # noqa: E712
@@ -94,19 +79,7 @@ class SchoolClassRepository:
         load_students: bool = False,
         load_teachers: bool = False
     ) -> List[SchoolClass]:
-        """
-        Get classes with filters.
-
-        Args:
-            school_id: School ID for data isolation
-            grade_level: Filter by grade level (1-11)
-            academic_year: Filter by academic year
-            load_students: Whether to eager load students
-            load_teachers: Whether to eager load teachers
-
-        Returns:
-            List of school classes matching filters
-        """
+        """Get classes with filters."""
         filters = [
             SchoolClass.school_id == school_id,
             SchoolClass.is_deleted == False  # noqa: E712
@@ -139,21 +112,7 @@ class SchoolClassRepository:
         load_students: bool = False,
         load_teachers: bool = False,
     ) -> Tuple[List[SchoolClass], int]:
-        """
-        Get classes with pagination and optional filters.
-
-        Args:
-            school_id: School ID for data isolation
-            page: Page number (1-indexed)
-            page_size: Number of items per page
-            grade_level: Filter by grade level (1-11)
-            academic_year: Filter by academic year
-            load_students: Whether to eager load students
-            load_teachers: Whether to eager load teachers
-
-        Returns:
-            Tuple of (list of classes, total count)
-        """
+        """Get classes with pagination and optional filters."""
         # Build base filters
         filters = [
             SchoolClass.school_id == school_id,
@@ -200,16 +159,7 @@ class SchoolClassRepository:
         code: str,
         school_id: int
     ) -> Optional[SchoolClass]:
-        """
-        Get class by code (unique within school).
-
-        Args:
-            code: Class code
-            school_id: School ID for data isolation
-
-        Returns:
-            SchoolClass or None if not found
-        """
+        """Get class by code (unique within school)."""
         result = await self.db.execute(
             select(SchoolClass).where(
                 SchoolClass.code == code,
@@ -220,44 +170,20 @@ class SchoolClassRepository:
         return result.scalar_one_or_none()
 
     async def create(self, school_class: SchoolClass) -> SchoolClass:
-        """
-        Create a new school class.
-
-        Args:
-            school_class: SchoolClass instance
-
-        Returns:
-            Created school class
-        """
+        """Create a new school class."""
         self.db.add(school_class)
         await self.db.commit()
         await self.db.refresh(school_class)
         return school_class
 
     async def update(self, school_class: SchoolClass) -> SchoolClass:
-        """
-        Update an existing school class.
-
-        Args:
-            school_class: SchoolClass instance with updated fields
-
-        Returns:
-            Updated school class
-        """
+        """Update an existing school class."""
         await self.db.commit()
         await self.db.refresh(school_class)
         return school_class
 
     async def soft_delete(self, school_class: SchoolClass) -> SchoolClass:
-        """
-        Soft delete a school class.
-
-        Args:
-            school_class: SchoolClass instance
-
-        Returns:
-            Deleted school class
-        """
+        """Soft delete a school class."""
         from datetime import datetime
         school_class.is_deleted = True
         school_class.deleted_at = datetime.utcnow()
@@ -273,20 +199,7 @@ class SchoolClassRepository:
         student_ids: List[int],
         school_id: int
     ) -> SchoolClass:
-        """
-        Add students to a class.
-
-        Args:
-            class_id: Class ID
-            student_ids: List of student IDs to add
-            school_id: School ID for validation
-
-        Returns:
-            Updated school class with students
-
-        Raises:
-            ValueError: If class or students not found, or belong to different schools
-        """
+        """Add students to a class."""
         school_class = await self.get_by_id(class_id, school_id)
         if not school_class:
             raise ValueError(f"Class {class_id} not found")
@@ -331,17 +244,7 @@ class SchoolClassRepository:
         student_ids: List[int],
         school_id: Optional[int] = None
     ) -> SchoolClass:
-        """
-        Remove students from a class.
-
-        Args:
-            class_id: Class ID
-            student_ids: List of student IDs to remove
-            school_id: School ID for data isolation (optional for backward compatibility)
-
-        Returns:
-            Updated school class
-        """
+        """Remove students from a class."""
         # Delete rows from class_students association table
         await self.db.execute(
             delete(ClassStudent).where(
@@ -369,16 +272,7 @@ class SchoolClassRepository:
         class_id: int,
         school_id: int
     ) -> List[Student]:
-        """
-        Get all students in a class.
-
-        Args:
-            class_id: Class ID
-            school_id: School ID for data isolation
-
-        Returns:
-            List of students
-        """
+        """Get all students in a class."""
         school_class = await self.get_by_id(class_id, school_id, load_students=True)
         return school_class.students if school_class else []
 
@@ -387,38 +281,38 @@ class SchoolClassRepository:
     async def add_teachers(
         self,
         class_id: int,
-        teacher_ids: List[int],
+        assignments: list,
         school_id: int
     ) -> SchoolClass:
         """
-        Add teachers to a class.
+        Add teachers to a class with subject assignments.
 
         Args:
             class_id: Class ID
-            teacher_ids: List of teacher IDs to add
+            assignments: List of dicts/objects with teacher_id, subject_id, is_homeroom
             school_id: School ID for validation
-
-        Returns:
-            Updated school class with teachers
-
-        Raises:
-            ValueError: If class or teachers not found, or belong to different schools
         """
-        # Get class with teachers loaded to avoid lazy loading
-        school_class = await self.get_by_id(class_id, school_id, load_teachers=True)
+        school_class = await self.get_by_id(class_id, school_id)
         if not school_class:
             raise ValueError(f"Class {class_id} not found")
 
-        # Get existing teacher IDs to avoid duplicates
-        existing_teacher_ids = {t.id for t in school_class.teachers}
+        # Get existing assignments to avoid duplicates
+        result = await self.db.execute(
+            select(ClassTeacher.teacher_id, ClassTeacher.subject_id)
+            .where(ClassTeacher.class_id == class_id)
+        )
+        existing = {(row[0], row[1]) for row in result.all()}
 
-        # Verify all teachers exist and belong to the same school
-        for teacher_id in teacher_ids:
-            # Skip if already assigned
-            if teacher_id in existing_teacher_ids:
+        for assignment in assignments:
+            teacher_id = assignment.teacher_id if hasattr(assignment, 'teacher_id') else assignment['teacher_id']
+            subject_id = assignment.subject_id if hasattr(assignment, 'subject_id') else assignment.get('subject_id')
+            is_homeroom = assignment.is_homeroom if hasattr(assignment, 'is_homeroom') else assignment.get('is_homeroom', False)
+
+            # Skip if already assigned with same subject
+            if (teacher_id, subject_id) in existing:
                 continue
 
-            # Query with school_id and is_deleted filter
+            # Verify teacher exists and belongs to same school
             result = await self.db.execute(
                 select(Teacher).where(
                     Teacher.id == teacher_id,
@@ -427,15 +321,33 @@ class SchoolClassRepository:
                 )
             )
             teacher = result.scalar_one_or_none()
-
             if not teacher:
                 raise ValueError(
                     f"Teacher {teacher_id} not found or belongs to different school"
                 )
 
-            # Create ClassTeacher association directly
-            # (teachers relationship is viewonly=True, so append won't work)
-            class_teacher = ClassTeacher(class_id=class_id, teacher_id=teacher_id)
+            # Verify subject exists if provided
+            if subject_id is not None:
+                result = await self.db.execute(
+                    select(Subject.id).where(Subject.id == subject_id)
+                )
+                if not result.scalar_one_or_none():
+                    raise ValueError(f"Subject {subject_id} not found")
+
+            # Handle homeroom: unset existing homeroom if new one is being set
+            if is_homeroom:
+                await self.db.execute(
+                    update(ClassTeacher)
+                    .where(ClassTeacher.class_id == class_id, ClassTeacher.is_homeroom == True)  # noqa: E712
+                    .values(is_homeroom=False)
+                )
+
+            class_teacher = ClassTeacher(
+                class_id=class_id,
+                teacher_id=teacher_id,
+                subject_id=subject_id,
+                is_homeroom=is_homeroom,
+            )
             self.db.add(class_teacher)
 
         await self.db.commit()
@@ -446,69 +358,123 @@ class SchoolClassRepository:
         self,
         class_id: int,
         teacher_ids: List[int],
-        school_id: Optional[int] = None
+        school_id: Optional[int] = None,
+        subject_id: Any = _NOT_SET,
     ) -> SchoolClass:
         """
         Remove teachers from a class.
 
-        Args:
-            class_id: Class ID
-            teacher_ids: List of teacher IDs to remove
-            school_id: School ID for data isolation (optional for backward compatibility)
-
-        Returns:
-            Updated school class
+        If subject_id is provided, only remove the specific subject assignment.
+        If subject_id is "NOT_SET" (default), remove all assignments for the teacher.
         """
-        # Delete rows from class_teachers association table
+        conditions = [
+            ClassTeacher.class_id == class_id,
+            ClassTeacher.teacher_id.in_(teacher_ids)
+        ]
+        if subject_id is not _NOT_SET:
+            if subject_id is None:
+                conditions.append(ClassTeacher.subject_id.is_(None))
+            else:
+                conditions.append(ClassTeacher.subject_id == subject_id)
+
         await self.db.execute(
-            delete(ClassTeacher).where(
-                and_(
-                    ClassTeacher.class_id == class_id,
-                    ClassTeacher.teacher_id.in_(teacher_ids)
-                )
-            )
+            delete(ClassTeacher).where(and_(*conditions))
         )
         await self.db.commit()
+        # Expire cached objects so reload sees fresh data
+        self.db.expire_all()
 
-        # Return refreshed class with school_id check if provided
+        # Return refreshed class
         if school_id is not None:
             school_class = await self.get_by_id(class_id, school_id)
             if not school_class:
                 raise ValueError(f"Class {class_id} not found")
         else:
-            # Fallback for backward compatibility
             school_class = await self.db.get(SchoolClass, class_id)
             await self.db.refresh(school_class)
         return school_class
+
+    async def set_homeroom_teacher(
+        self,
+        class_id: int,
+        teacher_id: int,
+        school_id: int,
+    ) -> SchoolClass:
+        """
+        Set a teacher as homeroom (классный руководитель) for a class.
+        Unsets any existing homeroom teacher for this class.
+        """
+        # Verify teacher is assigned to this class
+        result = await self.db.execute(
+            select(ClassTeacher).where(
+                ClassTeacher.class_id == class_id,
+                ClassTeacher.teacher_id == teacher_id,
+            )
+        )
+        ct = result.scalars().first()
+        if not ct:
+            raise ValueError(f"Teacher {teacher_id} is not assigned to class {class_id}")
+
+        # Unset all homeroom flags for this class
+        await self.db.execute(
+            update(ClassTeacher)
+            .where(ClassTeacher.class_id == class_id, ClassTeacher.is_homeroom == True)  # noqa: E712
+            .values(is_homeroom=False)
+        )
+
+        # Set the new homeroom teacher (on their first assignment row)
+        await self.db.execute(
+            update(ClassTeacher)
+            .where(ClassTeacher.id == ct.id)
+            .values(is_homeroom=True)
+        )
+
+        await self.db.commit()
+
+        school_class = await self.get_by_id(class_id, school_id, load_teachers=True)
+        return school_class
+
+    async def unset_homeroom_teacher(
+        self,
+        class_id: int,
+        school_id: int,
+    ) -> SchoolClass:
+        """Remove homeroom designation from all teachers in a class."""
+        await self.db.execute(
+            update(ClassTeacher)
+            .where(ClassTeacher.class_id == class_id, ClassTeacher.is_homeroom == True)  # noqa: E712
+            .values(is_homeroom=False)
+        )
+        await self.db.commit()
+
+        school_class = await self.get_by_id(class_id, school_id, load_teachers=True)
+        return school_class
+
+    async def get_class_teacher_assignments(
+        self,
+        class_id: int,
+    ) -> List[ClassTeacher]:
+        """Get all teacher assignments for a class with eager-loaded relations."""
+        result = await self.db.execute(
+            select(ClassTeacher)
+            .where(ClassTeacher.class_id == class_id)
+            .options(
+                joinedload(ClassTeacher.teacher).selectinload(Teacher.user),
+            )
+        )
+        return list(result.scalars().unique().all())
 
     async def get_teachers(
         self,
         class_id: int,
         school_id: int
     ) -> List[Teacher]:
-        """
-        Get all teachers for a class.
-
-        Args:
-            class_id: Class ID
-            school_id: School ID for data isolation
-
-        Returns:
-            List of teachers
-        """
+        """Get all teachers for a class."""
         school_class = await self.get_by_id(class_id, school_id, load_teachers=True)
         return school_class.teachers if school_class else []
 
     async def count_by_school(self, school_id: int) -> int:
-        """
-        Count classes in a school.
-
-        Args:
-            school_id: School ID
-
-        Returns:
-            Number of classes
-        """
+        """Count classes in a school."""
         from sqlalchemy import func
         result = await self.db.execute(
             select(func.count(SchoolClass.id)).where(
@@ -523,21 +489,8 @@ class SchoolClassRepository:
         student_id: int,
         school_id: Optional[int] = None
     ) -> int:
-        """
-        Remove student from all classes.
-
-        Used when student changes school/class via join request approval.
-
-        Args:
-            student_id: Student ID
-            school_id: Optional school ID to limit removal to specific school
-
-        Returns:
-            Number of class associations removed
-        """
-        # Build delete query
+        """Remove student from all classes."""
         if school_id is not None:
-            # Only remove from classes in specific school
             subquery = (
                 select(SchoolClass.id)
                 .where(SchoolClass.school_id == school_id)
@@ -549,7 +502,6 @@ class SchoolClassRepository:
                 )
             )
         else:
-            # Remove from all classes
             delete_stmt = delete(ClassStudent).where(
                 ClassStudent.student_id == student_id
             )

@@ -59,10 +59,43 @@ class AddStudentsRequest(BaseModel):
     student_ids: List[int] = Field(..., description="List of student IDs to add to class")
 
 
-class AddTeachersRequest(BaseModel):
-    """Schema for adding teachers to class."""
+class ClassTeacherAssignment(BaseModel):
+    """Single teacher-to-class assignment with subject."""
 
-    teacher_ids: List[int] = Field(..., description="List of teacher IDs to add to class")
+    teacher_id: int = Field(..., description="Teacher ID")
+    subject_id: Optional[int] = Field(None, description="Subject ID for this assignment")
+    is_homeroom: bool = Field(False, description="Whether this teacher is the homeroom teacher")
+
+
+class AddTeachersRequest(BaseModel):
+    """Schema for adding teachers to class with subject assignment."""
+
+    assignments: List[ClassTeacherAssignment] = Field(
+        ..., description="List of teacher-subject assignments"
+    )
+
+
+class SetHomeroomRequest(BaseModel):
+    """Schema for setting homeroom teacher."""
+
+    teacher_id: int = Field(..., description="Teacher ID to set as homeroom")
+
+
+class ClassTeacherInfo(BaseModel):
+    """Teacher info within a class, including subject assignment."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(..., description="ClassTeacher association row ID")
+    teacher_id: int
+    teacher_code: str
+    first_name: str
+    last_name: str
+    middle_name: Optional[str] = None
+    email: Optional[str] = None
+    subject_id: Optional[int] = None
+    subject_name: Optional[str] = None
+    is_homeroom: bool = False
 
 
 class SchoolClassResponse(BaseModel):
@@ -83,6 +116,9 @@ class SchoolClassResponse(BaseModel):
     # Nested data (optional, loaded when needed)
     students: Optional[List["StudentListResponse"]] = None
     teachers: Optional[List["TeacherListResponse"]] = None
+
+    # New: per-assignment teacher info with subjects
+    teacher_assignments: Optional[List[ClassTeacherInfo]] = None
 
     # Computed fields (calculated from nested data)
     @computed_field

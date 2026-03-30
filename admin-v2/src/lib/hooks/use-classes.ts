@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { classesApi } from '@/lib/api/classes';
-import type { SchoolClass, SchoolClassCreate, SchoolClassUpdate } from '@/types';
+import type { SchoolClass, SchoolClassCreate, SchoolClassUpdate, ClassTeacherAssignment } from '@/types';
 import { toast } from 'sonner';
 import { studentKeys } from './use-students';
 import { teacherKeys } from './use-teachers';
@@ -122,18 +122,18 @@ export function useRemoveStudentFromClass() {
   });
 }
 
-// Add teachers to class
+// Add teachers to class (with subject assignments)
 export function useAddTeachersToClass() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ classId, teacherIds }: { classId: number; teacherIds: number[] }) =>
-      classesApi.addTeachers(classId, teacherIds),
+    mutationFn: ({ classId, assignments }: { classId: number; assignments: ClassTeacherAssignment[] }) =>
+      classesApi.addTeachers(classId, assignments),
     onSuccess: (_, { classId }) => {
       queryClient.invalidateQueries({ queryKey: classKeys.detail(classId) });
       queryClient.invalidateQueries({ queryKey: classKeys.lists() });
       queryClient.invalidateQueries({ queryKey: teacherKeys.lists() });
-      toast.success('Учителя добавлены в класс');
+      toast.success('Учитель добавлен в класс');
     },
     onError: (error: Error) => {
       toast.error(`Ошибка добавления: ${error.message}`);
@@ -146,8 +146,8 @@ export function useRemoveTeacherFromClass() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ classId, teacherId }: { classId: number; teacherId: number }) =>
-      classesApi.removeTeacher(classId, teacherId),
+    mutationFn: ({ classId, teacherId, subjectId }: { classId: number; teacherId: number; subjectId?: number | null }) =>
+      classesApi.removeTeacher(classId, teacherId, subjectId),
     onSuccess: (_, { classId }) => {
       queryClient.invalidateQueries({ queryKey: classKeys.detail(classId) });
       queryClient.invalidateQueries({ queryKey: classKeys.lists() });
@@ -156,6 +156,23 @@ export function useRemoveTeacherFromClass() {
     },
     onError: (error: Error) => {
       toast.error(`Ошибка удаления: ${error.message}`);
+    },
+  });
+}
+
+// Set homeroom teacher
+export function useSetHomeroom() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ classId, teacherId }: { classId: number; teacherId: number }) =>
+      classesApi.setHomeroom(classId, teacherId),
+    onSuccess: (_, { classId }) => {
+      queryClient.invalidateQueries({ queryKey: classKeys.detail(classId) });
+      toast.success('Классный руководитель назначен');
+    },
+    onError: (error: Error) => {
+      toast.error(`Ошибка: ${error.message}`);
     },
   });
 }
