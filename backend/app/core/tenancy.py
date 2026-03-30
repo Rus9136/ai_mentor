@@ -17,13 +17,19 @@ async def set_current_tenant(db: AsyncSession, school_id: int) -> None:
     Sets PostgreSQL session variable 'app.current_tenant_id' which is used
     by Row Level Security policies to automatically filter data.
 
+    IMPORTANT: Must be called in public (unauthenticated) endpoints that INSERT
+    rows with school_id != NULL. Without JWT, TenancyMiddleware does not set
+    the tenant context, so RLS will block the INSERT.
+
     Args:
         db: Database session
         school_id: ID of the school (tenant)
 
     Example:
-        await set_current_tenant(db, 1)
-        # All subsequent queries in this session will be filtered by school_id = 1
+        # In public endpoint (no auth):
+        school = await school_repo.get_by_code(code)
+        await set_current_tenant(db, school.id)
+        # Now INSERT with school_id=school.id will pass RLS
     """
     await db.execute(
         text("SELECT set_config('app.current_tenant_id', :tenant_id, false)"),

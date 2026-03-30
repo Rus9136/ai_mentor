@@ -294,6 +294,9 @@ deploy_backend() {
     while [ $retries -lt $max_retries ]; do
         if check_http_endpoint "http://127.0.0.1:8020/health" 5; then
             log_success "Backend is healthy"
+
+            # Run RLS smoke tests
+            run_backend_smoke_tests
             return 0
         fi
 
@@ -308,6 +311,55 @@ deploy_backend() {
     show_error_details "Backend" "ai_mentor_backend_prod"
     show_troubleshooting "backend"
     return 1
+}
+
+# ==========================================
+# Backend Smoke Tests (RLS validation)
+# ==========================================
+
+run_backend_smoke_tests() {
+    log_step "Running backend smoke tests (RLS validation)..."
+    local BASE="http://127.0.0.1:8020/api/v1"
+    local smoke_passed=true
+
+    # Test 1: GET /auth/teacher/subjects → 200 (public read)
+    local status
+    status=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/auth/teacher/subjects")
+    if [ "$status" = "200" ]; then
+        echo -e "   ${GREEN}✓${NC} GET /auth/teacher/subjects → $status"
+    else
+        echo -e "   ${RED}✗${NC} GET /auth/teacher/subjects → $status (expected 200)"
+        smoke_passed=false
+    fi
+
+    # Test 2: POST /auth/teacher/register with invalid code → 400 (not 500)
+    # If RLS blocks INSERT, this returns 500 instead of 400
+    status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/auth/teacher/register" \
+        -H "Content-Type: application/json" \
+        -d '{"school_code":"__smoke_test__","email":"smoke@test.dev","password":"smoke12345","first_name":"S","last_name":"T","subject_ids":[1]}')
+    if [ "$status" = "400" ]; then
+        echo -e "   ${GREEN}✓${NC} POST /auth/teacher/register (bad code) → $status"
+    else
+        echo -e "   ${RED}✗${NC} POST /auth/teacher/register (bad code) → $status (expected 400)"
+        smoke_passed=false
+    fi
+
+    # Test 3: POST /auth/login with bad credentials → 401 (not 500)
+    status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/auth/login" \
+        -H "Content-Type: application/json" \
+        -d '{"login":"smoke@nonexistent.dev","password":"wrong123"}')
+    if [ "$status" = "401" ]; then
+        echo -e "   ${GREEN}✓${NC} POST /auth/login (bad creds) → $status"
+    else
+        echo -e "   ${RED}✗${NC} POST /auth/login (bad creds) → $status (expected 401)"
+        smoke_passed=false
+    fi
+
+    if [ "$smoke_passed" = "true" ]; then
+        log_success "Smoke tests passed"
+    else
+        echo -e "   ${YELLOW}⚠ Some smoke tests failed — check for RLS or configuration issues${NC}"
+    fi
 }
 
 # ==========================================

@@ -303,6 +303,24 @@ async def get_students(
 - НИКОГДА не принимай `school_id` от клиента
 - Для глобального контента: `.where(Model.school_id.is_(None))`
 
+### КРИТИЧНО — RLS в публичных endpoints (без JWT)
+
+Публичные endpoints (без авторизации), которые делают INSERT с `school_id != NULL`, **обязаны** вызвать `set_current_tenant()` перед INSERT. Без этого RLS заблокирует операцию (500 error в проде).
+
+```python
+from app.core.tenancy import set_current_tenant
+
+@router.post("/public-endpoint")
+async def public_endpoint(data: ..., db: AsyncSession = Depends(get_db)):
+    school = await school_repo.get_by_code(data.school_code)
+    # ОБЯЗАТЕЛЬНО перед INSERT с school_id:
+    await set_current_tenant(db, school.id)
+    # Теперь INSERT пройдёт RLS
+    user = User(school_id=school.id, ...)
+```
+
+**Почему:** TenancyMiddleware устанавливает `app.current_tenant_id` из JWT. Без JWT — tenant_id = 0, RLS блокирует INSERT.
+
 ### Pydantic Schemas
 
 ```python

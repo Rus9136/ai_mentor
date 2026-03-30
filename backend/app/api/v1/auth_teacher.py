@@ -8,9 +8,9 @@ from datetime import datetime
 from typing import List
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
 
 from app.core.database import get_db
+from app.core.tenancy import set_current_tenant
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -116,10 +116,7 @@ async def register_teacher(
 
     # 5.5. Set RLS context — public endpoint has no JWT, so TenancyMiddleware
     # doesn't set tenant. We must set it manually for INSERT to pass RLS policies.
-    await db.execute(
-        text("SELECT set_config('app.current_tenant_id', :tid, false)"),
-        {"tid": str(school.id)},
-    )
+    await set_current_tenant(db, school.id)
 
     # 6. Create User
     user = User(
