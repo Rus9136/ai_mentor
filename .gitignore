@@ -37,6 +37,7 @@ poetry.lock
 .env
 .env.local
 .env.*.local
+monitoring/.env.monitoring
 
 # IDE
 .vscode/

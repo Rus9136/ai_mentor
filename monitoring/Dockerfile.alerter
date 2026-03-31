@@ -1,0 +1,4 @@
+FROM python:3.12-alpine
+WORKDIR /app
+COPY uptimerobot_telegram.py .
+CMD ["python3", "-u", "uptimerobot_telegram.py"]

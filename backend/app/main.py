@@ -177,6 +177,96 @@ async def health_check():
     }
 
 
+@app.get("/health/ready", tags=["health"])
+async def health_ready():
+    """Deep health check — verifies all dependencies."""
+    import time
+    import shutil
+    from app.core.database import AsyncSessionLocal
+    from sqlalchemy import text as sa_text
+
+    checks = {}
+    overall = "healthy"
+
+    # 1. Database check
+    try:
+        t0 = time.monotonic()
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(sa_text("SELECT 1"))
+            result.scalar()
+        latency = round((time.monotonic() - t0) * 1000, 1)
+        checks["database"] = {"status": "up", "latency_ms": latency}
+    except Exception as e:
+        checks["database"] = {"status": "down", "error": str(e)[:200]}
+        overall = "unhealthy"
+
+    # 2. Database pool stats
+    try:
+        pool = engine.pool  # type: ignore[union-attr]
+        checks["db_pool"] = {
+            "status": "up",
+            "size": getattr(pool, "size", lambda: "?")(),
+            "checked_in": getattr(pool, "checkedin", lambda: "?")(),
+            "checked_out": getattr(pool, "checkedout", lambda: "?")(),
+            "overflow": getattr(pool, "overflow", lambda: "?")(),
+        }
+    except Exception:
+        checks["db_pool"] = {"status": "unknown"}
+
+    # 3. Disk space
+    try:
+        usage = shutil.disk_usage("/")
+        free_gb = round(usage.free / (1024 ** 3), 1)
+        total_gb = round(usage.total / (1024 ** 3), 1)
+        used_pct = round((usage.used / usage.total) * 100, 1)
+        disk_status = "warning" if used_pct > 85 else "ok"
+        if used_pct > 95:
+            disk_status = "critical"
+            overall = "unhealthy"
+        checks["disk"] = {
+            "status": disk_status,
+            "free_gb": free_gb,
+            "total_gb": total_gb,
+            "used_pct": used_pct,
+        }
+    except Exception as e:
+        checks["disk"] = {"status": "unknown", "error": str(e)[:200]}
+
+    # 4. LLM provider (config check, no API call)
+    provider = settings.LLM_PROVIDER
+    api_key_set = False
+    if provider == "dashscope":
+        api_key_set = bool(settings.DASHSCOPE_API_KEY)
+    elif provider == "cerebras":
+        api_key_set = bool(settings.CEREBRAS_API_KEY)
+    elif provider == "openrouter":
+        api_key_set = bool(settings.OPENROUTER_API_KEY)
+    elif provider == "openai":
+        api_key_set = bool(settings.OPENAI_API_KEY)
+    checks["llm"] = {
+        "status": "configured" if api_key_set else "no_api_key",
+        "provider": provider,
+    }
+    if not api_key_set:
+        overall = "degraded"
+
+    # 5. Uploads directory
+    uploads_path = Path(settings.UPLOAD_DIR)
+    checks["uploads"] = {
+        "status": "ok" if uploads_path.exists() and uploads_path.is_dir() else "missing",
+    }
+
+    status_code = 200 if overall == "healthy" else (200 if overall == "degraded" else 503)
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": overall,
+            "version": settings.VERSION,
+            "checks": checks,
+        },
+    )
+
+
 # Root endpoint
 @app.get("/", tags=["root"])
 async def root():

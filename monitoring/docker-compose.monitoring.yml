@@ -1,0 +1,69 @@
+# Monitoring stack
+#
+# Usage:
+#   1. Create .env.monitoring with credentials (see .env.monitoring.example)
+#   2. docker compose -f monitoring/docker-compose.monitoring.yml up -d
+#
+# Grafana Cloud Free Tier: 50GB logs/month, 10k metrics series, 50GB traces
+
+services:
+  # Log shipping to Grafana Cloud Loki
+  promtail:
+    image: grafana/promtail:3.4.2
+    container_name: ai_mentor_promtail
+    restart: unless-stopped
+
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+
+    volumes:
+      - ./promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - promtail_positions:/tmp
+
+    env_file:
+      - .env.monitoring
+
+    command: -config.file=/etc/promtail/config.yml -config.expand-env=true
+
+    networks:
+      - monitoring
+
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+
+  # UptimeRobot → Telegram alert bridge
+  alerter:
+    build:
+      context: .
+      dockerfile: Dockerfile.alerter
+    container_name: ai_mentor_alerter
+    restart: unless-stopped
+
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+
+    env_file:
+      - .env.monitoring
+
+    networks:
+      - monitoring
+
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+          cpus: "0.10"
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  promtail_positions:

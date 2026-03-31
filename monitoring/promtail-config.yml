@@ -1,0 +1,51 @@
+# Promtail config — ships Docker container logs to Grafana Cloud Loki
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: ${LOKI_URL}
+    basic_auth:
+      username: ${LOKI_USERNAME}
+      password: ${LOKI_PASSWORD}
+
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 15s
+        filters:
+          - name: name
+            values: ["ai_mentor_.*"]
+
+    relabel_configs:
+      # Use container name as label
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: container
+      # Drop PostgreSQL (noisy, not needed for app monitoring)
+      - source_labels: ['__meta_docker_container_name']
+        regex: '.*postgres.*'
+        action: drop
+      # Add static labels
+      - target_label: job
+        replacement: ai_mentor
+      - target_label: host
+        replacement: vmi2718906
+
+    pipeline_stages:
+      - docker: {}
+
+      # Drop health check noise
+      - match:
+          selector: '{job="ai_mentor"}'
+          stages:
+            - regex:
+                expression: '.*"GET /health HTTP.*'
+            - drop:
+                source: ""
+                expression: '.*"GET /health HTTP.*'
