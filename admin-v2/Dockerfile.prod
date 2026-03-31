@@ -19,7 +19,9 @@ COPY . .
 
 # Build arguments for environment variables
 ARG NEXT_PUBLIC_API_URL=https://api.ai-mentor.kz/api/v1
+ARG INTERNAL_API_URL=http://backend:8000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV INTERNAL_API_URL=$INTERNAL_API_URL
 
 # Disable telemetry during build
 ENV NEXT_TELEMETRY_DISABLED=1

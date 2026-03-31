@@ -351,8 +351,9 @@ show_deploy_summary() {
     local student_app_deployed=$3
     local teacher_app_deployed=$4
     local lab_app_deployed=$5
-    local migrations_applied=$6
-    local success=$7
+    local admin_v2_deployed=$6
+    local migrations_applied=$7
+    local success=$8
 
     echo ""
     log_header "📊 DEPLOY SUMMARY"
@@ -362,6 +363,7 @@ show_deploy_summary() {
     echo -e "   ${EMOJI_STUDENT} Student App: $([ "$student_app_deployed" = "true" ] && echo "${GREEN}DEPLOYED${NC}" || echo "${GRAY}Skipped${NC}")"
     echo -e "   ${EMOJI_TEACHER} Teacher App: $([ "$teacher_app_deployed" = "true" ] && echo "${GREEN}DEPLOYED${NC}" || echo "${GRAY}Skipped${NC}")"
     echo -e "   ${EMOJI_LAB} Lab App:     $([ "$lab_app_deployed" = "true" ] && echo "${GREEN}DEPLOYED${NC}" || echo "${GRAY}Skipped${NC}")"
+    echo -e "   🛡️ Admin v2:    $([ "$admin_v2_deployed" = "true" ] && echo "${GREEN}DEPLOYED${NC}" || echo "${GRAY}Skipped${NC}")"
     echo -e "   ${EMOJI_DATABASE} Migrations:  $([ "$migrations_applied" = "true" ] && echo "${GREEN}APPLIED${NC}" || echo "${GRAY}Skipped${NC}")"
 
     echo ""

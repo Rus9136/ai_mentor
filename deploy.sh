@@ -67,6 +67,7 @@ detect_changes() {
     STUDENT_APP_CHANGED=false
     TEACHER_APP_CHANGED=false
     LAB_APP_CHANGED=false
+    ADMIN_V2_CHANGED=false
     MIGRATIONS_CHANGED=false
     NGINX_CHANGED=false
 
@@ -101,6 +102,11 @@ detect_changes() {
         LAB_APP_CHANGED=true
     fi
 
+    # Admin v2 detection
+    if echo "$CHANGED_FILES" | grep -q "^admin-v2/"; then
+        ADMIN_V2_CHANGED=true
+    fi
+
     if echo "$CHANGED_FILES" | grep -q "^nginx/infra/"; then
         NGINX_CHANGED=true
     fi
@@ -125,6 +131,10 @@ detect_changes() {
         LAB_APP_CHANGED=true
     fi
 
+    if echo "$CHANGED_FILES" | grep -q "^admin-v2/Dockerfile.prod"; then
+        ADMIN_V2_CHANGED=true
+    fi
+
     if echo "$CHANGED_FILES" | grep -q "pyproject.toml"; then
         BACKEND_CHANGED=true
     fi
@@ -146,12 +156,17 @@ detect_changes() {
         LAB_APP_CHANGED=true
     fi
 
+    if echo "$CHANGED_FILES" | grep -q "^admin-v2/package.json"; then
+        ADMIN_V2_CHANGED=true
+    fi
+
     # Export variables
     export BACKEND_CHANGED
     export FRONTEND_CHANGED
     export STUDENT_APP_CHANGED
     export TEACHER_APP_CHANGED
     export LAB_APP_CHANGED
+    export ADMIN_V2_CHANGED
     export MIGRATIONS_CHANGED
     export NGINX_CHANGED
 }
@@ -169,6 +184,7 @@ show_deploy_plan() {
         echo -e "   ${EMOJI_STUDENT} Student App: $([ "$STUDENT_APP_CHANGED" = "true" ] && echo "${GREEN}DEPLOY${NC}" || echo "${GRAY}Skip${NC}")"
         echo -e "   ${EMOJI_TEACHER} Teacher App: $([ "$TEACHER_APP_CHANGED" = "true" ] && echo "${GREEN}DEPLOY${NC}" || echo "${GRAY}Skip${NC}")"
         echo -e "   🧪 Lab App:     $([ "$LAB_APP_CHANGED" = "true" ] && echo "${GREEN}DEPLOY${NC}" || echo "${GRAY}Skip${NC}")"
+        echo -e "   🛡️ Admin v2:    $([ "$ADMIN_V2_CHANGED" = "true" ] && echo "${GREEN}DEPLOY${NC}" || echo "${GRAY}Skip${NC}")"
         echo -e "   ${EMOJI_DATABASE} Migrations:  $([ "$MIGRATIONS_CHANGED" = "true" ] && echo "${GREEN}DEPLOY${NC}" || echo "${GRAY}Skip${NC}")"
 
         if [ "$NGINX_CHANGED" = "true" ]; then
@@ -191,6 +207,9 @@ show_deploy_plan() {
     elif [ "$DEPLOY_MODE" = "lab-app" ]; then
         echo -e "   🧪 Lab App:     ${GREEN}FORCE DEPLOY${NC}"
         LAB_APP_CHANGED=true
+    elif [ "$DEPLOY_MODE" = "admin-v2" ]; then
+        echo -e "   🛡️ Admin v2:    ${GREEN}FORCE DEPLOY${NC}"
+        ADMIN_V2_CHANGED=true
     elif [ "$DEPLOY_MODE" = "migrations" ]; then
         echo -e "   ${EMOJI_DATABASE} Migrations:  ${GREEN}FORCE APPLY${NC}"
         MIGRATIONS_CHANGED=true
@@ -200,12 +219,14 @@ show_deploy_plan() {
         echo -e "   ${EMOJI_STUDENT} Student App: ${GREEN}DEPLOY${NC}"
         echo -e "   ${EMOJI_TEACHER} Teacher App: ${GREEN}DEPLOY${NC}"
         echo -e "   🧪 Lab App:     ${GREEN}DEPLOY${NC}"
+        echo -e "   🛡️ Admin v2:    ${GREEN}DEPLOY${NC}"
         echo -e "   ${EMOJI_DATABASE} Migrations:  ${GREEN}APPLY${NC}"
         BACKEND_CHANGED=true
         FRONTEND_CHANGED=true
         STUDENT_APP_CHANGED=true
         TEACHER_APP_CHANGED=true
         LAB_APP_CHANGED=true
+        ADMIN_V2_CHANGED=true
         MIGRATIONS_CHANGED=true
     else
         log_error "Unknown deploy mode: $DEPLOY_MODE"
@@ -216,7 +237,7 @@ show_deploy_plan() {
     echo ""
 
     # Check if anything to deploy
-    if [ "$BACKEND_CHANGED" = "false" ] && [ "$FRONTEND_CHANGED" = "false" ] && [ "$STUDENT_APP_CHANGED" = "false" ] && [ "$TEACHER_APP_CHANGED" = "false" ] && [ "$LAB_APP_CHANGED" = "false" ] && [ "$MIGRATIONS_CHANGED" = "false" ]; then
+    if [ "$BACKEND_CHANGED" = "false" ] && [ "$FRONTEND_CHANGED" = "false" ] && [ "$STUDENT_APP_CHANGED" = "false" ] && [ "$TEACHER_APP_CHANGED" = "false" ] && [ "$LAB_APP_CHANGED" = "false" ] && [ "$ADMIN_V2_CHANGED" = "false" ] && [ "$MIGRATIONS_CHANGED" = "false" ]; then
         log_warning "Nothing to deploy!"
         echo ""
         log_info "Use one of these modes:"
@@ -618,6 +639,93 @@ deploy_lab_app() {
 }
 
 # ==========================================
+# Deploy Admin v2 (Next.js)
+# ==========================================
+
+deploy_admin_v2() {
+    log_header "🛡️ ADMIN V2 DEPLOYMENT"
+
+    # Build admin-v2 image
+    log_step "Building admin-v2 Docker image..."
+    if docker compose -f "$COMPOSE_FILE" build admin-v2; then
+        log_success "Admin v2 image built"
+    else
+        log_error "Failed to build admin v2 image"
+        show_error_details "Admin v2 Build" "ai_mentor_admin_v2_prod"
+        return 1
+    fi
+
+    # Restart admin-v2 container
+    log_step "Restarting admin-v2 container..."
+    if docker compose -f "$COMPOSE_FILE" up -d admin-v2 --force-recreate; then
+        log_success "Admin v2 restarted"
+    else
+        log_error "Failed to restart admin v2"
+        return 1
+    fi
+
+    # Wait for admin-v2 to start
+    log_step "Waiting for admin v2 to start..."
+    sleep 5
+
+    # Check admin-v2 health
+    log_step "Checking admin v2 health..."
+    local retries=0
+    local max_retries=12
+
+    while [ $retries -lt $max_retries ]; do
+        if check_http_endpoint "http://127.0.0.1:3003/ru" 5; then
+            log_success "Admin v2 is healthy"
+
+            # Check API proxy connectivity (backend reachable from admin container)
+            run_admin_v2_connectivity_check
+            return 0
+        fi
+
+        retries=$((retries + 1))
+        if [ $retries -lt $max_retries ]; then
+            echo -e "   ${GRAY}Retry $retries/$max_retries...${NC}"
+            sleep 5
+        fi
+    done
+
+    log_error "Admin v2 healthcheck failed!"
+    show_error_details "Admin v2" "ai_mentor_admin_v2_prod"
+    return 1
+}
+
+# ==========================================
+# Admin v2 Connectivity Check
+# ==========================================
+
+run_admin_v2_connectivity_check() {
+    log_step "Checking API proxy connectivity (admin-v2 → backend)..."
+
+    # Test that admin-v2 container can reach backend via Docker network
+    if docker exec ai_mentor_admin_v2_prod wget -q -O /dev/null --timeout=5 "http://backend:8000/health" 2>/dev/null; then
+        echo -e "   ${GREEN}✓${NC} admin-v2 → backend:8000/health (Docker network)"
+    else
+        echo -e "   ${RED}✗${NC} admin-v2 cannot reach backend via Docker network!"
+        echo -e "   ${YELLOW}⚠ API proxy (login, etc.) will fail. Check Docker network connectivity.${NC}"
+        return 1
+    fi
+
+    # Test login proxy through admin-v2
+    local status
+    status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://127.0.0.1:3003/api/v1/auth/login" \
+        -H "Content-Type: application/json" \
+        -d '{"login":"__smoke_test__","password":"wrong123"}')
+    if [ "$status" = "401" ]; then
+        echo -e "   ${GREEN}✓${NC} POST /api/v1/auth/login proxy → $status (proxy works)"
+    else
+        echo -e "   ${RED}✗${NC} POST /api/v1/auth/login proxy → $status (expected 401)"
+        echo -e "   ${YELLOW}⚠ API proxy may be misconfigured. Check next.config.ts rewrites.${NC}"
+    fi
+
+    log_success "Admin v2 connectivity check passed"
+}
+
+# ==========================================
 # Check Services Status
 # ==========================================
 
@@ -701,6 +809,22 @@ check_services() {
         show_service_status "Lab App Health" "unhealthy"
     fi
 
+    # Check admin-v2
+    local admin_v2_status=$(get_container_status "ai_mentor_admin_v2_prod")
+    local admin_v2_health=$(get_container_health "ai_mentor_admin_v2_prod")
+
+    if [ "$admin_v2_health" != "unknown" ]; then
+        show_service_status "Admin v2" "$admin_v2_health"
+    else
+        show_service_status "Admin v2" "$admin_v2_status"
+    fi
+
+    if check_http_endpoint "http://127.0.0.1:3003/ru" 5; then
+        show_service_status "Admin v2 Health" "healthy"
+    else
+        show_service_status "Admin v2 Health" "unhealthy"
+    fi
+
     # Check frontend files (legacy admin)
     if [ -f "$ADMIN_TARGET_DIR/index.html" ]; then
         show_service_status "Legacy Admin Files" "deployed"
@@ -729,6 +853,7 @@ Modes:
     student-app  Force deploy student app (Next.js) only
     teacher-app  Force deploy teacher app (Next.js) only
     lab-app      Force deploy lab app (Next.js) only
+    admin-v2     Force deploy admin panel v2 (Next.js) only
     migrations   Apply database migrations only
     full         Deploy everything (backend + frontend + all apps + migrations)
 
@@ -738,6 +863,7 @@ Examples:
     ./deploy.sh student-app  # Deploy only student app
     ./deploy.sh teacher-app  # Deploy only teacher app
     ./deploy.sh lab-app      # Deploy only lab app
+    ./deploy.sh admin-v2     # Deploy only admin panel v2
     ./deploy.sh full         # Full deployment
 
 EOF
@@ -776,6 +902,7 @@ main() {
     DEPLOYED_STUDENT_APP=false
     DEPLOYED_TEACHER_APP=false
     DEPLOYED_LAB_APP=false
+    DEPLOYED_ADMIN_V2=false
     APPLIED_MIGRATIONS=false
     DEPLOY_SUCCESS=true
 
@@ -798,7 +925,7 @@ main() {
         else
             DEPLOY_SUCCESS=false
             # Stop deployment on backend failure
-            show_deploy_summary "$DEPLOYED_BACKEND" "$DEPLOYED_FRONTEND" "$DEPLOYED_STUDENT_APP" "$DEPLOYED_TEACHER_APP" "$DEPLOYED_LAB_APP" "$APPLIED_MIGRATIONS" "false"
+            show_deploy_summary "$DEPLOYED_BACKEND" "$DEPLOYED_FRONTEND" "$DEPLOYED_STUDENT_APP" "$DEPLOYED_TEACHER_APP" "$DEPLOYED_LAB_APP" "$DEPLOYED_ADMIN_V2" "$APPLIED_MIGRATIONS" "false"
             exit 1
         fi
         echo ""
@@ -846,11 +973,21 @@ main() {
         echo ""
     fi
 
+    # Deploy admin-v2 (Next.js)
+    if [ "$ADMIN_V2_CHANGED" = "true" ]; then
+        if deploy_admin_v2; then
+            DEPLOYED_ADMIN_V2=true
+        else
+            DEPLOY_SUCCESS=false
+        fi
+        echo ""
+    fi
+
     # Check final status
     check_services
 
     # Show summary
-    show_deploy_summary "$DEPLOYED_BACKEND" "$DEPLOYED_FRONTEND" "$DEPLOYED_STUDENT_APP" "$DEPLOYED_TEACHER_APP" "$DEPLOYED_LAB_APP" "$APPLIED_MIGRATIONS" "$DEPLOY_SUCCESS"
+    show_deploy_summary "$DEPLOYED_BACKEND" "$DEPLOYED_FRONTEND" "$DEPLOYED_STUDENT_APP" "$DEPLOYED_TEACHER_APP" "$DEPLOYED_LAB_APP" "$DEPLOYED_ADMIN_V2" "$APPLIED_MIGRATIONS" "$DEPLOY_SUCCESS"
 
     # Exit with appropriate code
     if [ "$DEPLOY_SUCCESS" = "true" ]; then
@@ -865,7 +1002,7 @@ main() {
 # ==========================================
 
 case "${DEPLOY_MODE}" in
-    auto|backend|frontend|student-app|teacher-app|lab-app|migrations|full)
+    auto|backend|frontend|student-app|teacher-app|lab-app|admin-v2|migrations|full)
         main
         ;;
     help|--help|-h)

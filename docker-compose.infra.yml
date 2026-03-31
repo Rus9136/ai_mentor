@@ -190,6 +190,7 @@ services:
       dockerfile: Dockerfile.prod
       args:
         NEXT_PUBLIC_API_URL: https://api.ai-mentor.kz/api/v1
+        INTERNAL_API_URL: http://backend:8000
 
     container_name: ai_mentor_admin_v2_prod
     restart: unless-stopped
@@ -197,6 +198,7 @@ services:
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: https://api.ai-mentor.kz/api/v1
+      INTERNAL_API_URL: http://backend:8000
 
     ports:
       # Доступен ТОЛЬКО локально на хосте для Nginx
@@ -209,7 +211,7 @@ services:
       - backend
 
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://backend:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
