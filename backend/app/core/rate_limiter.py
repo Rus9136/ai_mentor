@@ -33,6 +33,6 @@ def get_client_ip(request: Request) -> str:
 limiter = Limiter(key_func=get_client_ip)
 
 # Rate limit constants
-AUTH_RATE_LIMIT = "5/minute"  # 5 login attempts per minute per IP
+AUTH_RATE_LIMIT = "15/minute"  # 15 login attempts per minute per IP
 REFRESH_RATE_LIMIT = "10/minute"  # 10 refresh attempts per minute per IP
 ONBOARDING_RATE_LIMIT = "10/minute"  # 10 onboarding attempts per minute per IP
