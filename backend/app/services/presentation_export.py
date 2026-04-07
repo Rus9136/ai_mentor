@@ -146,10 +146,20 @@ def export_to_pptx(slides_data: dict, context_data: dict, template: str | None =
 
 def _remove_all_slides(prs):
     """Remove all slides from the presentation, keeping layouts."""
-    while len(prs.slides) > 0:
-        rId = prs.slides._sldIdLst[0].get('r:id')
-        prs.part.drop_rel(rId)
-        prs.slides._sldIdLst.remove(prs.slides._sldIdLst[0])
+    sldIdLst = prs.slides._sldIdLst
+    # Collect all sldId elements first
+    sldId_elements = list(sldIdLst)
+    for sldId in sldId_elements:
+        # Get relationship ID (may use namespace)
+        rId = sldId.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+        if rId is None:
+            rId = sldId.get('r:id')
+        if rId is not None:
+            try:
+                prs.part.drop_rel(rId)
+            except KeyError:
+                pass
+        sldIdLst.remove(sldId)
 
 
 def _add_slide_from_template(prs, slide_data, slide_type, layout_map, textbook_id, context_data):
