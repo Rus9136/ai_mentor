@@ -30,6 +30,7 @@ export interface QuickTaskDraft {
   // Task settings
   points: number;
   maxAttempts: number;
+  questionsCount?: number;
 }
 
 interface QuickTaskCardProps {
@@ -83,8 +84,8 @@ export function QuickTaskCard({ task, index, onChange, onDelete, disabled }: Qui
         </Button>
       </div>
 
-      {/* Task type + points + attempts */}
-      <div className="grid grid-cols-[1fr_80px_80px] gap-3 items-end">
+      {/* Task type + points + attempts + questions count */}
+      <div className={`grid gap-3 items-end ${task.taskType === TaskType.QUIZ ? 'grid-cols-[1fr_80px_80px_100px]' : 'grid-cols-[1fr_80px_80px]'}`}>
         <div className="space-y-1.5">
           <Label className="text-xs">{t('type')}</Label>
           <Select
@@ -130,6 +131,21 @@ export function QuickTaskCard({ task, index, onChange, onDelete, disabled }: Qui
             className="h-9"
           />
         </div>
+
+        {task.taskType === TaskType.QUIZ && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">{t('questionsCount')}</Label>
+            <Input
+              type="number"
+              min={1}
+              max={20}
+              value={task.questionsCount ?? 5}
+              onChange={(e) => onChange(task.id, { questionsCount: Math.max(1, Math.min(20, Number(e.target.value) || 5)) })}
+              disabled={disabled}
+              className="h-9"
+            />
+          </div>
+        )}
       </div>
 
       {/* Content selector: textbook → chapter → paragraph */}

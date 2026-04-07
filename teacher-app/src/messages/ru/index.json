@@ -459,6 +459,7 @@
       "selectParagraph": "Выберите параграф",
       "points": "Баллы",
       "maxAttempts": "Попыток",
+      "questionsCount": "Вопросов",
       "instructions": "Инструкции",
       "instructionsPlaceholder": "Инструкции для ученика (необязательно)"
     },

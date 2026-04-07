@@ -459,6 +459,7 @@
       "selectParagraph": "Параграфты таңдаңыз",
       "points": "Балл",
       "maxAttempts": "Әрекеттер",
+      "questionsCount": "Сұрақтар",
       "instructions": "Нұсқаулар",
       "instructionsPlaceholder": "Оқушыға нұсқаулар (міндетті емес)"
     },

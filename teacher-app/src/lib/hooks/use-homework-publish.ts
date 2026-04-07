@@ -108,6 +108,7 @@ export function useHomeworkPublish(): UseHomeworkPublishReturn {
         setPublishStep('generating');
         for (const { clientId, serverId } of taskIds) {
           const def = templateDefs.get(clientId);
+          const task = tasks.find(t => t.id === clientId);
           const baseParams = def?.generationParams || {
             questions_count: 5,
             include_explanation: true,
@@ -115,6 +116,7 @@ export function useHomeworkPublish(): UseHomeworkPublishReturn {
           const params: GenerationParams = {
             ...baseParams,
             bloom_levels: formData.bloomLevels.length > 0 ? formData.bloomLevels : baseParams.bloom_levels,
+            ...(task?.questionsCount ? { questions_count: task.questionsCount } : {}),
           };
           try {
             await generateQuestions.mutateAsync({

@@ -369,11 +369,25 @@ class SubmissionService:
 
         # If all tasks are completed, update homework status to SUBMITTED
         if all_completed:
+            # Aggregate scores from all task submissions
+            total_score = 0.0
+            total_max_score = 0.0
+            for submission in latest_submissions.values():
+                total_score += submission.score or 0.0
+                total_max_score += submission.max_score or 0.0
+
             hw_student.status = HomeworkStudentStatus.SUBMITTED
             hw_student.submitted_at = datetime.now(timezone.utc)
             hw_student.updated_at = datetime.now(timezone.utc)
+            hw_student.total_score = total_score
+            hw_student.max_score = total_max_score
+            hw_student.percentage = (
+                (total_score / total_max_score * 100)
+                if total_max_score > 0 else 0.0
+            )
             await self.db.flush()
             logger.info(
                 f"Homework {hw_student.homework_id} marked as SUBMITTED "
-                f"for student {hw_student.student_id}"
+                f"for student {hw_student.student_id} "
+                f"(score: {total_score}/{total_max_score})"
             )
