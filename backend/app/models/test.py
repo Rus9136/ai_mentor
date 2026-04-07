@@ -44,6 +44,7 @@ class Test(SoftDeleteModel):
     textbook_id = Column(Integer, ForeignKey("textbooks.id", ondelete="CASCADE"), nullable=True, index=True)
     chapter_id = Column(Integer, ForeignKey("chapters.id", ondelete="CASCADE"), nullable=True, index=True)
     paragraph_id = Column(Integer, ForeignKey("paragraphs.id", ondelete="CASCADE"), nullable=True, index=True)
+    source_test_id = Column(Integer, ForeignKey("tests.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Test info
     title = Column(String(255), nullable=False)

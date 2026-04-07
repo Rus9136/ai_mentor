@@ -383,6 +383,71 @@ async def create_teacher_test(
     return await test_repo.create(test)
 
 
+@router.post("/{test_id}/clone", response_model=TestResponse, status_code=status.HTTP_201_CREATED)
+async def clone_test_for_teacher(
+    test_id: int,
+    test: Test = Depends(_get_test_for_teacher),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Clone a test (global or school) into a new school-specific copy.
+    Copies all questions and options. Teacher can then edit the copy.
+    """
+    test_repo = TestRepository(db)
+    question_repo = QuestionRepository(db)
+    option_repo = QuestionOptionRepository(db)
+
+    # Load full test with questions and options
+    full_test = await test_repo.get_by_id(test_id, load_questions=True)
+    if not full_test:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    # Create cloned test
+    cloned_test = Test(
+        school_id=school_id,
+        source_test_id=full_test.id,
+        textbook_id=full_test.textbook_id,
+        chapter_id=full_test.chapter_id,
+        paragraph_id=full_test.paragraph_id,
+        title=f"{full_test.title} (адаптированный)",
+        description=full_test.description,
+        test_purpose=full_test.test_purpose,
+        difficulty=full_test.difficulty,
+        time_limit=full_test.time_limit,
+        passing_score=full_test.passing_score,
+        is_active=full_test.is_active,
+    )
+    cloned_test = await test_repo.create(cloned_test)
+
+    # Clone questions and options
+    for question in (full_test.questions or []):
+        if question.is_deleted:
+            continue
+        new_question = Question(
+            test_id=cloned_test.id,
+            sort_order=question.sort_order,
+            question_type=question.question_type,
+            question_text=question.question_text,
+            explanation=question.explanation,
+            points=question.points,
+        )
+        new_question = await question_repo.create(new_question)
+
+        for option in (question.options or []):
+            if option.is_deleted:
+                continue
+            new_option = QuestionOption(
+                question_id=new_question.id,
+                sort_order=option.sort_order,
+                option_text=option.option_text,
+                is_correct=option.is_correct,
+            )
+            await option_repo.create(new_option)
+
+    return cloned_test
+
+
 @router.get("/{test_id}", response_model=TestResponse)
 async def get_teacher_test(
     test: Test = Depends(_get_test_for_teacher),

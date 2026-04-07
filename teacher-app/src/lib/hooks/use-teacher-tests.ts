@@ -83,6 +83,22 @@ export function useDeleteTeacherTest() {
   });
 }
 
+// Clone test mutation
+export function useCloneTeacherTest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => teacherTestsApi.clone(id),
+    onSuccess: (newTest) => {
+      queryClient.invalidateQueries({ queryKey: teacherTestKeys.lists() });
+      toast.success(`Тест "${newTest.title}" создан как копия`);
+    },
+    onError: (error: Error) => {
+      toast.error(`Ошибка клонирования: ${error.message}`);
+    },
+  });
+}
+
 // Get questions for test
 export function useTeacherTestQuestions(testId: number, enabled = true) {
   return useQuery({

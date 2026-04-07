@@ -6,6 +6,7 @@ export type QuestionType = 'single_choice' | 'multiple_choice' | 'true_false' | 
 export interface Test {
   id: number;
   school_id: number | null;
+  source_test_id?: number | null;
   textbook_id?: number | null;
   chapter_id?: number | null;
   paragraph_id?: number | null;

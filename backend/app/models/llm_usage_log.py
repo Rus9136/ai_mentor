@@ -31,6 +31,7 @@ class LLMFeature(str, enum.Enum):
     SYSTEM = "system"
     TEACHER_CHAT = "teacher_chat"
     CODING_CHAT = "coding_chat"
+    PRESENTATION = "presentation"
 
 
 class LLMUsageLog(BaseModel):

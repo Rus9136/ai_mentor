@@ -298,6 +298,7 @@ from app.api.v1 import teachers_quiz, students_quiz, ws_quiz
 from app.api.v1 import teachers_quiz_analytics
 from app.api.v1 import teachers_quiz_reports
 from app.api.v1 import teachers_tests
+from app.api.v1 import teachers_presentations
 from app.api.v1 import auth_phone
 from app.api.v1 import auth_teacher
 
@@ -409,6 +410,12 @@ app.include_router(
     teachers_lesson_plans.router,
     prefix=f"{settings.API_V1_PREFIX}",
     tags=["Teachers - Lesson Plans"],
+)
+
+app.include_router(
+    teachers_presentations.router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Teachers - Presentations"],
 )
 
 app.include_router(

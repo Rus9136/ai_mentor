@@ -178,7 +178,12 @@ class JoinRequestRepository:
         last_name: Optional[str] = None,
         middle_name: Optional[str] = None
     ) -> StudentJoinRequest:
-        """Create a new join request with optional FIO."""
+        """Create a new join request with optional FIO.
+
+        Uses flush() instead of commit()+refresh() to avoid RLS blocking
+        the refresh SELECT when student's tenant_id differs from request's
+        school_id (cross-school join). Final commit is handled by get_db().
+        """
         request = StudentJoinRequest(
             student_id=student_id,
             class_id=class_id,
@@ -190,8 +195,7 @@ class JoinRequestRepository:
             middle_name=middle_name
         )
         self.db.add(request)
-        await self.db.commit()
-        await self.db.refresh(request)
+        await self.db.flush()
         return request
 
     async def approve(
@@ -238,9 +242,13 @@ class JoinRequestRepository:
         return result.scalar_one_or_none()
 
     async def delete(self, request: StudentJoinRequest) -> None:
-        """Delete a join request (used when replacing rejected request)."""
+        """Delete a join request (used when replacing rejected request).
+
+        Uses flush() so delete+create stay in one transaction.
+        Final commit is handled by get_db().
+        """
         await self.db.delete(request)
-        await self.db.commit()
+        await self.db.flush()
 
     async def get_student_latest_request(
         self,

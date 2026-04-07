@@ -20,6 +20,7 @@ import {
   X,
   MessageSquare,
   Swords,
+  Presentation,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -51,6 +52,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: '/homework/review', icon: ClipboardCheck, label: t('review') },
     { href: '/journal', icon: BookOpen, label: t('journal') },
     { href: '/lesson-plans', icon: FileText, label: t('lessonPlan') },
+    { href: '/presentations', icon: Presentation, label: t('presentations') },
     { href: '/analytics', icon: BarChart3, label: t('analytics') },
     { href: '/ai-chat', icon: MessageSquare, label: t('aiChat') },
     { href: '/quiz', icon: Swords, label: t('quiz') },

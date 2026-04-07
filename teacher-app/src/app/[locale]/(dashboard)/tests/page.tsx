@@ -9,6 +9,7 @@ import {
   Eye,
   Edit,
   Trash2,
+  Copy,
   ChevronRight,
   ChevronDown,
   BookOpen,
@@ -35,7 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useTeacherTests, useDeleteTeacherTest } from '@/lib/hooks/use-teacher-tests';
+import { useTeacherTests, useDeleteTeacherTest, useCloneTeacherTest } from '@/lib/hooks/use-teacher-tests';
 import type { Test, DifficultyLevel, TestPurpose } from '@/types/test';
 
 const difficultyLabels: Record<DifficultyLevel, string> = {
@@ -168,6 +169,7 @@ export default function TeacherTestsPage() {
     page_size: 500,
   });
   const deleteTest = useDeleteTeacherTest();
+  const cloneTest = useCloneTeacherTest();
 
   const allTests = data?.items ?? [];
 
@@ -275,6 +277,11 @@ export default function TeacherTestsPage() {
       <div className="flex-1 min-w-0">
         <span className="text-sm font-medium truncate block">{test.title}</span>
       </div>
+      {test.source_test_id && (
+        <Badge variant="outline" className="shrink-0 text-xs border-blue-300 text-blue-600">
+          Адаптирован
+        </Badge>
+      )}
       <Badge variant="outline" className="shrink-0 text-xs">
         {purposeLabels[test.test_purpose]}
       </Badge>
@@ -293,6 +300,22 @@ export default function TeacherTestsPage() {
         >
           <Eye className="h-3.5 w-3.5" />
         </Button>
+        {test.school_id === null && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            title="Адаптировать под себя"
+            disabled={cloneTest.isPending}
+            onClick={() =>
+              cloneTest.mutate(test.id, {
+                onSuccess: (newTest) => router.push(`/${locale}/tests/${newTest.id}/edit`),
+              })
+            }
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+        )}
         {test.school_id !== null && (
           <>
             <Button

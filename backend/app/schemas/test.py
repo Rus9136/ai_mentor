@@ -45,6 +45,7 @@ class TestResponse(BaseModel):
 
     id: int
     school_id: Optional[int] = Field(None, description="School ID (None for global tests)")
+    source_test_id: Optional[int] = Field(None, description="Original test ID if cloned")
     textbook_id: Optional[int] = Field(None, description="Textbook ID")
     chapter_id: Optional[int]
     paragraph_id: Optional[int]
@@ -70,6 +71,7 @@ class TestListResponse(BaseModel):
 
     id: int
     school_id: Optional[int]
+    source_test_id: Optional[int] = None
     textbook_id: Optional[int]
     chapter_id: Optional[int]
     paragraph_id: Optional[int] = None
@@ -92,6 +94,7 @@ class TestListResponse(BaseModel):
         return cls(
             id=test.id,
             school_id=test.school_id,
+            source_test_id=test.source_test_id,
             textbook_id=test.textbook_id,
             chapter_id=test.chapter_id,
             paragraph_id=test.paragraph_id,

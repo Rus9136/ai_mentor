@@ -7,33 +7,13 @@ import { useAuth } from '@/providers/auth-provider';
 import { getErrorMessage } from '@/lib/api/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, GraduationCap, AlertCircle, Mail, Phone } from 'lucide-react';
 
 type LoginMode = 'email' | 'phone';
-
-/** Format 10 raw digits as +7 (XXX) XXX-XX-XX */
-function formatPhoneDisplay(digits: string): string {
-  if (!digits) return '+7';
-  let r = '+7 (';
-  r += digits.slice(0, 3);
-  if (digits.length >= 3) r += ') ';
-  if (digits.length > 3) r += digits.slice(3, 6);
-  if (digits.length > 6) r += '-' + digits.slice(6, 8);
-  if (digits.length > 8) r += '-' + digits.slice(8, 10);
-  return r;
-}
-
-/** Extract up to 10 subscriber digits from any input */
-function extractPhoneDigits(input: string): string {
-  let digits = input.replace(/\D/g, '');
-  // Strip country code prefix if user typed/pasted it
-  if (digits.startsWith('87') && digits.length >= 11) digits = digits.slice(1);
-  if (digits.startsWith('7') && digits.length >= 11) digits = digits.slice(1);
-  return digits.slice(0, 10);
-}
 
 export default function LoginPage() {
   const t = useTranslations('auth');
@@ -137,12 +117,10 @@ export default function LoginPage() {
             ) : (
               <div className="space-y-2">
                 <Label htmlFor="phone">{t('phone')}</Label>
-                <Input
+                <PhoneInput
                   id="phone"
-                  type="tel"
-                  placeholder="+7 (707) 123-45-67"
-                  value={phoneDigits ? formatPhoneDisplay(phoneDigits) : ''}
-                  onChange={(e) => setPhoneDigits(extractPhoneDigits(e.target.value))}
+                  digits={phoneDigits}
+                  onDigitsChange={setPhoneDigits}
                   required
                   disabled={isLoading}
                   autoComplete="tel"

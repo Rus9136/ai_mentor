@@ -123,6 +123,9 @@ from app.models.gamification import (
 # Lab (interactive laboratories)
 from app.models.lab import Lab, LabProgress, LabTask, LabTaskAnswer
 
+# Presentations (AI-generated PPTX)
+from app.models.presentation import Presentation
+
 # Coding challenges & courses
 from app.models.coding import (
     CodingTopic,
@@ -276,6 +279,8 @@ __all__ = [
     "LabProgress",
     "LabTask",
     "LabTaskAnswer",
+    # Presentations
+    "Presentation",
     # Coding
     "CodingTopic",
     "CodingChallenge",

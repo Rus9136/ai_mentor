@@ -50,6 +50,11 @@ export const teacherTestsApi = {
     await apiClient.delete(`/teachers/tests/${id}`);
   },
 
+  clone: async (id: number): Promise<Test> => {
+    const { data } = await apiClient.post<Test>(`/teachers/tests/${id}/clone`);
+    return transformTestFromApi(data);
+  },
+
   // Questions
   getQuestions: async (testId: number): Promise<PaginatedResponse<Question>> => {
     const { data } = await apiClient.get<PaginatedResponse<Question>>(`/teachers/tests/${testId}/questions`, {
