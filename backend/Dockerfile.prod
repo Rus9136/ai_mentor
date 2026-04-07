@@ -50,6 +50,9 @@ COPY backend/alembic /app/alembic
 # Копируем скрипты (partition management, etc.)
 COPY backend/scripts /app/scripts
 
+# Копируем шаблоны презентаций (PPTX templates)
+COPY backend/templates /app/templates
+
 # Создание директорий для uploads и logs
 RUN mkdir -p /app/uploads /app/logs
 
