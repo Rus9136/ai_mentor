@@ -13,43 +13,48 @@ export function QuizSlide({ slide, theme }: Props) {
   const answerIdx = slide.answer ?? -1;
 
   return (
-    <div className={`absolute inset-0 ${theme.slideBg} flex flex-col`}>
-      {/* Header with different accent */}
-      <div className="bg-gradient-to-r from-emerald-600 to-teal-700 px-[6%] py-[2.5%]">
-        <h2 className="text-white text-[1.6em] font-bold">{slide.title}</h2>
+    <div
+      className="absolute inset-0 bg-cover bg-center flex flex-col"
+      style={{ backgroundImage: `url(${theme.bg.content})` }}
+    >
+      {/* Title */}
+      <div className="px-[7%] pt-[5%]">
+        <h2 className={`${theme.headingColor} text-[2em] font-bold`}>
+          {slide.title}
+        </h2>
+        <div className="w-16 h-1 bg-emerald-500 rounded-full mt-2" />
       </div>
-      <div className="h-[3px] bg-emerald-400 w-[120px] ml-[6%]" />
 
-      {/* Question card */}
-      <div className="px-[6%] pt-[2.5%]">
-        <div className={`${theme.cardBg} border ${theme.cardBorder} ${theme.cardShadow} rounded-xl p-[1.2em] border-l-4 border-l-emerald-500`}>
-          <p className={`${theme.headingColor} text-[1.1em] font-semibold leading-snug`}>
+      {/* Question */}
+      <div className="px-[7%] pt-[2%]">
+        <div className={`${theme.cardBg} backdrop-blur-sm border ${theme.cardBorder} border-l-4 border-l-emerald-500 rounded-xl p-[1em] shadow-sm`}>
+          <p className={`${theme.cardText} text-[1.05em] font-semibold leading-snug`}>
             {slide.question}
           </p>
         </div>
       </div>
 
       {/* Options */}
-      <div className="flex-1 px-[6%] py-[2%] flex flex-col gap-[0.4em] justify-center">
+      <div className="flex-1 px-[7%] py-[2%] flex flex-col gap-[0.35em] justify-center">
         {options.map((option, i) => {
           const isCorrect = i === answerIdx;
           const bg = isCorrect ? theme.correctBg : theme.optionBg;
-          const border = isCorrect ? theme.correctBorder : theme.optionBorder;
-          const textColor = isCorrect ? theme.correctText : theme.headingColor;
+          const border = isCorrect ? theme.correctBorder : theme.cardBorder;
+          const textColor = isCorrect ? theme.correctText : theme.cardText;
 
           return (
             <div
               key={i}
-              className={`flex items-center gap-[0.8em] ${bg} border ${border} rounded-xl px-[1em] py-[0.55em] transition-colors`}
+              className={`flex items-center gap-[0.7em] ${bg} backdrop-blur-sm border ${border} rounded-xl px-[0.9em] py-[0.5em] shadow-sm`}
             >
-              <span className={`${isCorrect ? 'bg-emerald-600 text-white' : `${theme.badgeBg} ${theme.badgeText}`} rounded-lg w-[1.8em] h-[1.8em] flex items-center justify-center text-[0.8em] font-bold shrink-0`}>
-                {LETTERS[i] || i + 1}
+              <span className={`${isCorrect ? 'bg-emerald-600 text-white' : `${theme.badgeBg} ${theme.badgeText}`} rounded-lg min-w-[1.7em] h-[1.7em] flex items-center justify-center text-[0.75em] font-bold shrink-0`}>
+                {LETTERS[i]}
               </span>
-              <span className={`${textColor} text-[0.9em] flex-1 ${isCorrect ? 'font-semibold' : ''}`}>
+              <span className={`${textColor} text-[0.85em] flex-1 ${isCorrect ? 'font-semibold' : ''}`}>
                 {option}
               </span>
               {isCorrect && (
-                <span className="text-emerald-600 text-[1.1em]">&#10004;</span>
+                <span className="text-emerald-600 text-[1em]">&#10004;</span>
               )}
             </div>
           );
