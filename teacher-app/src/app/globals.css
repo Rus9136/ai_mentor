@@ -219,3 +219,45 @@
     @apply text-muted-foreground hover:bg-muted hover:text-foreground;
   }
 }
+
+/* Presentation print styles */
+@media print {
+  @page {
+    size: landscape;
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .slide-print-area,
+  .slide-print-area * {
+    visibility: visible !important;
+  }
+
+  .slide-print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+
+  .slide-print-page {
+    width: 100vw;
+    height: 100vh;
+    page-break-after: always;
+    break-after: page;
+    break-inside: avoid;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .slide-print-page:last-child {
+    page-break-after: auto;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

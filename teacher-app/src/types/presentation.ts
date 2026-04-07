@@ -1,3 +1,5 @@
+export type SlideThemeName = 'blue' | 'green' | 'warm';
+
 export interface PresentationGenerateRequest {
   paragraph_id: number;
   class_id?: number;
@@ -30,6 +32,7 @@ export interface PresentationContext {
   subject: string;
   grade_level: number;
   textbook_id: number;
+  theme?: SlideThemeName;
 }
 
 export interface PresentationGenerateResponse {
