@@ -4,6 +4,7 @@ import { useReducer, useEffect, useCallback, useRef, useState, Suspense } from '
 import { useSearchParams } from 'next/navigation';
 import { Volume2, VolumeX } from 'lucide-react';
 import { joinQuiz, getNextQuestion, submitSelfPacedAnswer } from '@/lib/api/quiz';
+import { getAccessToken } from '@/lib/api/client';
 import { useQuizWebSocket } from '@/lib/hooks/use-quiz-websocket';
 import { useQuizSounds } from '@/lib/hooks/use-quiz-sounds';
 import { QuizState } from '@/types/quiz';
@@ -379,6 +380,15 @@ function QuizPageInner() {
 
   const handleJoin = async (code: string) => {
     try {
+      // Ensure token is in localStorage before API call.
+      // TokenExtractor in webview/layout.tsx may not have resolved yet
+      // (Suspense + useSearchParams race condition), so read directly from URL.
+      if (!getAccessToken()) {
+        const token = searchParams.get('token');
+        if (token) {
+          localStorage.setItem('ai_mentor_access_token', token);
+        }
+      }
       const result = await joinQuiz(code);
       dispatch({
         type: 'JOIN_SUCCESS',
