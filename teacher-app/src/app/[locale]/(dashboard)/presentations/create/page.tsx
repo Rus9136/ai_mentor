@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { ContentSelector, ContentSelection } from '@/components/homework/ContentSelector';
 import { SlidePreview } from '@/components/presentation/SlidePreview';
-import { useGeneratePresentation, useSavePresentation } from '@/lib/hooks/use-presentations';
+import { useGeneratePresentation, useSavePresentation, usePresentationTemplates } from '@/lib/hooks/use-presentations';
 import { exportPresentationPptx } from '@/lib/api/presentations';
 import type { PresentationGenerateResponse } from '@/types/presentation';
 
@@ -23,12 +23,14 @@ export default function PresentationCreatePage() {
   const [selection, setSelection] = useState<ContentSelection>({});
   const [language, setLanguage] = useState<string>('kk');
   const [slideCount, setSlideCount] = useState<string>('10');
+  const [template, setTemplate] = useState<string>('academic');
   const [result, setResult] = useState<PresentationGenerateResponse | null>(null);
   const [savedId, setSavedId] = useState<number | null>(null);
 
   const router = useRouter();
   const mutation = useGeneratePresentation();
   const saveMutation = useSavePresentation();
+  const { data: templates } = usePresentationTemplates();
 
   const handleSelect = useCallback((sel: ContentSelection) => {
     setSelection(sel);
@@ -69,7 +71,7 @@ export default function PresentationCreatePage() {
 
   const handleExportPptx = async () => {
     if (!savedId) return;
-    await exportPresentationPptx(savedId);
+    await exportPresentationPptx(savedId, template);
   };
 
   return (
@@ -91,7 +93,7 @@ export default function PresentationCreatePage() {
         <CardContent className="space-y-4">
           <ContentSelector onSelect={handleSelect} disabled={mutation.isPending} />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Язык</Label>
               <Select value={language} onValueChange={setLanguage} disabled={mutation.isPending}>
@@ -114,6 +116,29 @@ export default function PresentationCreatePage() {
                   <SelectItem value="5">5 слайдов</SelectItem>
                   <SelectItem value="10">10 слайдов</SelectItem>
                   <SelectItem value="15">15 слайдов</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Шаблон оформления</Label>
+              <Select value={template} onValueChange={setTemplate}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates?.map((t) => (
+                    <SelectItem key={t.slug} value={t.slug}>
+                      {t.label}
+                    </SelectItem>
+                  )) || (
+                    <>
+                      <SelectItem value="academic">Академический</SelectItem>
+                      <SelectItem value="history">История</SelectItem>
+                      <SelectItem value="biology">Биология</SelectItem>
+                      <SelectItem value="lesson">Урок</SelectItem>
+                      <SelectItem value="chemistry">Химия</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>

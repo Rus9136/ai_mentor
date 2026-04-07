@@ -1,8 +1,9 @@
 """
 PPTX export for AI-generated presentations.
 
-Converts slide JSON data into a .pptx file using python-pptx.
-Code-generated slides (no template file required).
+Template-based approach: loads a .pptx template and fills slide layouts
+with content from the JSON slide data. Falls back to code-generated
+slides if template or layout is unavailable.
 """
 import logging
 from io import BytesIO
@@ -17,61 +18,125 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# --- Color scheme ---
-PRIMARY = RGBColor(0x1A, 0x56, 0xDB)       # Blue
-PRIMARY_DARK = RGBColor(0x16, 0x3C, 0x9C)  # Dark blue
-ACCENT = RGBColor(0x16, 0xA3, 0x4A)        # Green
-ACCENT_WARM = RGBColor(0xEA, 0x58, 0x0C)   # Orange
-TEXT_DARK = RGBColor(0x1F, 0x2A, 0x37)      # Near-black
-TEXT_LIGHT = RGBColor(0xFF, 0xFF, 0xFF)     # White
-BG_LIGHT = RGBColor(0xF1, 0xF5, 0xF9)      # Light gray
-BG_CARD = RGBColor(0xE2, 0xE8, 0xF0)       # Card gray
+# Template directory
+TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "templates" / "presentations"
 
-# Slide dimensions (16:9)
-SLIDE_W = Inches(13.333)
-SLIDE_H = Inches(7.5)
+# Available templates and their layout mappings
+# Each template maps our slide types to (layout_index, {placeholder_idx: field})
+TEMPLATE_CONFIGS = {
+    "academic": {
+        "file": "Academic_Presentation.pptx",
+        "label": "Академический",
+        "layouts": {
+            "title":      {"index": 0, "placeholders": {0: "title", 1: "subtitle"}},
+            "objectives": {"index": 2, "placeholders": {0: "title", 1: "body"}},
+            "content":    {"index": 2, "placeholders": {0: "title", 1: "body"}},
+            "key_terms":  {"index": 3, "placeholders": {0: "title", 1: "col1", 2: "col2"}},
+            "quiz":       {"index": 6, "placeholders": {0: "title"}},
+            "summary":    {"index": 2, "placeholders": {0: "title", 1: "body"}},
+        },
+    },
+    "history": {
+        "file": "History_by_Yeenstudio.pptx",
+        "label": "История",
+        "layouts": {
+            "title":      {"index": 0, "placeholders": {0: "title", 1: "subtitle"}},
+            "objectives": {"index": 2, "placeholders": {0: "title", 1: "body"}},
+            "content":    {"index": 5, "placeholders": {0: "title", 1: "body"}},
+            "key_terms":  {"index": 3, "placeholders": {0: "title", 1: "col1", 2: "col2"}},
+            "quiz":       {"index": 6, "placeholders": {0: "title"}},
+            "summary":    {"index": 2, "placeholders": {0: "title", 1: "body"}},
+        },
+    },
+    "biology": {
+        "file": "Biology_Research_Fun_Education_Presentation.pptx",
+        "label": "Биология",
+        "layouts": {
+            "title":      {"index": 0},
+            "objectives": {"index": 1, "placeholders": {10: "title"}},
+            "content":    {"index": 2, "placeholders": {10: "title"}},
+            "key_terms":  {"index": 3, "placeholders": {10: "title", 11: "body"}},
+            "quiz":       {"index": 2, "placeholders": {10: "title"}},
+            "summary":    {"index": 1, "placeholders": {10: "title"}},
+        },
+    },
+    "lesson": {
+        "file": "lesson.pptx",
+        "label": "Урок",
+        "layouts": {
+            "title":      {"index": 0, "placeholders": {0: "title", 1: "subtitle"}},
+            "objectives": {"index": 1, "placeholders": {0: "title", 1: "body"}},
+            "content":    {"index": 1, "placeholders": {0: "title", 1: "body"}},
+            "key_terms":  {"index": 3, "placeholders": {0: "title", 1: "col1", 2: "col2"}},
+            "quiz":       {"index": 5, "placeholders": {0: "title"}},
+            "summary":    {"index": 1, "placeholders": {0: "title", 1: "body"}},
+        },
+    },
+    "chemistry": {
+        "file": "Chemistry.pptx",
+        "label": "Химия",
+        "layouts": {
+            "title":      {"index": 0, "placeholders": {0: "title", 1: "subtitle"}},
+            "objectives": {"index": 2, "placeholders": {0: "title", 1: "body"}},
+            "content":    {"index": 2, "placeholders": {0: "title", 1: "body"}},
+            "key_terms":  {"index": 3, "placeholders": {0: "title", 1: "col1", 2: "col2"}},
+            "quiz":       {"index": 6, "placeholders": {0: "title"}},
+            "summary":    {"index": 2, "placeholders": {0: "title", 1: "body"}},
+        },
+    },
+}
 
-# Margins
-LEFT_MARGIN = Inches(0.8)
-TOP_CONTENT = Inches(1.6)
-CONTENT_W = Inches(11.733)
+DEFAULT_TEMPLATE = "academic"
+
+# Fallback colors for overlay text boxes
+TEXT_DARK = RGBColor(0x1F, 0x2A, 0x37)
+TEXT_WHITE = RGBColor(0xFF, 0xFF, 0xFF)
+ACCENT_GREEN = RGBColor(0x16, 0xA3, 0x4A)
 
 
-def export_to_pptx(slides_data: dict, context_data: dict) -> BytesIO:
-    """Convert presentation JSON to PPTX document."""
-    prs = Presentation()
-    prs.slide_width = SLIDE_W
-    prs.slide_height = SLIDE_H
+def get_available_templates() -> list[dict]:
+    """Return list of available templates for the frontend."""
+    result = []
+    for slug, cfg in TEMPLATE_CONFIGS.items():
+        template_path = TEMPLATES_DIR / cfg["file"]
+        if template_path.exists():
+            result.append({"slug": slug, "label": cfg["label"], "file": cfg["file"]})
+    return result
 
-    blank_layout = prs.slide_layouts[6]  # Blank
+
+def export_to_pptx(slides_data: dict, context_data: dict, template: str | None = None) -> BytesIO:
+    """Convert presentation JSON to PPTX using a template."""
+    template_slug = template or DEFAULT_TEMPLATE
+    config = TEMPLATE_CONFIGS.get(template_slug)
+
+    if not config:
+        config = TEMPLATE_CONFIGS[DEFAULT_TEMPLATE]
+        template_slug = DEFAULT_TEMPLATE
+
+    template_path = TEMPLATES_DIR / config["file"]
+
+    if template_path.exists():
+        prs = Presentation(str(template_path))
+        # Remove all existing slides from template (keep only layouts)
+        _remove_all_slides(prs)
+    else:
+        logger.warning("Template %s not found, using blank", template_path)
+        prs = Presentation()
+        prs.slide_width = Inches(13.333)
+        prs.slide_height = Inches(7.5)
+
+    layout_map = config.get("layouts", {})
     textbook_id = context_data.get("textbook_id")
 
-    slides = slides_data.get("slides", [])
-
-    for slide_data in slides:
+    for slide_data in slides_data.get("slides", []):
         slide_type = slide_data.get("type", "content")
-        slide = prs.slides.add_slide(blank_layout)
 
         try:
-            if slide_type == "title":
-                _render_title_slide(slide, slide_data, context_data)
-            elif slide_type == "objectives":
-                _render_objectives_slide(slide, slide_data)
-            elif slide_type == "content":
-                _render_content_slide(slide, slide_data, textbook_id)
-            elif slide_type == "key_terms":
-                _render_key_terms_slide(slide, slide_data)
-            elif slide_type == "quiz":
-                _render_quiz_slide(slide, slide_data)
-            elif slide_type == "summary":
-                _render_summary_slide(slide, slide_data)
-            else:
-                _render_content_slide(slide, slide_data, textbook_id)
+            _add_slide_from_template(prs, slide_data, slide_type, layout_map, textbook_id, context_data)
         except Exception:
-            logger.exception("Error rendering slide type=%s", slide_type)
-            # Add fallback text
-            _add_text_box(slide, LEFT_MARGIN, TOP_CONTENT, CONTENT_W, Inches(4),
-                          slide_data.get("title", "Slide"), Pt(24), TEXT_DARK, bold=True)
+            logger.exception("Error rendering slide type=%s with template=%s", slide_type, template_slug)
+            # Fallback: blank slide with title
+            _add_fallback_slide(prs, slide_data)
 
     buf = BytesIO()
     prs.save(buf)
@@ -79,181 +144,232 @@ def export_to_pptx(slides_data: dict, context_data: dict) -> BytesIO:
     return buf
 
 
-# --- Slide Renderers ---
+def _remove_all_slides(prs):
+    """Remove all slides from the presentation, keeping layouts."""
+    while len(prs.slides) > 0:
+        rId = prs.slides._sldIdLst[0].get('r:id')
+        prs.part.drop_rel(rId)
+        prs.slides._sldIdLst.remove(prs.slides._sldIdLst[0])
 
 
-def _render_title_slide(slide, data, context):
-    """Title slide with blue background."""
-    # Full blue background
-    _add_rect(slide, Inches(0), Inches(0), SLIDE_W, SLIDE_H, PRIMARY)
+def _add_slide_from_template(prs, slide_data, slide_type, layout_map, textbook_id, context_data):
+    """Add a slide using the template's layout and fill placeholders."""
+    layout_cfg = layout_map.get(slide_type, layout_map.get("content", {}))
+    layout_idx = layout_cfg.get("index", 0)
+    ph_map = layout_cfg.get("placeholders", {})
 
-    # Title
-    title = data.get("title", "")
-    _add_text_box(slide, Inches(1.5), Inches(2.0), Inches(10.333), Inches(2),
-                  title, Pt(40), TEXT_LIGHT, bold=True, align=PP_ALIGN.CENTER)
+    # Ensure layout index is valid
+    if layout_idx >= len(prs.slide_layouts):
+        layout_idx = 0
 
-    # Subtitle
-    subtitle = data.get("subtitle", "")
-    if subtitle:
-        _add_text_box(slide, Inches(1.5), Inches(4.2), Inches(10.333), Inches(1.2),
-                      subtitle, Pt(22), TEXT_LIGHT, align=PP_ALIGN.CENTER)
+    layout = prs.slide_layouts[layout_idx]
+    slide = prs.slides.add_slide(layout)
 
-    # Context line at bottom
-    subject = context.get("subject", "")
-    grade = context.get("grade_level", "")
-    if subject or grade:
-        footer = f"{subject} | {grade} класс" if grade else subject
-        _add_text_box(slide, Inches(1.5), Inches(6.2), Inches(10.333), Inches(0.6),
-                      footer, Pt(14), RGBColor(0xBF, 0xDB, 0xFE), align=PP_ALIGN.CENTER)
+    # Fill placeholders from template layout
+    _fill_placeholders(slide, slide_data, slide_type, ph_map, context_data)
+
+    # Add overlay text boxes for content that doesn't fit in placeholders
+    _add_overlay_content(slide, slide_data, slide_type, ph_map, textbook_id, prs)
 
 
-def _render_objectives_slide(slide, data):
-    """Learning objectives slide."""
-    # Header bar
-    _add_header_bar(slide, data.get("title", "Сабақтың мақсаты"))
+def _fill_placeholders(slide, slide_data, slide_type, ph_map, context_data):
+    """Fill template placeholders with slide content."""
+    for ph in slide.placeholders:
+        idx = ph.placeholder_format.idx
+        field = ph_map.get(idx)
 
-    items = data.get("items", [])
-    y = TOP_CONTENT + Inches(0.3)
-    for i, item in enumerate(items[:8]):
-        bullet_text = f"  {i + 1}.  {item}"
-        _add_text_box(slide, LEFT_MARGIN, y, CONTENT_W, Inches(0.6),
-                      bullet_text, Pt(20), TEXT_DARK)
-        y += Inches(0.65)
+        if not field:
+            continue
 
+        if field == "title":
+            ph.text = slide_data.get("title", "")
 
-def _render_content_slide(slide, data, textbook_id):
-    """Content slide with optional image."""
-    _add_header_bar(slide, data.get("title", ""))
+        elif field == "subtitle":
+            subtitle = slide_data.get("subtitle", "")
+            if not subtitle and slide_type == "title":
+                subject = context_data.get("subject", "")
+                grade = context_data.get("grade_level", "")
+                subtitle = f"{subject} | {grade} класс" if grade else subject
+            ph.text = subtitle
 
-    image_url = data.get("image_url")
-    image_path = _resolve_image_path(image_url, textbook_id) if image_url and textbook_id else None
-    has_image = image_path and Path(image_path).exists()
+        elif field == "body":
+            _fill_body_placeholder(ph, slide_data, slide_type)
 
-    body_width = Inches(7.0) if has_image else CONTENT_W
-    body = data.get("body", "")
+        elif field == "col1":
+            # Left column: terms
+            if slide_type == "key_terms":
+                terms = slide_data.get("terms", [])
+                text = "\n".join(t.get("term", "") for t in terms[:8])
+                ph.text = text
 
-    _add_text_box(slide, LEFT_MARGIN, TOP_CONTENT + Inches(0.2), body_width, Inches(4.5),
-                  body, Pt(18), TEXT_DARK, wrap=True)
-
-    if has_image:
-        try:
-            slide.shapes.add_picture(
-                image_path, Inches(8.5), TOP_CONTENT + Inches(0.2),
-                Inches(4.0), Inches(4.0),
-            )
-        except Exception:
-            logger.warning("Failed to add image: %s", image_path)
-
-
-def _render_key_terms_slide(slide, data):
-    """Key terms slide with term-definition pairs."""
-    _add_header_bar(slide, data.get("title", "Негізгі ұғымдар"))
-
-    terms = data.get("terms", [])
-    y = TOP_CONTENT + Inches(0.3)
-
-    for term_data in terms[:8]:
-        term = term_data.get("term", "")
-        definition = term_data.get("definition", "")
-
-        # Term card background
-        _add_rect(slide, LEFT_MARGIN, y, CONTENT_W, Inches(0.7), BG_LIGHT)
-
-        # Term (bold)
-        _add_text_box(slide, Inches(1.0), y + Inches(0.05), Inches(3.5), Inches(0.6),
-                      term, Pt(18), PRIMARY, bold=True)
-
-        # Definition
-        _add_text_box(slide, Inches(4.8), y + Inches(0.05), Inches(7.5), Inches(0.6),
-                      f"— {definition}", Pt(16), TEXT_DARK)
-
-        y += Inches(0.8)
+        elif field == "col2":
+            # Right column: definitions
+            if slide_type == "key_terms":
+                terms = slide_data.get("terms", [])
+                text = "\n".join(t.get("definition", "") for t in terms[:8])
+                ph.text = text
 
 
-def _render_quiz_slide(slide, data):
-    """Quiz question slide."""
-    # Green header bar
-    _add_rect(slide, Inches(0), Inches(0), SLIDE_W, Inches(1.3), ACCENT)
-    _add_text_box(slide, LEFT_MARGIN, Inches(0.25), CONTENT_W, Inches(0.8),
-                  data.get("title", "Білімді тексер"), Pt(28), TEXT_LIGHT, bold=True)
+def _fill_body_placeholder(ph, slide_data, slide_type):
+    """Fill a body/content placeholder based on slide type."""
+    if slide_type == "objectives":
+        items = slide_data.get("items", [])
+        ph.text = ""
+        tf = ph.text_frame
+        for i, item in enumerate(items[:8]):
+            p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+            p.text = f"{i + 1}. {item}"
+            p.space_after = Pt(6)
 
-    # Question
-    question = data.get("question", "")
-    _add_text_box(slide, LEFT_MARGIN, Inches(1.8), CONTENT_W, Inches(1.0),
-                  question, Pt(22), TEXT_DARK, bold=True, wrap=True)
+    elif slide_type == "content":
+        ph.text = slide_data.get("body", "")
 
-    # Options
-    options = data.get("options", [])
-    answer_idx = data.get("answer", 0)
-    y = Inches(3.2)
-    letters = ["A", "B", "C", "D", "E", "F"]
+    elif slide_type == "key_terms":
+        terms = slide_data.get("terms", [])
+        ph.text = ""
+        tf = ph.text_frame
+        for i, term_data in enumerate(terms[:8]):
+            p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+            p.text = f"{term_data.get('term', '')}: {term_data.get('definition', '')}"
+            p.space_after = Pt(4)
+            # Bold the term part
+            if p.runs:
+                pass  # Text already set
 
-    for i, option in enumerate(options[:6]):
-        is_answer = (i == answer_idx)
-        bg_color = RGBColor(0xDC, 0xFC, 0xE7) if is_answer else BG_LIGHT
-        text_color = ACCENT if is_answer else TEXT_DARK
+    elif slide_type == "summary":
+        items = slide_data.get("items", [])
+        ph.text = ""
+        tf = ph.text_frame
+        for i, item in enumerate(items[:8]):
+            p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+            p.text = f"\u2713 {item}"
+            p.space_after = Pt(6)
 
-        _add_rect(slide, LEFT_MARGIN, y, Inches(10), Inches(0.65), bg_color)
+    elif slide_type == "quiz":
+        # Question + options in body
+        question = slide_data.get("question", "")
+        options = slide_data.get("options", [])
+        answer_idx = slide_data.get("answer", 0)
+        letters = ["A", "B", "C", "D", "E", "F"]
 
-        letter = letters[i] if i < len(letters) else str(i + 1)
-        _add_text_box(slide, Inches(1.0), y + Inches(0.05), Inches(9.5), Inches(0.55),
-                      f"{letter})  {option}", Pt(18), text_color)
-        y += Inches(0.8)
+        ph.text = ""
+        tf = ph.text_frame
+        # Question
+        p = tf.paragraphs[0]
+        p.text = question
+        p.font.bold = True
+        p.font.size = Pt(18)
+        p.space_after = Pt(12)
 
-
-def _render_summary_slide(slide, data):
-    """Summary slide."""
-    # Dark blue header bar
-    _add_rect(slide, Inches(0), Inches(0), SLIDE_W, Inches(1.3), PRIMARY_DARK)
-    _add_text_box(slide, LEFT_MARGIN, Inches(0.25), CONTENT_W, Inches(0.8),
-                  data.get("title", "Қорытынды"), Pt(28), TEXT_LIGHT, bold=True)
-
-    items = data.get("items", [])
-    y = Inches(1.8)
-    for i, item in enumerate(items[:8]):
-        # Checkmark icon + text
-        _add_text_box(slide, LEFT_MARGIN, y, CONTENT_W, Inches(0.6),
-                      f"  \u2713  {item}", Pt(18), TEXT_DARK)
-        y += Inches(0.65)
-
-
-# --- Helpers ---
-
-
-def _add_header_bar(slide, title: str):
-    """Add a blue header bar at the top of a content slide."""
-    _add_rect(slide, Inches(0), Inches(0), SLIDE_W, Inches(1.3), PRIMARY)
-    _add_text_box(slide, LEFT_MARGIN, Inches(0.25), CONTENT_W, Inches(0.8),
-                  title, Pt(28), TEXT_LIGHT, bold=True)
-
-
-def _add_rect(slide, left, top, width, height, fill_color):
-    """Add a filled rectangle shape."""
-    shape = slide.shapes.add_shape(
-        1,  # MSO_SHAPE.RECTANGLE
-        left, top, width, height,
-    )
-    shape.fill.solid()
-    shape.fill.fore_color.rgb = fill_color
-    shape.line.fill.background()  # No border
+        # Options
+        for i, option in enumerate(options[:6]):
+            p = tf.add_paragraph()
+            letter = letters[i] if i < len(letters) else str(i + 1)
+            marker = " \u2714" if i == answer_idx else ""
+            p.text = f"{letter}) {option}{marker}"
+            p.space_after = Pt(6)
+            if i == answer_idx:
+                p.font.bold = True
 
 
-def _add_text_box(slide, left, top, width, height, text, font_size,
-                  font_color, bold=False, align=PP_ALIGN.LEFT, wrap=True):
-    """Add a text box with styled text."""
-    txBox = slide.shapes.add_textbox(left, top, width, height)
+def _add_overlay_content(slide, slide_data, slide_type, ph_map, textbook_id, prs):
+    """Add text boxes for content that couldn't be placed in placeholders."""
+    has_body_ph = any(f in ("body", "col1") for f in ph_map.values())
+
+    # For quiz type without body placeholder: add question + options as text boxes
+    if slide_type == "quiz" and not has_body_ph:
+        sw = prs.slide_width
+        sh = prs.slide_height
+        margin = Inches(0.8)
+        question = slide_data.get("question", "")
+        options = slide_data.get("options", [])
+        answer_idx = slide_data.get("answer", 0)
+        letters = ["A", "B", "C", "D", "E", "F"]
+
+        # Question box
+        txBox = slide.shapes.add_textbox(margin, Inches(1.8), sw - margin * 2, Inches(1.2))
+        tf = txBox.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = question
+        p.font.size = Pt(20)
+        p.font.bold = True
+        p.font.color.rgb = TEXT_DARK
+
+        # Options
+        y = Inches(3.2)
+        for i, option in enumerate(options[:6]):
+            letter = letters[i] if i < len(letters) else str(i + 1)
+            marker = " \u2714" if i == answer_idx else ""
+            txBox = slide.shapes.add_textbox(margin + Inches(0.3), y, sw - margin * 2 - Inches(0.6), Inches(0.55))
+            tf = txBox.text_frame
+            tf.word_wrap = True
+            p = tf.paragraphs[0]
+            p.text = f"{letter}) {option}{marker}"
+            p.font.size = Pt(16)
+            p.font.color.rgb = TEXT_DARK
+            if i == answer_idx:
+                p.font.bold = True
+            y += Inches(0.7)
+
+    # For objectives/summary without body placeholder: add items as text boxes
+    if slide_type in ("objectives", "summary") and not has_body_ph:
+        sw = prs.slide_width
+        margin = Inches(0.8)
+        items = slide_data.get("items", [])
+        y = Inches(1.8)
+        for i, item in enumerate(items[:8]):
+            prefix = f"{i + 1}." if slide_type == "objectives" else "\u2713"
+            txBox = slide.shapes.add_textbox(margin, y, sw - margin * 2, Inches(0.55))
+            tf = txBox.text_frame
+            tf.word_wrap = True
+            p = tf.paragraphs[0]
+            p.text = f"  {prefix}  {item}"
+            p.font.size = Pt(18)
+            p.font.color.rgb = TEXT_DARK
+            y += Inches(0.6)
+
+    # For content without body placeholder: add body text
+    if slide_type == "content" and not has_body_ph:
+        sw = prs.slide_width
+        margin = Inches(0.8)
+        body = slide_data.get("body", "")
+        txBox = slide.shapes.add_textbox(margin, Inches(1.8), sw - margin * 2, Inches(4.5))
+        tf = txBox.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = body
+        p.font.size = Pt(16)
+        p.font.color.rgb = TEXT_DARK
+
+    # Add image if present (for content slides)
+    if slide_type == "content" and textbook_id:
+        image_url = slide_data.get("image_url")
+        if image_url:
+            image_path = _resolve_image_path(image_url, textbook_id)
+            if image_path and Path(image_path).exists():
+                try:
+                    sw = prs.slide_width
+                    slide.shapes.add_picture(
+                        image_path,
+                        sw - Inches(4.5), Inches(1.8),
+                        Inches(3.8), Inches(3.8),
+                    )
+                except Exception:
+                    logger.warning("Failed to add image: %s", image_path)
+
+
+def _add_fallback_slide(prs, slide_data):
+    """Add a basic blank slide as fallback."""
+    layout = prs.slide_layouts[0]
+    slide = prs.slides.add_slide(layout)
+    title = slide_data.get("title", "Slide")
+    txBox = slide.shapes.add_textbox(Inches(0.8), Inches(0.5), Inches(10), Inches(1))
     tf = txBox.text_frame
-    tf.word_wrap = wrap
-    tf.auto_size = None
-
     p = tf.paragraphs[0]
-    p.text = text
-    p.font.size = font_size
-    p.font.color.rgb = font_color
-    p.font.bold = bold
-    p.alignment = align
-
-    return txBox
+    p.text = title
+    p.font.size = Pt(24)
+    p.font.bold = True
 
 
 def _resolve_image_path(url: str, textbook_id: int) -> str | None:

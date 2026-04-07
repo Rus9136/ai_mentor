@@ -6,7 +6,9 @@ import {
   getPresentation,
   updatePresentation,
   deletePresentation,
+  getTemplates,
 } from '@/lib/api/presentations';
+import type { PresentationTemplate } from '@/lib/api/presentations';
 import type {
   PresentationGenerateRequest,
   PresentationGenerateResponse,
@@ -15,6 +17,14 @@ import type {
   PresentationListItem,
   PresentationUpdateRequest,
 } from '@/types/presentation';
+
+export function usePresentationTemplates() {
+  return useQuery<PresentationTemplate[]>({
+    queryKey: ['presentation-templates'],
+    queryFn: getTemplates,
+    staleTime: 1000 * 60 * 60, // 1 hour
+  });
+}
 
 export function useGeneratePresentation() {
   return useMutation<

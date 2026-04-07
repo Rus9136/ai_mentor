@@ -57,10 +57,21 @@ export async function deletePresentation(id: number): Promise<void> {
   await apiClient.delete(`/teachers/presentations/${id}`);
 }
 
-export async function exportPresentationPptx(id: number): Promise<void> {
+export interface PresentationTemplate {
+  slug: string;
+  label: string;
+  file: string;
+}
+
+export async function getTemplates(): Promise<PresentationTemplate[]> {
+  const response = await apiClient.get('/teachers/presentations/templates');
+  return response.data;
+}
+
+export async function exportPresentationPptx(id: number, template = 'academic'): Promise<void> {
   const response = await apiClient.get(
     `/teachers/presentations/${id}/export/pptx`,
-    { responseType: 'blob' }
+    { params: { template }, responseType: 'blob' }
   );
   const blob = new Blob([response.data], {
     type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',

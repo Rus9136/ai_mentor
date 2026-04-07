@@ -21,7 +21,7 @@ from app.schemas.presentation import (
     PresentationSaveRequest,
     PresentationUpdateRequest,
 )
-from app.services.presentation_export import export_to_pptx
+from app.services.presentation_export import export_to_pptx, get_available_templates
 from app.services.presentation_service import PresentationService
 from app.services.llm_service import LLMService, LLMServiceError
 
@@ -164,11 +164,23 @@ async def delete_presentation(
 
 
 @router.get(
+    "/templates",
+    summary="List available PPTX templates",
+)
+async def list_templates(
+    teacher: Teacher = Depends(get_teacher_from_user),
+):
+    """Get list of available presentation templates."""
+    return get_available_templates()
+
+
+@router.get(
     "/{presentation_id}/export/pptx",
     summary="Export presentation as PPTX",
 )
 async def export_presentation_pptx(
     presentation_id: int,
+    template: str = Query("academic", description="Template slug"),
     teacher: Teacher = Depends(get_teacher_from_user),
     school_id: int = Depends(get_current_user_school_id),
     db: AsyncSession = Depends(get_db),
@@ -176,7 +188,7 @@ async def export_presentation_pptx(
     """Download presentation as PPTX file."""
     service = _get_service(db)
     pres = await service.get_by_id(presentation_id, teacher.id, school_id)
-    buf = export_to_pptx(pres.slides_data, pres.context_data)
+    buf = export_to_pptx(pres.slides_data, pres.context_data, template=template)
     safe_name = f"Presentation_{pres.id}.pptx"
     utf8_name = f"Presentation_{pres.title[:50].replace(' ', '_')}.pptx"
     return StreamingResponse(
