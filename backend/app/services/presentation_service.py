@@ -146,39 +146,42 @@ class PresentationService:
         return images
 
     def _build_system_prompt(self, language: str, slide_count: int) -> str:
-        lang_instruction = "Язык презентации: қазақша (казахский)" if language == "kk" else "Язык презентации: русский"
-        return f"""Ты — эксперт по созданию учебных презентаций для школ Казахстана.
-Твоя задача — создать структуру презентации на основе содержания параграфа учебника.
+        lang_instruction = "Язык: қазақша" if language == "kk" else "Язык: русский"
+        return f"""Ты — дизайнер учебных презентаций для школ Казахстана.
+Создай структуру из {slide_count} слайдов на основе параграфа учебника.
+{lang_instruction}.
 
-Требования:
-1. Презентация должна быть образовательной, визуально логичной
-2. Каждый слайд — один ясный тезис или понятие
-3. Используй ключевые термины из параграфа
-4. Если есть изображения в материале — укажи их URL для размещения на слайдах
-5. {lang_instruction}
-6. Количество слайдов: СТРОГО {slide_count}
+КРИТИЧЕСКИЕ ПРАВИЛА (нарушение = ошибка):
+1. Каждый слайд = ОДИН тезис. НЕ перегружай текстом.
+2. СТРОГИЕ ЛИМИТЫ символов:
+   - title: максимум 50 символов
+   - subtitle: максимум 80 символов
+   - body: максимум 250 символов (3-4 коротких предложения)
+   - items: максимум 6 пунктов, каждый до 70 символов
+   - terms: максимум 5 штук, term до 30 символов, definition до 60 символов
+   - question: максимум 100 символов
+   - options: 4 варианта, каждый до 50 символов
+3. Текст должен быть КРАТКИМ и ЯСНЫМ. Не пиши длинные абзацы.
+4. Используй ФАКТЫ и ЦИФРЫ, а не общие фразы.
 
-Типы слайдов:
-- "title" — титульный (первый слайд): title + subtitle
-- "objectives" — цели урока: title + items (список целей)
-- "content" — основной контент: title + body (текст) + image_url (опционально, URL или null)
-- "key_terms" — ключевые термины: title + terms (массив объектов term/definition)
-- "quiz" — проверочный вопрос: title + question + options (массив) + answer (индекс правильного)
-- "summary" — итоги: title + items (список ключевых тезисов)
+ТИПЫ СЛАЙДОВ:
+- "title" — титульный: {{"type":"title","title":"...","subtitle":"..."}}
+- "objectives" — цели: {{"type":"objectives","title":"...","items":["..."]}}
+- "content" — контент: {{"type":"content","title":"...","body":"...","image_url":null}}
+- "key_terms" — термины: {{"type":"key_terms","title":"...","terms":[{{"term":"...","definition":"..."}}]}}
+- "quiz" — вопрос: {{"type":"quiz","title":"Білімді тексер","question":"...","options":["..."],"answer":0}}
+- "summary" — итоги: {{"type":"summary","title":"Қорытынды","items":["..."]}}
 
-Обязательная структура:
-- Первый слайд: type="title"
-- Второй слайд: type="objectives"
-- Предпоследний слайд: type="quiz"
-- Последний слайд: type="summary"
-- Остальные слайды: type="content" или type="key_terms" (распредели контент равномерно)
+СТРУКТУРА ПРЕЗЕНТАЦИИ:
+- Слайд 1: type="title"
+- Слайд 2: type="objectives"
+- Слайды 3-{slide_count-2}: чередуй "content" и "key_terms" (минимум 1 key_terms)
+- Слайд {slide_count-1}: type="quiz"
+- Слайд {slide_count}: type="summary"
 
-Для image_url используй ТОЛЬКО URL из предоставленного списка изображений.
-Не придумывай URL. Если подходящего изображения нет — оставь image_url: null.
+Для image_url используй ТОЛЬКО URL из списка. Нет подходящего — null.
 
-Текст на слайдах должен быть кратким: body не более 200 слов, items не более 6 пунктов.
-
-Верни ответ СТРОГО в JSON формате (без markdown обёртки)."""
+Ответ СТРОГО JSON (без markdown обёртки, без ```json```)."""
 
     def _build_user_prompt(self, paragraph_ctx: dict, images: list[dict], language: str, slide_count: int) -> str:
         meta = paragraph_ctx["metadata"]
@@ -199,43 +202,25 @@ class PresentationService:
             img_lines = [f"{i+1}. {img['url']} — {img['alt_text'] or img['filename']}" for i, img in enumerate(images)]
             images_block = "\n".join(img_lines)
 
-        prompt = f"""Создай презентацию из {slide_count} слайдов для следующего параграфа:
+        prompt = f"""Предмет: {meta['subject']}, {meta['grade_level']} класс
+Учебник: {meta['textbook_title']}
+Раздел: {meta['chapter_number']}-бөлім: {meta['chapter_title']}
+Тема: {p.title}
 
-КОНТЕКСТ:
-- Предмет: {meta['subject']}
-- Класс: {meta['grade_level']}
-- Учебник: {meta['textbook_title']}
-- Раздел: {meta['chapter_number']}-бөлім: {meta['chapter_title']}
-- Тема: {p.title}
+Цель обучения: {learning_obj}
+Цель урока: {lesson_obj}
 
-ОҚУ МАҚСАТЫ (цель обучения):
-{learning_obj}
-
-САБАҚТЫҢ МАҚСАТЫ (цель урока):
-{lesson_obj}
-
-МАЗМҰНЫ (содержание параграфа):
-{(p.content or '')[:3000]}
+СОДЕРЖАНИЕ ПАРАГРАФА:
+{(p.content or '')[:2500]}
 {explain_text}
 
-НЕГІЗГІ ҰҒЫМДАР (ключевые термины):
-{key_terms_str}
+Ключевые термины: {key_terms_str}
 
-ДОСТУПНЫЕ ИЗОБРАЖЕНИЯ:
-{images_block}
+Изображения: {images_block}
 
-JSON FORMAT:
-{{
-  "title": "Название презентации",
-  "slides": [
-    {{"type": "title", "title": "...", "subtitle": "..."}},
-    {{"type": "objectives", "title": "Сабақтың мақсаты", "items": ["...", "..."]}},
-    {{"type": "content", "title": "...", "body": "...", "image_url": null}},
-    {{"type": "key_terms", "title": "Негізгі ұғымдар", "terms": [{{"term": "...", "definition": "..."}}]}},
-    {{"type": "quiz", "title": "Білімді тексер", "question": "...", "options": ["...", "...", "...", "..."], "answer": 0}},
-    {{"type": "summary", "title": "Қорытынды", "items": ["...", "..."]}}
-  ]
-}}"""
+Создай {slide_count} слайдов. Помни: title до 50 символов, body до 250, items до 6 штук по 70 символов.
+Верни JSON:
+{{"title":"...","slides":[...]}}"""
         return prompt
 
     def _parse_response(self, llm_content: str) -> dict:
