@@ -113,6 +113,17 @@ async def list_presentations(
 
 
 @router.get(
+    "/templates",
+    summary="List available PPTX templates",
+)
+async def list_templates(
+    teacher: Teacher = Depends(get_teacher_from_user),
+):
+    """Get list of available presentation templates."""
+    return get_available_templates()
+
+
+@router.get(
     "/{presentation_id}",
     response_model=PresentationFullResponse,
     summary="Get presentation by ID",
@@ -161,17 +172,6 @@ async def delete_presentation(
     """Delete a presentation."""
     service = _get_service(db)
     await service.delete(presentation_id, teacher.id, school_id)
-
-
-@router.get(
-    "/templates",
-    summary="List available PPTX templates",
-)
-async def list_templates(
-    teacher: Teacher = Depends(get_teacher_from_user),
-):
-    """Get list of available presentation templates."""
-    return get_available_templates()
 
 
 @router.get(
