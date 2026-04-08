@@ -24,10 +24,10 @@ export function ContentSlide({ slide, theme }: Props) {
       </div>
 
       {/* Body */}
-      <div className={`flex-1 px-[7%] py-[3%] flex ${imageUrl ? 'gap-[3%]' : ''}`}>
-        <div className={imageUrl ? 'flex-[3]' : 'flex-1'}>
-          <div className={`${theme.cardBg} backdrop-blur-sm border ${theme.cardBorder} rounded-xl p-[1.2em] shadow-sm h-full`}>
-            <p className={`${theme.cardText} text-[0.95em] leading-relaxed whitespace-pre-line`}>
+      <div className={`flex-1 px-[7%] py-[2.5%] flex ${imageUrl ? 'gap-[3%]' : ''} items-start`}>
+        <div className={imageUrl ? 'flex-[3]' : 'flex-1 max-w-[75%]'}>
+          <div className={`${theme.cardBg} backdrop-blur-sm border ${theme.cardBorder} rounded-xl p-[1.2em] shadow-sm`}>
+            <p className={`${theme.cardText} text-[1.05em] leading-[1.7] whitespace-pre-line`}>
               {slide.body}
             </p>
           </div>
