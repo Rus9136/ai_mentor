@@ -99,9 +99,8 @@ CARD_PAD = Inches(0.25)
 def get_available_templates() -> list[dict]:
     """Return color themes as 'templates' for the frontend."""
     return [
-        {"slug": "blue", "label": "Академический (синий)"},
-        {"slug": "green", "label": "Биология (зелёный)"},
         {"slug": "warm", "label": "История (тёплый)"},
+        {"slug": "green", "label": "Биология (зелёный)"},
     ]
 
 

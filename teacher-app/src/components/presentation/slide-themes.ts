@@ -3,34 +3,28 @@ import type { SlideThemeName } from '@/types/presentation';
 export interface SlideThemeConfig {
   name: SlideThemeName;
   label: string;
-  // Background images per slide type
   bg: {
     title: string;
     content: string;
     terms: string;
     summary: string;
   };
-  // Text colors (tuned to match the background)
   titleColor: string;
   subtitleColor: string;
   headingColor: string;
   bodyColor: string;
-  // Accent colors for badges, borders, highlights
   accentColor: string;
   accentBg: string;
   accentBorder: string;
   badgeBg: string;
   badgeText: string;
-  // Cards overlaid on background
   cardBg: string;
   cardText: string;
   cardBorder: string;
-  // Quiz
   correctBg: string;
   correctBorder: string;
   correctText: string;
   optionBg: string;
-  // Summary
   checkBg: string;
 }
 
@@ -87,33 +81,6 @@ export const THEMES: Record<SlideThemeName, SlideThemeConfig> = {
     correctBorder: 'border-emerald-500',
     correctText: 'text-emerald-800',
     optionBg: 'bg-white/85',
-    checkBg: 'bg-emerald-600',
-  },
-  blue: {
-    name: 'blue',
-    label: 'Академический',
-    bg: {
-      title:   '/slide-bg/academic/title.png',
-      content: '/slide-bg/academic/content.png',
-      terms:   '/slide-bg/academic/terms.png',
-      summary: '/slide-bg/academic/summary.png',
-    },
-    titleColor: 'text-slate-800',
-    subtitleColor: 'text-slate-500',
-    headingColor: 'text-blue-800',
-    bodyColor: 'text-slate-700',
-    accentColor: 'text-blue-600',
-    accentBg: 'bg-blue-50/80',
-    accentBorder: 'border-blue-400',
-    badgeBg: 'bg-blue-600',
-    badgeText: 'text-white',
-    cardBg: 'bg-white/80',
-    cardText: 'text-slate-800',
-    cardBorder: 'border-blue-200/50',
-    correctBg: 'bg-emerald-100/85',
-    correctBorder: 'border-emerald-500',
-    correctText: 'text-emerald-800',
-    optionBg: 'bg-white/80',
     checkBg: 'bg-emerald-600',
   },
 };

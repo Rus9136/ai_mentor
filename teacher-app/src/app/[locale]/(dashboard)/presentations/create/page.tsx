@@ -24,7 +24,7 @@ export default function PresentationCreatePage() {
   const [selection, setSelection] = useState<ContentSelection>({});
   const [language, setLanguage] = useState<string>('kk');
   const [slideCount, setSlideCount] = useState<string>('10');
-  const [themeName, setThemeName] = useState<SlideThemeName>('blue');
+  const [themeName, setThemeName] = useState<SlideThemeName>('warm');
   const [result, setResult] = useState<PresentationGenerateResponse | null>(null);
   const [savedId, setSavedId] = useState<number | null>(null);
 
