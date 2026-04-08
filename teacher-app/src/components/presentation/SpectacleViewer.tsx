@@ -160,7 +160,7 @@ function renderObjectives(slide: SlideData, idx: number, theme: SlideThemeConfig
         <Box width="80px" height="4px" backgroundColor="#b45309" style={{ borderRadius: '4px' }} />
         <FlexBox flexDirection="column" flex={1} justifyContent="center" width="100%" margin="24px 0 0 0">
           {items.map((item, i) => (
-            <Appear key={i} activeStyle={{ opacity: 1 }} inactiveStyle={{ opacity: 0.3 }}>
+            <Appear key={i} activeStyle={{ opacity: '1' }} inactiveStyle={{ opacity: '0.3' }}>
               <FlexBox alignItems="center" margin="0 0 12px 0" style={card}>
                 <Box
                   width="36px" height="36px"
