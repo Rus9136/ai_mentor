@@ -33,6 +33,22 @@ logger = logging.getLogger(__name__)
 
 MAX_DAILY_PRESENTATIONS = 10
 
+# Subject code → PPTX theme mapping
+SUBJECT_THEME_MAP: dict[str, str] = {
+    "history_kz": "warm",
+    "world_history": "warm",
+    "biology": "forest",
+    "natural_science": "forest",
+    "chemistry": "forest",
+    "geography": "forest",
+    "algebra": "midnight",
+    "geometry": "midnight",
+    "math": "midnight",
+    "informatics": "midnight",
+    "physics": "midnight",
+}
+DEFAULT_THEME = "warm"
+
 
 class PresentationService:
     def __init__(self, db: AsyncSession, llm_service: LLMService):
@@ -55,7 +71,6 @@ class PresentationService:
         paragraph_ctx = await self._collect_paragraph_context(paragraph_id, language)
         metadata = paragraph_ctx["metadata"]
         paragraph = paragraph_ctx["paragraph"]
-        content = paragraph_ctx["content"]
 
         # Extract available images from paragraph content
         textbook_id = metadata["textbook_id"]
@@ -71,17 +86,32 @@ class PresentationService:
             teacher_id=teacher_id,
             school_id=school_id,
         )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
         response = await self.llm_service.generate(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.7,
+            messages=messages,
+            temperature=0.8,
             max_tokens=4000,
             usage_context=usage_ctx,
         )
 
-        presentation_data = self._parse_response(response.content)
+        logger.debug("LLM raw response for presentation: %s", response.content[:500])
+
+        presentation_data = await self._parse_with_retry(
+            response.content, messages, usage_ctx
+        )
+
+        # Validate through v2 schemas (soft — truncates, never raises)
+        from app.schemas.presentation import validate_slides_data
+        presentation_data = validate_slides_data(presentation_data)
+
+        # Auto-select theme based on subject
+        subject_code = metadata.get("subject_code") or ""
+        theme = SUBJECT_THEME_MAP.get(subject_code, DEFAULT_THEME)
 
         context = PresentationContext(
             paragraph_title=metadata.get("paragraph_title") or "",
@@ -90,6 +120,7 @@ class PresentationService:
             subject=metadata["subject"],
             grade_level=metadata["grade_level"],
             textbook_id=textbook_id,
+            theme=theme,
         )
 
         return PresentationGenerateResponse(
@@ -146,42 +177,95 @@ class PresentationService:
         return images
 
     def _build_system_prompt(self, language: str, slide_count: int) -> str:
-        lang_instruction = "Язык: қазақша" if language == "kk" else "Язык: русский"
-        return f"""Ты — дизайнер учебных презентаций для школ Казахстана.
-Создай структуру из {slide_count} слайдов на основе параграфа учебника.
-{lang_instruction}.
+        lang_instruction = (
+            "Write ALL text in Kazakh (қазақша). Never mix languages."
+            if language == "kk"
+            else "Write ALL text in Russian. Never mix languages."
+        )
 
-КРИТИЧЕСКИЕ ПРАВИЛА (нарушение = ошибка):
-1. Каждый слайд = ОДИН тезис. НЕ перегружай текстом.
-2. СТРОГИЕ ЛИМИТЫ символов:
-   - title: максимум 50 символов
-   - subtitle: максимум 80 символов
-   - body: максимум 250 символов (3-4 коротких предложения)
-   - items: максимум 6 пунктов, каждый до 70 символов
-   - terms: максимум 5 штук, term до 30 символов, definition до 60 символов
-   - question: максимум 100 символов
-   - options: 4 варианта, каждый до 50 символов
-3. Текст должен быть КРАТКИМ и ЯСНЫМ. Не пиши длинные абзацы.
-4. Используй ФАКТЫ и ЦИФРЫ, а не общие фразы.
+        structure = self._get_slide_structure(slide_count)
 
-ТИПЫ СЛАЙДОВ:
-- "title" — титульный: {{"type":"title","title":"...","subtitle":"..."}}
-- "objectives" — цели: {{"type":"objectives","title":"...","items":["..."]}}
-- "content" — контент: {{"type":"content","title":"...","body":"...","image_url":null}}
-- "key_terms" — термины: {{"type":"key_terms","title":"...","terms":[{{"term":"...","definition":"..."}}]}}
-- "quiz" — вопрос: {{"type":"quiz","title":"Білімді тексер","question":"...","options":["..."],"answer":0}}
-- "summary" — итоги: {{"type":"summary","title":"Қорытынды","items":["..."]}}
+        return f"""You are an expert pedagogical content designer who creates educational
+slide decks for the AI-Mentor platform.
 
-СТРУКТУРА ПРЕЗЕНТАЦИИ:
-- Слайд 1: type="title"
-- Слайд 2: type="objectives"
-- Слайды 3-{slide_count-2}: чередуй "content" и "key_terms" (минимум 1 key_terms)
-- Слайд {slide_count-1}: type="quiz"
-- Слайд {slide_count}: type="summary"
+{lang_instruction}
 
-Для image_url используй ТОЛЬКО URL из списка. Нет подходящего — null.
+Output a single JSON object — no preamble, no markdown fences. Schema:
+{{"title":"string ≤60 chars","slides":[...array of slide objects...]}}
 
-Ответ СТРОГО JSON (без markdown обёртки, без ```json```)."""
+SLIDE STRUCTURE (exactly {slide_count} slides):
+{structure}
+
+SLIDE TYPES AND REQUIRED FIELDS:
+
+title: {{"type":"title","title":"≤50 chars","subtitle":"≤90 chars","image_query":"2-3 ENGLISH words for stock photo"}}
+
+objectives: {{"type":"objectives","title":"Сабақтың мақсаты","items":["3-4 strings ≤80 chars, start with verb"]}}
+
+content — choose ONE layout_hint per slide:
+{{"type":"content","title":"≤50 chars","body":"150-280 chars, full sentences",
+"layout_hint":"image_left"|"image_right"|"stat_callout",
+"image_query":"2-3 ENGLISH words (for image_left/image_right)",
+"stat_value":"1-7 chars (for stat_callout, e.g. 1511, 70%, Жайық)",
+"stat_label":"≤35 chars (for stat_callout)"}}
+
+LAYOUT RULES:
+- stat_callout: when slide centers on a memorable date, number, or key term
+- image_left / image_right: for narrative content. Alternate between them.
+- NEVER use same layout_hint two slides in a row.
+
+key_terms: {{"type":"key_terms","title":"Негізгі ұғымдар","terms":[{{"term":"≤25 chars","definition":"≤90 chars"}}] (4-6 items)}}
+
+quiz: {{"type":"quiz","question":"≤120 chars, ends with ?","options":["4 strings ≤40 chars"],"answer":0|1|2|3}}
+
+summary: {{"type":"summary","title":"Қорытынды","items":["3-5 strings ≤70 chars"]}}
+
+IMAGE_QUERY RULES:
+- ALWAYS in English, even when content is Kazakh/Russian
+- 2-3 concrete nouns: "ulytau mountains", "kazakh steppe horse"
+- Avoid abstract: NOT "history", NOT "leadership"
+- For historical figures, use place or era: "medieval central asia"
+
+STYLE RULES:
+- No markdown formatting (no *, #, emojis)
+- Body: complete sentences, never bullet fragments
+- Be concise — respect character limits strictly
+- Use FACTS and NUMBERS, not vague phrases"""
+
+    def _get_slide_structure(self, slide_count: int) -> str:
+        if slide_count == 5:
+            return """1. title
+2. objectives
+3. content (image_left)
+4. content (stat_callout OR image_right)
+5. summary"""
+        elif slide_count == 15:
+            return """1. title
+2. objectives
+3. content (image_left)
+4. content (stat_callout)
+5. content (image_right)
+6. content (image_left)
+7. content (stat_callout)
+8. content (image_right)
+9. key_terms
+10. content (image_left)
+11. content (image_right)
+12. quiz
+13. quiz
+14. content (stat_callout)
+15. summary"""
+        else:  # 10
+            return """1. title
+2. objectives
+3. content (image_left)
+4. content (stat_callout)
+5. content (image_right)
+6. content (stat_callout)
+7. key_terms
+8. content (stat_callout)
+9. quiz
+10. summary"""
 
     def _build_user_prompt(self, paragraph_ctx: dict, images: list[dict], language: str, slide_count: int) -> str:
         meta = paragraph_ctx["metadata"]
@@ -194,44 +278,73 @@ class PresentationService:
 
         explain_text = ""
         if content and content.explain_text:
-            explain_text = f"\nТҮСІНДІРМЕ (упрощённое объяснение):\n{content.explain_text[:2000]}"
+            explain_text = f"\nSIMPLIFIED EXPLANATION:\n{content.explain_text[:2000]}"
 
-        # Image list for LLM
-        images_block = "Нет доступных изображений"
-        if images:
-            img_lines = [f"{i+1}. {img['url']} — {img['alt_text'] or img['filename']}" for i, img in enumerate(images)]
-            images_block = "\n".join(img_lines)
+        prompt = f"""Subject: {meta['subject']}, grade {meta['grade_level']}
+Textbook: {meta['textbook_title']}
+Chapter: {meta['chapter_number']} — {meta['chapter_title']}
+Topic: {p.title}
 
-        prompt = f"""Предмет: {meta['subject']}, {meta['grade_level']} класс
-Учебник: {meta['textbook_title']}
-Раздел: {meta['chapter_number']}-бөлім: {meta['chapter_title']}
-Тема: {p.title}
+Learning objective: {learning_obj}
+Lesson objective: {lesson_obj}
 
-Цель обучения: {learning_obj}
-Цель урока: {lesson_obj}
-
-СОДЕРЖАНИЕ ПАРАГРАФА:
+PARAGRAPH CONTENT:
 {(p.content or '')[:2500]}
 {explain_text}
 
-Ключевые термины: {key_terms_str}
+Key terms: {key_terms_str}
 
-Изображения: {images_block}
-
-Создай {slide_count} слайдов. Помни: title до 50 символов, body до 250, items до 6 штук по 70 символов.
-Верни JSON:
-{{"title":"...","slides":[...]}}"""
+Create exactly {slide_count} slides. Use image_query (ENGLISH keywords) for stock photos.
+For dates and key numbers, use stat_callout layout with stat_value + stat_label.
+Return JSON: {{"title":"...","slides":[...]}}"""
         return prompt
 
     def _parse_response(self, llm_content: str) -> dict:
+        """Parse LLM JSON response. Raises ValueError on failure."""
+        data = parse_json_object(llm_content)
+        if "slides" not in data:
+            raise ValueError("Missing 'slides' key in response")
+        return data
+
+    async def _parse_with_retry(
+        self, llm_content: str, messages: list[dict], usage_ctx: LLMUsageContext
+    ) -> dict:
+        """Parse JSON, retry once on failure with error feedback."""
+        first_error: Exception | None = None
         try:
-            data = parse_json_object(llm_content)
-            if "slides" not in data:
-                raise ValueError("Missing 'slides' key in response")
-            return data
-        except (ValueError, Exception) as e:
-            logger.error("Failed to parse presentation JSON: %s", e)
-            raise ValueError(f"Failed to parse AI response: {e}") from e
+            return self._parse_response(llm_content)
+        except (ValueError, Exception) as exc:
+            first_error = exc
+            logger.warning("First parse attempt failed: %s. Retrying...", exc)
+
+        # Retry: append error feedback and ask LLM to fix
+        retry_messages = messages + [
+            {"role": "assistant", "content": llm_content},
+            {
+                "role": "user",
+                "content": (
+                    f"Your response was not valid JSON. Error: {first_error}\n"
+                    "Please return ONLY a valid JSON object with the exact schema "
+                    'requested: {"title":"...","slides":[...]}. '
+                    "No markdown fences, no explanation."
+                ),
+            },
+        ]
+
+        try:
+            retry_response = await self.llm_service.generate(
+                messages=retry_messages,
+                temperature=0.3,
+                max_tokens=4000,
+                usage_context=usage_ctx,
+            )
+            logger.debug("LLM retry response: %s", retry_response.content[:500])
+            return self._parse_response(retry_response.content)
+        except Exception as retry_error:
+            logger.error(
+                "Retry parse also failed: %s. Returning error.", retry_error
+            )
+            raise ValueError(f"Failed to parse AI response after retry: {retry_error}") from retry_error
 
     # --- Rate Limiting ---
 

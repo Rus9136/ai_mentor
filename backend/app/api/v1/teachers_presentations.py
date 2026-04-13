@@ -21,9 +21,20 @@ from app.schemas.presentation import (
     PresentationSaveRequest,
     PresentationUpdateRequest,
 )
-from app.services.presentation_export import export_to_pptx, get_available_templates
+from app.core.config import settings
+from app.services.presentation_export import export_to_pptx as export_to_pptx_v1
+from app.services.presentation_export import get_available_templates as get_available_templates_v1
+from app.services.presentation_export_v2 import export_to_pptx as export_to_pptx_v2
+from app.services.presentation_export_v2 import get_available_templates as get_available_templates_v2
 from app.services.presentation_service import PresentationService
 from app.services.llm_service import LLMService, LLMServiceError
+
+
+def _get_exporter():
+    """Select exporter based on PRESENTATION_EXPORTER_VERSION env var."""
+    if settings.PRESENTATION_EXPORTER_VERSION == "v2":
+        return export_to_pptx_v2, get_available_templates_v2
+    return export_to_pptx_v1, get_available_templates_v1
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +131,8 @@ async def list_templates(
     teacher: Teacher = Depends(get_teacher_from_user),
 ):
     """Get list of available presentation templates."""
-    return get_available_templates()
+    _, get_templates_fn = _get_exporter()
+    return get_templates_fn()
 
 
 @router.get(
@@ -188,7 +200,8 @@ async def export_presentation_pptx(
     """Download presentation as PPTX file."""
     service = _get_service(db)
     pres = await service.get_by_id(presentation_id, teacher.id, school_id)
-    buf = export_to_pptx(pres.slides_data, pres.context_data, template=template)
+    export_fn, _ = _get_exporter()
+    buf = export_fn(pres.slides_data, pres.context_data, template=template)
     safe_name = f"Presentation_{pres.id}.pptx"
     utf8_name = f"Presentation_{pres.title[:50].replace(' ', '_')}.pptx"
     return StreamingResponse(

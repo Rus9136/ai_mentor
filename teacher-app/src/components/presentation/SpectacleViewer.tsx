@@ -24,6 +24,18 @@ import type { SlideData } from '@/types/presentation';
 import type { SlideThemeConfig } from './slide-themes';
 import { getMediaUrl } from '@/lib/api/client';
 
+/** Build Spectacle bg props with image + color fallback */
+function slideBgProps(theme: SlideThemeConfig, slideType: keyof SlideThemeConfig['bg']) {
+  const img = theme.bg[slideType];
+  const color = theme.bgColor[slideType];
+  return {
+    ...(img ? { backgroundImage: `url(${img})` } : {}),
+    backgroundColor: color,
+    backgroundSize: 'cover' as const,
+    backgroundPosition: 'center' as const,
+  };
+}
+
 interface SpectacleViewerProps {
   slides: SlideData[];
   theme: SlideThemeConfig;
@@ -127,7 +139,7 @@ function renderTitle(
     : context?.subject || '';
 
   return (
-    <Slide key={idx} backgroundImage={`url(${theme.bg.title})`} backgroundSize="cover" backgroundPosition="center">
+    <Slide key={idx} {...slideBgProps(theme, 'title')}>
       <FlexBox flexDirection="column" alignItems="flex-start" justifyContent="center" height="100%" padding="0 8%">
         <Heading fontSize="h1" fontWeight="800" color="#3d2b1f" margin="0 0 16px 0">
           {slide.title}
@@ -152,7 +164,7 @@ function renderTitle(
 function renderObjectives(slide: SlideData, idx: number, theme: SlideThemeConfig) {
   const items = slide.items || [];
   return (
-    <Slide key={idx} backgroundImage={`url(${theme.bg.content})`} backgroundSize="cover" backgroundPosition="center">
+    <Slide key={idx} {...slideBgProps(theme, 'content')}>
       <FlexBox flexDirection="column" alignItems="flex-start" height="100%" padding="5% 8%">
         <Heading fontSize="h2" fontWeight="700" color="#3d2b1f" margin="0 0 8px 0">
           {slide.title}
@@ -185,7 +197,7 @@ function renderContent(slide: SlideData, idx: number, theme: SlideThemeConfig) {
   const imageUrl = slide.image_url ? getMediaUrl(slide.image_url) : null;
 
   return (
-    <Slide key={idx} backgroundImage={`url(${theme.bg.content})`} backgroundSize="cover" backgroundPosition="center">
+    <Slide key={idx} {...slideBgProps(theme, 'content')}>
       <FlexBox flexDirection="column" alignItems="flex-start" height="100%" padding="5% 8%">
         <Heading fontSize="h2" fontWeight="700" color="#3d2b1f" margin="0 0 8px 0">
           {slide.title}
@@ -219,7 +231,7 @@ function renderKeyTerms(slide: SlideData, idx: number, theme: SlideThemeConfig) 
   const terms = slide.terms || [];
 
   return (
-    <Slide key={idx} backgroundImage={`url(${theme.bg.terms})`} backgroundSize="cover" backgroundPosition="center">
+    <Slide key={idx} {...slideBgProps(theme, 'terms')}>
       <FlexBox flexDirection="column" alignItems="flex-start" height="100%" padding="5% 8%">
         <Heading fontSize="h2" fontWeight="700" color="#3d2b1f" margin="0 0 8px 0">
           {slide.title}
@@ -253,7 +265,7 @@ function renderQuiz(slide: SlideData, idx: number, theme: SlideThemeConfig) {
   const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
 
   return (
-    <Slide key={idx} backgroundImage={`url(${theme.bg.content})`} backgroundSize="cover" backgroundPosition="center">
+    <Slide key={idx} {...slideBgProps(theme, 'content')}>
       <FlexBox flexDirection="column" alignItems="flex-start" height="100%" padding="5% 8%">
         <Heading fontSize="h2" fontWeight="700" color="#3d2b1f" margin="0 0 8px 0">
           {slide.title}
@@ -312,7 +324,7 @@ function renderSummary(slide: SlideData, idx: number, theme: SlideThemeConfig) {
   const items = slide.items || [];
 
   return (
-    <Slide key={idx} backgroundImage={`url(${theme.bg.summary})`} backgroundSize="cover" backgroundPosition="center">
+    <Slide key={idx} {...slideBgProps(theme, 'summary')}>
       <FlexBox flexDirection="column" alignItems="flex-start" height="100%" padding="5% 8%">
         <Heading fontSize="h1" fontWeight="800" color="#3d2b1f" margin="0 0 4px 0">
           {slide.title}

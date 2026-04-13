@@ -186,6 +186,12 @@ class Settings(BaseSettings):
     MATHPIX_APP_ID: Optional[str] = None
     MATHPIX_APP_KEY: Optional[str] = None
 
+    # Unsplash (stock images for presentations)
+    UNSPLASH_ACCESS_KEY: Optional[str] = None
+
+    # Presentation export engine version (v1 = old, v2 = Gamma-style)
+    PRESENTATION_EXPORTER_VERSION: str = "v1"
+
     # Deploy API key for build scripts (version update from CI/local build)
     DEPLOY_API_KEY: Optional[str] = None
 

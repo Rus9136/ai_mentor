@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { ContentSelector, ContentSelection } from '@/components/homework/ContentSelector';
 import { SlidePreview } from '@/components/presentation/SlidePreview';
-import { getTheme, THEMES } from '@/components/presentation/slide-themes';
+import { getTheme } from '@/components/presentation/slide-themes';
 import { useGeneratePresentation, useSavePresentation } from '@/lib/hooks/use-presentations';
 import { exportPresentationPptx } from '@/lib/api/presentations';
 import type { PresentationGenerateResponse, SlideThemeName } from '@/types/presentation';
@@ -24,13 +24,15 @@ export default function PresentationCreatePage() {
   const [selection, setSelection] = useState<ContentSelection>({});
   const [language, setLanguage] = useState<string>('kk');
   const [slideCount, setSlideCount] = useState<string>('10');
-  const [themeName, setThemeName] = useState<SlideThemeName>('warm');
   const [result, setResult] = useState<PresentationGenerateResponse | null>(null);
   const [savedId, setSavedId] = useState<number | null>(null);
 
   const router = useRouter();
   const mutation = useGeneratePresentation();
   const saveMutation = useSavePresentation();
+
+  // Theme is auto-selected by backend based on subject
+  const themeName: SlideThemeName = (result?.context?.theme as SlideThemeName) || 'warm';
   const theme = getTheme(themeName);
 
   const handleSelect = useCallback((sel: ContentSelection) => {
@@ -62,7 +64,7 @@ export default function PresentationCreatePage() {
         language,
         slide_count: Number(slideCount),
         slides_data: result.presentation as unknown as Record<string, unknown>,
-        context_data: { ...result.context, theme: themeName } as unknown as Record<string, unknown>,
+        context_data: result.context as unknown as Record<string, unknown>,
       },
       {
         onSuccess: (data) => setSavedId(data.id),
@@ -89,7 +91,7 @@ export default function PresentationCreatePage() {
         <CardContent className="space-y-4">
           <ContentSelector onSelect={handleSelect} disabled={mutation.isPending} />
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Язык</Label>
               <Select value={language} onValueChange={setLanguage} disabled={mutation.isPending}>
@@ -108,17 +110,6 @@ export default function PresentationCreatePage() {
                   <SelectItem value="5">5</SelectItem>
                   <SelectItem value="10">10</SelectItem>
                   <SelectItem value="15">15</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Стиль оформления</Label>
-              <Select value={themeName} onValueChange={(v) => setThemeName(v as SlideThemeName)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.values(THEMES).map((t) => (
-                    <SelectItem key={t.name} value={t.name}>{t.label}</SelectItem>
-                  ))}
                 </SelectContent>
               </Select>
             </div>

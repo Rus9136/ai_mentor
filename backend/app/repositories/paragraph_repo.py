@@ -22,6 +22,7 @@ class ContentMetadata(TypedDict):
     textbook_id: int
     textbook_title: str
     subject: str
+    subject_code: Optional[str]
     grade_level: int
 
 
@@ -263,6 +264,10 @@ class ParagraphRepository:
         chapter = paragraph.chapter
         textbook = chapter.textbook
 
+        subject_code = None
+        if textbook.subject_rel:
+            subject_code = textbook.subject_rel.code
+
         return ContentMetadata(
             paragraph_id=paragraph.id,
             paragraph_title=paragraph.title,
@@ -273,5 +278,6 @@ class ParagraphRepository:
             textbook_id=textbook.id,
             textbook_title=textbook.title,
             subject=textbook.subject,
+            subject_code=subject_code,
             grade_level=textbook.grade_level,
         )

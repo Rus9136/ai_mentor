@@ -1,5 +1,6 @@
 import type { SlideData } from '@/types/presentation';
 import type { SlideThemeConfig } from '../slide-themes';
+import { getSlideBg } from '../slide-themes';
 
 interface Props {
   slide: SlideData;
@@ -12,24 +13,26 @@ export function ObjectivesSlide({ slide, theme }: Props) {
   return (
     <div
       className="absolute inset-0 bg-cover bg-center flex flex-col"
-      style={{ backgroundImage: `url(${theme.bg.content})` }}
+      style={getSlideBg(theme, 'content')}
     >
-      {/* Title */}
-      <div className="px-[7%] pt-[5%]">
-        <h2 className={`${theme.headingColor} text-[2em] font-bold`}>
+      {/* Eyebrow + Title */}
+      <div className="px-[7%] pt-[4%]">
+        <p className={`${theme.accentColor} text-[0.65em] font-bold uppercase tracking-wider`}>
+          01
+        </p>
+        <h2 className={`${theme.headingColor} text-[2em] font-bold leading-tight mt-1`}>
           {slide.title}
         </h2>
-        <div className={`w-16 h-1 ${theme.badgeBg} rounded-full mt-2`} />
       </div>
 
-      {/* Items */}
+      {/* Items with numbered circles */}
       <div className="flex-1 px-[7%] py-[3%] flex flex-col justify-center gap-[0.5em]">
         {items.map((item, i) => (
-          <div key={i} className={`flex items-start gap-[0.7em] ${theme.cardBg} backdrop-blur-sm border ${theme.cardBorder} rounded-xl px-[1em] py-[0.6em] shadow-sm`}>
-            <span className={`${theme.badgeBg} ${theme.badgeText} rounded-full min-w-[1.7em] h-[1.7em] flex items-center justify-center text-[0.8em] font-bold shrink-0`}>
+          <div key={i} className="flex items-center gap-[0.7em]">
+            <span className={`${theme.badgeBg} ${theme.badgeText} rounded-full min-w-[2em] h-[2em] flex items-center justify-center text-[0.8em] font-bold shrink-0`}>
               {i + 1}
             </span>
-            <span className={`${theme.cardText} text-[0.9em] leading-snug`}>{item}</span>
+            <span className={`${theme.cardText || theme.headingColor} text-[0.95em] leading-snug`}>{item}</span>
           </div>
         ))}
       </div>

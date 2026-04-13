@@ -1,4 +1,4 @@
-export type SlideThemeName = 'warm' | 'green';
+export type SlideThemeName = 'warm' | 'green' | 'forest' | 'midnight';
 
 export interface PresentationGenerateRequest {
   paragraph_id: number;
@@ -18,6 +18,11 @@ export interface SlideData {
   question?: string;
   options?: string[];
   answer?: number;
+  // v2 fields
+  layout_hint?: 'image_left' | 'image_right' | 'stat_callout';
+  image_query?: string;
+  stat_value?: string;
+  stat_label?: string;
 }
 
 export interface PresentationData {
