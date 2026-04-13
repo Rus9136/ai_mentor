@@ -25,14 +25,14 @@ export function SummarySlide({ slide, theme }: Props) {
         </h2>
       </div>
 
-      {/* Items as light cards on dark */}
+      {/* Items as cards on colored background */}
       <div className="flex-1 px-[7%] py-[3%] flex flex-col gap-[0.4em] justify-center">
         {items.map((item, i) => (
-          <div key={i} className="flex items-center gap-[0.7em] bg-white/90 backdrop-blur-sm rounded-xl px-[1em] py-[0.5em] shadow-sm">
+          <div key={i} className={`flex items-center gap-[0.7em] ${theme.cardBg} backdrop-blur-sm rounded-xl px-[1em] py-[0.5em] shadow-sm`}>
             <div className={`${theme.checkBg} min-w-[1.5em] h-[1.5em] rounded-full flex items-center justify-center shrink-0`}>
               <span className="text-white text-[0.6em] font-bold">&#10003;</span>
             </div>
-            <span className="text-slate-800 text-[0.85em] leading-snug">{item}</span>
+            <span className={`${theme.cardText} text-[0.85em] leading-snug`}>{item}</span>
           </div>
         ))}
       </div>

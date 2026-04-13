@@ -18,8 +18,6 @@ import io
 import logging
 import time
 from dataclasses import dataclass
-from typing import Optional
-
 import httpx
 from pptx import Presentation
 from pptx.dml.color import RGBColor
@@ -98,6 +96,60 @@ THEME_ALIASES: dict[str, str] = {
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# LOCALIZED UI STRINGS — eyebrow text per language
+# ─────────────────────────────────────────────────────────────────────────────
+
+_L10N: dict[str, dict[str, str]] = {
+    "kk": {
+        "lesson": "САБАҚ",
+        "topic": "ТАҚЫРЫП",
+        "key_fact": "НЕГІЗГІ ФАКТ",
+        "terms": "ТЕРМИНДЕР",
+        "terms_title": "Негізгі ұғымдар",
+        "quiz": "БІЛІМДІ ТЕКСЕР",
+        "summary": "ҚОРЫТЫНДЫ",
+        "summary_title": "Не үйрендік",
+        "objectives_title": "Сабақтың мақсаты",
+        "class_suffix": "сынып",
+        "notes_intro": "Кіріспе слайд",
+        "notes_objectives": "Оқушыларға сабақтың мақсаттарын түсіндіріңіз.",
+        "notes_discuss": "Талқылау",
+        "notes_fact": "Маңызды факт",
+        "notes_terms": "Әр терминді 20-30 секундта талқылаңыз.",
+        "notes_quiz": "Оқушыларға 30 секунд ойлануға уақыт беріңіз.",
+        "notes_quiz_answer": "Дұрыс жауап",
+        "notes_summary": "Сабақты қорытындылау.",
+    },
+    "ru": {
+        "lesson": "УРОК",
+        "topic": "ТЕМА",
+        "key_fact": "КЛЮЧЕВОЙ ФАКТ",
+        "terms": "ТЕРМИНЫ",
+        "terms_title": "Основные понятия",
+        "quiz": "ПРОВЕРЬ ЗНАНИЯ",
+        "summary": "ИТОГИ",
+        "summary_title": "Что мы узнали",
+        "objectives_title": "Цели урока",
+        "class_suffix": "класс",
+        "notes_intro": "Вводный слайд",
+        "notes_objectives": "Объясните ученикам цели урока.",
+        "notes_discuss": "Обсуждение",
+        "notes_fact": "Важный факт",
+        "notes_terms": "Обсудите каждый термин за 20-30 секунд.",
+        "notes_quiz": "Дайте ученикам 30 секунд на размышление.",
+        "notes_quiz_answer": "Правильный ответ",
+        "notes_summary": "Подведение итогов урока.",
+    },
+}
+
+
+def _get_l10n(context_data: dict) -> dict[str, str]:
+    """Get localized strings from context language, default to kk."""
+    lang = (context_data or {}).get("language", "kk")
+    return _L10N.get(lang, _L10N["kk"])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # SLIDE GEOMETRY — 16:9, generous margins
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -116,55 +168,62 @@ class ImageProvider:
     """Fetches images by keyword from Unsplash. Falls back to placeholder if no API key."""
 
     _warned_no_key: bool = False
+    _cache: dict[str, tuple[bytes | None, float]] = {}  # class-level — survives across calls
+    _cache_ttl: int = 30 * 24 * 3600  # 30 days
 
     def __init__(self, unsplash_key: str | None = None):
         if unsplash_key is None:
             from app.core.config import settings
             unsplash_key = settings.UNSPLASH_ACCESS_KEY or ""
         self.key = unsplash_key
-        self._cache: dict[str, tuple[bytes | None, float]] = {}
-        self._cache_ttl = 30 * 24 * 3600  # 30 days
+        self._client: httpx.Client | None = None
         if not self.key and not ImageProvider._warned_no_key:
             logger.warning(
                 "UNSPLASH_ACCESS_KEY not set — images will use colored placeholders"
             )
             ImageProvider._warned_no_key = True
 
+    def _get_client(self) -> httpx.Client:
+        if self._client is None:
+            self._client = httpx.Client(timeout=8.0)
+        return self._client
+
     def fetch(self, query: str) -> bytes | None:
         if not query:
             return None
 
-        # Check cache
-        if query in self._cache:
-            data, ts = self._cache[query]
-            if time.time() - ts < self._cache_ttl:
+        # Check class-level cache
+        now = time.time()
+        if query in ImageProvider._cache:
+            data, ts = ImageProvider._cache[query]
+            if now - ts < ImageProvider._cache_ttl:
                 return data
 
         if not self.key:
             return None
 
         try:
-            with httpx.Client(timeout=8.0) as client:
-                resp = client.get(
-                    "https://api.unsplash.com/search/photos",
-                    params={"query": query, "per_page": 1, "orientation": "landscape"},
-                    headers={"Authorization": f"Client-ID {self.key}"},
-                )
-                if resp.status_code in (429, 401, 403):
-                    logger.warning("Unsplash returned %d, falling back to placeholder", resp.status_code)
-                    self._cache[query] = (None, time.time())
-                    return None
-                resp.raise_for_status()
-                results = resp.json().get("results", [])
-                if not results:
-                    self._cache[query] = (None, time.time())
-                    return None
-                url = results[0]["urls"]["regular"]
-                img_resp = client.get(url)
-                img_resp.raise_for_status()
-                img_bytes = img_resp.content
-                self._cache[query] = (img_bytes, time.time())
-                return img_bytes
+            client = self._get_client()
+            resp = client.get(
+                "https://api.unsplash.com/search/photos",
+                params={"query": query, "per_page": 1, "orientation": "landscape"},
+                headers={"Authorization": f"Client-ID {self.key}"},
+            )
+            if resp.status_code in (429, 401, 403):
+                logger.warning("Unsplash returned %d, falling back to placeholder", resp.status_code)
+                ImageProvider._cache[query] = (None, now)
+                return None
+            resp.raise_for_status()
+            results = resp.json().get("results", [])
+            if not results:
+                ImageProvider._cache[query] = (None, now)
+                return None
+            url = results[0]["urls"]["regular"]
+            img_resp = client.get(url)
+            img_resp.raise_for_status()
+            img_bytes = img_resp.content
+            ImageProvider._cache[query] = (img_bytes, now)
+            return img_bytes
         except Exception:
             logger.warning("Unsplash fetch failed for query=%s", query, exc_info=True)
             return None
@@ -279,10 +338,12 @@ def _speaker_notes(slide, text: str):
 
 
 class SlideBuilder:
-    def __init__(self, prs: Presentation, theme: Theme, images: ImageProvider):
+    def __init__(self, prs: Presentation, theme: Theme, images: ImageProvider,
+                 l10n: dict[str, str] | None = None):
         self.prs = prs
         self.t = theme
         self.images = images
+        self.l = l10n or _L10N["kk"]
 
     def _blank(self):
         slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
@@ -329,7 +390,7 @@ class SlideBuilder:
 
         # Eyebrow
         _text(slide, MARGIN, Inches(1.4), left_w, Inches(0.4),
-              "САБАҚ", size=14, color=t.primary, bold=True)
+              self.l["lesson"], size=14, color=t.primary, bold=True)
 
         # Title
         _text(slide, MARGIN, Inches(1.9), left_w, Inches(2.6),
@@ -348,12 +409,12 @@ class SlideBuilder:
         # Footer with subject + grade
         subject = context.get("subject", "")
         grade = context.get("grade_level", "")
-        footer = f"{subject}  \u00b7  {grade} класс" if grade else subject
+        footer = f"{subject}  \u00b7  {grade} {self.l['class_suffix']}" if grade else subject
         if footer:
             _text(slide, MARGIN, SLIDE_H - Inches(0.5), left_w, Inches(0.3),
                   footer, size=11, color=t.text_muted)
 
-        _speaker_notes(slide, f"Кіріспе слайд: {data.get('title', '')}")
+        _speaker_notes(slide, f"{self.l['notes_intro']}: {data.get('title', '')}")
         return slide
 
     # ── OBJECTIVES ────────────────────────────────────────────────────────
@@ -365,7 +426,7 @@ class SlideBuilder:
         _text(slide, MARGIN, Inches(0.7), SLIDE_W - 2 * MARGIN, Inches(0.4),
               "01", size=14, color=t.primary, bold=True)
         _text(slide, MARGIN, Inches(1.05), SLIDE_W - 2 * MARGIN, Inches(0.9),
-              data.get("title", "Сабақтың мақсаты"),
+              data.get("title", self.l["objectives_title"]),
               size=38, color=t.text, bold=True)
 
         items = data.get("items", [])[:4]
@@ -386,7 +447,7 @@ class SlideBuilder:
                   anchor=MSO_ANCHOR.MIDDLE, line_spacing=1.3)
 
         self._footer(slide, page_num, total, deck_title)
-        _speaker_notes(slide, "Оқушыларға сабақтың мақсаттарын түсіндіріңіз.")
+        _speaker_notes(slide, self.l["notes_objectives"])
         return slide
 
     # ── CONTENT ───────────────────────────────────────────────────────────
@@ -426,7 +487,7 @@ class SlideBuilder:
 
         # Eyebrow
         _text(slide, text_x, Inches(1.0), text_w, Inches(0.4),
-              "ТАҚЫРЫП", size=12, color=t.primary, bold=True)
+              self.l["topic"], size=12, color=t.primary, bold=True)
         # Title
         _text(slide, text_x, Inches(1.4), text_w, Inches(2.0),
               data.get("title", ""), size=30, color=t.text, bold=True,
@@ -438,7 +499,7 @@ class SlideBuilder:
               data.get("body", ""), size=16, color=t.text, line_spacing=1.5)
 
         self._footer(slide, page_num, total, deck_title)
-        _speaker_notes(slide, f"Талқылау: {data.get('title', '')}")
+        _speaker_notes(slide, f"{self.l['notes_discuss']}: {data.get('title', '')}")
         return slide
 
     def _content_stat(self, data, page_num, total, deck_title):
@@ -449,7 +510,7 @@ class SlideBuilder:
 
         # Title
         _text(slide, MARGIN, Inches(0.8), SLIDE_W - 2 * MARGIN, Inches(0.4),
-              "НЕГІЗГІ ФАКТ", size=12, color=t.primary, bold=True)
+              self.l["key_fact"], size=12, color=t.primary, bold=True)
         _text(slide, MARGIN, Inches(1.2), SLIDE_W - 2 * MARGIN, Inches(0.9),
               data.get("title", ""), size=30, color=t.text, bold=True)
 
@@ -491,7 +552,7 @@ class SlideBuilder:
               data.get("body", ""), size=16, color=t.text, line_spacing=1.55)
 
         self._footer(slide, page_num, total, deck_title)
-        _speaker_notes(slide, f"Маңызды факт: {data.get('stat_value')} — "
+        _speaker_notes(slide, f"{self.l['notes_fact']}: {data.get('stat_value')} — "
                               f"{data.get('stat_label')}")
         return slide
 
@@ -503,9 +564,9 @@ class SlideBuilder:
         self._motif(slide)
 
         _text(slide, MARGIN, Inches(0.7), SLIDE_W - 2 * MARGIN, Inches(0.4),
-              "ТЕРМИНДЕР", size=12, color=t.primary, bold=True)
+              self.l["terms"], size=12, color=t.primary, bold=True)
         _text(slide, MARGIN, Inches(1.05), SLIDE_W - 2 * MARGIN, Inches(0.9),
-              data.get("title", "Негізгі ұғымдар"),
+              data.get("title", self.l["terms_title"]),
               size=32, color=t.text, bold=True)
 
         terms = data.get("terms", [])[:6]
@@ -543,7 +604,7 @@ class SlideBuilder:
                   defn, size=12, color=t.text, line_spacing=1.35)
 
         self._footer(slide, page_num, total, deck_title)
-        _speaker_notes(slide, "Әр терминді 20-30 секундта талқылаңыз.")
+        _speaker_notes(slide, self.l["notes_terms"])
         return slide
 
     # ── QUIZ ──────────────────────────────────────────────────────────────
@@ -553,7 +614,7 @@ class SlideBuilder:
         self._motif(slide)
 
         _text(slide, MARGIN, Inches(0.7), SLIDE_W - 2 * MARGIN, Inches(0.4),
-              "БІЛІМДІ ТЕКСЕР", size=12, color=t.primary, bold=True)
+              self.l["quiz"], size=12, color=t.primary, bold=True)
         _text(slide, MARGIN, Inches(1.1), SLIDE_W - 2 * MARGIN, Inches(2.0),
               data.get("question", ""), size=28, color=t.text, bold=True,
               line_spacing=1.2)
@@ -596,8 +657,8 @@ class SlideBuilder:
         if isinstance(answer_idx, int) and 0 <= answer_idx < len(options):
             _speaker_notes(
                 slide,
-                f"Дұрыс жауап: {letters[answer_idx]} — {options[answer_idx]}\n"
-                "Оқушыларға 30 секунд ойлануға уақыт беріңіз."
+                f"{self.l['notes_quiz_answer']}: {letters[answer_idx]} — {options[answer_idx]}\n"
+                f"{self.l['notes_quiz']}"
             )
         return slide
 
@@ -610,9 +671,9 @@ class SlideBuilder:
         _rect(slide, 0, 0, SLIDE_W, SLIDE_H, t.primary)
 
         _text(slide, MARGIN, Inches(0.9), SLIDE_W - 2 * MARGIN, Inches(0.5),
-              "ҚОРЫТЫНДЫ", size=14, color=t.text_on_primary, bold=True)
+              self.l["summary"], size=14, color=t.text_on_primary, bold=True)
         _text(slide, MARGIN, Inches(1.4), SLIDE_W - 2 * MARGIN, Inches(1.1),
-              data.get("title", "Не үйрендік"),
+              data.get("title", self.l["summary_title"]),
               size=44, color=t.text_on_primary, bold=True)
 
         items = data.get("items", [])[:5]
@@ -633,7 +694,7 @@ class SlideBuilder:
                   item, size=16, color=t.text,
                   anchor=MSO_ANCHOR.MIDDLE, line_spacing=1.3)
 
-        _speaker_notes(slide, "Сабақты қорытындылау.")
+        _speaker_notes(slide, self.l["notes_summary"])
         return slide
 
     # ── FALLBACK ──────────────────────────────────────────────────────────
@@ -665,7 +726,7 @@ def get_available_templates() -> list[dict]:
     """Return v2 themes for frontend (if needed)."""
     return [
         {"slug": "warm", "label": "История (тёплый)"},
-        {"slug": "forest", "label": "Биология (зелёный)"},
+        {"slug": "forest", "label": "Естественные науки (изумрудный)"},
         {"slug": "midnight", "label": "Информатика (тёмный)"},
     ]
 
@@ -680,13 +741,14 @@ def export_to_pptx(
     Drop-in replacement for v1 export_to_pptx — same signature, same return type.
     """
     theme = _resolve_theme(slides_data, context_data, template)
+    l10n = _get_l10n(context_data)
     images = ImageProvider()
 
     prs = Presentation()
     prs.slide_width = SLIDE_W
     prs.slide_height = SLIDE_H
 
-    builder = SlideBuilder(prs, theme, images)
+    builder = SlideBuilder(prs, theme, images, l10n)
     deck_title = slides_data.get("title", "") or (context_data or {}).get("paragraph_title", "")
     slides = slides_data.get("slides", [])
     total = len(slides)

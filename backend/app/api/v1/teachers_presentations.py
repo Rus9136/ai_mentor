@@ -3,6 +3,7 @@ Teacher Presentation API endpoints.
 
 Endpoints for generating, saving, listing, and exporting AI-powered PPTX presentations.
 """
+import asyncio
 import logging
 from urllib.parse import quote
 
@@ -201,7 +202,12 @@ async def export_presentation_pptx(
     service = _get_service(db)
     pres = await service.get_by_id(presentation_id, teacher.id, school_id)
     export_fn, _ = _get_exporter()
-    buf = export_fn(pres.slides_data, pres.context_data, template=template)
+    # Inject language into context for v2 exporter localization
+    export_context = {**(pres.context_data or {}), "language": pres.language}
+    loop = asyncio.get_event_loop()
+    buf = await loop.run_in_executor(
+        None, lambda: export_fn(pres.slides_data, export_context, template=template)
+    )
     safe_name = f"Presentation_{pres.id}.pptx"
     utf8_name = f"Presentation_{pres.title[:50].replace(' ', '_')}.pptx"
     return StreamingResponse(

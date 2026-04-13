@@ -2,7 +2,7 @@
 
 **Дата:** 2026-04-13 16:02  
 **Задача:** Переработка системы генерации PPTX-презентаций — визуальное качество уровня Gamma.app  
-**Статус:** Этапы 2–9 завершены. v2 готов к включению через feature flag.
+**Статус:** Этапы 2–10 завершены. v2 готов к включению через feature flag. Code review пройден, все замечания исправлены.
 
 ---
 
@@ -358,16 +358,84 @@ PRESENTATION_EXPORTER_VERSION=v1
 
 ---
 
-## Для ревью-агента: на что обратить внимание
+## Этап 10: Code Review и исправления (2026-04-13)
 
-1. **Обратная совместимость** — все 9 существующих презентаций из БД прошли через v2 без ошибок. Но стоит проверить edge cases: презентации с `image_url` из учебника (textbook images), презентации без `context_data.theme`.
+По результатам ревью были найдены и исправлены следующие проблемы:
 
-2. **Soft validation** — при нарушении лимитов LLM строки truncate'ятся, а не вызывают exception. Проверить что warning'и действительно появляются в логах.
+### 10.1 ImageProvider: singleton-кэш + reuse httpx.Client (CRITICAL)
 
-3. **Feature flag** — переключение `v1`↔`v2` работает на уровне import, не создаёт runtime overhead. Проверить что v1 экспортёр по-прежнему работает после всех изменений.
+**Проблема:** `_cache` был instance variable, а `ImageProvider()` создавался заново при каждом вызове `export_to_pptx()`. Кэш умирал вместе с экземпляром. Также каждый `fetch()` создавал новый `httpx.Client` — 10 слайдов = 10 TCP handshakes.
 
-4. **`subject_code` в paragraph_repo** — добавлено в `ContentMetadata`. Проверить что `textbook.subject_rel` загружается (lazy="joined") и не вызывает N+1 или `MissingGreenlet`.
+**Исправление:**
+- `_cache` → class variable (переживает вызовы)
+- `httpx.Client` создаётся один раз через `_get_client()` (lazy init)
+- Тест `test_cache_stores_results` обновлён для class-level кэша
 
-5. **Фронтенд типы** — `SlideThemeName` расширен, `SlideData` расширен. Все компоненты обновлены. Проверить что detail page (`presentations/[id]/page.tsx`) и view page тоже корректно работают с новыми типами.
+**Файлы:** `presentation_export_v2.py`, `test_presentation_export_v2.py`
 
-6. **Промпт LLM** — переписан с нуля. Первый контакт с реальной LLM может потребовать 1–2 итерации подстройки (LLM может не всегда следовать layout rules).
+### 10.2 run_in_executor для sync PPTX export (HIGH)
+
+**Проблема:** `export_to_pptx()` — синхронная функция с HTTP-вызовами к Unsplash. Вызывалась напрямую из async FastAPI handler, блокируя event loop для всех запросов.
+
+**Исправление:**
+```python
+loop = asyncio.get_event_loop()
+buf = await loop.run_in_executor(
+    None, lambda: export_fn(pres.slides_data, export_context, template=template)
+)
+```
+
+**Файл:** `teachers_presentations.py`
+
+### 10.3 Локализация prompt + eyebrow текстов для ru/kk (MEDIUM)
+
+**Проблема:** System prompt хардкодил казахские заголовки ("Сабақтың мақсаты", "Негізгі ұғымдар") для всех языков. PPTX экспортёр хардкодил казахские eyebrow-тексты ("САБАҚ", "ТАҚЫРЫП", "ТЕРМИНДЕР", "БІЛІМДІ ТЕКСЕР", "ҚОРЫТЫНДЫ", "НЕГІЗГІ ФАКТ") и speaker notes.
+
+**Исправление:**
+- `_build_system_prompt()` — условные `obj_title`, `terms_title`, `summary_title` по `language`
+- `presentation_export_v2.py` — добавлен `_L10N` dict с полным набором строк для kk/ru
+- `_get_l10n(context_data)` извлекает язык из `context_data["language"]`
+- `SlideBuilder.__init__` принимает `l10n` параметр, все методы используют `self.l[key]`
+- В endpoint `export_presentation_pptx` — inject `language` в `export_context`
+
+**Файлы:** `presentation_service.py`, `presentation_export_v2.py`, `teachers_presentations.py`
+
+### 10.4 SummarySlide theme adaptation для midnight (MEDIUM)
+
+**Проблема:** `SummarySlide.tsx` хардкодил `bg-white/90` и `text-slate-800`. На midnight теме карточки выглядели ослепительно белыми.
+
+**Исправление:** `bg-white/90` → `theme.cardBg`, `text-slate-800` → `theme.cardText`
+
+**Файл:** `SummarySlide.tsx`
+
+### 10.5 Redundant exception catch (LOW)
+
+**Проблема:** `except (ValueError, Exception)` — ValueError подкласс Exception, дублирование.
+
+**Исправление:** → `except Exception`
+
+**Файл:** `presentation_service.py`
+
+### 10.6 Дифференциация green/forest labels (LOW)
+
+**Проблема:** Оба theme имели идентичный label `"Биология (зелёный)"`.
+
+**Исправление:** `forest.label` → `"Естественные науки (изумрудный)"` (frontend + backend)
+
+**Файлы:** `slide-themes.ts`, `presentation_export_v2.py`
+
+### Результаты тестов после исправлений
+
+| Тест | Кол-во | Статус |
+|------|--------|--------|
+| `test_presentation_schemas.py` | 26 | 26 passed |
+| `test_presentation_export_v2.py` | 32 | 32 passed |
+| TypeScript (teacher-app) | — | 0 errors |
+
+---
+
+## Оставшиеся known issues (tech debt)
+
+1. **SpectacleViewer (fullscreen)** не обновлён для v2 — хардкоженные amber цвета, нет stat_callout layout, quiz показывает ответ. Grid preview и fullscreen визуально различаются.
+2. **Фронтенд eyebrow-тексты** в React-компонентах (`ContentSlide`, `QuizSlide`, `KeyTermsSlide` и др.) хардкодят казахские строки. Для полной локализации нужно передавать `language` через props и выбирать текст условно.
+3. **Фоновые PNG для midnight** — нет файлов, используется CSS bgColor fallback.

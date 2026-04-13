@@ -115,7 +115,7 @@ export const THEMES: Record<SlideThemeName, SlideThemeConfig> = {
   },
   forest: {
     name: 'forest',
-    label: 'Биология (зелёный)',
+    label: 'Естественные науки (изумрудный)',
     bg: {
       title:   '/slide-bg/biology/title.png',
       content: '/slide-bg/biology/content.png',

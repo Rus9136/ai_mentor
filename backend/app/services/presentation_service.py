@@ -183,6 +183,18 @@ class PresentationService:
             else "Write ALL text in Russian. Never mix languages."
         )
 
+        # Localized default slide titles
+        if language == "kk":
+            obj_title = "Сабақтың мақсаты"
+            terms_title = "Негізгі ұғымдар"
+            summary_title = "Қорытынды"
+            stat_example = "1511, 70%, Жайық"
+        else:
+            obj_title = "Цели урока"
+            terms_title = "Основные понятия"
+            summary_title = "Итоги"
+            stat_example = "1511, 70%, Урал"
+
         structure = self._get_slide_structure(slide_count)
 
         return f"""You are an expert pedagogical content designer who creates educational
@@ -200,13 +212,13 @@ SLIDE TYPES AND REQUIRED FIELDS:
 
 title: {{"type":"title","title":"≤50 chars","subtitle":"≤90 chars","image_query":"2-3 ENGLISH words for stock photo"}}
 
-objectives: {{"type":"objectives","title":"Сабақтың мақсаты","items":["3-4 strings ≤80 chars, start with verb"]}}
+objectives: {{"type":"objectives","title":"{obj_title}","items":["3-4 strings ≤80 chars, start with verb"]}}
 
 content — choose ONE layout_hint per slide:
 {{"type":"content","title":"≤50 chars","body":"150-280 chars, full sentences",
 "layout_hint":"image_left"|"image_right"|"stat_callout",
 "image_query":"2-3 ENGLISH words (for image_left/image_right)",
-"stat_value":"1-7 chars (for stat_callout, e.g. 1511, 70%, Жайық)",
+"stat_value":"1-7 chars (for stat_callout, e.g. {stat_example})",
 "stat_label":"≤35 chars (for stat_callout)"}}
 
 LAYOUT RULES:
@@ -214,11 +226,11 @@ LAYOUT RULES:
 - image_left / image_right: for narrative content. Alternate between them.
 - NEVER use same layout_hint two slides in a row.
 
-key_terms: {{"type":"key_terms","title":"Негізгі ұғымдар","terms":[{{"term":"≤25 chars","definition":"≤90 chars"}}] (4-6 items)}}
+key_terms: {{"type":"key_terms","title":"{terms_title}","terms":[{{"term":"≤25 chars","definition":"≤90 chars"}}] (4-6 items)}}
 
 quiz: {{"type":"quiz","question":"≤120 chars, ends with ?","options":["4 strings ≤40 chars"],"answer":0|1|2|3}}
 
-summary: {{"type":"summary","title":"Қорытынды","items":["3-5 strings ≤70 chars"]}}
+summary: {{"type":"summary","title":"{summary_title}","items":["3-5 strings ≤70 chars"]}}
 
 IMAGE_QUERY RULES:
 - ALWAYS in English, even when content is Kazakh/Russian
@@ -313,7 +325,7 @@ Return JSON: {{"title":"...","slides":[...]}}"""
         first_error: Exception | None = None
         try:
             return self._parse_response(llm_content)
-        except (ValueError, Exception) as exc:
+        except Exception as exc:
             first_error = exc
             logger.warning("First parse attempt failed: %s. Retrying...", exc)
 

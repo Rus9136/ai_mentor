@@ -297,9 +297,11 @@ class TestImageProvider:
 
     def test_cache_stores_results(self):
         provider = ImageProvider(unsplash_key="")
-        # Even without key, cache should not crash
-        provider._cache["test"] = (b"fake_bytes", 9999999999)
-        assert provider.fetch("test") == b"fake_bytes"
+        # Class-level cache — inject directly
+        ImageProvider._cache["test_cached"] = (b"fake_bytes", 9999999999)
+        assert provider.fetch("test_cached") == b"fake_bytes"
+        # Cleanup
+        del ImageProvider._cache["test_cached"]
 
 
 # ═══════════════════════════════════════════════════════════
