@@ -45,9 +45,13 @@ class Theme:
     text_muted: RGBColor
     text_on_primary: RGBColor
     motif: str  # 'rounded_card' | 'side_bar' | 'circle_badge'
+    header_font: str = "Calibri"
+    body_font: str = "Calibri"
+    label_ru: str = ""
+    label_kk: str = ""
 
 
-FONT_FAMILY = "Calibri"
+FONT_FAMILY = "Calibri"  # legacy default, prefer theme.body_font
 
 THEMES: dict[str, Theme] = {
     "warm": Theme(
@@ -61,6 +65,8 @@ THEMES: dict[str, Theme] = {
         text_muted=RGBColor(0x8A, 0x73, 0x60),
         text_on_primary=RGBColor(0xFF, 0xFF, 0xFF),
         motif="rounded_card",
+        label_ru="Тёплый",
+        label_kk="Жылы",
     ),
     "forest": Theme(
         name="forest",
@@ -73,6 +79,8 @@ THEMES: dict[str, Theme] = {
         text_muted=RGBColor(0x5E, 0x73, 0x5F),
         text_on_primary=RGBColor(0xFF, 0xFF, 0xFF),
         motif="side_bar",
+        label_ru="Изумрудный",
+        label_kk="Зүмірет",
     ),
     "midnight": Theme(
         name="midnight",
@@ -85,6 +93,108 @@ THEMES: dict[str, Theme] = {
         text_muted=RGBColor(0x9A, 0xA1, 0xC0),
         text_on_primary=RGBColor(0x10, 0x14, 0x28),
         motif="circle_badge",
+        label_ru="Полночь",
+        label_kk="Түн",
+    ),
+    "parchment": Theme(
+        name="parchment",
+        bg=RGBColor(0xFA, 0xF3, 0xE8),
+        surface=RGBColor(0xFF, 0xFF, 0xFF),
+        primary=RGBColor(0x6D, 0x2E, 0x46),
+        primary_dark=RGBColor(0x4E, 0x1F, 0x32),
+        accent=RGBColor(0xD4, 0xA5, 0x74),
+        text=RGBColor(0x2C, 0x18, 0x10),
+        text_muted=RGBColor(0x7A, 0x65, 0x58),
+        text_on_primary=RGBColor(0xFF, 0xFF, 0xFF),
+        motif="side_bar",
+        header_font="Georgia",
+        label_ru="Пергамент",
+        label_kk="Пергамент",
+    ),
+    "slate": Theme(
+        name="slate",
+        bg=RGBColor(0xF5, 0xF5, 0xF7),
+        surface=RGBColor(0xFF, 0xFF, 0xFF),
+        primary=RGBColor(0x36, 0x45, 0x4F),
+        primary_dark=RGBColor(0x24, 0x2F, 0x36),
+        accent=RGBColor(0x6B, 0x8F, 0x71),
+        text=RGBColor(0x1D, 0x1D, 0x1F),
+        text_muted=RGBColor(0x86, 0x86, 0x8B),
+        text_on_primary=RGBColor(0xFF, 0xFF, 0xFF),
+        motif="rounded_card",
+        label_ru="Минимализм",
+        label_kk="Минимализм",
+    ),
+    "electric": Theme(
+        name="electric",
+        bg=RGBColor(0xF8, 0xFA, 0xFC),
+        surface=RGBColor(0xFF, 0xFF, 0xFF),
+        primary=RGBColor(0x25, 0x63, 0xEB),
+        primary_dark=RGBColor(0x1D, 0x4E, 0xD8),
+        accent=RGBColor(0xF5, 0x9E, 0x0B),
+        text=RGBColor(0x0F, 0x17, 0x2A),
+        text_muted=RGBColor(0x64, 0x74, 0x8B),
+        text_on_primary=RGBColor(0xFF, 0xFF, 0xFF),
+        motif="circle_badge",
+        label_ru="Электрик",
+        label_kk="Электрик",
+    ),
+    "lavender": Theme(
+        name="lavender",
+        bg=RGBColor(0xF5, 0xF0, 0xFF),
+        surface=RGBColor(0xFF, 0xFF, 0xFF),
+        primary=RGBColor(0x7C, 0x3A, 0xED),
+        primary_dark=RGBColor(0x6D, 0x28, 0xD9),
+        accent=RGBColor(0xF4, 0x72, 0xB6),
+        text=RGBColor(0x1E, 0x1B, 0x4B),
+        text_muted=RGBColor(0x6B, 0x72, 0x80),
+        text_on_primary=RGBColor(0xFF, 0xFF, 0xFF),
+        motif="rounded_card",
+        label_ru="Лаванда",
+        label_kk="Лаванда",
+    ),
+    "coral": Theme(
+        name="coral",
+        bg=RGBColor(0xFF, 0xF5, 0xF2),
+        surface=RGBColor(0xFF, 0xFF, 0xFF),
+        primary=RGBColor(0xE8, 0x55, 0x3D),
+        primary_dark=RGBColor(0xC2, 0x41, 0x2D),
+        accent=RGBColor(0xFB, 0xBF, 0x24),
+        text=RGBColor(0x27, 0x15, 0x0E),
+        text_muted=RGBColor(0x9A, 0x7B, 0x70),
+        text_on_primary=RGBColor(0xFF, 0xFF, 0xFF),
+        motif="rounded_card",
+        label_ru="Коралл",
+        label_kk="Коралл",
+    ),
+    "ocean": Theme(
+        name="ocean",
+        bg=RGBColor(0xEF, 0xF6, 0xFF),
+        surface=RGBColor(0xFF, 0xFF, 0xFF),
+        primary=RGBColor(0x06, 0x5A, 0x82),
+        primary_dark=RGBColor(0x04, 0x45, 0x66),
+        accent=RGBColor(0x0E, 0xA5, 0xE9),
+        text=RGBColor(0x0C, 0x23, 0x40),
+        text_muted=RGBColor(0x5B, 0x7A, 0x99),
+        text_on_primary=RGBColor(0xFF, 0xFF, 0xFF),
+        motif="side_bar",
+        header_font="Georgia",
+        label_ru="Океан",
+        label_kk="Мұхит",
+    ),
+    "sage": Theme(
+        name="sage",
+        bg=RGBColor(0xF2, 0xF7, 0xF2),
+        surface=RGBColor(0xFF, 0xFF, 0xFF),
+        primary=RGBColor(0x5F, 0x71, 0x61),
+        primary_dark=RGBColor(0x4A, 0x5A, 0x4C),
+        accent=RGBColor(0xD4, 0xA5, 0x74),
+        text=RGBColor(0x1A, 0x2E, 0x1A),
+        text_muted=RGBColor(0x6B, 0x7C, 0x6B),
+        text_on_primary=RGBColor(0xFF, 0xFF, 0xFF),
+        motif="rounded_card",
+        label_ru="Шалфей",
+        label_kk="Жусан",
     ),
 }
 
@@ -267,7 +377,8 @@ def _circle(slide, cx, cy, diameter, fill: RGBColor):
 
 def _text(slide, x, y, w, h, text: str, *, size: int, color: RGBColor,
           bold: bool = False, align=PP_ALIGN.LEFT,
-          anchor=MSO_ANCHOR.TOP, line_spacing: float = 1.15):
+          anchor=MSO_ANCHOR.TOP, line_spacing: float = 1.15,
+          font: str = FONT_FAMILY):
     box = slide.shapes.add_textbox(int(x), int(y), int(w), int(h))
     tf = box.text_frame
     tf.word_wrap = True
@@ -281,7 +392,7 @@ def _text(slide, x, y, w, h, text: str, *, size: int, color: RGBColor,
     p.line_spacing = line_spacing
     run = p.add_run()
     run.text = text
-    run.font.name = FONT_FAMILY
+    run.font.name = font
     run.font.size = Pt(size)
     run.font.bold = bold
     run.font.color.rgb = color
@@ -289,7 +400,7 @@ def _text(slide, x, y, w, h, text: str, *, size: int, color: RGBColor,
 
 
 def _badge_text(slide, cx, cy, text: str, *, size: int, color: RGBColor,
-                bold: bool = True):
+                bold: bool = True, font: str = FONT_FAMILY):
     """Centered text on a point — for letters/numbers in circles."""
     cap_h = Pt(size).emu * 0.85
     box_w = Pt(size).emu * max(len(text), 1) * 0.7
@@ -308,7 +419,7 @@ def _badge_text(slide, cx, cy, text: str, *, size: int, color: RGBColor,
     p.line_spacing = 1.0
     run = p.add_run()
     run.text = text
-    run.font.name = FONT_FAMILY
+    run.font.name = font
     run.font.size = Pt(size)
     run.font.bold = bold
     run.font.color.rgb = color
@@ -725,9 +836,8 @@ def _resolve_theme(slides_data: dict, context_data: dict, template: str | None) 
 def get_available_templates() -> list[dict]:
     """Return v2 themes for frontend (if needed)."""
     return [
-        {"slug": "warm", "label": "История (тёплый)"},
-        {"slug": "forest", "label": "Естественные науки (изумрудный)"},
-        {"slug": "midnight", "label": "Информатика (тёмный)"},
+        {"slug": name, "label_ru": t.label_ru, "label_kk": t.label_kk}
+        for name, t in THEMES.items()
     ]
 
 

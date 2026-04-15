@@ -1,4 +1,7 @@
-export type SlideThemeName = 'warm' | 'green' | 'forest' | 'midnight';
+export type SlideThemeName =
+  | 'warm' | 'green' | 'forest' | 'midnight'
+  | 'parchment' | 'slate' | 'electric' | 'lavender'
+  | 'coral' | 'ocean' | 'sage';
 
 export interface PresentationGenerateRequest {
   paragraph_id: number;

@@ -33,19 +33,23 @@ logger = logging.getLogger(__name__)
 
 MAX_DAILY_PRESENTATIONS = 10
 
-# Subject code → PPTX theme mapping
+# Subject code → PPTX theme mapping (default when teacher hasn't chosen manually)
 SUBJECT_THEME_MAP: dict[str, str] = {
     "history_kz": "warm",
-    "world_history": "warm",
+    "world_history": "parchment",
     "biology": "forest",
-    "natural_science": "forest",
-    "chemistry": "forest",
-    "geography": "forest",
+    "natural_science": "sage",
+    "chemistry": "electric",
+    "geography": "ocean",
     "algebra": "midnight",
     "geometry": "midnight",
     "math": "midnight",
-    "informatics": "midnight",
+    "informatics": "electric",
     "physics": "midnight",
+    "kazakh_language": "lavender",
+    "russian_language": "lavender",
+    "english_language": "slate",
+    "literature": "parchment",
 }
 DEFAULT_THEME = "warm"
 
