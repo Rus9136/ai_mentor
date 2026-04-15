@@ -217,6 +217,19 @@ class PresentationUpdateRequest(BaseModel):
     slides_data: Optional[dict] = None
 
 
+class UpdatePresentationThemeRequest(BaseModel):
+    theme: Literal[
+        "warm", "green", "forest", "midnight", "parchment", "slate",
+        "electric", "lavender", "coral", "ocean", "sage",
+    ]
+
+
+class UpdatePresentationThemeResponse(BaseModel):
+    id: int
+    context_data: dict
+    updated_at: datetime
+
+
 class PresentationListItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

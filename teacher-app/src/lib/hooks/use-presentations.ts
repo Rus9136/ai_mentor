@@ -5,11 +5,13 @@ import {
   listPresentations,
   getPresentation,
   updatePresentation,
+  updatePresentationTheme,
   deletePresentation,
   getTemplates,
 } from '@/lib/api/presentations';
 import type { PresentationTemplate } from '@/lib/api/presentations';
 import type {
+  SlideThemeName,
   PresentationGenerateRequest,
   PresentationGenerateResponse,
   PresentationSaveRequest,
@@ -72,6 +74,43 @@ export function useUpdatePresentation() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['presentations', id] });
       queryClient.invalidateQueries({ queryKey: ['presentations'] });
+    },
+  });
+}
+
+export function useUpdatePresentationTheme(id: number | null) {
+  const queryClient = useQueryClient();
+  return useMutation<
+    { id: number; context_data: Record<string, unknown>; updated_at: string },
+    Error,
+    SlideThemeName,
+    { previous: PresentationFullResponse | undefined }
+  >({
+    mutationFn: (theme) => updatePresentationTheme(id!, theme),
+    onMutate: async (newTheme) => {
+      await queryClient.cancelQueries({ queryKey: ['presentations', id] });
+      const previous = queryClient.getQueryData<PresentationFullResponse>([
+        'presentations',
+        id,
+      ]);
+      if (previous) {
+        queryClient.setQueryData<PresentationFullResponse>(
+          ['presentations', id],
+          {
+            ...previous,
+            context_data: { ...previous.context_data, theme: newTheme },
+          }
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _theme, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['presentations', id], context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['presentations', id] });
     },
   });
 }

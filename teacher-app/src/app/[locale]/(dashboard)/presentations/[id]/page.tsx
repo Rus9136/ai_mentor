@@ -1,15 +1,26 @@
 'use client';
 
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from '@/i18n/routing';
 import { ArrowLeft, Download, Trash2, Play, FileDown } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SlidePreview } from '@/components/presentation/SlidePreview';
-import { usePresentation, useDeletePresentation } from '@/lib/hooks/use-presentations';
+import { ThemeSwitcher } from '@/components/presentation/ThemeSwitcher';
+import {
+  usePresentation,
+  useDeletePresentation,
+  useUpdatePresentationTheme,
+} from '@/lib/hooks/use-presentations';
 import { exportPresentationPptx } from '@/lib/api/presentations';
 import { getTheme } from '@/components/presentation/slide-themes';
-import type { PresentationData, PresentationContext } from '@/types/presentation';
+import type {
+  SlideThemeName,
+  PresentationData,
+  PresentationContext,
+} from '@/types/presentation';
 
 export default function PresentationDetailPage() {
   const params = useParams();
@@ -18,6 +29,42 @@ export default function PresentationDetailPage() {
 
   const { data: pres, isLoading } = usePresentation(presId || null);
   const deleteMutation = useDeletePresentation();
+  const themeMutation = useUpdatePresentationTheme(presId || null);
+
+  const [saved, setSaved] = useState(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounce rapid theme clicks — only fire the last one
+  const pendingThemeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleThemeChange = useCallback(
+    (theme: SlideThemeName) => {
+      // Cancel pending debounced call
+      if (pendingThemeRef.current) clearTimeout(pendingThemeRef.current);
+
+      pendingThemeRef.current = setTimeout(() => {
+        themeMutation.mutate(theme, {
+          onSuccess: () => {
+            setSaved(true);
+            if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+            savedTimerRef.current = setTimeout(() => setSaved(false), 2000);
+          },
+          onError: () => {
+            toast.error('Не удалось сохранить тему');
+          },
+        });
+      }, 150);
+    },
+    [themeMutation]
+  );
+
+  // Cleanup timers
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      if (pendingThemeRef.current) clearTimeout(pendingThemeRef.current);
+    };
+  }, []);
 
   const handleDelete = () => {
     if (!confirm('Удалить эту презентацию?')) return;
@@ -44,7 +91,8 @@ export default function PresentationDetailPage() {
 
   const slidesData = pres.slides_data as PresentationData;
   const contextData = pres.context_data as PresentationContext;
-  const theme = getTheme(contextData.theme);
+  const currentTheme = (contextData.theme ?? 'warm') as SlideThemeName;
+  const theme = getTheme(currentTheme);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -60,7 +108,13 @@ export default function PresentationDetailPage() {
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <ThemeSwitcher
+            currentTheme={currentTheme}
+            onThemeChange={handleThemeChange}
+            isPending={themeMutation.isPending}
+            saved={saved}
+          />
           <Button onClick={() => router.push(`/presentations/${presId}/view`)}>
             <Play className="mr-2 h-4 w-4" />
             Начать показ
@@ -69,7 +123,7 @@ export default function PresentationDetailPage() {
             <FileDown className="mr-2 h-4 w-4" />
             PDF
           </Button>
-          <Button variant="outline" onClick={() => exportPresentationPptx(presId, contextData.theme || 'blue')}>
+          <Button variant="outline" onClick={() => exportPresentationPptx(presId, currentTheme)}>
             <Download className="mr-2 h-4 w-4" />
             PPTX
           </Button>

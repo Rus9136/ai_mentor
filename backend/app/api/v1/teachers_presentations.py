@@ -21,6 +21,8 @@ from app.schemas.presentation import (
     PresentationListItem,
     PresentationSaveRequest,
     PresentationUpdateRequest,
+    UpdatePresentationThemeRequest,
+    UpdatePresentationThemeResponse,
 )
 from app.core.config import settings
 from app.services.presentation_export import export_to_pptx as export_to_pptx_v1
@@ -135,6 +137,28 @@ async def list_templates(
     """Get list of available presentation templates."""
     _, get_templates_fn = _get_exporter()
     return get_templates_fn()
+
+
+@router.patch(
+    "/{presentation_id}/theme",
+    response_model=UpdatePresentationThemeResponse,
+    summary="Change presentation theme",
+)
+async def update_presentation_theme(
+    presentation_id: int,
+    data: UpdatePresentationThemeRequest,
+    teacher: Teacher = Depends(get_teacher_from_user),
+    school_id: int = Depends(get_current_user_school_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Change presentation theme without regenerating content."""
+    service = _get_service(db)
+    pres = await service.update_theme(presentation_id, teacher.id, school_id, data.theme)
+    return UpdatePresentationThemeResponse(
+        id=pres.id,
+        context_data=pres.context_data,
+        updated_at=pres.updated_at,
+    )
 
 
 @router.get(

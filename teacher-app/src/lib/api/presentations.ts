@@ -68,6 +68,17 @@ export async function getTemplates(): Promise<PresentationTemplate[]> {
   return response.data;
 }
 
+export async function updatePresentationTheme(
+  id: number,
+  theme: string
+): Promise<{ id: number; context_data: Record<string, unknown>; updated_at: string }> {
+  const response = await apiClient.patch(
+    `/teachers/presentations/${id}/theme`,
+    { theme }
+  );
+  return response.data;
+}
+
 export async function exportPresentationPptx(id: number, template = 'academic'): Promise<void> {
   const response = await apiClient.get(
     `/teachers/presentations/${id}/export/pptx`,

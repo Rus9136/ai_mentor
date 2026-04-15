@@ -20,6 +20,8 @@ from app.models.paragraph_content import ParagraphContent
 from app.models.presentation import Presentation
 from app.models.subscription import DailyUsageCounter
 from app.repositories.paragraph_repo import ParagraphRepository
+from sqlalchemy.orm.attributes import flag_modified
+
 from app.schemas.presentation import (
     PresentationContext,
     PresentationGenerateResponse,
@@ -457,6 +459,21 @@ Return JSON: {{"title":"...","slides":[...]}}"""
             pres.title = data.title
         if data.slides_data is not None:
             pres.slides_data = data.slides_data
+        pres.updated_at = datetime.now(timezone.utc)
+        await self.db.commit()
+        await self.db.refresh(pres)
+        return pres
+
+    async def update_theme(
+        self,
+        presentation_id: int,
+        teacher_id: int,
+        school_id: int,
+        theme: str,
+    ) -> Presentation:
+        pres = await self.get_by_id(presentation_id, teacher_id, school_id)
+        pres.context_data = {**(pres.context_data or {}), "theme": theme}
+        flag_modified(pres, "context_data")
         pres.updated_at = datetime.now(timezone.utc)
         await self.db.commit()
         await self.db.refresh(pres)
