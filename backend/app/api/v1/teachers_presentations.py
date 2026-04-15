@@ -69,6 +69,7 @@ async def generate_presentation(
             class_id=request.class_id,
             language=request.language,
             slide_count=request.slide_count,
+            theme=request.theme,
         )
     except LLMServiceError:
         logger.exception("LLM service error during presentation generation")

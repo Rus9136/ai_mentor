@@ -168,6 +168,10 @@ class PresentationGenerateRequest(BaseModel):
     class_id: Optional[int] = None
     language: str = Field(default="kk", pattern="^(kk|ru)$")
     slide_count: int = Field(default=10)
+    theme: Optional[Literal[
+        "warm", "green", "forest", "midnight", "parchment", "slate",
+        "electric", "lavender", "coral", "ocean", "sage",
+    ]] = None
 
     @field_validator("slide_count")
     @classmethod

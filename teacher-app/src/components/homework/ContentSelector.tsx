@@ -17,6 +17,7 @@ export interface ContentSelection {
   textbookId?: number;
   textbookTitle?: string;
   subject?: string;
+  subjectCode?: string;
   gradeLevel?: number;
   chapterId?: number;
   chapterNumber?: number;
@@ -68,6 +69,7 @@ export function ContentSelector({ onSelect, disabled }: ContentSelectorProps) {
       selection.textbookId = selectedTextbook.id;
       selection.textbookTitle = selectedTextbook.title;
       selection.subject = selectedTextbook.subject;
+      selection.subjectCode = selectedTextbook.subject_rel?.code;
       selection.gradeLevel = selectedTextbook.grade_level;
     }
 

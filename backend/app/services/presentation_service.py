@@ -71,6 +71,7 @@ class PresentationService:
         class_id: Optional[int],
         language: str,
         slide_count: int,
+        theme: Optional[str] = None,
     ) -> PresentationGenerateResponse:
         paragraph_ctx = await self._collect_paragraph_context(paragraph_id, language)
         metadata = paragraph_ctx["metadata"]
@@ -113,9 +114,10 @@ class PresentationService:
         from app.schemas.presentation import validate_slides_data
         presentation_data = validate_slides_data(presentation_data)
 
-        # Auto-select theme based on subject
-        subject_code = metadata.get("subject_code") or ""
-        theme = SUBJECT_THEME_MAP.get(subject_code, DEFAULT_THEME)
+        # Theme priority: explicit request > subject mapping > default
+        if not theme:
+            subject_code = metadata.get("subject_code") or ""
+            theme = SUBJECT_THEME_MAP.get(subject_code, DEFAULT_THEME)
 
         context = PresentationContext(
             paragraph_title=metadata.get("paragraph_title") or "",

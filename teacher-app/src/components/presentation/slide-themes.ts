@@ -439,6 +439,25 @@ export const THEMES: Record<SlideThemeName, SlideThemeConfig> = {
   },
 };
 
+/** Subject code → default theme mapping (mirrors backend SUBJECT_THEME_MAP) */
+export const SUBJECT_THEME_DEFAULTS: Record<string, SlideThemeName> = {
+  history_kz: 'warm',
+  world_history: 'parchment',
+  biology: 'forest',
+  natural_science: 'sage',
+  chemistry: 'electric',
+  geography: 'ocean',
+  algebra: 'midnight',
+  geometry: 'midnight',
+  math: 'midnight',
+  informatics: 'electric',
+  physics: 'midnight',
+  kazakh_language: 'lavender',
+  russian_language: 'lavender',
+  english_language: 'slate',
+  literature: 'parchment',
+};
+
 export function getTheme(name?: string): SlideThemeConfig {
   return THEMES[(name as SlideThemeName) || 'warm'] || THEMES.warm;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from '@/i18n/routing';
 import { Loader2, Presentation, RefreshCw, Save, Play, FileDown, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,8 @@ import {
 } from '@/components/ui/select';
 import { ContentSelector, ContentSelection } from '@/components/homework/ContentSelector';
 import { SlidePreview } from '@/components/presentation/SlidePreview';
-import { getTheme } from '@/components/presentation/slide-themes';
+import { getTheme, SUBJECT_THEME_DEFAULTS } from '@/components/presentation/slide-themes';
+import { ThemeSelector } from '@/components/presentation/ThemeSelector';
 import { useGeneratePresentation, useSavePresentation } from '@/lib/hooks/use-presentations';
 import { exportPresentationPptx } from '@/lib/api/presentations';
 import type { PresentationGenerateResponse, SlideThemeName } from '@/types/presentation';
@@ -24,6 +25,7 @@ export default function PresentationCreatePage() {
   const [selection, setSelection] = useState<ContentSelection>({});
   const [language, setLanguage] = useState<string>('kk');
   const [slideCount, setSlideCount] = useState<string>('10');
+  const [selectedTheme, setSelectedTheme] = useState<SlideThemeName | null>(null);
   const [result, setResult] = useState<PresentationGenerateResponse | null>(null);
   const [savedId, setSavedId] = useState<number | null>(null);
 
@@ -31,9 +33,16 @@ export default function PresentationCreatePage() {
   const mutation = useGeneratePresentation();
   const saveMutation = useSavePresentation();
 
-  // Theme is auto-selected by backend based on subject
-  const themeName: SlideThemeName = (result?.context?.theme as SlideThemeName) || 'warm';
-  const theme = getTheme(themeName);
+  // Auto-select theme based on selected subject
+  const autoSelectedTheme = useMemo<SlideThemeName | null>(() => {
+    if (!selection.subjectCode) return null;
+    return SUBJECT_THEME_DEFAULTS[selection.subjectCode] ?? null;
+  }, [selection.subjectCode]);
+
+  // Effective theme: explicit selection > auto > result from backend > warm
+  const effectiveTheme: SlideThemeName =
+    selectedTheme ?? autoSelectedTheme ?? (result?.context?.theme as SlideThemeName) ?? 'warm';
+  const theme = getTheme(effectiveTheme);
 
   const handleSelect = useCallback((sel: ContentSelection) => {
     setSelection(sel);
@@ -42,11 +51,13 @@ export default function PresentationCreatePage() {
   const handleGenerate = () => {
     if (!selection.paragraphId) return;
     setSavedId(null);
+    const themeToSend = selectedTheme ?? autoSelectedTheme ?? undefined;
     mutation.mutate(
       {
         paragraph_id: selection.paragraphId,
         language,
         slide_count: Number(slideCount),
+        ...(themeToSend ? { theme: themeToSend } : {}),
       },
       {
         onSuccess: (data) => setResult(data),
@@ -115,6 +126,18 @@ export default function PresentationCreatePage() {
             </div>
           </div>
 
+          <ThemeSelector
+            value={selectedTheme}
+            onChange={setSelectedTheme}
+            autoSelectedTheme={autoSelectedTheme}
+            disabled={mutation.isPending}
+            labels={
+              language === 'kk'
+                ? { heading: 'Дизайн тақырыбы', auto: 'авто' }
+                : { heading: 'Тема оформления', auto: 'авто' }
+            }
+          />
+
           <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full" size="lg">
             {mutation.isPending ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Генерация...</>
@@ -149,7 +172,7 @@ export default function PresentationCreatePage() {
                   <FileDown className="mr-2 h-4 w-4" />
                   PDF
                 </Button>
-                <Button variant="outline" onClick={() => exportPresentationPptx(savedId, themeName)}>
+                <Button variant="outline" onClick={() => exportPresentationPptx(savedId, effectiveTheme)}>
                   <Download className="mr-2 h-4 w-4" />
                   PPTX
                 </Button>

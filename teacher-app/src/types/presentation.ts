@@ -8,6 +8,7 @@ export interface PresentationGenerateRequest {
   class_id?: number;
   language: string;
   slide_count: number;
+  theme?: SlideThemeName;
 }
 
 export interface SlideData {
